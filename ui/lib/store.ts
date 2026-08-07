@@ -23,15 +23,6 @@ const initialWizard: WizardDraft = {
 };
 
 type AppState = {
-  hasOnboarded: boolean;
-  name: string;
-  suburb: string;
-  skill: TierId;
-  setName: (v: string) => void;
-  setSuburb: (v: string) => void;
-  setSkill: (v: TierId) => void;
-  finishOnboarding: () => void;
-
   discoverView: "list" | "map";
   setDiscoverView: (v: "list" | "map") => void;
   activeFilter: string;
@@ -62,15 +53,6 @@ type AppState = {
 };
 
 export const useAppStore = create<AppState>((set) => ({
-  hasOnboarded: false,
-  name: "",
-  suburb: "",
-  skill: "Intermediate",
-  setName: (v) => set({ name: v }),
-  setSuburb: (v) => set({ suburb: v }),
-  setSkill: (v) => set({ skill: v }),
-  finishOnboarding: () => set({ hasOnboarded: true }),
-
   discoverView: "list",
   setDiscoverView: (v) => set({ discoverView: v }),
   activeFilter: "All levels",

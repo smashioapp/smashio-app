@@ -1,8 +1,10 @@
-import { View, Text, Pressable } from "react-native";
+import { useState } from "react";
+import { View, Text, TextInput, Pressable, Alert } from "react-native";
 import { router } from "expo-router";
 import { colors } from "../../lib/theme";
 import { Button } from "../../components/Button";
 import { Screen } from "../../components/Screen";
+import { continueWithEmail } from "../../lib/auth";
 
 function SocialButton({ label, onPress }: { label: string; onPress: () => void }) {
   return (
@@ -18,7 +20,27 @@ function SocialButton({ label, onPress }: { label: string; onPress: () => void }
   );
 }
 
+const comingSoon = () => Alert.alert("Coming soon", "Needs an OAuth app registered with the provider first.");
+
 export default function Login() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const handleContinue = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      await continueWithEmail(email.trim(), password);
+      router.push("/onboarding/profile-photo");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <Screen>
       <View className="flex-1 px-6 pt-10 gap-4">
@@ -30,19 +52,48 @@ export default function Login() {
         </Text>
 
         <Text className="font-body-extrabold text-[11px] uppercase tracking-wide" style={{ color: colors.textTertiary }}>
-          Mobile number
+          Email
         </Text>
-        <View
-          className="rounded-2xl px-4 py-4 border"
-          style={{ backgroundColor: colors.surfaceAlt, borderColor: "rgba(255,255,255,0.1)" }}
-        >
-          <Text className="font-body-semibold text-[15px]" style={{ color: colors.text }}>
-            +61 4XX XXX XXX
+        <TextInput
+          value={email}
+          onChangeText={setEmail}
+          placeholder="you@example.com"
+          placeholderTextColor={colors.textMuted}
+          autoCapitalize="none"
+          autoComplete="email"
+          keyboardType="email-address"
+          className="rounded-2xl px-4 py-4 border font-body-semibold text-[15px]"
+          style={{ backgroundColor: colors.surfaceAlt, borderColor: "rgba(255,255,255,0.1)", color: colors.text }}
+        />
+
+        <Text className="font-body-extrabold text-[11px] uppercase tracking-wide" style={{ color: colors.textTertiary }}>
+          Password
+        </Text>
+        <TextInput
+          value={password}
+          onChangeText={setPassword}
+          placeholder="At least 6 characters"
+          placeholderTextColor={colors.textMuted}
+          autoCapitalize="none"
+          autoComplete="password"
+          secureTextEntry
+          className="rounded-2xl px-4 py-4 border font-body-semibold text-[15px]"
+          style={{ backgroundColor: colors.surfaceAlt, borderColor: "rgba(255,255,255,0.1)", color: colors.text }}
+        />
+
+        {error && (
+          <Text className="text-[12px] font-body-semibold" style={{ color: colors.danger }}>
+            {error}
           </Text>
-        </View>
+        )}
 
         <View className="mt-1">
-          <Button label="Send code" onPress={() => router.push("/onboarding/profile-photo")} />
+          <Button
+            label="Continue"
+            loading={loading}
+            disabled={!email.trim() || password.length < 6}
+            onPress={handleContinue}
+          />
         </View>
 
         <View className="flex-row items-center gap-2.5 my-2">
@@ -53,8 +104,8 @@ export default function Login() {
           <View className="flex-1 h-px" style={{ backgroundColor: "rgba(255,255,255,0.1)" }} />
         </View>
 
-        <SocialButton label="Continue with Apple" onPress={() => router.push("/onboarding/profile-photo")} />
-        <SocialButton label="Continue with Google" onPress={() => router.push("/onboarding/profile-photo")} />
+        <SocialButton label="Continue with Apple" onPress={comingSoon} />
+        <SocialButton label="Continue with Google" onPress={comingSoon} />
       </View>
     </Screen>
   );

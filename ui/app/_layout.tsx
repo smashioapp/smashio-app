@@ -1,10 +1,14 @@
 import "../global.css";
+import "../lib/sentry";
 import { useCallback, useEffect } from "react";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import * as SplashScreen from "expo-splash-screen";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { queryClient } from "../lib/queryClient";
+import { SessionProvider } from "../lib/session";
 import {
   useFonts as useBricolageFonts,
   BricolageGrotesque_500Medium,
@@ -46,18 +50,22 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
-      <SafeAreaProvider>
-        <StatusBar style="light" />
-        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#0A0A0B" } }}>
-          <Stack.Screen name="index" />
-          <Stack.Screen name="onboarding" />
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="game/[id]" options={{ presentation: "card" }} />
-          <Stack.Screen name="chat/[id]" options={{ presentation: "card" }} />
-          <Stack.Screen name="post-game/[id]" options={{ presentation: "card" }} />
-          <Stack.Screen name="wizard" options={{ presentation: "modal" }} />
-        </Stack>
-      </SafeAreaProvider>
+      <QueryClientProvider client={queryClient}>
+        <SessionProvider>
+          <SafeAreaProvider>
+            <StatusBar style="light" />
+            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#0A0A0B" } }}>
+              <Stack.Screen name="index" />
+              <Stack.Screen name="onboarding" />
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="game/[id]" options={{ presentation: "card" }} />
+              <Stack.Screen name="chat/[id]" options={{ presentation: "card" }} />
+              <Stack.Screen name="post-game/[id]" options={{ presentation: "card" }} />
+              <Stack.Screen name="wizard" options={{ presentation: "modal" }} />
+            </Stack>
+          </SafeAreaProvider>
+        </SessionProvider>
+      </QueryClientProvider>
     </GestureHandlerRootView>
   );
 }

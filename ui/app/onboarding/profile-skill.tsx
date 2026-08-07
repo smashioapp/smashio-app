@@ -1,16 +1,33 @@
-import { View, Text, Pressable, ScrollView } from "react-native";
+import { useState } from "react";
+import { View, Text, Pressable, ScrollView, Alert } from "react-native";
 import { router } from "expo-router";
-import { useAppStore } from "../../lib/store";
-import { colors, TIERS } from "../../lib/theme";
+import { colors, TIERS, TierId } from "../../lib/theme";
 import { Button } from "../../components/Button";
 import { Screen } from "../../components/Screen";
+import { useSports, useSkillTiers } from "../../lib/queries/sports";
+import { useUpsertProfileSport } from "../../lib/queries/profile";
 
 export default function ProfileSkill() {
-  const { skill, setSkill, finishOnboarding } = useAppStore();
+  const [skill, setSkill] = useState<TierId>("Intermediate");
 
-  const finish = () => {
-    finishOnboarding();
-    router.replace("/(tabs)/discover");
+  const { data: sports } = useSports();
+  const { data: tiers } = useSkillTiers("badminton");
+  const upsertProfileSport = useUpsertProfileSport();
+
+  const badminton = sports?.find((s) => s.slug === "badminton");
+
+  const finish = async () => {
+    const tierRow = tiers?.find((t) => t.label === skill);
+    if (!badminton || !tierRow) {
+      Alert.alert("Still loading", "Give it a second and try again.");
+      return;
+    }
+    try {
+      await upsertProfileSport.mutateAsync({ sportId: badminton.id, skillTierId: tierRow.id });
+      router.replace("/(tabs)/discover");
+    } catch (e) {
+      Alert.alert("Couldn't save", e instanceof Error ? e.message : "Try again.");
+    }
   };
 
   return (
@@ -71,7 +88,7 @@ export default function ProfileSkill() {
         })}
 
         <View className="mt-2">
-          <Button label="Finish setup" onPress={finish} />
+          <Button label="Finish setup" loading={upsertProfileSport.isPending} onPress={finish} />
         </View>
       </ScrollView>
     </Screen>

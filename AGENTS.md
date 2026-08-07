@@ -4,13 +4,13 @@ Guidance for AI agents working in this repo.
 
 ## Project state
 
-Docs-only stage, no code yet. Tech stack decided (see docs/tech-stack.md) — don't scaffold code unprompted, ask first.
+UI prototype only. `ui/` is a complete Expo Router app but fully mocked (`ui/lib/mockData.ts`) — no backend exists yet. Tech stack decided (see docs/tech-stack.md) — don't scaffold code unprompted, ask first.
 
 ## What this app is
 
 SMASHIO — player-matching app for Australia, badminton first, multi-sport by design. Core action: find/match with players for a game. Not a venue-booking app; venue booking confirmation is just a trust signal. iOS/Android app only — website (smashio.com.au) is marketing + store links only, no in-app functionality on web.
 
-Read [README.md](../README.md), [docs/mvp-spec.md](mvp-spec.md), [docs/business-context.md](business-context.md), [docs/tech-stack.md](tech-stack.md) before proposing features.
+Read [README.md](../README.md), [docs/mvp-spec.md](mvp-spec.md), [docs/business-context.md](business-context.md), [docs/tech-stack.md](tech-stack.md) before proposing features. Backend/integration work: read [docs/backend-plan.md](backend-plan.md) first.
 
 ## Rules
 

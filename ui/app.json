@@ -27,7 +27,15 @@
       "expo-router",
       "expo-status-bar",
       "expo-font",
-      "expo-splash-screen"
+      "expo-splash-screen",
+      "expo-secure-store",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "SMASHIO needs access to your photos to set a profile picture."
+        }
+      ],
+      "@sentry/react-native"
     ]
   }
 }

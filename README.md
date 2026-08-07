@@ -18,6 +18,7 @@ Core action: find/match with players for a game (not venue booking — venue is 
 - [docs/mvp-spec.md](docs/mvp-spec.md) — MVP feature flow
 - [docs/business-context.md](docs/business-context.md) — entity, naming, market context
 - [docs/tech-stack.md](docs/tech-stack.md) — stack decisions
+- [docs/backend-plan.md](docs/backend-plan.md) — backend build + UI integration plan
 
 ## Scope discipline
 

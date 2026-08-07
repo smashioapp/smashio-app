@@ -1,0 +1,52 @@
+project_id = "smashio"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+major_version = 17
+
+[db.pooler]
+enabled = false
+
+[studio]
+enabled = true
+port = 54323
+
+[auth]
+enabled = true
+site_url = "smashio://"
+additional_redirect_urls = ["smashio://onboarding", "smashio://discover"]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+# Off for local dev so signup grants a session immediately (no email round-trip
+# to click through). Turn on in the hosted project's dashboard before launch.
+enable_confirmations = false
+
+[auth.external.google]
+enabled = false
+client_id = "env(SUPABASE_AUTH_GOOGLE_CLIENT_ID)"
+secret = "env(SUPABASE_AUTH_GOOGLE_SECRET)"
+
+[auth.external.apple]
+enabled = false
+client_id = "env(SUPABASE_AUTH_APPLE_CLIENT_ID)"
+secret = "env(SUPABASE_AUTH_APPLE_SECRET)"
+
+[storage]
+enabled = true
+file_size_limit = "10MiB"
+
+[edge_runtime]
+enabled = true
+
+[realtime]
+enabled = true

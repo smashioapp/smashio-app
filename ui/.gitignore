@@ -30,7 +30,9 @@ yarn-error.*
 .DS_Store
 *.pem
 
-# local env files
+# local env files — EXPO_PUBLIC_* vars are safe to bundle but keep local
+# overrides out of git so prod project values never land in a commit
+.env
 .env*.local
 
 # typescript

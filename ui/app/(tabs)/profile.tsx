@@ -1,10 +1,12 @@
 import { View, Text, Pressable, ScrollView } from "react-native";
 import { router } from "expo-router";
-import { useAppStore } from "../../lib/store";
 import { colors, gradients, initial, tierColor } from "../../lib/theme";
 import { LinearGradient } from "expo-linear-gradient";
 import { Screen } from "../../components/Screen";
 import { Badge } from "../../components/Badge";
+import { useSession } from "../../lib/session";
+import { useProfile, useProfileSports } from "../../lib/queries/profile";
+import { signOut } from "../../lib/auth";
 
 const STATS = [
   { label: "Games played", value: "47" },
@@ -14,10 +16,20 @@ const STATS = [
 const ROWS = ["Edit profile", "Notifications", "Payment methods"];
 
 export default function Profile() {
-  const { name, suburb, skill } = useAppStore();
-  const displayName = name || "Alex Bennett";
-  const displaySuburb = suburb || "Albert Park VIC";
+  const { session } = useSession();
+  const userId = session?.user.id;
+  const { data: profile } = useProfile(userId);
+  const { data: profileSports } = useProfileSports(userId);
+
+  const displayName = profile?.display_name || "—";
+  const displaySuburb = profile?.home_suburb || "—";
+  const skill = profileSports?.[0]?.skill_tiers?.label ?? "Intermediate";
   const color = tierColor(skill);
+
+  const handleLogout = async () => {
+    await signOut();
+    router.replace("/onboarding");
+  };
 
   return (
     <Screen>
@@ -105,7 +117,7 @@ export default function Profile() {
             </Text>
             <Badge state="verified" label="Verified" />
           </View>
-          <Pressable className="flex-row justify-between items-center px-3.5 py-3.5">
+          <Pressable className="flex-row justify-between items-center px-3.5 py-3.5" onPress={handleLogout}>
             <Text className="text-[13.5px] font-body-semibold" style={{ color: colors.danger }}>
               Log out
             </Text>

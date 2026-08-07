@@ -4,29 +4,39 @@ import { router } from "expo-router";
 import { colors } from "../../lib/theme";
 import { Button } from "../../components/Button";
 import { Screen } from "../../components/Screen";
-import { continueWithEmail } from "../../lib/auth";
+import { continueWithEmail, continueWithGoogle } from "../../lib/auth";
 
-function SocialButton({ label, onPress }: { label: string; onPress: () => void }) {
+function SocialButton({
+  label,
+  onPress,
+  loading,
+}: {
+  label: string;
+  onPress: () => void;
+  loading?: boolean;
+}) {
   return (
     <Pressable
       onPress={onPress}
+      disabled={loading}
       className="rounded-pill py-3.5 items-center border"
-      style={{ backgroundColor: colors.surfaceAlt, borderColor: "rgba(255,255,255,0.1)" }}
+      style={{ backgroundColor: colors.surfaceAlt, borderColor: "rgba(255,255,255,0.1)", opacity: loading ? 0.6 : 1 }}
     >
       <Text className="font-body-bold text-[14px]" style={{ color: colors.text }}>
-        {label}
+        {loading ? "Opening…" : label}
       </Text>
     </Pressable>
   );
 }
 
-const comingSoon = () => Alert.alert("Coming soon", "Needs an OAuth app registered with the provider first.");
+const comingSoon = () => Alert.alert("Coming soon", "Needs an Apple Developer Program enrollment first.");
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   const handleContinue = async () => {
     setError(null);
@@ -38,6 +48,19 @@ export default function Login() {
       setError(e instanceof Error ? e.message : "Something went wrong.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogle = async () => {
+    setError(null);
+    setGoogleLoading(true);
+    try {
+      await continueWithGoogle();
+      router.push("/onboarding/profile-photo");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong.");
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -105,7 +128,7 @@ export default function Login() {
         </View>
 
         <SocialButton label="Continue with Apple" onPress={comingSoon} />
-        <SocialButton label="Continue with Google" onPress={comingSoon} />
+        <SocialButton label="Continue with Google" onPress={handleGoogle} loading={googleLoading} />
       </View>
     </Screen>
   );

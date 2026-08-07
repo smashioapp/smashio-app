@@ -28,5 +28,8 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,
+    // PKCE (not implicit) so the OAuth redirect carries a `code` we exchange manually —
+    // implicit tokens-in-fragment don't survive the native WebBrowser redirect round trip.
+    flowType: "pkce",
   },
 });

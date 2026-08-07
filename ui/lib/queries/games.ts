@@ -1,7 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { decode } from "base64-arraybuffer";
+import * as FileSystem from "expo-file-system";
 import { supabase } from "../supabase";
 import type { Database } from "../db.types";
 import type { Game } from "../mockData";
+import { formatDate, formatDistance, formatTimeRange } from "../format";
 
 // Melbourne CBD, placeholder center until slice 7 wires device geolocation + the map view.
 const DEFAULT_LAT = -37.8136;
@@ -10,20 +13,6 @@ const DEFAULT_RADIUS_M = 50_000;
 const SPORT_SLUG = "badminton"; // MVP ships badminton only; sport stays data, not code, once a picker exists.
 
 type NearbyGameRow = Database["public"]["Functions"]["nearby_games"]["Returns"][number];
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" });
-}
-
-function formatTimeRange(startIso: string, endIso: string): string {
-  const fmt = (iso: string) =>
-    new Date(iso).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", hour12: true }).replace(" ", "");
-  return `${fmt(startIso)}–${fmt(endIso)}`;
-}
-
-function formatDistance(meters: number): string {
-  return meters < 1000 ? `${Math.round(meters)} m` : `${(meters / 1000).toFixed(1)} km`;
-}
 
 function toGame(row: NearbyGameRow): Game {
   return {
@@ -66,6 +55,62 @@ export function useDiscoverGames(filter: { tierSlug?: string; tonightOnly?: bool
       });
       if (error) throw error;
       return (data ?? []).map(toGame);
+    },
+  });
+}
+
+const GAME_DURATION_MS = 2 * 60 * 60 * 1000; // Wizard offers a single start time; every game is a fixed 2h block for MVP.
+
+export function useCreateGame() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: {
+      venueId: string;
+      sportId: string;
+      skillTierId: string;
+      startsAt: Date;
+      maxPlayers: number;
+      costTotalCents: number;
+    }) => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not signed in.");
+
+      const endsAt = new Date(input.startsAt.getTime() + GAME_DURATION_MS);
+      const { data, error } = await supabase
+        .from("games")
+        .insert({
+          sport_id: input.sportId,
+          venue_id: input.venueId,
+          organizer_id: user.id,
+          starts_at: input.startsAt.toISOString(),
+          ends_at: endsAt.toISOString(),
+          skill_tier_id: input.skillTierId,
+          max_players: input.maxPlayers,
+          cost_total_cents: input.costTotalCents,
+        })
+        .select("id")
+        .single();
+      if (error) throw error;
+      return data.id;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["nearby_games"] }),
+  });
+}
+
+export function useUploadConfirmation() {
+  return useMutation({
+    mutationFn: async ({ gameId, localUri }: { gameId: string; localUri: string }) => {
+      const base64 = await FileSystem.readAsStringAsync(localUri, { encoding: FileSystem.EncodingType.Base64 });
+      const path = `${gameId}/confirmation.jpg`;
+      const { error: uploadError } = await supabase.storage
+        .from("confirmations")
+        .upload(path, decode(base64), { contentType: "image/jpeg", upsert: true });
+      if (uploadError) throw uploadError;
+
+      const { error: updateError } = await supabase.from("games").update({ verification_status: "pending" }).eq("id", gameId);
+      if (updateError) throw updateError;
     },
   });
 }

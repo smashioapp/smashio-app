@@ -1,22 +1,5 @@
 import { TierId, colors } from "./theme";
 
-export type Venue = {
-  id: string;
-  name: string;
-  suburb: string;
-  courts: string;
-};
-
-export const VENUES: Venue[] = [
-  { id: "v1", name: "Melbourne Sports Centre", suburb: "Albert Park VIC", courts: "Courts 1–8" },
-  { id: "v2", name: "Bounce Badminton", suburb: "Richmond VIC", courts: "Courts 1–4" },
-  { id: "v3", name: "Victorian Badminton Centre", suburb: "Boronia VIC", courts: "Courts 1–10" },
-  { id: "v4", name: "Preston Sports Hub", suburb: "Preston VIC", courts: "Courts 1–6" },
-];
-
-export const DATES = ["Today", "Tomorrow", "Sat 8 Aug", "Sun 9 Aug"];
-export const TIMES = ["6:00 PM", "7:00 PM", "7:30 PM", "8:00 PM", "9:00 AM", "10:00 AM"];
-
 export type Player = { name: string; color: string };
 
 export type Game = {

@@ -1,37 +1,125 @@
 import { useEffect, useState } from "react";
-import { View, Text, Pressable, ScrollView } from "react-native";
+import { View, Text, Pressable, ScrollView, Alert, Image } from "react-native";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import { useAppStore } from "../lib/store";
 import { colors, gradients, TIERS } from "../lib/theme";
-import { VENUES, DATES, TIMES } from "../lib/mockData";
+import { formatDate, formatTimeRange } from "../lib/format";
+import { useVenues } from "../lib/queries/venues";
+import { useSkillTiers, useSports } from "../lib/queries/sports";
+import { useCreateGame, useUploadConfirmation } from "../lib/queries/games";
 import { Chip } from "../components/Chip";
 
 const STEP_COUNT = 6;
 const NEXT_LABELS = ["Continue", "Continue", "Continue", "Continue", "Publish match", "Let's go!"];
+const SPORT_SLUG = "badminton";
+const GAME_DURATION_MS = 2 * 60 * 60 * 1000;
+
+const TIME_OPTIONS = [
+  { label: "6:00 PM", h: 18, m: 0 },
+  { label: "7:00 PM", h: 19, m: 0 },
+  { label: "7:30 PM", h: 19, m: 30 },
+  { label: "8:00 PM", h: 20, m: 0 },
+  { label: "9:00 AM", h: 9, m: 0 },
+  { label: "10:00 AM", h: 10, m: 0 },
+];
+
+function dateOptions(): { label: string; date: Date }[] {
+  return Array.from({ length: 4 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    d.setHours(0, 0, 0, 0);
+    const label = i === 0 ? "Today" : i === 1 ? "Tomorrow" : formatDate(d.toISOString());
+    return { label, date: d };
+  });
+}
 
 export default function Wizard() {
   const [step, setStep] = useState(0);
-  const { wizard, resetWizard, selectVenue, selectDate, selectTime, selectWizardTier, incPlayers, decPlayers, incCost, decCost, uploadConfirmation } =
+  const { wizard, resetWizard, selectVenue, setStartsAt, selectWizardTier, incPlayers, decPlayers, incCost, decCost } =
     useAppStore();
+
+  const { data: venues = [] } = useVenues();
+  const { data: sports = [] } = useSports();
+  const { data: tiers = [] } = useSkillTiers(SPORT_SLUG);
+  const createGame = useCreateGame();
+  const uploadConfirmation = useUploadConfirmation();
+
+  const [confirmationUri, setConfirmationUri] = useState<string | null>(null);
+  const [createdGameId, setCreatedGameId] = useState<string | null>(null);
+  const [verificationPending, setVerificationPending] = useState(false);
+  const [publishing, setPublishing] = useState(false);
 
   useEffect(() => {
     resetWizard();
+    setConfirmationUri(null);
+    setCreatedGameId(null);
+    setVerificationPending(false);
   }, []);
 
-  const venue = VENUES.find((v) => v.id === wizard.venueId);
+  const venue = venues.find((v) => v.id === wizard.venueId);
   const perPlayer = (wizard.cost / wizard.maxPlayers).toFixed(0);
   const nextDisabled = step === 0 && !wizard.venueId;
+  const endsAt = new Date(wizard.startsAt.getTime() + GAME_DURATION_MS);
 
   const goBack = () => {
     if (step === 0) router.back();
     else setStep(step - 1);
   };
 
+  const pickConfirmation = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Permission needed", "Allow photo access to upload your booking confirmation.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.8 });
+    if (!result.canceled) setConfirmationUri(result.assets[0].uri);
+  };
+
+  const publish = async () => {
+    if (createdGameId) {
+      setStep(step + 1);
+      return;
+    }
+    const sport = sports.find((s) => s.slug === SPORT_SLUG);
+    const tier = tiers.find((t) => t.label === wizard.skill);
+    if (!sport || !tier || !wizard.venueId) {
+      Alert.alert("Not ready yet", "Still loading match settings — try again in a moment.");
+      return;
+    }
+    setPublishing(true);
+    try {
+      const id = await createGame.mutateAsync({
+        venueId: wizard.venueId,
+        sportId: sport.id,
+        skillTierId: tier.id,
+        startsAt: wizard.startsAt,
+        maxPlayers: wizard.maxPlayers,
+        costTotalCents: Math.round(wizard.cost * 100),
+      });
+      setCreatedGameId(id);
+      if (confirmationUri) {
+        await uploadConfirmation.mutateAsync({ gameId: id, localUri: confirmationUri });
+        setVerificationPending(true);
+      }
+      setStep(step + 1);
+    } catch (e) {
+      Alert.alert("Couldn't publish match", e instanceof Error ? e.message : "Try again.");
+    } finally {
+      setPublishing(false);
+    }
+  };
+
   const goNext = () => {
     if (step === STEP_COUNT - 1) {
       router.back();
+      return;
+    }
+    if (step === 4) {
+      publish();
       return;
     }
     setStep(step + 1);
@@ -59,7 +147,7 @@ export default function Wizard() {
           <View>
             <StepIcon name="location" />
             <StepHeading title="Pick your court" subtitle="Where's the action happening?" />
-            {VENUES.map((v) => {
+            {venues.map((v) => {
               const selected = wizard.venueId === v.id;
               return (
                 <Pressable
@@ -77,7 +165,7 @@ export default function Wizard() {
                       {v.name}
                     </Text>
                     <Text className="text-[11.5px] mt-0.5" style={{ color: colors.textSecondary }}>
-                      {v.suburb} · {v.courts}
+                      {v.suburb}, {v.state}
                     </Text>
                   </View>
                   {selected && (
@@ -97,15 +185,39 @@ export default function Wizard() {
             <StepHeading title="When's it on?" subtitle="Lock in a day and time that suits the squad." />
             <Label>Date</Label>
             <View className="flex-row flex-wrap gap-2 mb-5">
-              {DATES.map((d) => (
-                <Chip key={d} label={d} active={wizard.date === d} onPress={() => selectDate(d)} />
-              ))}
+              {dateOptions().map(({ label, date }) => {
+                const active = date.toDateString() === wizard.startsAt.toDateString();
+                return (
+                  <Chip
+                    key={label}
+                    label={label}
+                    active={active}
+                    onPress={() => {
+                      const next = new Date(date);
+                      next.setHours(wizard.startsAt.getHours(), wizard.startsAt.getMinutes());
+                      setStartsAt(next);
+                    }}
+                  />
+                );
+              })}
             </View>
             <Label>Time slot</Label>
             <View className="flex-row flex-wrap gap-2">
-              {TIMES.map((t) => (
-                <Chip key={t} label={t} active={wizard.time === t} onPress={() => selectTime(t)} />
-              ))}
+              {TIME_OPTIONS.map(({ label, h, m }) => {
+                const active = wizard.startsAt.getHours() === h && wizard.startsAt.getMinutes() === m;
+                return (
+                  <Chip
+                    key={label}
+                    label={label}
+                    active={active}
+                    onPress={() => {
+                      const next = new Date(wizard.startsAt);
+                      next.setHours(h, m);
+                      setStartsAt(next);
+                    }}
+                  />
+                );
+              })}
             </View>
           </View>
         )}
@@ -174,16 +286,19 @@ export default function Wizard() {
               subtitle="Upload your booking confirmation and other players see a Verified badge on your game."
             />
             <Pressable
-              onPress={uploadConfirmation}
-              className="rounded-2xl p-6.5 items-center"
+              onPress={pickConfirmation}
+              className="rounded-2xl p-6.5 items-center overflow-hidden"
               style={{
                 borderWidth: 2,
                 borderStyle: "dashed",
-                borderColor: wizard.uploaded ? colors.intermediate : "rgba(255,255,255,0.2)",
+                borderColor: confirmationUri ? colors.intermediate : "rgba(255,255,255,0.2)",
               }}
             >
-              <Text className="font-body-bold text-[13px]" style={{ color: wizard.uploaded ? colors.intermediate : colors.textMuted }}>
-                {wizard.uploaded ? "✓ Uploaded — pending host review" : "Tap to upload confirmation (PDF/photo)"}
+              {confirmationUri ? (
+                <Image source={{ uri: confirmationUri }} className="w-full h-32 rounded-xl mb-2" resizeMode="cover" />
+              ) : null}
+              <Text className="font-body-bold text-[13px]" style={{ color: confirmationUri ? colors.intermediate : colors.textMuted }}>
+                {confirmationUri ? "✓ Selected — uploads when you publish" : "Tap to upload confirmation (photo)"}
               </Text>
             </Pressable>
           </View>
@@ -205,11 +320,11 @@ export default function Wizard() {
                 {venue?.name ?? "your venue"}
               </Text>
               <Text className="text-[12px] mt-1" style={{ color: colors.textSecondary }}>
-                {wizard.date} · {wizard.time}
+                {formatDate(wizard.startsAt.toISOString())} · {formatTimeRange(wizard.startsAt.toISOString(), endsAt.toISOString())}
               </Text>
               <View className="rounded-pill self-start px-2.5 py-1.5 mt-2.5" style={{ backgroundColor: "rgba(255,182,72,0.15)" }}>
                 <Text className="font-body-extrabold text-[9.5px] uppercase" style={{ color: colors.advanced }}>
-                  {wizard.uploaded ? "Pending verification" : "Awaiting booking upload"}
+                  {verificationPending ? "Pending verification" : "Awaiting booking upload"}
                 </Text>
               </View>
             </View>
@@ -226,9 +341,9 @@ export default function Wizard() {
           </View>
         ) : (
           <LinearGradient colors={gradients.accent} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} className="rounded-pill">
-            <Pressable onPress={goNext} className="py-4 items-center">
+            <Pressable onPress={goNext} disabled={publishing} className="py-4 items-center" style={{ opacity: publishing ? 0.6 : 1 }}>
               <Text className="font-body-extrabold text-[15px]" style={{ color: colors.base }}>
-                {NEXT_LABELS[step]}
+                {publishing ? "Publishing…" : NEXT_LABELS[step]}
               </Text>
             </Pressable>
           </LinearGradient>

@@ -8,13 +8,16 @@ Core action: find/match with players for a game (not venue booking — venue is 
 
 - ABN registered — sole trader (Individual/Sole Trader subtype)
 - Business name "SMASHIO" submitted to ASIC names determination — pending
-- Tech stack: not decided
-- Platform: mobile (iOS/Android)
+- Tech stack: decided — see [docs/tech-stack.md](docs/tech-stack.md) (React Native/Expo + Supabase + Google Maps)
+- Platform: mobile app only (iOS/Android), no web app
+- Website: marketing/info only + store links, at smashio.com.au (not live yet) — no in-app flows on web, download required
+- UI direction: CRED-style — dark theme, high creative/premium UX
 
 ## Docs
 
 - [docs/mvp-spec.md](docs/mvp-spec.md) — MVP feature flow
 - [docs/business-context.md](docs/business-context.md) — entity, naming, market context
+- [docs/tech-stack.md](docs/tech-stack.md) — stack decisions
 
 ## Scope discipline
 

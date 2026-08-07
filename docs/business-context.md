@@ -5,6 +5,7 @@
 - Country: Australia
 - ABN: registered, sole trader ("Individual/Sole Trader" subtype)
 - Business name: "SMASHIO" — submitted to ASIC names determination review, pending at last check
+- Domain: smashio.com.au (eventual — website is marketing/info + app store links only, no in-app functionality on web)
 
 ## Market
 

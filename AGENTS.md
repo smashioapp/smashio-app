@@ -4,17 +4,18 @@ Guidance for AI agents working in this repo.
 
 ## Project state
 
-Docs-only stage. No code, no tech stack chosen yet. Don't scaffold code or pick a stack unprompted — ask first.
+Docs-only stage, no code yet. Tech stack decided (see docs/tech-stack.md) — don't scaffold code unprompted, ask first.
 
 ## What this app is
 
-SMASHIO — player-matching app for Australia, badminton first, multi-sport by design. Core action: find/match with players for a game. Not a venue-booking app; venue booking confirmation is just a trust signal.
+SMASHIO — player-matching app for Australia, badminton first, multi-sport by design. Core action: find/match with players for a game. Not a venue-booking app; venue booking confirmation is just a trust signal. iOS/Android app only — website (smashio.com.au) is marketing + store links only, no in-app functionality on web.
 
-Read [README.md](../README.md), [docs/mvp-spec.md](mvp-spec.md), [docs/business-context.md](business-context.md) before proposing features.
+Read [README.md](../README.md), [docs/mvp-spec.md](mvp-spec.md), [docs/business-context.md](business-context.md), [docs/tech-stack.md](tech-stack.md) before proposing features.
 
 ## Rules
 
 - Sport must stay a config/data concern, not hardcoded — badminton ships first but engine assumes more sports later.
 - Don't add scope beyond the MVP spec (docs/mvp-spec.md) without asking.
 - Business/legal facts (ABN, ASIC name status) belong in docs/business-context.md — keep updated if they change, don't duplicate elsewhere.
-- No tech stack decision without explicit user sign-off — this is unresolved and load-bearing for all future structure.
+- Stack is decided (docs/tech-stack.md: React Native/Expo + Supabase + Google Maps, chat in-house on Supabase Realtime, AI calls server-side only). Changing it needs explicit user sign-off.
+- AI features must go through a server-side proxy — never call the LLM API directly from the client app.

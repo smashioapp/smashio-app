@@ -1,4 +1,4 @@
-import { View, Text, Pressable } from "react-native";
+import { View, Text, Image, Pressable } from "react-native";
 import { router } from "expo-router";
 import { colors } from "../../lib/theme";
 import { Button } from "../../components/Button";
@@ -13,6 +13,12 @@ export default function Splash() {
         <View
           className="absolute rounded-full"
           style={{ top: -40, right: -40, width: 180, height: 180, backgroundColor: colors.accent, opacity: 0.12 }}
+        />
+
+        <Image
+          source={require("../../assets/smashio-logo.png")}
+          style={{ width: 96, height: 96 }}
+          resizeMode="contain"
         />
 
         <Text className="font-body-extrabold text-[10.5px] tracking-[3px] uppercase" style={{ color: colors.accent2 }}>

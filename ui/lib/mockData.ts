@@ -4,6 +4,7 @@ export type Player = { name: string; color: string };
 
 export type Game = {
   id: string;
+  organizerId: string;
   venue: string;
   suburb: string;
   courts: string;
@@ -11,7 +12,10 @@ export type Game = {
   time: string;
   skill: TierId;
   maxPlayers: number;
+  // Named roster — only populated where the viewer is allowed to see it (organizer/approved
+  // member); everyone else sees `joinedCount` only. See useGameRoster's RLS-driven privacy.
   joined: Player[];
+  joinedCount: number;
   cost: number;
   verified: boolean;
   distance: string;
@@ -20,6 +24,7 @@ export type Game = {
 export const GAMES: Game[] = [
   {
     id: "g1",
+    organizerId: "",
     venue: "Melbourne Sports Centre",
     suburb: "Albert Park VIC",
     courts: "Courts 3–4",
@@ -32,12 +37,14 @@ export const GAMES: Game[] = [
       { name: "Ava", color: colors.advanced },
       { name: "Liam", color: colors.pro },
     ],
+    joinedCount: 3,
     cost: 64,
     verified: true,
     distance: "2.1 km",
   },
   {
     id: "g2",
+    organizerId: "",
     venue: "Bounce Badminton",
     suburb: "Richmond VIC",
     courts: "Court 1",
@@ -49,12 +56,14 @@ export const GAMES: Game[] = [
       { name: "Noah", color: colors.intermediate },
       { name: "Chloe", color: colors.beginner },
     ],
+    joinedCount: 2,
     cost: 72,
     verified: true,
     distance: "3.4 km",
   },
   {
     id: "g3",
+    organizerId: "",
     venue: "Victorian Badminton Centre",
     suburb: "Boronia VIC",
     courts: "Courts 5–6",
@@ -63,12 +72,14 @@ export const GAMES: Game[] = [
     skill: "Beginner",
     maxPlayers: 10,
     joined: [{ name: "Mia", color: colors.pro }],
+    joinedCount: 1,
     cost: 60,
     verified: false,
     distance: "8.7 km",
   },
   {
     id: "g4",
+    organizerId: "",
     venue: "Preston Sports Hub",
     suburb: "Preston VIC",
     courts: "Court 2",
@@ -81,40 +92,15 @@ export const GAMES: Game[] = [
       { name: "Zoe", color: colors.intermediate },
       { name: "Ethan", color: colors.beginner },
     ],
+    joinedCount: 3,
     cost: 88,
     verified: true,
     distance: "5.5 km",
   },
 ];
 
-export type HostingGame = {
-  id: string;
-  venue: string;
-  date: string;
-  time: string;
-  verified: boolean;
-};
-
-export const HOSTING: HostingGame[] = [
-  { id: "g3", venue: "Victorian Badminton Centre", date: "Sun, 9 Aug", time: "10:00 AM–12:00 PM", verified: false },
-];
-
 export type PastPlayer = { id: string; name: string; color: string };
 export type PastGame = { id: string; venue: string; date: string; time: string; players: PastPlayer[] };
-
-export const PAST: PastGame[] = [
-  {
-    id: "g5",
-    venue: "Sydney Olympic Park Badminton Courts",
-    date: "Tue, 4 Aug",
-    time: "7:00–9:00 PM",
-    players: [
-      { id: "p1", name: "Jack", color: colors.beginner },
-      { id: "p2", name: "Ava", color: colors.advanced },
-      { id: "p3", name: "Liam", color: colors.pro },
-    ],
-  },
-];
 
 export type ChatMessage = { from: string; me: boolean; color?: string; text: string; time: string };
 
@@ -129,14 +115,6 @@ export const CHAT_SEED: Record<string, ChatMessage[]> = {
     { from: "You", me: true, text: "All good, we'll warm up without you.", time: "5:41 PM" },
   ],
 };
-
-export function findGame(id: string): Game | HostingGame | undefined {
-  return GAMES.find((g) => g.id === id) ?? HOSTING.find((g) => g.id === id);
-}
-
-export function findPast(id: string): PastGame | undefined {
-  return PAST.find((g) => g.id === id);
-}
 
 export function perPlayerCost(cost: number, maxPlayers: number): number {
   return Math.round(cost / maxPlayers);

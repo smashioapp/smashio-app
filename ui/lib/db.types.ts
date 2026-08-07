@@ -39,6 +39,52 @@ export type Database = {
   }
   public: {
     Tables: {
+      game_players: {
+        Row: {
+          decided_at: string | null
+          game_id: string
+          profile_id: string
+          requested_at: string
+          status: string
+        }
+        Insert: {
+          decided_at?: string | null
+          game_id: string
+          profile_id: string
+          requested_at?: string
+          status?: string
+        }
+        Update: {
+          decided_at?: string | null
+          game_id?: string
+          profile_id?: string
+          requested_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_players_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "game_players_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "game_players_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       games: {
         Row: {
           cost_total_cents: number
@@ -332,6 +378,16 @@ export type Database = {
       }
     }
     Functions: {
+      approved_player_count: { Args: { p_game_id: string }; Returns: number }
+      decide_join_request: {
+        Args: { approve: boolean; p_game_id: string; p_profile_id: string }
+        Returns: undefined
+      }
+      is_approved_player: {
+        Args: { p_game_id: string; p_profile_id: string }
+        Returns: boolean
+      }
+      leave_game: { Args: { p_game_id: string }; Returns: undefined }
       nearby_games: {
         Args: {
           from_ts?: string

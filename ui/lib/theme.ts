@@ -45,6 +45,16 @@ export function initial(name: string): string {
   return (name || "?").charAt(0).toUpperCase();
 }
 
+const AVATAR_PALETTE = [colors.beginner, colors.intermediate, colors.advanced, colors.pro, colors.danger];
+
+// Real profiles have no stored color (that was a mock-data artifact) — derive a stable one
+// from the profile id so the same player always renders the same avatar color.
+export function avatarColor(id: string): string {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) | 0;
+  return AVATAR_PALETTE[Math.abs(hash) % AVATAR_PALETTE.length];
+}
+
 export function badgeTone(state: "verified" | "pending" | "cancelled") {
   const map = {
     verified: { bg: "rgba(53,214,166,0.15)", fg: colors.intermediate },

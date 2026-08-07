@@ -1,16 +1,41 @@
-import { View, Text, Pressable, ScrollView } from "react-native";
+import { View, Text, Pressable, ScrollView, ActivityIndicator } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, gradients, initial } from "../../lib/theme";
-import { findGame, perPlayerCost, Game } from "../../lib/mockData";
+import { perPlayerCost } from "../../lib/mockData";
+import { useGameDetail } from "../../lib/queries/games";
+import {
+  useDecideJoinRequest,
+  useGameRoster,
+  useJoinRequests,
+  useLeaveGame,
+  useMyMembership,
+  useRequestToJoin,
+} from "../../lib/queries/gamePlayers";
 import { Badge } from "../../components/Badge";
 import { SkillPill } from "../../components/SkillPill";
 import { BackButton } from "../../components/BackButton";
+import { Button } from "../../components/Button";
 
 export default function GameDetails() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const game = findGame(id) as Game | undefined;
+  const gameId = id ?? "";
+  const gameQuery = useGameDetail(gameId);
+  const game = gameQuery.data;
+
+  const membershipQuery = useMyMembership(gameId, game?.organizerId);
+  const rosterQuery = useGameRoster(gameId);
+  const requestToJoin = useRequestToJoin(gameId);
+  const leaveGame = useLeaveGame(gameId);
+
+  if (gameQuery.isLoading) {
+    return (
+      <View className="flex-1 items-center justify-center" style={{ backgroundColor: colors.base }}>
+        <ActivityIndicator color={colors.accent} />
+      </View>
+    );
+  }
 
   if (!game) {
     return (
@@ -21,7 +46,8 @@ export default function GameDetails() {
   }
 
   const perPlayer = perPlayerCost(game.cost, game.maxPlayers);
-  const joined = "joined" in game ? game.joined : [];
+  const joined = rosterQuery.data ?? [];
+  const membership = membershipQuery.data;
 
   return (
     <View className="flex-1" style={{ backgroundColor: colors.base }}>
@@ -60,7 +86,7 @@ export default function GameDetails() {
           </View>
 
           <Text className="font-body-extrabold text-[11px] uppercase tracking-wide mt-5.5 mb-2.5" style={{ color: colors.textTertiary }}>
-            Players joined ({joined.length}/{game.maxPlayers})
+            Players joined ({game.joinedCount}/{game.maxPlayers})
           </Text>
           <View className="flex-row flex-wrap gap-2.5">
             {joined.map((p, i) => (
@@ -107,6 +133,8 @@ export default function GameDetails() {
               </Text>
             </View>
           </View>
+
+          {membership?.isOrganizer && <JoinRequests gameId={gameId} />}
         </View>
       </ScrollView>
 
@@ -118,14 +146,72 @@ export default function GameDetails() {
         >
           <Ionicons name="chatbubble-ellipses-outline" size={19} color={colors.text} />
         </Pressable>
-        <LinearGradient colors={gradients.accent} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} className="flex-1 rounded-pill">
-          <Pressable onPress={() => router.back()} className="py-4 items-center">
-            <Text className="font-body-extrabold text-[15px]" style={{ color: colors.base }}>
-              Join Game — ${perPlayer}
-            </Text>
-          </Pressable>
-        </LinearGradient>
+        <View className="flex-1">
+          {membership?.isOrganizer ? (
+            <Button label="You're organizing this game" variant="secondary" disabled />
+          ) : membership?.status === "approved" ? (
+            <Button label="Leave game" variant="secondary" loading={leaveGame.isPending} onPress={() => leaveGame.mutate()} />
+          ) : membership?.status === "requested" ? (
+            <Button label="Request sent" variant="secondary" disabled />
+          ) : (
+            <Button
+              label={`Join Game — $${perPlayer}`}
+              loading={requestToJoin.isPending}
+              onPress={() => requestToJoin.mutate()}
+            />
+          )}
+        </View>
       </View>
     </View>
+  );
+}
+
+function JoinRequests({ gameId }: { gameId: string }) {
+  const requestsQuery = useJoinRequests(gameId);
+  const decide = useDecideJoinRequest(gameId);
+  const requests = requestsQuery.data ?? [];
+
+  if (requests.length === 0) return null;
+
+  return (
+    <>
+      <Text className="font-body-extrabold text-[11px] uppercase tracking-wide mt-5.5 mb-2.5" style={{ color: colors.textTertiary }}>
+        Join requests ({requests.length})
+      </Text>
+      <View className="gap-2.5">
+        {requests.map((r) => (
+          <View
+            key={r.profileId}
+            className="flex-row items-center gap-3 rounded-xl p-3 border"
+            style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}
+          >
+            <View className="w-9 h-9 rounded-full items-center justify-center" style={{ backgroundColor: r.color }}>
+              <Text style={{ color: colors.base, fontSize: 12, fontWeight: "800" }}>{initial(r.name)}</Text>
+            </View>
+            <Text className="flex-1 font-body-semibold text-[13px]" style={{ color: colors.text }}>
+              {r.name}
+            </Text>
+            <Pressable
+              onPress={() => decide.mutate({ profileId: r.profileId, approve: true })}
+              className="rounded-pill px-3.5 py-2"
+              style={{ backgroundColor: colors.accent }}
+            >
+              <Text className="font-body-extrabold text-[12px]" style={{ color: colors.base }}>
+                Approve
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => decide.mutate({ profileId: r.profileId, approve: false })}
+              className="rounded-pill px-3.5 py-2 border-[1.5px]"
+              style={{ borderColor: "rgba(255,255,255,0.15)" }}
+            >
+              <Text className="font-body-bold text-[12px]" style={{ color: colors.text }}>
+                Decline
+              </Text>
+            </Pressable>
+          </View>
+        ))}
+      </View>
+    </>
   );
 }

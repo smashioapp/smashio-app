@@ -1,20 +1,29 @@
-import { View, Text, Pressable, ScrollView } from "react-native";
+import { View, Text, Pressable, ScrollView, ActivityIndicator } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAppStore } from "../../lib/store";
 import { colors, gradients, initial } from "../../lib/theme";
-import { findPast } from "../../lib/mockData";
+import { usePastGameDetail } from "../../lib/queries/games";
 import { Screen } from "../../components/Screen";
 import { BackButton } from "../../components/BackButton";
 
 export default function PostGame() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const game = findPast(id ?? "");
+  const gameQuery = usePastGameDetail(id ?? "");
+  const game = gameQuery.data;
   const { ratings, rate } = useAppStore();
 
   const submit = () => {
     router.replace("/(tabs)/my-games");
   };
+
+  if (gameQuery.isLoading) {
+    return (
+      <View className="flex-1 items-center justify-center" style={{ backgroundColor: colors.base }}>
+        <ActivityIndicator color={colors.accent} />
+      </View>
+    );
+  }
 
   if (!game) return null;
 

@@ -45,7 +45,7 @@ export function GameCard({ game, onPress }: { game: Game; onPress: () => void })
             ${perPlayerCost(game.cost, game.maxPlayers)} <Text className="font-body-semibold text-[11px]" style={{ color: colors.textTertiary }}>/ player</Text>
           </Text>
           <Text className="text-[11px] font-body-bold" style={{ color: colors.textMuted }}>
-            {game.joined.length}/{game.maxPlayers} joined
+            {game.joinedCount}/{game.maxPlayers} joined
           </Text>
         </View>
       </LinearGradient>

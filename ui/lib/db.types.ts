@@ -39,6 +39,83 @@ export type Database = {
   }
   public: {
     Tables: {
+      games: {
+        Row: {
+          cost_total_cents: number
+          court_label: string | null
+          created_at: string
+          ends_at: string
+          id: string
+          max_players: number
+          organizer_id: string
+          skill_tier_id: string
+          sport_id: string
+          starts_at: string
+          status: string
+          venue_id: string
+          verification_status: string
+        }
+        Insert: {
+          cost_total_cents?: number
+          court_label?: string | null
+          created_at?: string
+          ends_at: string
+          id?: string
+          max_players: number
+          organizer_id: string
+          skill_tier_id: string
+          sport_id: string
+          starts_at: string
+          status?: string
+          venue_id: string
+          verification_status?: string
+        }
+        Update: {
+          cost_total_cents?: number
+          court_label?: string | null
+          created_at?: string
+          ends_at?: string
+          id?: string
+          max_players?: number
+          organizer_id?: string
+          skill_tier_id?: string
+          sport_id?: string
+          starts_at?: string
+          status?: string
+          venue_id?: string
+          verification_status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "games_organizer_id_fkey"
+            columns: ["organizer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "games_skill_tier_id_fkey"
+            columns: ["skill_tier_id"]
+            isOneToOne: false
+            referencedRelation: "skill_tiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "games_sport_id_fkey"
+            columns: ["sport_id"]
+            isOneToOne: false
+            referencedRelation: "sports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "games_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profile_sports: {
         Row: {
           profile_id: string
@@ -162,12 +239,127 @@ export type Database = {
         }
         Relationships: []
       }
+      venues: {
+        Row: {
+          address: string | null
+          created_at: string
+          google_place_id: string | null
+          id: string
+          location: unknown
+          name: string
+          source: string
+          state: string
+          suburb: string
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          google_place_id?: string | null
+          id?: string
+          location: unknown
+          name: string
+          source?: string
+          state: string
+          suburb: string
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          google_place_id?: string | null
+          id?: string
+          location?: unknown
+          name?: string
+          source?: string
+          state?: string
+          suburb?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
-      [_ in never]: never
+      games_public: {
+        Row: {
+          approved_count: number | null
+          cost_total_cents: number | null
+          court_label: string | null
+          created_at: string | null
+          ends_at: string | null
+          id: string | null
+          max_players: number | null
+          organizer_id: string | null
+          skill_tier_id: string | null
+          skill_tier_label: string | null
+          skill_tier_slug: string | null
+          sport_id: string | null
+          starts_at: string | null
+          status: string | null
+          venue_id: string | null
+          venue_location: unknown
+          venue_name: string | null
+          venue_suburb: string | null
+          verification_status: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "games_organizer_id_fkey"
+            columns: ["organizer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "games_skill_tier_id_fkey"
+            columns: ["skill_tier_id"]
+            isOneToOne: false
+            referencedRelation: "skill_tiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "games_sport_id_fkey"
+            columns: ["sport_id"]
+            isOneToOne: false
+            referencedRelation: "sports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "games_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
-      [_ in never]: never
+      nearby_games: {
+        Args: {
+          from_ts?: string
+          lat: number
+          lng: number
+          radius_m: number
+          sport_slug: string
+          tier_slugs?: string[]
+          to_ts?: string
+        }
+        Returns: {
+          approved_count: number
+          cost_total_cents: number
+          court_label: string
+          distance_m: number
+          ends_at: string
+          id: string
+          max_players: number
+          organizer_id: string
+          skill_tier_label: string
+          skill_tier_slug: string
+          starts_at: string
+          status: string
+          venue_name: string
+          venue_suburb: string
+          verification_status: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

@@ -4,8 +4,8 @@
     {
       "name": "smashio-web",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "web", "--prefix", "ui", "--", "--port", "8082"],
-      "port": 8082
+      "runtimeArgs": ["run", "web", "--prefix", "ui", "--", "--port", "8090"],
+      "port": 8090
     }
   ]
 }

@@ -3,7 +3,7 @@ import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppStore } from "../../lib/store";
 import { colors } from "../../lib/theme";
-import { GAMES } from "../../lib/mockData";
+import { useDiscoverGames } from "../../lib/queries/games";
 import { Screen } from "../../components/Screen";
 import { Chip } from "../../components/Chip";
 import { GameCard } from "../../components/GameCard";
@@ -11,13 +11,20 @@ import { Button } from "../../components/Button";
 
 const FILTERS = ["All levels", "Beginner", "Intermediate", "Advanced", "Pro", "Tonight"];
 
+const TIER_SLUGS: Record<string, string> = {
+  Beginner: "beginner",
+  Intermediate: "intermediate",
+  Advanced: "advanced",
+  Pro: "pro",
+};
+
 export default function Discover() {
   const { activeFilter, setActiveFilter, discoverView, setDiscoverView, showEmptyState, toggleEmptyState } = useAppStore();
 
-  let list = GAMES;
-  if (activeFilter !== "All levels" && activeFilter !== "Tonight") {
-    list = GAMES.filter((g) => g.skill === activeFilter);
-  }
+  const { data: list = [] } = useDiscoverGames({
+    tierSlug: TIER_SLUGS[activeFilter],
+    tonightOnly: activeFilter === "Tonight",
+  });
   const games = showEmptyState ? [] : list;
 
   return (
@@ -104,26 +111,28 @@ export default function Discover() {
               }}
             />
           ))}
-          <Pressable
-            onPress={() => router.push(`/game/${GAMES[0].id}`)}
-            className="absolute left-4 right-4 bottom-4 rounded-2xl p-3.5 flex-row justify-between items-center border"
-            style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}
-          >
-            <View>
-              <Text className="font-body-bold text-[13px]" style={{ color: colors.text }}>
-                {GAMES[0].venue}
-              </Text>
-              <Text className="text-[11px] mt-0.5" style={{ color: colors.textTertiary }}>
-                {GAMES[0].date} · {GAMES[0].time}
-              </Text>
-            </View>
-            <View className="flex-row items-center gap-1">
-              <Text className="font-body-extrabold text-[13px]" style={{ color: colors.accent }}>
-                View
-              </Text>
-              <Ionicons name="arrow-forward" size={13} color={colors.accent} />
-            </View>
-          </Pressable>
+          {games[0] && (
+            <Pressable
+              onPress={() => router.push(`/game/${games[0].id}`)}
+              className="absolute left-4 right-4 bottom-4 rounded-2xl p-3.5 flex-row justify-between items-center border"
+              style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}
+            >
+              <View>
+                <Text className="font-body-bold text-[13px]" style={{ color: colors.text }}>
+                  {games[0].venue}
+                </Text>
+                <Text className="text-[11px] mt-0.5" style={{ color: colors.textTertiary }}>
+                  {games[0].date} · {games[0].time}
+                </Text>
+              </View>
+              <View className="flex-row items-center gap-1">
+                <Text className="font-body-extrabold text-[13px]" style={{ color: colors.accent }}>
+                  View
+                </Text>
+                <Ionicons name="arrow-forward" size={13} color={colors.accent} />
+              </View>
+            </Pressable>
+          )}
         </View>
       )}
     </Screen>

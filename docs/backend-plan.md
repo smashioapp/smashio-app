@@ -114,7 +114,7 @@ Each slice ends with: migration applied, RLS policies written, UI wired, that sl
 |---|---|---|
 | 0 | Foundation | Supabase project + local CLI, `supabase/` scaffold, PostGIS enabled, `supabase.ts` client, session provider, generated types, Sentry. No UI change. |
 | 1 | Auth + onboarding | Email/Google/Apple sign-in, `profiles` + `profile_sports`, avatar upload to Storage. Wires `onboarding/*` and the `index.tsx` gate. Kills `hasOnboarded`/`name`/`skill` from the store. |
-| 2 | Venues + discover list | `venues`, `games`, `nearby_games` RPC, seed venues. `discover.tsx` list view + filters on real data. Kills `GAMES`/`VENUES` mocks. |
+| 2 | ✅ Venues + discover list | `venues`, `games`, `nearby_games` RPC, seed venues. `discover.tsx` list view + filters on real data. `GAMES`/`VENUES` mocks stay in `mockData.ts` — still read by `wizard.tsx`, `my-games.tsx`, `chat*.tsx` until slices 3–5 migrate them. |
 | 3 | Create game | Wizard writes a real game; confirmation upload → `pending` verification. Kills `DATES`/`TIMES` mocks. |
 | 4 | Join + organizer | Request to join, organizer approve/reject via `decide_join_request`, `my-games.tsx` all three tabs real. Kills `HOSTING`/`PAST`. |
 | 5 | Chat | `messages` + Realtime channel per game, unread via `message_reads`. Kills `CHAT_SEED` and the store's chat slice. |

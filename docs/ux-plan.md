@@ -15,15 +15,15 @@ Blockers first, no polish until these land.
 - [ ] **Apple sign-in is a dead alert** — `comingSoon()` on login.tsx. Either finish (needs Apple Developer Program enrollment per existing comment) or remove the button for now.
 - [ ] **Onboarding progress inconsistent** — plain "Step 1 of 2" text on profile-photo/profile-skill vs. the real segmented progress bar in wizard.tsx. Reuse the wizard's bar component everywhere multi-step.
 
-## Phase 1 — motion & feedback
+## Phase 1 — motion & feedback ✅
 
 This is CRED's actual signature — not the color palette, the feel.
 
-- [ ] Replace every `ActivityIndicator` spinner (my-games.tsx, chat.tsx, game/[id].tsx, post-game/[id].tsx) with skeleton/shimmer loaders.
-- [ ] `expo-haptics` on primary actions: publish match, join game, approve/decline request, submit ratings.
-- [ ] `react-native-reanimated` (already a dependency, unused for feel) — card entrance stagger on list screens, button press scale, success micro-animation on wizard step 5 ("You're hosting!").
-- [ ] Pull-to-refresh on Discover, My Games, Chat list.
-- [ ] Tab bar badges — unread dot on Chat icon, pending-join-request dot on Profile/My-Games icon (TabBar.tsx currently has neither).
+- [x] Replace every `ActivityIndicator` spinner (my-games.tsx, chat.tsx, game/[id].tsx, post-game/[id].tsx) with skeleton/shimmer loaders.
+- [x] `expo-haptics` on primary actions: publish match, join game, approve/decline request, submit ratings.
+- [x] `react-native-reanimated` (already a dependency, unused for feel) — card entrance stagger on list screens, button press scale, success micro-animation on wizard step 5 ("You're hosting!").
+- [x] Pull-to-refresh on Discover, My Games, Chat list.
+- [x] Tab bar badges — unread dot on Chat icon, pending-join-request dot on Profile/My-Games icon (TabBar.tsx currently has neither).
 
 ## Phase 2 — status & reward layer
 

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, Text, Pressable, ScrollView, FlatList, Linking, Platform } from "react-native";
+import { View, Text, Pressable, ScrollView, FlatList, Linking, Platform, RefreshControl } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppStore } from "../../lib/store";
@@ -38,13 +38,14 @@ export default function Discover() {
   const userLocation = useUserLocation();
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
 
-  const { data: games = [] } = useDiscoverGames(
+  const discoverQuery = useDiscoverGames(
     {
       tierSlug: TIER_SLUGS[activeFilter],
       tonightOnly: activeFilter === "Tonight",
     },
     userLocation
   );
+  const games = discoverQuery.data ?? [];
   const pinnedGames = games.filter((g) => g.venueLat != null && g.venueLng != null);
   const selectedGame = pinnedGames.find((g) => g.id === selectedGameId) ?? pinnedGames[0];
 
@@ -93,7 +94,10 @@ export default function Discover() {
           data={games}
           keyExtractor={(g) => g.id}
           contentContainerStyle={{ padding: 20, paddingTop: 4, paddingBottom: 110, gap: 12 }}
-          renderItem={({ item }) => <GameCard game={item} onPress={() => router.push(`/game/${item.id}`)} />}
+          refreshControl={
+            <RefreshControl refreshing={discoverQuery.isRefetching} onRefresh={() => discoverQuery.refetch()} tintColor={colors.accent} />
+          }
+          renderItem={({ item, index }) => <GameCard game={item} index={index} onPress={() => router.push(`/game/${item.id}`)} />}
           ListEmptyComponent={
             <View className="items-center gap-3 pt-16 px-5">
               <View

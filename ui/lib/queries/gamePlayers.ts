@@ -71,10 +71,32 @@ export function useJoinRequests(gameId: string) {
   });
 }
 
+// Badge count for the tab bar — total pending join requests across every game this user organizes.
+export function useMyPendingRequestsCount() {
+  return useQuery({
+    queryKey: ["game_players", "pending_requests_count"],
+    queryFn: async (): Promise<number> => {
+      const uid = await requireUserId();
+      const { data: hosting, error: hErr } = await supabase.from("games").select("id").eq("organizer_id", uid);
+      if (hErr) throw hErr;
+      const gameIds = (hosting ?? []).map((g) => g.id);
+      if (gameIds.length === 0) return 0;
+      const { count, error } = await supabase
+        .from("game_players")
+        .select("profile_id", { count: "exact", head: true })
+        .in("game_id", gameIds)
+        .eq("status", "requested");
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+}
+
 function invalidateGame(queryClient: ReturnType<typeof useQueryClient>, gameId: string) {
   queryClient.invalidateQueries({ queryKey: ["game_players", "roster", gameId] });
   queryClient.invalidateQueries({ queryKey: ["game_players", "membership", gameId] });
   queryClient.invalidateQueries({ queryKey: ["game_players", "requests", gameId] });
+  queryClient.invalidateQueries({ queryKey: ["game_players", "pending_requests_count"] });
   queryClient.invalidateQueries({ queryKey: ["nearby_games"] });
   queryClient.invalidateQueries({ queryKey: ["my_games"] });
 }

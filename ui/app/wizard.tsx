@@ -14,6 +14,8 @@ import { newSessionToken, searchPlaces, getPlaceDetails, type PlacePrediction } 
 import { useVenues } from "../lib/queries/venues";
 import { Chip } from "../components/Chip";
 import { StepProgress } from "../components/StepProgress";
+import { haptics } from "../lib/haptics";
+import Animated, { ZoomIn, FadeInUp } from "react-native-reanimated";
 
 const STEP_COUNT = 6;
 const NEXT_LABELS = ["Continue", "Continue", "Continue", "Continue", "Publish match", "Let's go!"];
@@ -181,8 +183,10 @@ export default function Wizard() {
         await uploadConfirmation.mutateAsync({ gameId: id, localUri: confirmationUri });
         setVerified(true);
       }
+      haptics.success();
       setStep(step + 1);
     } catch (e) {
+      haptics.error();
       Alert.alert("Couldn't publish match", e instanceof Error ? e.message : "Try again.");
     } finally {
       setPublishing(false);
@@ -435,12 +439,20 @@ export default function Wizard() {
 
         {step === 5 && (
           <View className="items-center gap-3.5 pt-3.5">
-            <View className="w-[72px] h-[72px] rounded-full items-center justify-center" style={{ backgroundColor: "rgba(214,255,63,0.15)" }}>
+            <Animated.View
+              entering={ZoomIn.duration(420).springify().damping(11)}
+              className="w-[72px] h-[72px] rounded-full items-center justify-center"
+              style={{ backgroundColor: "rgba(214,255,63,0.15)" }}
+            >
               <Ionicons name="checkmark" size={30} color={colors.accent} />
-            </View>
-            <Text className="font-display text-[23px]" style={{ color: colors.text }}>
+            </Animated.View>
+            <Animated.Text
+              entering={FadeInUp.delay(150).duration(300)}
+              className="font-display text-[23px]"
+              style={{ color: colors.text }}
+            >
               You're hosting!
-            </Text>
+            </Animated.Text>
             <Text className="text-[12.5px] text-center max-w-[230px]" style={{ color: colors.textSecondary }}>
               Your match at {venue?.name ?? "your venue"} is live. Players will start joining any moment.
             </Text>

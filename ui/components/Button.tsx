@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { Pressable, Text, ActivityIndicator } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import Animated, { useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
 import { colors, gradients } from "../lib/theme";
 
 type Variant = "primary" | "secondary" | "ghost";
@@ -29,6 +30,15 @@ export function Button({
   const textSize = size === "sm" ? "text-[13px]" : size === "md" ? "text-[14px]" : "text-[15px]";
   const isDisabled = disabled || loading;
 
+  const scale = useSharedValue(1);
+  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const onPressIn = () => {
+    if (!isDisabled) scale.value = withSpring(0.96, { damping: 18, stiffness: 320 });
+  };
+  const onPressOut = () => {
+    scale.value = withSpring(1, { damping: 18, stiffness: 320 });
+  };
+
   const content = (
     <>
       {loading ? (
@@ -49,46 +59,56 @@ export function Button({
 
   if (variant === "primary") {
     return (
-      <Pressable onPress={onPress} disabled={isDisabled} className={fullWidth ? "w-full" : ""}>
-        <LinearGradient
-          colors={isDisabled ? [colors.surfaceAlt, colors.surfaceAlt] : gradients.accent}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          className={`rounded-pill ${pad} px-6 flex-row items-center justify-center gap-2`}
-        >
-          {isDisabled && !loading ? (
-            <Text className={`font-body-extrabold ${textSize}`} style={{ color: colors.textMuted }}>
-              {label}
-            </Text>
-          ) : (
-            content
-          )}
-        </LinearGradient>
-      </Pressable>
+      <Animated.View style={[animatedStyle, fullWidth ? { width: "100%" } : undefined]}>
+        <Pressable onPress={onPress} onPressIn={onPressIn} onPressOut={onPressOut} disabled={isDisabled} className={fullWidth ? "w-full" : ""}>
+          <LinearGradient
+            colors={isDisabled ? [colors.surfaceAlt, colors.surfaceAlt] : gradients.accent}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            className={`rounded-pill ${pad} px-6 flex-row items-center justify-center gap-2`}
+          >
+            {isDisabled && !loading ? (
+              <Text className={`font-body-extrabold ${textSize}`} style={{ color: colors.textMuted }}>
+                {label}
+              </Text>
+            ) : (
+              content
+            )}
+          </LinearGradient>
+        </Pressable>
+      </Animated.View>
     );
   }
 
   if (variant === "secondary") {
     return (
-      <Pressable
-        onPress={onPress}
-        disabled={isDisabled}
-        className={`rounded-pill ${pad} px-6 flex-row items-center justify-center gap-2 border-[1.5px] ${fullWidth ? "w-full" : ""}`}
-        style={{ borderColor: colors.accent, opacity: isDisabled ? 0.5 : 1 }}
-      >
-        {content}
-      </Pressable>
+      <Animated.View style={[animatedStyle, fullWidth ? { width: "100%" } : undefined]}>
+        <Pressable
+          onPress={onPress}
+          onPressIn={onPressIn}
+          onPressOut={onPressOut}
+          disabled={isDisabled}
+          className={`rounded-pill ${pad} px-6 flex-row items-center justify-center gap-2 border-[1.5px] ${fullWidth ? "w-full" : ""}`}
+          style={{ borderColor: colors.accent, opacity: isDisabled ? 0.5 : 1 }}
+        >
+          {content}
+        </Pressable>
+      </Animated.View>
     );
   }
 
   return (
-    <Pressable
-      onPress={onPress}
-      disabled={isDisabled}
-      className={`rounded-pill ${pad} px-6 flex-row items-center justify-center gap-2 ${fullWidth ? "w-full" : ""}`}
-      style={{ opacity: isDisabled ? 0.5 : 1 }}
-    >
-      {content}
-    </Pressable>
+    <Animated.View style={[animatedStyle, fullWidth ? { width: "100%" } : undefined]}>
+      <Pressable
+        onPress={onPress}
+        onPressIn={onPressIn}
+        onPressOut={onPressOut}
+        disabled={isDisabled}
+        className={`rounded-pill ${pad} px-6 flex-row items-center justify-center gap-2 ${fullWidth ? "w-full" : ""}`}
+        style={{ opacity: isDisabled ? 0.5 : 1 }}
+      >
+        {content}
+      </Pressable>
+    </Animated.View>
   );
 }

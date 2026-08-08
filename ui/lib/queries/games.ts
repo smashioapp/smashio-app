@@ -129,7 +129,10 @@ export function useCreateGame() {
       if (error) throw error;
       return data.id;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["nearby_games"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["nearby_games"] });
+      queryClient.invalidateQueries({ queryKey: ["my_games"] });
+    },
   });
 }
 

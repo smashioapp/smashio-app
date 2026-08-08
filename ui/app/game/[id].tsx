@@ -1,4 +1,4 @@
-import { View, Text, Pressable, ScrollView, ActivityIndicator, Alert } from "react-native";
+import { View, Text, Pressable, ScrollView, Alert } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -17,6 +17,8 @@ import { Badge } from "../../components/Badge";
 import { SkillPill } from "../../components/SkillPill";
 import { BackButton } from "../../components/BackButton";
 import { Button } from "../../components/Button";
+import { haptics } from "../../lib/haptics";
+import { GameDetailSkeleton } from "../../components/Skeleton";
 
 export default function GameDetails() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -31,8 +33,13 @@ export default function GameDetails() {
 
   if (gameQuery.isLoading) {
     return (
-      <View className="flex-1 items-center justify-center" style={{ backgroundColor: colors.base }}>
-        <ActivityIndicator color={colors.accent} />
+      <View className="flex-1" style={{ backgroundColor: colors.base }}>
+        <LinearGradient colors={["#1F1F24", "#141416"]} style={{ height: 150, paddingTop: 56 }}>
+          <View className="px-4">
+            <BackButton dark onPress={() => router.back()} />
+          </View>
+        </LinearGradient>
+        <GameDetailSkeleton />
       </View>
     );
   }
@@ -52,7 +59,14 @@ export default function GameDetails() {
   const confirmLeave = () => {
     Alert.alert("Leave this game?", "You'll lose your spot and may need to request to rejoin.", [
       { text: "Cancel", style: "cancel" },
-      { text: "Leave game", style: "destructive", onPress: () => leaveGame.mutate() },
+      {
+        text: "Leave game",
+        style: "destructive",
+        onPress: () => {
+          haptics.tap();
+          leaveGame.mutate();
+        },
+      },
     ]);
   };
 
@@ -164,7 +178,10 @@ export default function GameDetails() {
             <Button
               label={`Join Game — $${perPlayer}`}
               loading={requestToJoin.isPending}
-              onPress={() => requestToJoin.mutate()}
+              onPress={() => {
+                haptics.tap();
+                requestToJoin.mutate();
+              }}
             />
           )}
         </View>
@@ -199,7 +216,10 @@ function JoinRequests({ gameId }: { gameId: string }) {
               {r.name}
             </Text>
             <Pressable
-              onPress={() => decide.mutate({ profileId: r.profileId, approve: true })}
+              onPress={() => {
+                haptics.tap();
+                decide.mutate({ profileId: r.profileId, approve: true });
+              }}
               className="rounded-pill px-3.5 py-2"
               style={{ backgroundColor: colors.accent }}
             >
@@ -208,7 +228,10 @@ function JoinRequests({ gameId }: { gameId: string }) {
               </Text>
             </Pressable>
             <Pressable
-              onPress={() => decide.mutate({ profileId: r.profileId, approve: false })}
+              onPress={() => {
+                haptics.tap();
+                decide.mutate({ profileId: r.profileId, approve: false });
+              }}
               className="rounded-pill px-3.5 py-2 border-[1.5px]"
               style={{ borderColor: "rgba(255,255,255,0.15)" }}
             >

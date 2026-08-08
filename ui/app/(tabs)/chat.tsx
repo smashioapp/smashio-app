@@ -1,9 +1,10 @@
-import { View, Text, Pressable, FlatList, ActivityIndicator } from "react-native";
+import { View, Text, Pressable, FlatList, RefreshControl } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../../lib/theme";
 import { useChatThreads } from "../../lib/queries/messages";
 import { Screen } from "../../components/Screen";
+import { ChatRowSkeletonList } from "../../components/Skeleton";
 
 export default function ChatList() {
   const threadsQuery = useChatThreads();
@@ -15,17 +16,27 @@ export default function ChatList() {
         Chat
       </Text>
       {threadsQuery.isLoading ? (
-        <ActivityIndicator color={colors.accent} style={{ marginTop: 24 }} />
+        <ChatRowSkeletonList />
       ) : threads.length === 0 ? (
-        <Text className="text-[13px] px-5" style={{ color: colors.textSecondary }}>
-          No chats yet — join or host a game to start one.
-        </Text>
+        <View className="items-center gap-2.5 px-5 pt-8">
+          <Text className="text-[13px] text-center" style={{ color: colors.textSecondary }}>
+            No chats yet — join or host a game to start one.
+          </Text>
+          <Pressable onPress={() => router.push("/(tabs)/discover")} className="rounded-pill px-4 py-2 border-[1.5px]" style={{ borderColor: "rgba(255,255,255,0.15)" }}>
+            <Text className="font-body-bold text-[12.5px]" style={{ color: colors.text }}>
+              Find a game
+            </Text>
+          </Pressable>
+        </View>
       ) : (
         <FlatList
           style={{ flex: 1 }}
           data={threads}
           keyExtractor={(t) => t.id}
           contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 110 }}
+          refreshControl={
+            <RefreshControl refreshing={threadsQuery.isRefetching} onRefresh={() => threadsQuery.refetch()} tintColor={colors.accent} />
+          }
           renderItem={({ item }) => (
             <Pressable
               onPress={() => router.push(`/chat/${item.id}`)}

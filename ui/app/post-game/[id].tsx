@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, Text, Pressable, ScrollView, ActivityIndicator } from "react-native";
+import { View, Text, Pressable, ScrollView } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { colors, gradients, initial, reliabilityLabel } from "../../lib/theme";
@@ -9,6 +9,8 @@ import { useSession } from "../../lib/session";
 import { useProfile, useProfileStats } from "../../lib/queries/profile";
 import { Screen } from "../../components/Screen";
 import { BackButton } from "../../components/BackButton";
+import { haptics } from "../../lib/haptics";
+import { SkeletonBlock } from "../../components/Skeleton";
 
 export default function PostGame() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -24,15 +26,28 @@ export default function PostGame() {
   const { data: stats } = useProfileStats(userId);
 
   const submit = () => {
+    haptics.success();
     submitRatings.mutate({ gameId: id ?? "", stars: ratings });
     router.replace("/(tabs)/my-games");
   };
 
   if (gameQuery.isLoading) {
     return (
-      <View className="flex-1 items-center justify-center" style={{ backgroundColor: colors.base }}>
-        <ActivityIndicator color={colors.accent} />
-      </View>
+      <Screen>
+        <View className="flex-row items-center gap-3 px-5 pt-1.5 pb-3.5">
+          <BackButton onPress={() => router.back()} />
+          <SkeletonBlock style={{ width: 140, height: 18 }} />
+        </View>
+        <View className="px-5 gap-3">
+          <SkeletonBlock style={{ width: "60%", height: 13 }} />
+          {Array.from({ length: 3 }, (_, i) => (
+            <View key={i} className="flex-row items-center gap-3 py-3 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+              <SkeletonBlock style={{ width: 40, height: 40, borderRadius: 20 }} />
+              <SkeletonBlock style={{ flex: 1, height: 14 }} />
+            </View>
+          ))}
+        </View>
+      </Screen>
     );
   }
 

@@ -34,18 +34,17 @@ const TIER_SLUGS: Record<string, string> = {
 };
 
 export default function Discover() {
-  const { activeFilter, setActiveFilter, discoverView, setDiscoverView, showEmptyState, toggleEmptyState } = useAppStore();
+  const { activeFilter, setActiveFilter, discoverView, setDiscoverView } = useAppStore();
   const userLocation = useUserLocation();
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
 
-  const { data: list = [] } = useDiscoverGames(
+  const { data: games = [] } = useDiscoverGames(
     {
       tierSlug: TIER_SLUGS[activeFilter],
       tonightOnly: activeFilter === "Tonight",
     },
     userLocation
   );
-  const games = showEmptyState ? [] : list;
   const pinnedGames = games.filter((g) => g.venueLat != null && g.venueLng != null);
   const selectedGame = pinnedGames.find((g) => g.id === selectedGameId) ?? pinnedGames[0];
 
@@ -64,7 +63,7 @@ export default function Discover() {
           </Text>
         </View>
         <Pressable
-          onPress={toggleEmptyState}
+          onPress={() => router.push("/notification-settings")}
           className="w-[38px] h-[38px] rounded-full items-center justify-center border"
           style={{ backgroundColor: "#17171A", borderColor: "rgba(255,255,255,0.08)" }}
         >

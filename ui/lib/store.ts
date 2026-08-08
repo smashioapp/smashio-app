@@ -28,8 +28,6 @@ type AppState = {
   setDiscoverView: (v: "list" | "map") => void;
   activeFilter: string;
   setActiveFilter: (v: string) => void;
-  showEmptyState: boolean;
-  toggleEmptyState: () => void;
 
   myGamesTab: "joined" | "hosting" | "past";
   setMyGamesTab: (v: "joined" | "hosting" | "past") => void;
@@ -50,8 +48,6 @@ export const useAppStore = create<AppState>((set) => ({
   setDiscoverView: (v) => set({ discoverView: v }),
   activeFilter: "All levels",
   setActiveFilter: (v) => set({ activeFilter: v }),
-  showEmptyState: false,
-  toggleEmptyState: () => set((s) => ({ showEmptyState: !s.showEmptyState })),
 
   myGamesTab: "joined",
   setMyGamesTab: (v) => set({ myGamesTab: v }),

@@ -8,7 +8,10 @@ import { useSession } from "../../lib/session";
 import { useProfile, useProfileSports, useProfileStats } from "../../lib/queries/profile";
 import { signOut } from "../../lib/auth";
 
-const ROWS = ["Edit profile", "Notifications", "Payment methods"];
+const ROWS = [
+  { label: "Edit profile", href: "/profile-edit" as const },
+  { label: "Notifications", href: "/notification-settings" as const },
+];
 
 export default function Profile() {
   const { session } = useSession();
@@ -91,17 +94,18 @@ export default function Profile() {
           className="rounded-2xl mx-5 mt-4 border overflow-hidden"
           style={{ borderColor: colors.cardBorder }}
         >
-          {ROWS.map((row, i) => (
-            <View
-              key={row}
+          {ROWS.map((row) => (
+            <Pressable
+              key={row.label}
+              onPress={() => router.push(row.href)}
               className="flex-row justify-between items-center px-3.5 py-3.5"
-              style={{ borderBottomWidth: i < ROWS.length ? 1 : 0, borderColor: "rgba(255,255,255,0.06)" }}
+              style={{ borderBottomWidth: 1, borderColor: "rgba(255,255,255,0.06)" }}
             >
               <Text className="text-[13.5px] font-body-semibold" style={{ color: colors.text }}>
-                {row}
+                {row.label}
               </Text>
               <Text style={{ color: colors.textMuted }}>›</Text>
-            </View>
+            </Pressable>
           ))}
           <View className="flex-row justify-between items-center px-3.5 py-3.5" style={{ borderBottomWidth: 1, borderColor: "rgba(255,255,255,0.06)" }}>
             <Text className="text-[13.5px] font-body-semibold" style={{ color: colors.text }}>

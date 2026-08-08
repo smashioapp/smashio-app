@@ -11,7 +11,9 @@ import { useUpsertPlaceVenue } from "../lib/queries/venues";
 import { useSkillTiers, useSports } from "../lib/queries/sports";
 import { useCreateGame, useUploadConfirmation } from "../lib/queries/games";
 import { newSessionToken, searchPlaces, getPlaceDetails, type PlacePrediction } from "../lib/places";
+import { useVenues } from "../lib/queries/venues";
 import { Chip } from "../components/Chip";
+import { StepProgress } from "../components/StepProgress";
 
 const STEP_COUNT = 6;
 const NEXT_LABELS = ["Continue", "Continue", "Continue", "Continue", "Publish match", "Let's go!"];
@@ -50,6 +52,7 @@ export default function Wizard() {
 
   const { data: sports = [] } = useSports();
   const { data: tiers = [] } = useSkillTiers(SPORT_SLUG);
+  const { data: popularVenues = [] } = useVenues();
   const createGame = useCreateGame();
   const uploadConfirmation = useUploadConfirmation();
   const upsertPlaceVenue = useUpsertPlaceVenue();
@@ -128,8 +131,18 @@ export default function Wizard() {
   const endsAt = new Date(wizard.startsAt.getTime() + GAME_DURATION_MS);
 
   const goBack = () => {
-    if (step === 0) router.back();
-    else setStep(step - 1);
+    if (step !== 0) {
+      setStep(step - 1);
+      return;
+    }
+    if (!venueQuery.trim() && !selectedVenue) {
+      router.back();
+      return;
+    }
+    Alert.alert("Discard match setup?", "You'll lose your venue search.", [
+      { text: "Keep editing", style: "cancel" },
+      { text: "Discard", style: "destructive", onPress: () => router.back() },
+    ]);
   };
 
   const pickConfirmation = async () => {
@@ -200,11 +213,7 @@ export default function Wizard() {
         </Text>
       </View>
 
-      <View className="flex-row gap-1.5 px-5 py-4">
-        {Array.from({ length: STEP_COUNT }, (_, i) => (
-          <View key={i} className="flex-1 h-1 rounded-full" style={{ backgroundColor: i <= step ? colors.accent : "rgba(255,255,255,0.1)" }} />
-        ))}
-      </View>
+      <StepProgress step={step} count={STEP_COUNT} />
 
       <ScrollView className="flex-1 px-5" contentContainerStyle={{ paddingBottom: 20 }}>
         {step === 0 && (
@@ -256,6 +265,34 @@ export default function Wizard() {
               <Text className="text-[12.5px] mt-2" style={{ color: colors.textMuted }}>
                 No venues found. Try a different search.
               </Text>
+            )}
+
+            {!selectedVenue && venueQuery.trim().length === 0 && popularVenues.length > 0 && (
+              <View className="mt-1">
+                <Label>Popular near you</Label>
+                {popularVenues.map((v) => (
+                  <Pressable
+                    key={v.id}
+                    onPress={() => {
+                      selectVenue(v.id);
+                      setSelectedVenue({ name: v.name, suburb: v.suburb, address: v.address ?? `${v.suburb}, ${v.state}` });
+                      setVenueQuery(v.name);
+                    }}
+                    className="flex-row items-center gap-3 rounded-2xl px-3.5 py-3.5 mb-2 border-[1.5px]"
+                    style={{ backgroundColor: colors.card, borderColor: "rgba(255,255,255,0.07)" }}
+                  >
+                    <View className="w-1 self-stretch rounded" style={{ backgroundColor: colors.intermediate }} />
+                    <View className="flex-1">
+                      <Text className="font-body-bold text-[14px]" style={{ color: colors.text }}>
+                        {v.name}
+                      </Text>
+                      <Text className="text-[11.5px] mt-0.5" style={{ color: colors.textSecondary }}>
+                        {v.suburb}, {v.state}
+                      </Text>
+                    </View>
+                  </Pressable>
+                ))}
+              </View>
             )}
 
             {selectedVenue && (

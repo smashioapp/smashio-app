@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, Text, TextInput, Pressable, Alert } from "react-native";
+import { View, Text, TextInput, Pressable } from "react-native";
 import { router } from "expo-router";
 import { colors } from "../../lib/theme";
 import { Button } from "../../components/Button";
@@ -28,8 +28,6 @@ function SocialButton({
     </Pressable>
   );
 }
-
-const comingSoon = () => Alert.alert("Coming soon", "Needs an Apple Developer Program enrollment first.");
 
 export default function Login() {
   const [email, setEmail] = useState("");
@@ -127,7 +125,6 @@ export default function Login() {
           <View className="flex-1 h-px" style={{ backgroundColor: "rgba(255,255,255,0.1)" }} />
         </View>
 
-        <SocialButton label="Continue with Apple" onPress={comingSoon} />
         <SocialButton label="Continue with Google" onPress={handleGoogle} loading={googleLoading} />
       </View>
     </Screen>

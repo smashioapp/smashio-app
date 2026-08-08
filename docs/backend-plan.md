@@ -117,8 +117,8 @@ Each slice ends with: migration applied, RLS policies written, UI wired, that sl
 
 | # | Slice | Delivers |
 |---|---|---|
-| 0 | Foundation | Supabase project + local CLI, `supabase/` scaffold, PostGIS enabled, `supabase.ts` client, session provider, generated types, Sentry. No UI change. |
-| 1 | Auth + onboarding | Email/Google/Apple sign-in, `profiles` + `profile_sports`, avatar upload to Storage. Wires `onboarding/*` and the `index.tsx` gate. Kills `hasOnboarded`/`name`/`skill` from the store. |
+| 0 | ✅ Foundation | Supabase project + local CLI, `supabase/` scaffold, PostGIS enabled, `supabase.ts` client, session provider, generated types, Sentry. No UI change. |
+| 1 | ✅ Auth + onboarding | Email/Google sign-in (Apple deferred — no Apple Developer membership yet), `profiles` + `profile_sports`, avatar upload to Storage. Wires `onboarding/*` and the `index.tsx` gate. Kills `hasOnboarded`/`name`/`skill` from the store. |
 | 2 | ✅ Venues + discover list | `venues`, `games`, `nearby_games` RPC, seed venues. `discover.tsx` list view + filters on real data. `GAMES`/`VENUES` mocks stay in `mockData.ts` — still read by `wizard.tsx`, `my-games.tsx`, `chat*.tsx` until slices 3–5 migrate them. Manual seeding superseded by live Places search — see Slice 9. |
 | 3 | ✅ Create game | Wizard writes a real game; confirmation upload → `pending` verification. Kills `DATES`/`TIMES`/`VENUES` mocks. Fixed 2h duration (no separate end-time picker yet), no per-game court number input, no `game_confirmations` table yet (upload just flips `games.verification_status`). Superseded by Slice 9 (real table + stub parse + venue search). |
 | 4 | ✅ Join + organizer | Request to join, organizer approve/reject via `decide_join_request`, `my-games.tsx` all three tabs real. Kills `HOSTING`/`PAST`. |
@@ -129,6 +129,8 @@ Each slice ends with: migration applied, RLS policies written, UI wired, that sl
 | 9 | ✅ Verification + AI stub | `game_confirmations` table (real, replaces the boolean-flip from Slice 3). Upload wired to stub `ai-proxy` → fake `parsed` payload, auto `review_status='verified'`, flips `games.verification_status`. Email-verified badge on profile (reads `session.user.email_confirmed_at`, no schema change). Create wizard's venue step now live Google Places Autocomplete/Details search (`ui/lib/places.ts`), upserted via `upsert_places_venue` RPC deduping on `google_place_id`. Reliability score formula still a placeholder in the nightly cron function — exact weights TBD, not part of this slice's scope. Mobile-verified badge and real LLM parsing deferred past this slice. |
 
 Slices 0–6 are the MVP loop. 7–8 are required for ship quality. 9 is required for the verified badges but ships with AI parsing still stubbed.
+
+**All 10 slices (0–9) complete and pushed to the live Supabase project as of 2026-08-08.** All migrations, RLS policies, and edge functions (`ai-proxy`, `push-dispatch`) verified live (`migration list` shows local==remote, `functions list` shows both ACTIVE). `db.types.ts` regenerated and diffed clean against hand-written slice-9 additions. Backend build plan is done; remaining work is the non-blocking follow-ups below (real AI parsing, reliability weights, mobile OTP) plus device/simulator click-through for slices 7–9 (map, push, Places/upload), which this headless setup can't exercise.
 
 ## Environment & secrets
 

@@ -1,4 +1,4 @@
-import { View, Text, Pressable, ScrollView, ActivityIndicator } from "react-native";
+import { View, Text, Pressable, ScrollView, ActivityIndicator, Alert } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -48,6 +48,13 @@ export default function GameDetails() {
   const perPlayer = perPlayerCost(game.cost, game.maxPlayers);
   const joined = rosterQuery.data ?? [];
   const membership = membershipQuery.data;
+
+  const confirmLeave = () => {
+    Alert.alert("Leave this game?", "You'll lose your spot and may need to request to rejoin.", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Leave game", style: "destructive", onPress: () => leaveGame.mutate() },
+    ]);
+  };
 
   return (
     <View className="flex-1" style={{ backgroundColor: colors.base }}>
@@ -150,7 +157,7 @@ export default function GameDetails() {
           {membership?.isOrganizer ? (
             <Button label="You're organizing this game" variant="secondary" disabled />
           ) : membership?.status === "approved" ? (
-            <Button label="Leave game" variant="secondary" loading={leaveGame.isPending} onPress={() => leaveGame.mutate()} />
+            <Button label="Leave game" variant="secondary" loading={leaveGame.isPending} onPress={confirmLeave} />
           ) : membership?.status === "requested" ? (
             <Button label="Request sent" variant="secondary" disabled />
           ) : (

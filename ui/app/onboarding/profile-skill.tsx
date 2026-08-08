@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import { colors, TIERS, TierId } from "../../lib/theme";
 import { Button } from "../../components/Button";
 import { Screen } from "../../components/Screen";
+import { StepProgress } from "../../components/StepProgress";
 import { useSports, useSkillTiers } from "../../lib/queries/sports";
 import { useUpsertProfileSport } from "../../lib/queries/profile";
 
@@ -32,12 +33,10 @@ export default function ProfileSkill() {
 
   return (
     <Screen>
-      <ScrollView className="flex-1 px-6 pt-10" contentContainerStyle={{ paddingBottom: 24, gap: 14 }}>
+      <StepProgress step={1} count={2} />
+      <ScrollView className="flex-1 px-6" contentContainerStyle={{ paddingBottom: 24, gap: 14 }}>
         <Text className="font-display text-[24px]" style={{ color: colors.text }}>
           Your game
-        </Text>
-        <Text className="text-[13px] -mt-2" style={{ color: colors.textSecondary }}>
-          Step 2 of 2
         </Text>
 
         <Text className="font-body-extrabold text-[11px] uppercase tracking-wide" style={{ color: colors.textTertiary }}>

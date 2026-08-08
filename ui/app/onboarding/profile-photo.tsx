@@ -5,6 +5,7 @@ import * as ImagePicker from "expo-image-picker";
 import { colors } from "../../lib/theme";
 import { Button } from "../../components/Button";
 import { Screen } from "../../components/Screen";
+import { StepProgress } from "../../components/StepProgress";
 import { useSession } from "../../lib/session";
 import { useUpdateProfile, useUploadAvatar, useUploadAvatarFromUrl } from "../../lib/queries/profile";
 
@@ -65,12 +66,11 @@ export default function ProfilePhoto() {
 
   return (
     <Screen>
-      <View className="flex-1 px-6 pt-10 gap-3.5">
+      <View className="flex-1">
+        <StepProgress step={0} count={2} />
+        <View className="flex-1 px-6 pt-2 gap-3.5">
         <Text className="font-display text-[24px]" style={{ color: colors.text }}>
           Set up your profile
-        </Text>
-        <Text className="text-[13px] -mt-1.5 mb-1" style={{ color: colors.textSecondary }}>
-          Step 1 of 2
         </Text>
 
         <Pressable
@@ -114,6 +114,7 @@ export default function ProfilePhoto() {
         <View className="flex-1" />
         <View className="pb-6">
           <Button label="Next" loading={saving} disabled={!name.trim()} onPress={next} />
+        </View>
         </View>
       </View>
     </Screen>

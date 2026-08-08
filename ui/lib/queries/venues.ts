@@ -1,6 +1,19 @@
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { supabase } from "../supabase";
 import type { PlaceDetails } from "../places";
+
+// Cold-start shortcut for the wizard's venue step: partner/previously-used venues, so a
+// fresh Places search box isn't the only way in when the query is empty.
+export function useVenues() {
+  return useQuery({
+    queryKey: ["venues"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("venues").select("id, name, suburb, state, address").order("name").limit(8);
+      if (error) throw error;
+      return data;
+    },
+  });
+}
 
 // Upserts a Places-sourced venue (dedupes on google_place_id via the RPC) and returns its id.
 export function useUpsertPlaceVenue() {

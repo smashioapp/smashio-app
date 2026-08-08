@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { View, Text, Pressable, ScrollView, Alert, Image, TextInput, ActivityIndicator } from "react-native";
+import { View, Text, Pressable, ScrollView, Alert, Image, TextInput, ActivityIndicator, Platform, ViewStyle } from "react-native";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -17,6 +17,12 @@ const STEP_COUNT = 6;
 const NEXT_LABELS = ["Continue", "Continue", "Continue", "Continue", "Publish match", "Let's go!"];
 const SPORT_SLUG = "badminton";
 const GAME_DURATION_MS = 2 * 60 * 60 * 1000;
+
+// This modal doesn't go through Screen (it manages its own top padding
+// instead of safe-area edges), so it needs the same web phone-frame
+// constraint applied directly — otherwise it spans the full browser width.
+const webShellStyle =
+  Platform.OS === "web" ? ({ maxWidth: 430, width: "100%", marginHorizontal: "auto", height: "100%" } as ViewStyle) : undefined;
 
 const TIME_OPTIONS = [
   { label: "6:00 PM", h: 18, m: 0 },
@@ -183,7 +189,8 @@ export default function Wizard() {
   };
 
   return (
-    <View className="flex-1 pt-14" style={{ backgroundColor: "#08080A" }}>
+    <View style={Platform.OS === "web" ? { flex: 1, backgroundColor: "#08080A", alignItems: "center" } : { flex: 1 }}>
+    <View className="flex-1 pt-14" style={{ backgroundColor: "#08080A", ...webShellStyle }}>
       <View className="flex-row items-center gap-3 px-5 pb-1">
         <Pressable onPress={goBack} className="w-[34px] h-[34px] rounded-full items-center justify-center" style={{ backgroundColor: "#17171A" }}>
           <Ionicons name="chevron-back" size={16} color={colors.text} />
@@ -440,6 +447,7 @@ export default function Wizard() {
           </LinearGradient>
         )}
       </View>
+    </View>
     </View>
   );
 }

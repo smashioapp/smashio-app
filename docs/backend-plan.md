@@ -45,7 +45,7 @@ Sport stays **data, not code** (AGENTS.md rule). Badminton is one row.
 
 ### Core tables
 
-- `profiles` — `id` (FK `auth.users`), `display_name`, `photo_path`, `home_suburb`, `home_point geography(Point,4326)`, `reliability_score numeric(3,1)` (0–10 scale, `null` until player has ≥1 completed game — too little data before that), `created_at`
+- `profiles` — `id` (FK `auth.users`), `display_name`, `photo_path`, `home_suburb`, `home_point geography(Point,4326)`, `reliability_score numeric not null default 100` (0–100 scale, starts at 100 for new profiles — shipped this way in Slice 6, not the 0–10/null-until-first-game design below), `created_at`
 - `profile_sports` — `profile_id`, `sport_id`, `skill_tier_id` (a user has a skill level *per sport*)
 - `venues` — `id`, `name`, `suburb`, `state`, `address`, `location geography(Point,4326)`, `google_place_id` (unique, dedupes repeat searches), `source` (`user` | `places` | `partner`)
 - `games` — `id`, `sport_id`, `venue_id`, `organizer_id`, `starts_at timestamptz`, `ends_at`, `court_label`, `skill_tier_id`, `max_players`, `cost_total_cents`, `status` (`published` | `cancelled` | `completed`), `verification_status` (`none` | `pending` | `verified`), `created_at`
@@ -140,7 +140,7 @@ Slices 0–6 are the MVP loop. 7–8 are required for ship quality. 9 is require
 
 Carried from [mvp-spec.md](mvp-spec.md), all four now decided:
 
-1. **Reliability score** — 0–10 scale, only computed once a profile has ≥1 completed game (else `null`, too little data). Inputs: opt-outs after signup, no-shows, games attended, ratings. Exact weights still TBD — placeholder inside one isolated SQL function (Slice 9), can change without touching anything else.
+1. **Reliability score** — as designed: 0–10 scale, only computed once a profile has ≥1 completed game (else `null`, too little data). As shipped (Slice 6, `recompute_reliability_scores()` in `20260808000200_ratings_and_completion.sql`): 0–100 scale, `not null default 100`, every profile scored from day one (100 minus 5 per late leave, floored at 0). Never reconciled back to the original design — revisit if the null-until-first-game behavior matters for launch. Inputs beyond late-leaves (no-shows, ratings) still TBD either way.
 2. **Verified badge** split into two, not one: email-verified (profile, off `auth.users.email_confirmed_at`, SSO auto-confirms) ships in Slice 9; mobile-verified deferred with phone OTP. Event-verified (game) ships in Slice 9 too — set automatically on any `game_confirmations` upload since `ai-proxy` is stubbed to always approve. No manual-review queue/admin role needed for MVP.
 3. **Venue data source** — Places-backed. Host searches in the create wizard, venue fed from Google Places API data (client-side key, already restricted by bundle ID/SHA-1). No badminton-court verification — any place can be selected. Dedupe on `google_place_id`.
 4. **AI feature scope** — parse an uploaded booking confirmation (email/PDF/photo) into structured booking info. Slice 9 ships the upload + `game_confirmations` table + the plumbing, but `ai-proxy` is **stubbed** (fake/random parsed payload, no real Anthropic call). Real parsing is a later follow-up behind the same function signature.

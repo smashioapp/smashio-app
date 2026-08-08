@@ -1,4 +1,4 @@
-import { View, Pressable } from "react-native";
+import { View, Pressable, Platform } from "react-native";
 import { router } from "expo-router";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
@@ -31,7 +31,13 @@ function TabButton({ name, focused, onPress }: { name: string; focused: boolean;
 
 export function TabBar({ state, navigation }: TabBarProps) {
   return (
-    <View style={{ position: "absolute", left: 16, right: 16, bottom: 14, height: 64 }}>
+    <View
+      style={
+        Platform.OS === "web"
+          ? { position: "absolute", left: 0, right: 0, bottom: 14, height: 64, maxWidth: 398, marginHorizontal: "auto" as const }
+          : { position: "absolute", left: 16, right: 16, bottom: 14, height: 64 }
+      }
+    >
       <BlurView
         intensity={40}
         tint="dark"

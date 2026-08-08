@@ -6,6 +6,8 @@ import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import * as SplashScreen from "expo-splash-screen";
+import { cssInterop } from "nativewind";
+import { LinearGradient } from "expo-linear-gradient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "../lib/queryClient";
 import { SessionProvider } from "../lib/session";
@@ -23,6 +25,11 @@ import {
   Manrope_700Bold,
   Manrope_800ExtraBold,
 } from "@expo-google-fonts/manrope";
+
+// expo-linear-gradient isn't a core RN component, so nativewind doesn't
+// interop its className by default — web silently drops all styling
+// (padding, radius, flex layout) on every gradient chip/button/pill.
+cssInterop(LinearGradient, { className: "style" });
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 

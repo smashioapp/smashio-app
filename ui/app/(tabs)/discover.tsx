@@ -75,7 +75,8 @@ export default function Discover() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={{ gap: 8, paddingHorizontal: 20, paddingVertical: 4 }}
+        style={{ flexGrow: 0 }}
+        contentContainerStyle={{ gap: 8, paddingHorizontal: 20, paddingVertical: 4, alignItems: "center" }}
       >
         {FILTERS.map((f) => (
           <Chip key={f} label={f} active={activeFilter === f} onPress={() => setActiveFilter(f)} size="sm" />

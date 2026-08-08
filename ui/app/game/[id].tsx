@@ -19,6 +19,7 @@ import { BackButton } from "../../components/BackButton";
 import { Button } from "../../components/Button";
 import { CountdownChip } from "../../components/CountdownChip";
 import { haptics } from "../../lib/haptics";
+import { shareGame } from "../../lib/share";
 import { GameDetailSkeleton } from "../../components/Skeleton";
 
 export default function GameDetails() {
@@ -75,8 +76,18 @@ export default function GameDetails() {
     <View className="flex-1" style={{ backgroundColor: colors.base }}>
       <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
         <LinearGradient colors={["#1F1F24", "#141416"]} style={{ height: 150, paddingTop: 56 }}>
-          <View className="px-4">
+          <View className="px-4 flex-row justify-between items-center">
             <BackButton dark onPress={() => router.back()} />
+            <Pressable
+              onPress={() => {
+                haptics.tap();
+                shareGame(game);
+              }}
+              className="w-9 h-9 rounded-full items-center justify-center"
+              style={{ backgroundColor: "rgba(255,255,255,0.1)" }}
+            >
+              <Ionicons name="share-outline" size={17} color={colors.text} />
+            </Pressable>
           </View>
         </LinearGradient>
 

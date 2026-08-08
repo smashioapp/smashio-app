@@ -35,13 +35,13 @@ CRED's core hook: make your own stats worth looking at.
 - [x] Streak surfaced after rating submission on post-game screen ("3 weeks running").
 - [x] "Member since" treated as a flex stat (styled callout) not a plain stat tile.
 
-## Phase 3 — growth loops
+## Phase 3 — growth loops ✅
 
 Currently zero. Two entry points missing entirely.
 
-- [ ] Share/invite button on Game Detail — deep link into the specific game.
-- [ ] Referral entry point in Profile — deep link into app install/join.
-- [ ] Every empty state gets a CTA + (once real data exists) social proof — never a flat sentence. Chat list empty state currently has no button, inconsistent with Discover's.
+- [x] Share/invite button on Game Detail — deep link into the specific game.
+- [x] Referral entry point in Profile — deep link into app install/join.
+- [x] Every empty state gets a CTA + (once real data exists) social proof — never a flat sentence. My Games "Past" tab was the last one missing a button.
 
 ## Phase 4 — native-only cleanup
 

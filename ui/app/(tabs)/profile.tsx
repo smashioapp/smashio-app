@@ -10,6 +10,8 @@ import { Sheet } from "../../components/Sheet";
 import { useSession } from "../../lib/session";
 import { useProfile, useProfileSports, useProfileStats } from "../../lib/queries/profile";
 import { signOut } from "../../lib/auth";
+import { shareReferral } from "../../lib/share";
+import { haptics } from "../../lib/haptics";
 
 const ROWS = [
   { label: "Edit profile", href: "/profile-edit" as const },
@@ -131,6 +133,19 @@ export default function Profile() {
           className="rounded-2xl mx-5 mt-4 border overflow-hidden"
           style={{ borderColor: colors.cardBorder }}
         >
+          <Pressable
+            onPress={() => {
+              haptics.tap();
+              shareReferral();
+            }}
+            className="flex-row justify-between items-center px-3.5 py-3.5"
+            style={{ borderBottomWidth: 1, borderColor: "rgba(255,255,255,0.06)" }}
+          >
+            <Text className="text-[13.5px] font-body-semibold" style={{ color: colors.accent }}>
+              Invite friends
+            </Text>
+            <Ionicons name="share-social-outline" size={16} color={colors.accent} />
+          </Pressable>
           {ROWS.map((row) => (
             <Pressable
               key={row.label}

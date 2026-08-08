@@ -114,10 +114,11 @@ export default function MyGames() {
               <RefreshControl refreshing={pastQuery.isRefetching} onRefresh={() => pastQuery.refetch()} tintColor={colors.accent} />
             }
             ListEmptyComponent={
-              <View className="items-center pt-14">
+              <View className="items-center gap-2.5 pt-14">
                 <Text className="text-[13px]" style={{ color: colors.textSecondary }}>
                   No past games yet.
                 </Text>
+                <Button label="Find a game" fullWidth={false} onPress={() => router.push("/(tabs)/discover")} />
               </View>
             }
             renderItem={({ item }) => (

@@ -19,6 +19,9 @@ export type Game = {
   cost: number;
   verified: boolean;
   distance: string;
+  venueAddress: string | null;
+  venueLat: number | null;
+  venueLng: number | null;
 };
 
 export type PastPlayer = { id: string; name: string; color: string };

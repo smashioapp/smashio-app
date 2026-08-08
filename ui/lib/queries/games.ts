@@ -7,9 +7,9 @@ import type { Game, PastGame } from "../mockData";
 import { formatDate, formatDistance, formatTimeRange } from "../format";
 import { avatarColor } from "../theme";
 
-// Melbourne CBD, placeholder center until slice 7 wires device geolocation + the map view.
-const DEFAULT_LAT = -37.8136;
-const DEFAULT_LNG = 144.9631;
+// Melbourne CBD — fallback center when device location is unavailable or denied.
+export const DEFAULT_LAT = -37.8136;
+export const DEFAULT_LNG = 144.9631;
 const DEFAULT_RADIUS_M = 50_000;
 const SPORT_SLUG = "badminton"; // MVP ships badminton only; sport stays data, not code, once a picker exists.
 
@@ -34,6 +34,9 @@ function toGame(row: NearbyGameRow): Game {
     cost: row.cost_total_cents / 100,
     verified: row.verification_status === "verified",
     distance: formatDistance(row.distance_m),
+    venueAddress: row.venue_address,
+    venueLat: row.venue_lat,
+    venueLng: row.venue_lng,
   };
 }
 
@@ -54,12 +57,18 @@ function toGameFromPublicRow(row: GamesPublicRow): Game {
     cost: (row.cost_total_cents ?? 0) / 100,
     verified: row.verification_status === "verified",
     distance: "",
+    venueAddress: row.venue_address,
+    venueLat: row.venue_lat,
+    venueLng: row.venue_lng,
   };
 }
 
-export function useDiscoverGames(filter: { tierSlug?: string; tonightOnly?: boolean }) {
+export function useDiscoverGames(
+  filter: { tierSlug?: string; tonightOnly?: boolean },
+  center: { lat: number; lng: number } = { lat: DEFAULT_LAT, lng: DEFAULT_LNG }
+) {
   return useQuery({
-    queryKey: ["nearby_games", SPORT_SLUG, filter.tierSlug ?? null, filter.tonightOnly ?? false],
+    queryKey: ["nearby_games", SPORT_SLUG, filter.tierSlug ?? null, filter.tonightOnly ?? false, center.lat, center.lng],
     queryFn: async () => {
       let fromTs = new Date().toISOString();
       let toTs: string | undefined;
@@ -70,8 +79,8 @@ export function useDiscoverGames(filter: { tierSlug?: string; tonightOnly?: bool
       }
 
       const { data, error } = await supabase.rpc("nearby_games", {
-        lat: DEFAULT_LAT,
-        lng: DEFAULT_LNG,
+        lat: center.lat,
+        lng: center.lng,
         radius_m: DEFAULT_RADIUS_M,
         sport_slug: SPORT_SLUG,
         from_ts: fromTs,

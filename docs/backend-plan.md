@@ -119,7 +119,7 @@ Each slice ends with: migration applied, RLS policies written, UI wired, that sl
 | 4 | ✅ Join + organizer | Request to join, organizer approve/reject via `decide_join_request`, `my-games.tsx` all three tabs real. Kills `HOSTING`/`PAST`. |
 | 5 | ✅ Chat | `messages` + Realtime channel per game, unread via `message_reads`. Kills `CHAT_SEED` and the store's chat slice. |
 | 6 | ✅ Post-game | Auto-complete cron, ratings write, profile stats. Kills the store's `ratings` slice — mock data fully gone after this. |
-| 7 | Map | `react-native-maps` pins from `nearby_games`, Places search, Directions deep-link. Debounce/cache calls — both APIs bill per request. |
+| 7 | ✅ Map | `react-native-maps` pins from `nearby_games` (venue lat/lng/address added), device geolocation via `expo-location` centers the map, Directions deep-link opens native maps app. Places search deferred — open question 3 (venue data source) still unresolved and venues stay manually seeded; revisit if that resolves to Places-backed. |
 | 8 | Push | `push_tokens`, `push-dispatch`, 2-hour reminder, join-decision and new-message notifications. |
 | 9 | AI | `ai-proxy` + whichever feature scope is chosen. Blocked on the open question in mvp-spec.md. |
 

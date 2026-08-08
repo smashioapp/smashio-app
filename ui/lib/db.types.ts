@@ -481,7 +481,10 @@ export type Database = {
           sport_id: string | null
           starts_at: string | null
           status: string | null
+          venue_address: string | null
           venue_id: string | null
+          venue_lat: number | null
+          venue_lng: number | null
           venue_location: unknown
           venue_name: string | null
           venue_suburb: string | null
@@ -554,6 +557,9 @@ export type Database = {
           skill_tier_slug: string
           starts_at: string
           status: string
+          venue_address: string
+          venue_lat: number
+          venue_lng: number
           venue_name: string
           venue_suburb: string
           verification_status: string

@@ -1,13 +1,28 @@
-import { View, Text, Pressable, ScrollView, FlatList } from "react-native";
+import { useState } from "react";
+import { View, Text, Pressable, ScrollView, FlatList, Linking, Platform } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppStore } from "../../lib/store";
 import { colors } from "../../lib/theme";
 import { useDiscoverGames } from "../../lib/queries/games";
+import { useUserLocation } from "../../lib/location";
 import { Screen } from "../../components/Screen";
 import { Chip } from "../../components/Chip";
 import { GameCard } from "../../components/GameCard";
 import { Button } from "../../components/Button";
+import { GameMap } from "../../components/GameMap";
+import type { Game } from "../../lib/mockData";
+
+function openDirections(game: Game) {
+  if (game.venueLat == null || game.venueLng == null) return;
+  const label = encodeURIComponent(game.venue);
+  const url = Platform.select({
+    ios: `maps:0,0?q=${label}@${game.venueLat},${game.venueLng}`,
+    android: `geo:0,0?q=${game.venueLat},${game.venueLng}(${label})`,
+    default: `https://www.google.com/maps/search/?api=1&query=${game.venueLat},${game.venueLng}`,
+  });
+  Linking.openURL(url!);
+}
 
 const FILTERS = ["All levels", "Beginner", "Intermediate", "Advanced", "Pro", "Tonight"];
 
@@ -20,12 +35,19 @@ const TIER_SLUGS: Record<string, string> = {
 
 export default function Discover() {
   const { activeFilter, setActiveFilter, discoverView, setDiscoverView, showEmptyState, toggleEmptyState } = useAppStore();
+  const userLocation = useUserLocation();
+  const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
 
-  const { data: list = [] } = useDiscoverGames({
-    tierSlug: TIER_SLUGS[activeFilter],
-    tonightOnly: activeFilter === "Tonight",
-  });
+  const { data: list = [] } = useDiscoverGames(
+    {
+      tierSlug: TIER_SLUGS[activeFilter],
+      tonightOnly: activeFilter === "Tonight",
+    },
+    userLocation
+  );
   const games = showEmptyState ? [] : list;
+  const pinnedGames = games.filter((g) => g.venueLat != null && g.venueLng != null);
+  const selectedGame = pinnedGames.find((g) => g.id === selectedGameId) ?? pinnedGames[0];
 
   return (
     <Screen>
@@ -92,46 +114,35 @@ export default function Discover() {
         />
       ) : (
         <View className="flex-1 relative overflow-hidden mx-0" style={{ backgroundColor: "#111113" }}>
-          {[
-            { top: "22%", left: "30%", color: colors.intermediate },
-            { top: "44%", left: "62%", color: colors.advanced },
-            { top: "60%", left: "38%", color: colors.accent },
-            { top: "35%", left: "20%", color: colors.beginner },
-          ].map((p, i) => (
+          <GameMap games={pinnedGames} center={userLocation} onSelectGame={setSelectedGameId} />
+          {selectedGame && (
             <View
-              key={i}
-              style={{
-                position: "absolute",
-                top: p.top as any,
-                left: p.left as any,
-                width: 14,
-                height: 14,
-                borderRadius: 7,
-                backgroundColor: p.color,
-              }}
-            />
-          ))}
-          {games[0] && (
-            <Pressable
-              onPress={() => router.push(`/game/${games[0].id}`)}
-              className="absolute left-4 right-4 bottom-4 rounded-2xl p-3.5 flex-row justify-between items-center border"
+              className="absolute left-4 right-4 bottom-4 rounded-2xl p-3.5 border"
               style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}
             >
-              <View>
-                <Text className="font-body-bold text-[13px]" style={{ color: colors.text }}>
-                  {games[0].venue}
+              <Pressable onPress={() => router.push(`/game/${selectedGame.id}`)} className="flex-row justify-between items-center">
+                <View className="flex-1 pr-2">
+                  <Text className="font-body-bold text-[13px]" style={{ color: colors.text }} numberOfLines={1}>
+                    {selectedGame.venue}
+                  </Text>
+                  <Text className="text-[11px] mt-0.5" style={{ color: colors.textTertiary }}>
+                    {selectedGame.date} · {selectedGame.time}
+                  </Text>
+                </View>
+                <View className="flex-row items-center gap-1">
+                  <Text className="font-body-extrabold text-[13px]" style={{ color: colors.accent }}>
+                    View
+                  </Text>
+                  <Ionicons name="arrow-forward" size={13} color={colors.accent} />
+                </View>
+              </Pressable>
+              <Pressable onPress={() => openDirections(selectedGame)} className="flex-row items-center gap-1 mt-2.5">
+                <Ionicons name="navigate-outline" size={13} color={colors.textSecondary} />
+                <Text className="text-[11.5px] font-body-bold" style={{ color: colors.textSecondary }}>
+                  Directions
                 </Text>
-                <Text className="text-[11px] mt-0.5" style={{ color: colors.textTertiary }}>
-                  {games[0].date} · {games[0].time}
-                </Text>
-              </View>
-              <View className="flex-row items-center gap-1">
-                <Text className="font-body-extrabold text-[13px]" style={{ color: colors.accent }}>
-                  View
-                </Text>
-                <Ionicons name="arrow-forward" size={13} color={colors.accent} />
-              </View>
-            </Pressable>
+              </Pressable>
+            </View>
           )}
         </View>
       )}

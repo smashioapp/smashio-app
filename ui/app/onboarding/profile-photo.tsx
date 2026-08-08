@@ -5,15 +5,20 @@ import * as ImagePicker from "expo-image-picker";
 import { colors } from "../../lib/theme";
 import { Button } from "../../components/Button";
 import { Screen } from "../../components/Screen";
-import { useUpdateProfile, useUploadAvatar } from "../../lib/queries/profile";
+import { useSession } from "../../lib/session";
+import { useUpdateProfile, useUploadAvatar, useUploadAvatarFromUrl } from "../../lib/queries/profile";
 
 export default function ProfilePhoto() {
-  const [name, setName] = useState("");
+  const { session } = useSession();
+  const googleName = session?.user.user_metadata?.full_name ?? session?.user.user_metadata?.name ?? "";
+  const googlePhotoUrl = session?.user.user_metadata?.avatar_url ?? session?.user.user_metadata?.picture ?? null;
+  const [name, setName] = useState(googleName);
   const [suburb, setSuburb] = useState("");
   const [localPhotoUri, setLocalPhotoUri] = useState<string | null>(null);
 
   const updateProfile = useUpdateProfile();
   const uploadAvatar = useUploadAvatar();
+  const uploadAvatarFromUrl = useUploadAvatarFromUrl();
 
   const pickPhoto = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -38,6 +43,13 @@ export default function ProfilePhoto() {
         Alert.alert("Photo upload failed", e instanceof Error ? e.message : "Try again.");
         return;
       }
+    } else if (googlePhotoUrl) {
+      try {
+        await uploadAvatarFromUrl.mutateAsync(googlePhotoUrl);
+      } catch (e) {
+        Alert.alert("Photo upload failed", e instanceof Error ? e.message : "Try again.");
+        return;
+      }
     }
     try {
       await updateProfile.mutateAsync({ display_name: name.trim(), home_suburb: suburb.trim() || null });
@@ -48,7 +60,8 @@ export default function ProfilePhoto() {
     router.push("/onboarding/profile-skill");
   };
 
-  const saving = updateProfile.isPending || uploadAvatar.isPending;
+  const saving = updateProfile.isPending || uploadAvatar.isPending || uploadAvatarFromUrl.isPending;
+  const previewUri = localPhotoUri ?? googlePhotoUrl;
 
   return (
     <Screen>
@@ -65,8 +78,8 @@ export default function ProfilePhoto() {
           className="self-center w-24 h-24 rounded-full items-center justify-center mb-2 overflow-hidden"
           style={{ borderWidth: 2, borderStyle: "dashed", borderColor: "rgba(255,255,255,0.2)" }}
         >
-          {localPhotoUri ? (
-            <Image source={{ uri: localPhotoUri }} className="w-24 h-24" />
+          {previewUri ? (
+            <Image source={{ uri: previewUri }} className="w-24 h-24" />
           ) : (
             <Text className="text-center text-[11px] font-body-bold" style={{ color: colors.textMuted }}>
               Add{"\n"}photo

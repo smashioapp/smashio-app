@@ -9,6 +9,7 @@ import * as SplashScreen from "expo-splash-screen";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "../lib/queryClient";
 import { SessionProvider } from "../lib/session";
+import { usePushRegistration } from "../lib/notifications";
 import {
   useFonts as useBricolageFonts,
   BricolageGrotesque_500Medium,
@@ -52,6 +53,7 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
       <QueryClientProvider client={queryClient}>
         <SessionProvider>
+          <PushRegistration />
           <SafeAreaProvider>
             <StatusBar style="light" />
             <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#0A0A0B" } }}>
@@ -68,4 +70,9 @@ export default function RootLayout() {
       </QueryClientProvider>
     </GestureHandlerRootView>
   );
+}
+
+function PushRegistration() {
+  usePushRegistration();
+  return null;
 }

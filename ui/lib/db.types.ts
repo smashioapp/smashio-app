@@ -39,6 +39,58 @@ export type Database = {
   }
   public: {
     Tables: {
+      game_confirmations: {
+        Row: {
+          created_at: string
+          game_id: string
+          id: string
+          parsed: Json | null
+          review_status: string
+          storage_path: string
+          uploaded_by: string
+        }
+        Insert: {
+          created_at?: string
+          game_id: string
+          id?: string
+          parsed?: Json | null
+          review_status?: string
+          storage_path: string
+          uploaded_by: string
+        }
+        Update: {
+          created_at?: string
+          game_id?: string
+          id?: string
+          parsed?: Json | null
+          review_status?: string
+          storage_path?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_confirmations_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "game_confirmations_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "game_confirmations_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       game_players: {
         Row: {
           decided_at: string | null
@@ -94,6 +146,7 @@ export type Database = {
           id: string
           max_players: number
           organizer_id: string
+          reminded_at: string | null
           skill_tier_id: string
           sport_id: string
           starts_at: string
@@ -109,6 +162,7 @@ export type Database = {
           id?: string
           max_players: number
           organizer_id: string
+          reminded_at?: string | null
           skill_tier_id: string
           sport_id: string
           starts_at: string
@@ -124,6 +178,7 @@ export type Database = {
           id?: string
           max_players?: number
           organizer_id?: string
+          reminded_at?: string | null
           skill_tier_id?: string
           sport_id?: string
           starts_at?: string
@@ -320,6 +375,38 @@ export type Database = {
           reliability_score?: number
         }
         Relationships: []
+      }
+      push_tokens: {
+        Row: {
+          expo_token: string
+          id: string
+          platform: string
+          profile_id: string
+          updated_at: string
+        }
+        Insert: {
+          expo_token: string
+          id?: string
+          platform: string
+          profile_id: string
+          updated_at?: string
+        }
+        Update: {
+          expo_token?: string
+          id?: string
+          platform?: string
+          profile_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "push_tokens_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ratings: {
         Row: {
@@ -529,6 +616,7 @@ export type Database = {
         Args: { approve: boolean; p_game_id: string; p_profile_id: string }
         Returns: undefined
       }
+      dispatch_game_reminders: { Args: never; Returns: undefined }
       is_approved_player: {
         Args: { p_game_id: string; p_profile_id: string }
         Returns: boolean
@@ -565,7 +653,35 @@ export type Database = {
           verification_status: string
         }[]
       }
+      notify_push: { Args: { p_payload: Json }; Returns: undefined }
+      push_game_summary: {
+        Args: { p_game_id: string }
+        Returns: {
+          sport_name: string
+          starts_at: string
+          venue_name: string
+        }[]
+      }
+      push_recipients_for_game: {
+        Args: { p_exclude_profile?: string; p_game_id: string }
+        Returns: {
+          expo_token: string
+          profile_id: string
+        }[]
+      }
       recompute_reliability_scores: { Args: never; Returns: undefined }
+      upsert_places_venue: {
+        Args: {
+          p_address: string
+          p_google_place_id: string
+          p_lat: number
+          p_lng: number
+          p_name: string
+          p_state: string
+          p_suburb: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never

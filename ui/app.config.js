@@ -23,6 +23,11 @@ module.exports = {
     web: {
       favicon: "./assets/favicon.png",
     },
+    extra: {
+      eas: {
+        projectId: "ba1a8855-77c1-457a-b7ab-2a7920f5facc",
+      },
+    },
     plugins: [
       "expo-router",
       "expo-status-bar",
@@ -49,6 +54,13 @@ module.exports = {
           // Blank until a key is provisioned (see .env.example) — Android map tiles stay blank til then.
           // Restrict by package name + SHA-1 in Google Cloud Console before shipping.
           androidGoogleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? "",
+        },
+      ],
+      [
+        "expo-notifications",
+        {
+          icon: "./assets/icon.png",
+          color: "#0A0A0B",
         },
       ],
     ],

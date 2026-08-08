@@ -115,3 +115,26 @@ export function useUploadAvatar() {
     onSuccess: (id) => queryClient.invalidateQueries({ queryKey: ["profile", id] }),
   });
 }
+
+// Prefills from the OAuth provider's own photo (e.g. Google's `avatar_url`) — fetched
+// server-side-shaped, so it goes straight to arrayBuffer, no base64 round trip needed.
+export function useUploadAvatarFromUrl() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (remoteUrl: string) => {
+      const id = await currentUserId();
+      const response = await fetch(remoteUrl);
+      const arrayBuffer = await response.arrayBuffer();
+      const path = `${id}/avatar.jpg`;
+      const { error: uploadError } = await supabase.storage
+        .from("avatars")
+        .upload(path, arrayBuffer, { contentType: "image/jpeg", upsert: true });
+      if (uploadError) throw uploadError;
+
+      const { error: updateError } = await supabase.from("profiles").update({ photo_path: path }).eq("id", id);
+      if (updateError) throw updateError;
+      return id;
+    },
+    onSuccess: (id) => queryClient.invalidateQueries({ queryKey: ["profile", id] }),
+  });
+}

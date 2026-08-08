@@ -48,5 +48,15 @@ file_size_limit = "10MiB"
 [edge_runtime]
 enabled = true
 
+[functions.push-dispatch]
+# Not a user-facing endpoint — invoked only by pg_net (DB triggers/cron) and authenticated by
+# a shared secret checked in the function body, not a Supabase-issued JWT.
+verify_jwt = false
+
+[functions.ai-proxy]
+# Client-facing — called with the caller's own session JWT. Default verify_jwt (true) is fine
+# here; the function does its own organizer check on top before writing anything.
+verify_jwt = true
+
 [realtime]
 enabled = true

@@ -263,8 +263,10 @@ export function useUploadConfirmation() {
         .upload(path, decode(base64), { contentType: "image/jpeg", upsert: true });
       if (uploadError) throw uploadError;
 
-      const { error: updateError } = await supabase.from("games").update({ verification_status: "pending" }).eq("id", gameId);
-      if (updateError) throw updateError;
+      const { error: parseError } = await supabase.functions.invoke("ai-proxy", {
+        body: { game_id: gameId, storage_path: path },
+      });
+      if (parseError) throw parseError;
     },
   });
 }

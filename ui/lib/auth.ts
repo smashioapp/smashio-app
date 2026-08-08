@@ -1,5 +1,6 @@
 import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
+import { Platform } from "react-native";
 import { supabase } from "./supabase";
 
 // Single "Continue" flow: try signing in, and if there's no account yet, sign one up.
@@ -25,6 +26,14 @@ export async function continueWithGoogle() {
     options: { redirectTo, skipBrowserRedirect: true },
   });
   if (error) throw error;
+
+  if (Platform.OS === "web") {
+    // window.open() after an await misses Chrome's user-activation window and gets
+    // popup-blocked. A full-page redirect has no such restriction — SessionProvider
+    // picks the `code` param back up on reload.
+    window.location.href = data.url;
+    return;
+  }
 
   const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
   if (result.type !== "success") return;

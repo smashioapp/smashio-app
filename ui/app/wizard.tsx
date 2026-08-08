@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { View, Text, Pressable, ScrollView, Alert, Image } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { View, Text, Pressable, ScrollView, Alert, Image, TextInput, ActivityIndicator } from "react-native";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -7,9 +7,10 @@ import * as ImagePicker from "expo-image-picker";
 import { useAppStore } from "../lib/store";
 import { colors, gradients, TIERS } from "../lib/theme";
 import { formatDate, formatTimeRange } from "../lib/format";
-import { useVenues } from "../lib/queries/venues";
+import { useUpsertPlaceVenue } from "../lib/queries/venues";
 import { useSkillTiers, useSports } from "../lib/queries/sports";
 import { useCreateGame, useUploadConfirmation } from "../lib/queries/games";
+import { newSessionToken, searchPlaces, getPlaceDetails, type PlacePrediction } from "../lib/places";
 import { Chip } from "../components/Chip";
 
 const STEP_COUNT = 6;
@@ -41,25 +42,81 @@ export default function Wizard() {
   const { wizard, resetWizard, selectVenue, setStartsAt, selectWizardTier, incPlayers, decPlayers, incCost, decCost } =
     useAppStore();
 
-  const { data: venues = [] } = useVenues();
   const { data: sports = [] } = useSports();
   const { data: tiers = [] } = useSkillTiers(SPORT_SLUG);
   const createGame = useCreateGame();
   const uploadConfirmation = useUploadConfirmation();
+  const upsertPlaceVenue = useUpsertPlaceVenue();
 
   const [confirmationUri, setConfirmationUri] = useState<string | null>(null);
   const [createdGameId, setCreatedGameId] = useState<string | null>(null);
-  const [verificationPending, setVerificationPending] = useState(false);
+  const [verified, setVerified] = useState(false);
   const [publishing, setPublishing] = useState(false);
+
+  const [venueQuery, setVenueQuery] = useState("");
+  const [venueResults, setVenueResults] = useState<PlacePrediction[]>([]);
+  const [venueSearching, setVenueSearching] = useState(false);
+  const [venueResolving, setVenueResolving] = useState(false);
+  const [selectedVenue, setSelectedVenue] = useState<{ name: string; suburb: string; address: string } | null>(null);
+  const sessionTokenRef = useRef(newSessionToken());
 
   useEffect(() => {
     resetWizard();
     setConfirmationUri(null);
     setCreatedGameId(null);
-    setVerificationPending(false);
+    setVerified(false);
+    setVenueQuery("");
+    setVenueResults([]);
+    setSelectedVenue(null);
+    sessionTokenRef.current = newSessionToken();
   }, []);
 
-  const venue = venues.find((v) => v.id === wizard.venueId);
+  useEffect(() => {
+    if (selectedVenue) return; // don't re-search right after picking a result
+    const handle = setTimeout(async () => {
+      if (venueQuery.trim().length < 3) {
+        setVenueResults([]);
+        return;
+      }
+      setVenueSearching(true);
+      try {
+        const results = await searchPlaces(venueQuery, sessionTokenRef.current);
+        setVenueResults(results);
+      } catch (e) {
+        // Search errors surface as an empty result list — the input stays usable.
+      } finally {
+        setVenueSearching(false);
+      }
+    }, 350);
+    return () => clearTimeout(handle);
+  }, [venueQuery, selectedVenue]);
+
+  const pickVenue = async (prediction: PlacePrediction) => {
+    setVenueResolving(true);
+    try {
+      const details = await getPlaceDetails(prediction.placeId, sessionTokenRef.current);
+      const venueId = await upsertPlaceVenue.mutateAsync(details);
+      selectVenue(venueId);
+      setSelectedVenue({ name: details.name, suburb: details.suburb, address: details.address });
+      setVenueResults([]);
+      setVenueQuery(details.name);
+      sessionTokenRef.current = newSessionToken();
+    } catch (e) {
+      Alert.alert("Couldn't load that venue", e instanceof Error ? e.message : "Try again.");
+    } finally {
+      setVenueResolving(false);
+    }
+  };
+
+  const changeVenueQuery = (text: string) => {
+    setVenueQuery(text);
+    if (selectedVenue) {
+      setSelectedVenue(null);
+      selectVenue("");
+    }
+  };
+
+  const venue = selectedVenue;
   const perPlayer = (wizard.cost / wizard.maxPlayers).toFixed(0);
   const nextDisabled = step === 0 && !wizard.venueId;
   const endsAt = new Date(wizard.startsAt.getTime() + GAME_DURATION_MS);
@@ -103,7 +160,7 @@ export default function Wizard() {
       setCreatedGameId(id);
       if (confirmationUri) {
         await uploadConfirmation.mutateAsync({ gameId: id, localUri: confirmationUri });
-        setVerificationPending(true);
+        setVerified(true);
       }
       setStep(step + 1);
     } catch (e) {
@@ -146,36 +203,64 @@ export default function Wizard() {
         {step === 0 && (
           <View>
             <StepIcon name="location" />
-            <StepHeading title="Pick your court" subtitle="Where's the action happening?" />
-            {venues.map((v) => {
-              const selected = wizard.venueId === v.id;
-              return (
+            <StepHeading title="Pick your court" subtitle="Search for the venue you've booked." />
+            <View
+              className="flex-row items-center gap-2 rounded-2xl px-3.5 border-[1.5px] mb-2"
+              style={{ backgroundColor: colors.card, borderColor: selectedVenue ? colors.accent : "rgba(255,255,255,0.07)" }}
+            >
+              <Ionicons name="search" size={15} color={colors.textMuted} />
+              <TextInput
+                value={venueQuery}
+                onChangeText={changeVenueQuery}
+                placeholder="Search venues, courts, sports centres…"
+                placeholderTextColor={colors.textMuted}
+                className="flex-1 py-3.5 text-[14px]"
+                style={{ color: colors.text }}
+              />
+              {(venueSearching || venueResolving) && <ActivityIndicator size="small" color={colors.accent} />}
+              {selectedVenue && !venueSearching && !venueResolving && (
+                <View className="w-6 h-6 rounded-full items-center justify-center" style={{ backgroundColor: colors.accent }}>
+                  <Ionicons name="checkmark" size={13} color={colors.base} />
+                </View>
+              )}
+            </View>
+
+            {!selectedVenue &&
+              venueResults.map((p) => (
                 <Pressable
-                  key={v.id}
-                  onPress={() => selectVenue(v.id)}
+                  key={p.placeId}
+                  onPress={() => pickVenue(p)}
                   className="flex-row items-center gap-3 rounded-2xl px-3.5 py-3.5 mb-2 border-[1.5px]"
-                  style={{
-                    backgroundColor: selected ? "#1D2416" : colors.card,
-                    borderColor: selected ? colors.accent : "rgba(255,255,255,0.07)",
-                  }}
+                  style={{ backgroundColor: colors.card, borderColor: "rgba(255,255,255,0.07)" }}
                 >
                   <View className="w-1 self-stretch rounded" style={{ backgroundColor: colors.beginner }} />
                   <View className="flex-1">
                     <Text className="font-body-bold text-[14px]" style={{ color: colors.text }}>
-                      {v.name}
+                      {p.mainText}
                     </Text>
                     <Text className="text-[11.5px] mt-0.5" style={{ color: colors.textSecondary }}>
-                      {v.suburb}, {v.state}
+                      {p.secondaryText}
                     </Text>
                   </View>
-                  {selected && (
-                    <View className="w-6 h-6 rounded-full items-center justify-center" style={{ backgroundColor: colors.accent }}>
-                      <Ionicons name="checkmark" size={13} color={colors.base} />
-                    </View>
-                  )}
                 </Pressable>
-              );
-            })}
+              ))}
+
+            {!selectedVenue && !venueSearching && venueQuery.trim().length >= 3 && venueResults.length === 0 && (
+              <Text className="text-[12.5px] mt-2" style={{ color: colors.textMuted }}>
+                No venues found. Try a different search.
+              </Text>
+            )}
+
+            {selectedVenue && (
+              <View className="rounded-2xl px-3.5 py-3.5 border-[1.5px]" style={{ backgroundColor: "#1D2416", borderColor: colors.accent }}>
+                <Text className="font-body-bold text-[14px]" style={{ color: colors.text }}>
+                  {selectedVenue.name}
+                </Text>
+                <Text className="text-[11.5px] mt-0.5" style={{ color: colors.textSecondary }}>
+                  {selectedVenue.address}
+                </Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -322,9 +407,15 @@ export default function Wizard() {
               <Text className="text-[12px] mt-1" style={{ color: colors.textSecondary }}>
                 {formatDate(wizard.startsAt.toISOString())} · {formatTimeRange(wizard.startsAt.toISOString(), endsAt.toISOString())}
               </Text>
-              <View className="rounded-pill self-start px-2.5 py-1.5 mt-2.5" style={{ backgroundColor: "rgba(255,182,72,0.15)" }}>
-                <Text className="font-body-extrabold text-[9.5px] uppercase" style={{ color: colors.advanced }}>
-                  {verificationPending ? "Pending verification" : "Awaiting booking upload"}
+              <View
+                className="rounded-pill self-start px-2.5 py-1.5 mt-2.5"
+                style={{ backgroundColor: verified ? "rgba(76,217,100,0.15)" : "rgba(255,182,72,0.15)" }}
+              >
+                <Text
+                  className="font-body-extrabold text-[9.5px] uppercase"
+                  style={{ color: verified ? colors.intermediate : colors.advanced }}
+                >
+                  {verified ? "Verified" : "Awaiting booking upload"}
                 </Text>
               </View>
             </View>

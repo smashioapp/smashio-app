@@ -13,6 +13,7 @@ const ROWS = ["Edit profile", "Notifications", "Payment methods"];
 export default function Profile() {
   const { session } = useSession();
   const userId = session?.user.id;
+  const emailVerified = !!session?.user.email_confirmed_at;
   const { data: profile } = useProfile(userId);
   const { data: profileSports } = useProfileSports(userId);
   const { data: stats } = useProfileStats(userId);
@@ -104,9 +105,13 @@ export default function Profile() {
           ))}
           <View className="flex-row justify-between items-center px-3.5 py-3.5" style={{ borderBottomWidth: 1, borderColor: "rgba(255,255,255,0.06)" }}>
             <Text className="text-[13.5px] font-body-semibold" style={{ color: colors.text }}>
-              Verified ID
+              Email verified
             </Text>
-            <Badge state="verified" label="Verified" />
+            {emailVerified ? (
+              <Badge state="verified" label="Verified" />
+            ) : (
+              <Badge state="pending" label="Unverified" />
+            )}
           </View>
           <Pressable className="flex-row justify-between items-center px-3.5 py-3.5" onPress={handleLogout}>
             <Text className="text-[13.5px] font-body-semibold" style={{ color: colors.danger }}>

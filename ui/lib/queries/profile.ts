@@ -24,6 +24,31 @@ export function useProfile(userId: string | undefined) {
   });
 }
 
+export function useProfileStats(profileId: string | undefined) {
+  return useQuery({
+    queryKey: ["profile_stats", profileId],
+    queryFn: async () => {
+      const [organized, joined] = await Promise.all([
+        supabase
+          .from("games")
+          .select("id", { count: "exact", head: true })
+          .eq("organizer_id", profileId!)
+          .eq("status", "completed"),
+        supabase
+          .from("game_players")
+          .select("game_id, games!inner(status)", { count: "exact", head: true })
+          .eq("profile_id", profileId!)
+          .eq("status", "approved")
+          .eq("games.status", "completed"),
+      ]);
+      if (organized.error) throw organized.error;
+      if (joined.error) throw joined.error;
+      return { gamesPlayed: (organized.count ?? 0) + (joined.count ?? 0) };
+    },
+    enabled: !!profileId,
+  });
+}
+
 export function useProfileSports(profileId: string | undefined) {
   return useQuery({
     queryKey: ["profile_sports", profileId],

@@ -321,6 +321,59 @@ export type Database = {
         }
         Relationships: []
       }
+      ratings: {
+        Row: {
+          created_at: string
+          game_id: string
+          ratee_id: string
+          rater_id: string
+          stars: number
+        }
+        Insert: {
+          created_at?: string
+          game_id: string
+          ratee_id: string
+          rater_id: string
+          stars: number
+        }
+        Update: {
+          created_at?: string
+          game_id?: string
+          ratee_id?: string
+          rater_id?: string
+          stars?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ratings_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ratings_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ratings_ratee_id_fkey"
+            columns: ["ratee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ratings_rater_id_fkey"
+            columns: ["rater_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       skill_tiers: {
         Row: {
           id: string
@@ -468,6 +521,7 @@ export type Database = {
     }
     Functions: {
       approved_player_count: { Args: { p_game_id: string }; Returns: number }
+      complete_past_games: { Args: never; Returns: undefined }
       decide_join_request: {
         Args: { approve: boolean; p_game_id: string; p_profile_id: string }
         Returns: undefined
@@ -505,6 +559,7 @@ export type Database = {
           verification_status: string
         }[]
       }
+      recompute_reliability_scores: { Args: never; Returns: undefined }
     }
     Enums: {
       [_ in never]: never

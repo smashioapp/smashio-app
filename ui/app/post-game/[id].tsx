@@ -1,9 +1,12 @@
+import { useState } from "react";
 import { View, Text, Pressable, ScrollView, ActivityIndicator } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
-import { useAppStore } from "../../lib/store";
-import { colors, gradients, initial } from "../../lib/theme";
+import { colors, gradients, initial, reliabilityLabel } from "../../lib/theme";
 import { usePastGameDetail } from "../../lib/queries/games";
+import { useSubmitRatings } from "../../lib/queries/ratings";
+import { useSession } from "../../lib/session";
+import { useProfile, useProfileStats } from "../../lib/queries/profile";
 import { Screen } from "../../components/Screen";
 import { BackButton } from "../../components/BackButton";
 
@@ -11,9 +14,17 @@ export default function PostGame() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const gameQuery = usePastGameDetail(id ?? "");
   const game = gameQuery.data;
-  const { ratings, rate } = useAppStore();
+  const [ratings, setRatings] = useState<Record<string, number>>({});
+  const rate = (playerId: string, n: number) => setRatings((r) => ({ ...r, [playerId]: n }));
+  const submitRatings = useSubmitRatings();
+
+  const { session } = useSession();
+  const userId = session?.user.id;
+  const { data: profile } = useProfile(userId);
+  const { data: stats } = useProfileStats(userId);
 
   const submit = () => {
+    submitRatings.mutate({ gameId: id ?? "", stars: ratings });
     router.replace("/(tabs)/my-games");
   };
 
@@ -73,7 +84,7 @@ export default function PostGame() {
                 Games played
               </Text>
               <Text className="text-[13px] font-body-semibold" style={{ color: colors.text }}>
-                48
+                {stats?.gamesPlayed ?? "—"}
               </Text>
             </View>
             <View className="flex-row justify-between">
@@ -81,7 +92,7 @@ export default function PostGame() {
                 Reliability score
               </Text>
               <Text className="text-[13px] font-body-semibold" style={{ color: colors.accent }}>
-                Excellent
+                {profile ? reliabilityLabel(profile.reliability_score) : "—"}
               </Text>
             </View>
           </View>

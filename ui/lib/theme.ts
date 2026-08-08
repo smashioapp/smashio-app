@@ -55,6 +55,15 @@ export function avatarColor(id: string): string {
   return AVATAR_PALETTE[Math.abs(hash) % AVATAR_PALETTE.length];
 }
 
+// Reliability score is a raw 0-100 number (see backend-plan.md's placeholder cron formula) —
+// bands it into the copy the UI has always shown.
+export function reliabilityLabel(score: number): string {
+  if (score >= 90) return "Excellent";
+  if (score >= 75) return "Good";
+  if (score >= 50) return "Fair";
+  return "Needs work";
+}
+
 export function badgeTone(state: "verified" | "pending" | "cancelled") {
   const map = {
     verified: { bg: "rgba(53,214,166,0.15)", fg: colors.intermediate },

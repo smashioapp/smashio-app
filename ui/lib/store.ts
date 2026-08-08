@@ -43,9 +43,6 @@ type AppState = {
   decPlayers: () => void;
   incCost: () => void;
   decCost: () => void;
-
-  ratings: Record<string, number>;
-  rate: (playerId: string, n: number) => void;
 };
 
 export const useAppStore = create<AppState>((set) => ({
@@ -68,7 +65,4 @@ export const useAppStore = create<AppState>((set) => ({
   decPlayers: () => set((s) => ({ wizard: { ...s.wizard, maxPlayers: Math.max(4, s.wizard.maxPlayers - 2) } })),
   incCost: () => set((s) => ({ wizard: { ...s.wizard, cost: s.wizard.cost + 4 } })),
   decCost: () => set((s) => ({ wizard: { ...s.wizard, cost: Math.max(8, s.wizard.cost - 4) } })),
-
-  ratings: {},
-  rate: (playerId, n) => set((s) => ({ ratings: { ...s.ratings, [playerId]: n } })),
 }));

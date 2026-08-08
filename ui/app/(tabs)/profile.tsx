@@ -5,13 +5,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { Screen } from "../../components/Screen";
 import { Badge } from "../../components/Badge";
 import { useSession } from "../../lib/session";
-import { useProfile, useProfileSports } from "../../lib/queries/profile";
+import { useProfile, useProfileSports, useProfileStats } from "../../lib/queries/profile";
 import { signOut } from "../../lib/auth";
-
-const STATS = [
-  { label: "Games played", value: "47" },
-  { label: "Win rate", value: "68%" },
-];
 
 const ROWS = ["Edit profile", "Notifications", "Payment methods"];
 
@@ -20,11 +15,14 @@ export default function Profile() {
   const userId = session?.user.id;
   const { data: profile } = useProfile(userId);
   const { data: profileSports } = useProfileSports(userId);
+  const { data: stats } = useProfileStats(userId);
 
   const displayName = profile?.display_name || "—";
   const displaySuburb = profile?.home_suburb || "—";
   const skill = profileSports?.[0]?.skill_tiers?.label ?? "Intermediate";
   const color = tierColor(skill);
+  const reliabilityStars = profile ? Math.round(profile.reliability_score / 20) : 0;
+  const memberSinceYear = profile ? new Date(profile.created_at).getFullYear() : "—";
 
   const handleLogout = async () => {
     await signOut();
@@ -57,25 +55,18 @@ export default function Profile() {
         </View>
 
         <View className="flex-row flex-wrap gap-2.5 px-5">
-          {STATS.map((s) => (
-            <LinearGradient
-              key={s.label}
-              colors={gradients.card}
-              className="rounded-2xl p-3.5 items-center border"
-              style={{ borderColor: colors.cardBorder, width: "47%" }}
-            >
-              <Text className="font-display-bold text-[22px]" style={{ color: colors.text }}>
-                {s.value}
-              </Text>
-              <Text className="text-[10.5px] font-body-bold mt-0.5" style={{ color: colors.textTertiary }}>
-                {s.label}
-              </Text>
-            </LinearGradient>
-          ))}
+          <LinearGradient colors={gradients.card} className="rounded-2xl p-3.5 items-center border" style={{ borderColor: colors.cardBorder, width: "47%" }}>
+            <Text className="font-display-bold text-[22px]" style={{ color: colors.text }}>
+              {stats?.gamesPlayed ?? "—"}
+            </Text>
+            <Text className="text-[10.5px] font-body-bold mt-0.5" style={{ color: colors.textTertiary }}>
+              Games played
+            </Text>
+          </LinearGradient>
           <LinearGradient colors={gradients.card} className="rounded-2xl p-3.5 items-center border" style={{ borderColor: colors.cardBorder, width: "47%" }}>
             <View className="flex-row gap-0.5">
               {[1, 2, 3, 4, 5].map((n) => (
-                <Text key={n} style={{ fontSize: 16, color: n <= 4 ? colors.accent : "rgba(255,255,255,0.15)" }}>
+                <Text key={n} style={{ fontSize: 16, color: n <= reliabilityStars ? colors.accent : "rgba(255,255,255,0.15)" }}>
                   ★
                 </Text>
               ))}
@@ -86,7 +77,7 @@ export default function Profile() {
           </LinearGradient>
           <LinearGradient colors={gradients.card} className="rounded-2xl p-3.5 items-center border" style={{ borderColor: colors.cardBorder, width: "47%" }}>
             <Text className="font-display-bold text-[22px]" style={{ color: colors.text }}>
-              2025
+              {memberSinceYear}
             </Text>
             <Text className="text-[10.5px] font-body-bold mt-0.5" style={{ color: colors.textTertiary }}>
               Member since

@@ -3,6 +3,7 @@ import { decode } from "base64-arraybuffer";
 import * as FileSystem from "expo-file-system";
 import { supabase } from "../supabase";
 import type { TablesUpdate } from "../db.types";
+import { computeWeekStreak } from "../format";
 
 async function currentUserId() {
   const {
@@ -44,6 +45,31 @@ export function useProfileStats(profileId: string | undefined) {
       if (organized.error) throw organized.error;
       if (joined.error) throw joined.error;
       return { gamesPlayed: (organized.count ?? 0) + (joined.count ?? 0) };
+    },
+    enabled: !!profileId,
+  });
+}
+
+export function useProfileStreak(profileId: string | undefined) {
+  return useQuery({
+    queryKey: ["profile_streak", profileId],
+    queryFn: async () => {
+      const [organized, joined] = await Promise.all([
+        supabase.from("games").select("starts_at").eq("organizer_id", profileId!).eq("status", "completed"),
+        supabase
+          .from("game_players")
+          .select("games!inner(starts_at, status)")
+          .eq("profile_id", profileId!)
+          .eq("status", "approved")
+          .eq("games.status", "completed"),
+      ]);
+      if (organized.error) throw organized.error;
+      if (joined.error) throw joined.error;
+      const dates = [
+        ...(organized.data ?? []).map((g) => g.starts_at),
+        ...(joined.data ?? []).map((r) => (r.games as unknown as { starts_at: string }).starts_at),
+      ];
+      return computeWeekStreak(dates);
     },
     enabled: !!profileId,
   });

@@ -5,6 +5,7 @@ import { colors, gradients } from "../lib/theme";
 import { Badge } from "./Badge";
 import { SkillPill } from "./SkillPill";
 import { AvatarStack } from "./Avatar";
+import { CountdownChip } from "./CountdownChip";
 import { Game, perPlayerCost } from "../lib/mockData";
 
 export function GameCard({ game, onPress, index = 0 }: { game: Game; onPress: () => void; index?: number }) {
@@ -37,9 +38,12 @@ export function GameCard({ game, onPress, index = 0 }: { game: Game; onPress: ()
             <Badge state={game.verified ? "verified" : "pending"} label={game.verified ? "Verified" : "Pending"} />
           </View>
 
-          <Text className="text-[12px] font-body-semibold" style={{ color: colors.textDim }}>
-            {game.date} · {game.time}
-          </Text>
+          <View className="flex-row items-center justify-between">
+            <Text className="text-[12px] font-body-semibold" style={{ color: colors.textDim }}>
+              {game.date} · {game.time}
+            </Text>
+            <CountdownChip startsAt={game.startsAt} />
+          </View>
 
           <View className="flex-row items-center justify-between mt-0.5">
             <AvatarStack people={game.joined} />

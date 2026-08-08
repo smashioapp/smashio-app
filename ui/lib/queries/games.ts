@@ -25,6 +25,7 @@ function toGame(row: NearbyGameRow): Game {
     courts: row.court_label ?? "",
     date: formatDate(row.starts_at),
     time: formatTimeRange(row.starts_at, row.ends_at),
+    startsAt: row.starts_at,
     skill: row.skill_tier_label as Game["skill"],
     maxPlayers: row.max_players,
     // Named roster is a separate fetch (useGameRoster), gated by RLS to organizer + approved
@@ -50,6 +51,7 @@ function toGameFromPublicRow(row: GamesPublicRow): Game {
     courts: row.court_label ?? "",
     date: formatDate(row.starts_at!),
     time: formatTimeRange(row.starts_at!, row.ends_at!),
+    startsAt: row.starts_at!,
     skill: row.skill_tier_label as Game["skill"],
     maxPlayers: row.max_players!,
     joined: [],

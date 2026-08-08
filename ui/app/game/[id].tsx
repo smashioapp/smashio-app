@@ -17,6 +17,7 @@ import { Badge } from "../../components/Badge";
 import { SkillPill } from "../../components/SkillPill";
 import { BackButton } from "../../components/BackButton";
 import { Button } from "../../components/Button";
+import { CountdownChip } from "../../components/CountdownChip";
 import { haptics } from "../../lib/haptics";
 import { GameDetailSkeleton } from "../../components/Skeleton";
 
@@ -86,9 +87,12 @@ export default function GameDetails() {
             </Text>
             <Badge state={game.verified ? "verified" : "pending"} label={game.verified ? "Verified" : "Pending"} />
           </View>
-          <Text className="text-[12.5px] mt-1" style={{ color: colors.textTertiary }}>
-            {game.suburb} · {game.courts}
-          </Text>
+          <View className="flex-row items-center justify-between mt-1">
+            <Text className="text-[12.5px]" style={{ color: colors.textTertiary }}>
+              {game.suburb} · {game.courts}
+            </Text>
+            <CountdownChip startsAt={game.startsAt} />
+          </View>
 
           <View className="flex-row gap-2 mt-3.5">
             <View className="flex-1 rounded-xl px-3.5 py-2.5 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>

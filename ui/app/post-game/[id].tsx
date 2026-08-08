@@ -6,7 +6,7 @@ import { colors, gradients, initial, reliabilityLabel } from "../../lib/theme";
 import { usePastGameDetail } from "../../lib/queries/games";
 import { useSubmitRatings } from "../../lib/queries/ratings";
 import { useSession } from "../../lib/session";
-import { useProfile, useProfileStats } from "../../lib/queries/profile";
+import { useProfile, useProfileStats, useProfileStreak } from "../../lib/queries/profile";
 import { Screen } from "../../components/Screen";
 import { BackButton } from "../../components/BackButton";
 import { haptics } from "../../lib/haptics";
@@ -24,6 +24,7 @@ export default function PostGame() {
   const userId = session?.user.id;
   const { data: profile } = useProfile(userId);
   const { data: stats } = useProfileStats(userId);
+  const { data: streak } = useProfileStreak(userId);
 
   const submit = () => {
     haptics.success();
@@ -110,6 +111,16 @@ export default function PostGame() {
                 {profile ? reliabilityLabel(profile.reliability_score) : "—"}
               </Text>
             </View>
+            {!!streak && streak >= 2 && (
+              <View className="flex-row justify-between mt-1.5 pt-1.5 border-t" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                <Text className="text-[13px] font-body-semibold" style={{ color: colors.text }}>
+                  🔥 Streak
+                </Text>
+                <Text className="text-[13px] font-body-semibold" style={{ color: colors.accent }}>
+                  {streak} weeks running
+                </Text>
+              </View>
+            )}
           </View>
 
           <LinearGradient colors={gradients.accent} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} className="rounded-pill mb-2.5">

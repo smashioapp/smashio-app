@@ -1,9 +1,12 @@
+import { useState } from "react";
 import { View, Text, Pressable, ScrollView } from "react-native";
 import { router } from "expo-router";
-import { colors, gradients, initial, tierColor } from "../../lib/theme";
+import { Ionicons } from "@expo/vector-icons";
+import { colors, gradients, initial, tierColor, gamesPlayedTier, RELIABILITY_EXPLAINER } from "../../lib/theme";
 import { LinearGradient } from "expo-linear-gradient";
 import { Screen } from "../../components/Screen";
 import { Badge } from "../../components/Badge";
+import { Sheet } from "../../components/Sheet";
 import { useSession } from "../../lib/session";
 import { useProfile, useProfileSports, useProfileStats } from "../../lib/queries/profile";
 import { signOut } from "../../lib/auth";
@@ -14,6 +17,7 @@ const ROWS = [
 ];
 
 export default function Profile() {
+  const [reliabilitySheetOpen, setReliabilitySheetOpen] = useState(false);
   const { session } = useSession();
   const userId = session?.user.id;
   const emailVerified = !!session?.user.email_confirmed_at;
@@ -27,6 +31,7 @@ export default function Profile() {
   const color = tierColor(skill);
   const reliabilityStars = profile ? Math.round(profile.reliability_score / 20) : 0;
   const memberSinceYear = profile ? new Date(profile.created_at).getFullYear() : "—";
+  const playerTier = gamesPlayedTier(stats?.gamesPlayed ?? 0);
 
   const handleLogout = async () => {
     await signOut();
@@ -66,28 +71,60 @@ export default function Profile() {
             <Text className="text-[10.5px] font-body-bold mt-0.5" style={{ color: colors.textTertiary }}>
               Games played
             </Text>
-          </LinearGradient>
-          <LinearGradient colors={gradients.card} className="rounded-2xl p-3.5 items-center border" style={{ borderColor: colors.cardBorder, width: "47%" }}>
-            <View className="flex-row gap-0.5">
-              {[1, 2, 3, 4, 5].map((n) => (
-                <Text key={n} style={{ fontSize: 16, color: n <= reliabilityStars ? colors.accent : "rgba(255,255,255,0.15)" }}>
-                  ★
-                </Text>
-              ))}
+            <View className="rounded-pill px-2 py-0.5 mt-1.5" style={{ backgroundColor: playerTier.color + "22" }}>
+              <Text className="font-body-extrabold text-[9px] uppercase tracking-wide" style={{ color: playerTier.color }}>
+                {playerTier.id}
+              </Text>
             </View>
-            <Text className="text-[10.5px] font-body-bold mt-1" style={{ color: colors.textTertiary }}>
-              Reliability
-            </Text>
           </LinearGradient>
-          <LinearGradient colors={gradients.card} className="rounded-2xl p-3.5 items-center border" style={{ borderColor: colors.cardBorder, width: "47%" }}>
-            <Text className="font-display-bold text-[22px]" style={{ color: colors.text }}>
-              {memberSinceYear}
-            </Text>
-            <Text className="text-[10.5px] font-body-bold mt-0.5" style={{ color: colors.textTertiary }}>
+          <Pressable style={{ width: "47%" }} onPress={() => setReliabilitySheetOpen(true)}>
+            <LinearGradient colors={gradients.card} className="rounded-2xl p-3.5 items-center border" style={{ borderColor: colors.cardBorder }}>
+              <View className="flex-row gap-0.5">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <Text key={n} style={{ fontSize: 16, color: n <= reliabilityStars ? colors.accent : "rgba(255,255,255,0.15)" }}>
+                    ★
+                  </Text>
+                ))}
+              </View>
+              <View className="flex-row items-center gap-1 mt-1">
+                <Text className="text-[10.5px] font-body-bold" style={{ color: colors.textTertiary }}>
+                  Reliability
+                </Text>
+                <Ionicons name="information-circle-outline" size={12} color={colors.textMuted} />
+              </View>
+            </LinearGradient>
+          </Pressable>
+        </View>
+
+        <LinearGradient
+          colors={gradients.accentDiagonal}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          className="rounded-2xl mx-5 mt-2.5 px-4 py-3.5 flex-row items-center justify-between"
+        >
+          <View>
+            <Text className="font-body-extrabold text-[9.5px] uppercase tracking-wide" style={{ color: "rgba(10,10,11,0.6)" }}>
               Member since
             </Text>
-          </LinearGradient>
-        </View>
+            <Text className="font-display-bold text-[19px]" style={{ color: colors.base }}>
+              {memberSinceYear}
+            </Text>
+          </View>
+          <Ionicons name="ribbon-outline" size={26} color="rgba(10,10,11,0.55)" />
+        </LinearGradient>
+
+        <Sheet visible={reliabilitySheetOpen} onClose={() => setReliabilitySheetOpen(false)} title="Reliability score">
+          <Text className="text-[13.5px] leading-5" style={{ color: colors.textSecondary }}>
+            {RELIABILITY_EXPLAINER}
+          </Text>
+          <Text className="font-display-bold text-[26px] mt-1" style={{ color: colors.accent }}>
+            {profile?.reliability_score ?? "—"}
+            <Text className="font-body-semibold text-[13px]" style={{ color: colors.textTertiary }}>
+              {" "}
+              / 100
+            </Text>
+          </Text>
+        </Sheet>
 
         <LinearGradient
           colors={gradients.card}

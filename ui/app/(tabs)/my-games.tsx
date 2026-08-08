@@ -8,6 +8,7 @@ import { Screen } from "../../components/Screen";
 import { Chip } from "../../components/Chip";
 import { GameCard } from "../../components/GameCard";
 import { Badge } from "../../components/Badge";
+import { CountdownChip } from "../../components/CountdownChip";
 import { Button } from "../../components/Button";
 import { GameCardSkeletonList } from "../../components/Skeleton";
 
@@ -80,9 +81,12 @@ export default function MyGames() {
                   </Text>
                   <Badge state={item.verified ? "verified" : "pending"} label={item.verified ? "Verified" : "Pending review"} />
                 </View>
-                <Text className="text-[12px]" style={{ color: colors.textDim }}>
-                  {item.date} · {item.time}
-                </Text>
+                <View className="flex-row items-center justify-between">
+                  <Text className="text-[12px]" style={{ color: colors.textDim }}>
+                    {item.date} · {item.time}
+                  </Text>
+                  <CountdownChip startsAt={item.startsAt} />
+                </View>
                 <Pressable
                   onPress={() => router.push(`/game/${item.id}`)}
                   className="self-start rounded-pill px-4 py-2 border-[1.5px]"

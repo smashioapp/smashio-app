@@ -25,15 +25,15 @@ This is CRED's actual signature — not the color palette, the feel.
 - [x] Pull-to-refresh on Discover, My Games, Chat list.
 - [x] Tab bar badges — unread dot on Chat icon, pending-join-request dot on Profile/My-Games icon (TabBar.tsx currently has neither).
 
-## Phase 2 — status & reward layer
+## Phase 2 — status & reward layer ✅
 
 CRED's core hook: make your own stats worth looking at.
 
-- [ ] Reliability score gets an explainer (tap → sheet: how it's calculated) instead of a bare 5-star with no context.
-- [ ] Visual host/player tier (Bronze/Silver/Gold) on Profile, not just a raw games-played number.
-- [ ] Urgency countdown chip on game cards ("Starts in 2h 15m") — Discover list, My Games, Game Detail.
-- [ ] Streak surfaced after rating submission on post-game screen ("3 weeks running").
-- [ ] "Member since" treated as a flex stat (styled callout) not a plain stat tile.
+- [x] Reliability score gets an explainer (tap → sheet: how it's calculated) instead of a bare 5-star with no context.
+- [x] Visual host/player tier (Bronze/Silver/Gold) on Profile, not just a raw games-played number.
+- [x] Urgency countdown chip on game cards ("Starts in 2h 15m") — Discover list, My Games, Game Detail.
+- [x] Streak surfaced after rating submission on post-game screen ("3 weeks running").
+- [x] "Member since" treated as a flex stat (styled callout) not a plain stat tile.
 
 ## Phase 3 — growth loops
 

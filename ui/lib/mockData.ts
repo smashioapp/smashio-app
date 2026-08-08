@@ -10,6 +10,7 @@ export type Game = {
   courts: string;
   date: string;
   time: string;
+  startsAt: string;
   skill: TierId;
   maxPlayers: number;
   // Named roster — only populated where the viewer is allowed to see it (organizer/approved

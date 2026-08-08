@@ -64,6 +64,22 @@ export function reliabilityLabel(score: number): string {
   return "Needs work";
 }
 
+export type PlayerTierId = "Bronze" | "Silver" | "Gold";
+
+export const GAMES_PLAYED_TIERS: { id: PlayerTierId; min: number; color: string }[] = [
+  { id: "Gold", min: 25, color: colors.advanced },
+  { id: "Silver", min: 10, color: "#C7CDD6" },
+  { id: "Bronze", min: 0, color: "#C68A4E" },
+];
+
+export function gamesPlayedTier(gamesPlayed: number): { id: PlayerTierId; color: string } {
+  const tier = GAMES_PLAYED_TIERS.find((t) => gamesPlayed >= t.min)!;
+  return { id: tier.id, color: tier.color };
+}
+
+export const RELIABILITY_EXPLAINER =
+  "Reliability tracks how often you show up for games you've joined or approved into. It starts at 100 and drops for no-shows or late cancellations, and recovers slowly the more games you complete without one. It's visible to hosts reviewing join requests.";
+
 export function badgeTone(state: "verified" | "pending" | "cancelled") {
   const map = {
     verified: { bg: "rgba(53,214,166,0.15)", fg: colors.intermediate },

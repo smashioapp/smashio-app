@@ -1,23 +1,32 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { View, Text, TextInput, Pressable, FlatList, KeyboardAvoidingView, Platform } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { useAppStore } from "../../lib/store";
 import { colors, initial } from "../../lib/theme";
-import { GAMES } from "../../lib/mockData";
+import { useGameDetail } from "../../lib/queries/games";
+import { useMarkThreadRead, useMessages, useSendMessage } from "../../lib/queries/messages";
 import { Screen } from "../../components/Screen";
 import { BackButton } from "../../components/BackButton";
 
 export default function ChatThread() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const game = GAMES.find((g) => g.id === id);
-  const messages = useAppStore((s) => s.chatMessages[id ?? ""] ?? []);
-  const sendMessage = useAppStore((s) => s.sendMessage);
+  const gameId = id ?? "";
+  const gameQuery = useGameDetail(gameId);
+  const game = gameQuery.data;
+  const messagesQuery = useMessages(gameId);
+  const messages = messagesQuery.data ?? [];
+  const sendMessage = useSendMessage(gameId);
+  const markRead = useMarkThreadRead(gameId);
   const [input, setInput] = useState("");
 
+  useEffect(() => {
+    if (gameId) markRead.mutate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameId]);
+
   const send = () => {
-    if (!input.trim() || !id) return;
-    sendMessage(id, input);
+    if (!input.trim() || !gameId) return;
+    sendMessage.mutate(input);
     setInput("");
   };
 
@@ -31,7 +40,7 @@ export default function ChatThread() {
               {game?.venue ?? "Chat"}
             </Text>
             <Text className="text-[11px]" style={{ color: colors.textTertiary }}>
-              {game?.joined.length ?? 0} players
+              {game?.joinedCount ?? 0} players
             </Text>
           </View>
         </View>

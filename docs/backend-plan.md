@@ -117,7 +117,7 @@ Each slice ends with: migration applied, RLS policies written, UI wired, that sl
 | 2 | ✅ Venues + discover list | `venues`, `games`, `nearby_games` RPC, seed venues. `discover.tsx` list view + filters on real data. `GAMES`/`VENUES` mocks stay in `mockData.ts` — still read by `wizard.tsx`, `my-games.tsx`, `chat*.tsx` until slices 3–5 migrate them. |
 | 3 | ✅ Create game | Wizard writes a real game; confirmation upload → `pending` verification. Kills `DATES`/`TIMES`/`VENUES` mocks. Fixed 2h duration (no separate end-time picker yet), no per-game court number input, no `game_confirmations` table yet (upload just flips `games.verification_status`). |
 | 4 | ✅ Join + organizer | Request to join, organizer approve/reject via `decide_join_request`, `my-games.tsx` all three tabs real. Kills `HOSTING`/`PAST`. |
-| 5 | Chat | `messages` + Realtime channel per game, unread via `message_reads`. Kills `CHAT_SEED` and the store's chat slice. |
+| 5 | ✅ Chat | `messages` + Realtime channel per game, unread via `message_reads`. Kills `CHAT_SEED` and the store's chat slice. |
 | 6 | Post-game | Auto-complete cron, ratings write, profile stats. Kills the store's `ratings` slice — mock data fully gone after this. |
 | 7 | Map | `react-native-maps` pins from `nearby_games`, Places search, Directions deep-link. Debounce/cache calls — both APIs bill per request. |
 | 8 | Push | `push_tokens`, `push-dispatch`, 2-hour reminder, join-decision and new-message notifications. |

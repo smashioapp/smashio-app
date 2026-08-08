@@ -12,6 +12,8 @@ SMASHIO — player-matching app for Australia, badminton first, multi-sport by d
 
 Read [README.md](../README.md), [docs/mvp-spec.md](mvp-spec.md), [docs/business-context.md](business-context.md), [docs/tech-stack.md](tech-stack.md) before proposing features. Backend/integration work: read [docs/backend-plan.md](backend-plan.md) first.
 
+Testing locally: log in with `test@smashio.dev` / `Test1234!` (email/password form, no Google needed) against the hosted project — seeded test accounts + games, see backend-plan.md's "Test data & local login" section.
+
 ## Rules
 
 - Sport must stay a config/data concern, not hardcoded — badminton ships first but engine assumes more sports later.

@@ -12,6 +12,7 @@ module.exports = {
       supportsTablet: true,
     },
     android: {
+      package: "com.ajayaradhya.smashio",
       adaptiveIcon: {
         backgroundColor: "#E6F4FE",
         foregroundImage: "./assets/android-icon-foreground.png",

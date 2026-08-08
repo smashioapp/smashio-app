@@ -138,6 +138,15 @@ Slices 0–6 are the MVP loop. 7–8 are required for ship quality. 9 is require
 - Server only (Supabase function secrets, never in the repo): service-role key, `ANTHROPIC_API_KEY`, Expo access token.
 - Two Supabase projects: `dev` and `prod`. Migrations promote dev → prod; prod is never hand-edited in the dashboard.
 
+## Test data & local login (added 2026-08-09)
+
+Hosted project (`ajbsvsfwjfeofvjuhzrw`, the one `ui/.env` points at) has seeded test accounts + data — no local Supabase stack in use, `.env` targets hosted directly.
+
+- **Login without Google SSO**: `test@smashio.dev` / `Test1234!` on the app's existing email/password form (`ui/app/onboarding/login.tsx` — this path was already wired, not added). 7 more bot accounts (`bot1@smashio.dev`...`bot7@smashio.dev`, same password) exist to populate rosters/chat as other players.
+- `supabase/create-test-users.mjs` — creates those 8 accounts via Auth Admin API. Fetches the service-role key live from the linked CLI (`supabase projects api-keys --reveal`), never writes it to disk. Rerun-safe, skips emails that already exist.
+- `supabase/seed-test-data.sql` — run after the above via `npx supabase db query --linked -f supabase/seed-test-data.sql`. Adds 3 venues (Sydney/Ryde/Rockdale), skill tiers for all 8 test accounts, and 8 games covering: near-full roster, pending join-requests awaiting organizer approval, approved player, pending player, open discover listing, starts-in-90min countdown chip, completed game with ratings, cancelled game. Plus chat messages. **Not rerun-safe** — games/messages/ratings duplicate on a second run; the file's header comment has a cleanup query (delete games where organizer is a `%@smashio.dev` account, cascades the rest).
+- `supabase/seed.sql` (the `db reset`-triggered one, local-only) is untouched — still just sports/tiers/venues, no test users/games. Fatten that one too if local Supabase stack ever comes into use.
+
 ## Open questions — resolved 2026-08-08
 
 Carried from [mvp-spec.md](mvp-spec.md), all four now decided:

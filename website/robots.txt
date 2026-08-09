@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://smashio.com.au/sitemap.xml

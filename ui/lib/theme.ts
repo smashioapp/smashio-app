@@ -64,6 +64,14 @@ export function reliabilityLabel(score: number): string {
   return "Needs work";
 }
 
+// Same bands as reliabilityLabel, so the gauge's color always matches its own copy.
+export function reliabilityColor(score: number): string {
+  if (score >= 90) return colors.intermediate;
+  if (score >= 75) return colors.accent;
+  if (score >= 50) return colors.advanced;
+  return colors.danger;
+}
+
 export type PlayerTierId = "Bronze" | "Silver" | "Gold";
 
 export const GAMES_PLAYED_TIERS: { id: PlayerTierId; min: number; color: string }[] = [
@@ -75,6 +83,13 @@ export const GAMES_PLAYED_TIERS: { id: PlayerTierId; min: number; color: string 
 export function gamesPlayedTier(gamesPlayed: number): { id: PlayerTierId; color: string } {
   const tier = GAMES_PLAYED_TIERS.find((t) => gamesPlayed >= t.min)!;
   return { id: tier.id, color: tier.color };
+}
+
+// GAMES_PLAYED_TIERS is ordered highest-min-first, so the tier one index back is the
+// next one up. Gold has no next — maxed returns null.
+export function nextGamesPlayedTier(gamesPlayed: number): { id: PlayerTierId; color: string; min: number } | null {
+  const idx = GAMES_PLAYED_TIERS.findIndex((t) => gamesPlayed >= t.min);
+  return idx > 0 ? GAMES_PLAYED_TIERS[idx - 1] : null;
 }
 
 export const RELIABILITY_EXPLAINER =

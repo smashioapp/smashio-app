@@ -2,11 +2,14 @@ import { useState } from "react";
 import { View, Text, Pressable, ScrollView } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, gradients, initial, tierColor, gamesPlayedTier, RELIABILITY_EXPLAINER } from "../../lib/theme";
+import { colors, gradients, initial, tierColor, RELIABILITY_EXPLAINER } from "../../lib/theme";
 import { LinearGradient } from "expo-linear-gradient";
 import { Screen } from "../../components/Screen";
 import { Badge } from "../../components/Badge";
 import { Sheet } from "../../components/Sheet";
+import { RollingNumber } from "../../components/RollingNumber";
+import { ReliabilityGauge } from "../../components/ReliabilityGauge";
+import { TierBadge } from "../../components/TierBadge";
 import { useSession } from "../../lib/session";
 import { useProfile, useProfileSports, useProfileStats } from "../../lib/queries/profile";
 import { signOut } from "../../lib/auth";
@@ -31,9 +34,7 @@ export default function Profile() {
   const displaySuburb = profile?.home_suburb || "—";
   const skill = profileSports?.[0]?.skill_tiers?.label ?? "Intermediate";
   const color = tierColor(skill);
-  const reliabilityStars = profile ? Math.round(profile.reliability_score / 20) : 0;
   const memberSinceYear = profile ? new Date(profile.created_at).getFullYear() : "—";
-  const playerTier = gamesPlayedTier(stats?.gamesPlayed ?? 0);
 
   const handleLogout = async () => {
     await signOut();
@@ -67,27 +68,17 @@ export default function Profile() {
 
         <View className="flex-row flex-wrap gap-2.5 px-5">
           <LinearGradient colors={gradients.card} className="rounded-2xl p-3.5 items-center border" style={{ borderColor: colors.cardBorder, width: "47%" }}>
-            <Text className="font-display-bold text-[22px]" style={{ color: colors.text }}>
-              {stats?.gamesPlayed ?? "—"}
-            </Text>
+            <RollingNumber from={0} to={stats?.gamesPlayed ?? 0} className="font-display-bold text-[22px]" style={{ color: colors.text }} />
             <Text className="text-[10.5px] font-body-bold mt-0.5" style={{ color: colors.textTertiary }}>
               Games played
             </Text>
-            <View className="rounded-pill px-2 py-0.5 mt-1.5" style={{ backgroundColor: playerTier.color + "22" }}>
-              <Text className="font-body-extrabold text-[9px] uppercase tracking-wide" style={{ color: playerTier.color }}>
-                {playerTier.id}
-              </Text>
+            <View className="mt-1.5">
+              <TierBadge gamesPlayed={stats?.gamesPlayed ?? 0} />
             </View>
           </LinearGradient>
           <Pressable style={{ width: "47%" }} onPress={() => setReliabilitySheetOpen(true)}>
             <LinearGradient colors={gradients.card} className="rounded-2xl p-3.5 items-center border" style={{ borderColor: colors.cardBorder }}>
-              <View className="flex-row gap-0.5">
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <Text key={n} style={{ fontSize: 16, color: n <= reliabilityStars ? colors.accent : "rgba(255,255,255,0.15)" }}>
-                    ★
-                  </Text>
-                ))}
-              </View>
+              <ReliabilityGauge score={profile?.reliability_score ?? 0} />
               <View className="flex-row items-center gap-1 mt-1">
                 <Text className="text-[10.5px] font-body-bold" style={{ color: colors.textTertiary }}>
                   Reliability

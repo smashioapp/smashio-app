@@ -69,22 +69,25 @@ function StarRow({ value, onChange }: { value: number; onChange: (n: number) => 
 function StreakFlame({ streak, burst }: { streak: number; burst: boolean }) {
   const scale = useSharedValue(0.4);
 
+  // Longer streaks get a bigger flame, a bigger overshoot, and a denser burst —
+  // the reward should visibly compound, not just repeat.
+  const fontSize = Math.min(52, 28 + streak * 2);
+  const peakScale = Math.min(1.55, 1.15 + streak * 0.04);
+  const particleCount = Math.min(28, 8 + streak * 3);
+
   useEffect(() => {
-    scale.value = withDelay(
-      620,
-      withSequence(withSpring(1.25, SPRING.pop), withSpring(1, SPRING.settle)),
-    );
+    scale.value = withDelay(620, withSequence(withSpring(peakScale, SPRING.pop), withSpring(1, SPRING.settle)));
   }, []);
 
   const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
   return (
     <View className="items-center" style={{ position: "relative" }}>
-      <Animated.Text style={[{ fontSize: 32 }, style]}>🔥</Animated.Text>
+      <Animated.Text style={[{ fontSize }, style]}>🔥</Animated.Text>
       <Text className="text-[12px] font-body-semibold mt-1" style={{ color: colors.accent }}>
         {streak} week streak
       </Text>
-      {burst && <Burst origin={{ x: 20, y: 20 }} onDone={() => {}} />}
+      {burst && <Burst origin={{ x: fontSize / 2, y: fontSize / 2 }} count={particleCount} onDone={() => {}} />}
     </View>
   );
 }

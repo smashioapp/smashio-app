@@ -48,6 +48,34 @@ export async function continueWithGoogle() {
   if (exchangeError) throw exchangeError;
 }
 
+// Matches the `smashio://onboarding` redirect URL whitelisted in the Supabase dashboard.
+export async function continueWithApple() {
+  const redirectTo = Linking.createURL("onboarding");
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: "apple",
+    options: { redirectTo, skipBrowserRedirect: true },
+  });
+  if (error) throw error;
+
+  if (Platform.OS === "web") {
+    window.location.href = data.url;
+    return;
+  }
+
+  const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+  if (result.type !== "success") return;
+
+  const { queryParams } = Linking.parse(result.url);
+  const code = queryParams?.code;
+  if (typeof code !== "string") {
+    throw new Error(queryParams?.error_description?.toString() ?? "Apple sign-in was cancelled.");
+  }
+
+  const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+  if (exchangeError) throw exchangeError;
+}
+
 export async function signOut() {
   const { error } = await supabase.auth.signOut();
   if (error) throw error;

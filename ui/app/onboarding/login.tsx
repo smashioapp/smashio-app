@@ -4,7 +4,7 @@ import { router } from "expo-router";
 import { colors } from "../../lib/theme";
 import { Button } from "../../components/Button";
 import { Screen } from "../../components/Screen";
-import { continueWithEmail, continueWithGoogle } from "../../lib/auth";
+import { continueWithApple, continueWithEmail, continueWithGoogle } from "../../lib/auth";
 
 function SocialButton({
   label,
@@ -35,6 +35,7 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [appleLoading, setAppleLoading] = useState(false);
 
   const handleContinue = async () => {
     setError(null);
@@ -59,6 +60,19 @@ export default function Login() {
       setError(e instanceof Error ? e.message : "Something went wrong.");
     } finally {
       setGoogleLoading(false);
+    }
+  };
+
+  const handleApple = async () => {
+    setError(null);
+    setAppleLoading(true);
+    try {
+      await continueWithApple();
+      router.push("/onboarding/profile-photo");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Something went wrong.");
+    } finally {
+      setAppleLoading(false);
     }
   };
 
@@ -126,6 +140,7 @@ export default function Login() {
         </View>
 
         <SocialButton label="Continue with Google" onPress={handleGoogle} loading={googleLoading} />
+        <SocialButton label="Continue with Apple" onPress={handleApple} loading={appleLoading} />
       </View>
     </Screen>
   );

@@ -10,6 +10,7 @@ module.exports = {
     backgroundColor: "#0A0A0B",
     ios: {
       supportsTablet: true,
+      bundleIdentifier: "com.smashio.app",
     },
     android: {
       package: "com.ajayaradhya.smashio",

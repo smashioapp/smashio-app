@@ -1,2 +1,14 @@
 .env
 .env.local
+*.p8
+
+# icon/launcher debug artifacts
+ui/apk_extract/
+ui/*.apk
+ui/scr_*.png
+ui/icon_*.png
+ui/toggle_*.png
+ui/ic_launcher*.png
+ui/gmail_check.png
+ui/mono_on_black.png
+ui/smashio_icon*.png

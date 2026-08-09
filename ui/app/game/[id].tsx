@@ -17,6 +17,7 @@ import { Badge } from "../../components/Badge";
 import { SkillPill } from "../../components/SkillPill";
 import { BackButton } from "../../components/BackButton";
 import { Button } from "../../components/Button";
+import { HoldButton } from "../../components/HoldButton";
 import { CountdownChip } from "../../components/CountdownChip";
 import { haptics } from "../../lib/haptics";
 import { shareGame } from "../../lib/share";
@@ -190,12 +191,14 @@ export default function GameDetails() {
           ) : membership?.status === "requested" ? (
             <Button label="Request sent" variant="secondary" disabled />
           ) : (
-            <Button
-              label={`Join Game — $${perPlayer}`}
-              loading={requestToJoin.isPending}
-              onPress={() => {
-                haptics.tap();
-                requestToJoin.mutate();
+            <HoldButton
+              label={`Hold to join — $${perPlayer}`}
+              completeLabel="Request sent"
+              sfx="chime"
+              onComplete={() => {
+                requestToJoin.mutate(undefined, {
+                  onError: () => Alert.alert("Couldn't send request", "Please try again."),
+                });
               }}
             />
           )}

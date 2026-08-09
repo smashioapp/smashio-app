@@ -14,8 +14,21 @@ import { newSessionToken, searchPlaces, getPlaceDetails, type PlacePrediction } 
 import { useVenues } from "../lib/queries/venues";
 import { Chip } from "../components/Chip";
 import { StepProgress } from "../components/StepProgress";
+import { Burst } from "../components/Burst";
 import { haptics } from "../lib/haptics";
-import Animated, { ZoomIn, FadeInUp } from "react-native-reanimated";
+import { sound } from "../lib/sound";
+import { SPRING, useReduceMotion } from "../lib/motion";
+import Animated, {
+  Easing,
+  FadeInUp,
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withSequence,
+  withSpring,
+  withTiming,
+} from "react-native-reanimated";
 
 const STEP_COUNT = 6;
 const NEXT_LABELS = ["Continue", "Continue", "Continue", "Continue", "Publish match", "Let's go!"];
@@ -30,6 +43,114 @@ const TIME_OPTIONS = [
   { label: "9:00 AM", h: 9, m: 0 },
   { label: "10:00 AM", h: 10, m: 0 },
 ];
+
+// Layers the publish moment: two lines sweep in from the edges, the checkmark stamps
+// with an overshoot + rotation whip, a burst fires at peak, then the summary card
+// slides up from underneath rather than fading in. Runs once when `active` flips true.
+function PublishStamp({ active, children }: { active: boolean; children: React.ReactNode }) {
+  const reduceMotion = useReduceMotion();
+  const lineLeft = useSharedValue(0);
+  const lineRight = useSharedValue(0);
+  const checkScale = useSharedValue(0.3);
+  const checkRotate = useSharedValue(-14);
+  const cardY = useSharedValue(36);
+  const cardOpacity = useSharedValue(0);
+  const [circleSize, setCircleSize] = useState<{ width: number; height: number } | null>(null);
+  const [showBurst, setShowBurst] = useState(false);
+
+  useEffect(() => {
+    if (!active) return;
+    if (reduceMotion) {
+      lineLeft.value = 1;
+      lineRight.value = 1;
+      checkScale.value = 1;
+      checkRotate.value = 0;
+      cardY.value = 0;
+      cardOpacity.value = 1;
+      return;
+    }
+
+    lineLeft.value = withTiming(1, { duration: 420, easing: Easing.out(Easing.cubic) });
+    lineRight.value = withDelay(60, withTiming(1, { duration: 420, easing: Easing.out(Easing.cubic) }));
+
+    checkScale.value = withDelay(
+      160,
+      withSequence(
+        withTiming(1.3, { duration: 180, easing: Easing.out(Easing.quad) }, (done) => {
+          if (done) runOnJS(setShowBurst)(true);
+        }),
+        withSpring(0.95, SPRING.pop),
+        withSpring(1, SPRING.settle),
+      ),
+    );
+    checkRotate.value = withDelay(
+      160,
+      withSequence(withTiming(-12, { duration: 120 }), withTiming(6, { duration: 140 }), withSpring(0, SPRING.settle)),
+    );
+
+    cardY.value = withDelay(420, withSpring(0, SPRING.settle));
+    cardOpacity.value = withDelay(420, withTiming(1, { duration: 320 }));
+  }, [active, reduceMotion]);
+
+  useEffect(() => {
+    if (!showBurst) return;
+    haptics.burst();
+    sound.play("sparkle");
+  }, [showBurst]);
+
+  const lineLeftStyle = useAnimatedStyle(() => ({ transform: [{ scaleX: lineLeft.value }] }));
+  const lineRightStyle = useAnimatedStyle(() => ({ transform: [{ scaleX: lineRight.value }] }));
+  const checkStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: checkScale.value }, { rotate: `${checkRotate.value}deg` }],
+  }));
+  const cardStyle = useAnimatedStyle(() => ({
+    opacity: cardOpacity.value,
+    transform: [{ translateY: cardY.value }],
+  }));
+
+  return (
+    <View className="items-center gap-3.5 pt-3.5">
+      <View style={{ width: "100%", height: 30, justifyContent: "center" }} pointerEvents="none">
+        <Animated.View
+          style={[
+            { position: "absolute", left: 0, width: "50%", height: 2, backgroundColor: colors.accent, opacity: 0.5, transformOrigin: "left" },
+            lineLeftStyle,
+          ]}
+        />
+        <Animated.View
+          style={[
+            { position: "absolute", right: 0, width: "50%", height: 2, backgroundColor: colors.accent, opacity: 0.5, transformOrigin: "right" },
+            lineRightStyle,
+          ]}
+        />
+      </View>
+
+      <View
+        onLayout={(e) => setCircleSize({ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height })}
+        style={{ width: 72, height: 72 }}
+      >
+        <Animated.View
+          className="w-[72px] h-[72px] rounded-full items-center justify-center"
+          style={[{ backgroundColor: "rgba(214,255,63,0.15)" }, checkStyle]}
+        >
+          <Ionicons name="checkmark" size={30} color={colors.accent} />
+        </Animated.View>
+        {showBurst && circleSize && (
+          <Burst
+            origin={{ x: circleSize.width / 2, y: circleSize.height / 2 }}
+            onDone={() => setShowBurst(false)}
+          />
+        )}
+      </View>
+
+      <Animated.Text entering={FadeInUp.delay(150).duration(300)} className="font-display text-[23px]" style={{ color: colors.text }}>
+        You're hosting!
+      </Animated.Text>
+
+      <Animated.View style={[{ width: "100%" }, cardStyle]}>{children}</Animated.View>
+    </View>
+  );
+}
 
 function dateOptions(): { label: string; date: Date }[] {
   return Array.from({ length: 4 }, (_, i) => {
@@ -177,7 +298,6 @@ export default function Wizard() {
         await uploadConfirmation.mutateAsync({ gameId: id, localUri: confirmationUri });
         setVerified(true);
       }
-      haptics.success();
       setStep(step + 1);
     } catch (e) {
       haptics.error();
@@ -431,44 +551,32 @@ export default function Wizard() {
         )}
 
         {step === 5 && (
-          <View className="items-center gap-3.5 pt-3.5">
-            <Animated.View
-              entering={ZoomIn.duration(420).springify().damping(11)}
-              className="w-[72px] h-[72px] rounded-full items-center justify-center"
-              style={{ backgroundColor: "rgba(214,255,63,0.15)" }}
-            >
-              <Ionicons name="checkmark" size={30} color={colors.accent} />
-            </Animated.View>
-            <Animated.Text
-              entering={FadeInUp.delay(150).duration(300)}
-              className="font-display text-[23px]"
-              style={{ color: colors.text }}
-            >
-              You're hosting!
-            </Animated.Text>
-            <Text className="text-[12.5px] text-center max-w-[230px]" style={{ color: colors.textSecondary }}>
-              Your match at {venue?.name ?? "your venue"} is live. Players will start joining any moment.
-            </Text>
-            <View className="w-full rounded-2xl p-4 border mt-1.5" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
-              <Text className="font-body-bold text-[14px]" style={{ color: colors.text }}>
-                {venue?.name ?? "your venue"}
+          <PublishStamp active={step === 5}>
+            <View className="items-center gap-3.5">
+              <Text className="text-[12.5px] text-center max-w-[230px]" style={{ color: colors.textSecondary }}>
+                Your match at {venue?.name ?? "your venue"} is live. Players will start joining any moment.
               </Text>
-              <Text className="text-[12px] mt-1" style={{ color: colors.textSecondary }}>
-                {formatDate(wizard.startsAt.toISOString())} · {formatTimeRange(wizard.startsAt.toISOString(), endsAt.toISOString())}
-              </Text>
-              <View
-                className="rounded-pill self-start px-2.5 py-1.5 mt-2.5"
-                style={{ backgroundColor: verified ? "rgba(76,217,100,0.15)" : "rgba(255,182,72,0.15)" }}
-              >
-                <Text
-                  className="font-body-extrabold text-[9.5px] uppercase"
-                  style={{ color: verified ? colors.intermediate : colors.advanced }}
-                >
-                  {verified ? "Verified" : "Awaiting booking upload"}
+              <View className="w-full rounded-2xl p-4 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
+                <Text className="font-body-bold text-[14px]" style={{ color: colors.text }}>
+                  {venue?.name ?? "your venue"}
                 </Text>
+                <Text className="text-[12px] mt-1" style={{ color: colors.textSecondary }}>
+                  {formatDate(wizard.startsAt.toISOString())} · {formatTimeRange(wizard.startsAt.toISOString(), endsAt.toISOString())}
+                </Text>
+                <View
+                  className="rounded-pill self-start px-2.5 py-1.5 mt-2.5"
+                  style={{ backgroundColor: verified ? "rgba(76,217,100,0.15)" : "rgba(255,182,72,0.15)" }}
+                >
+                  <Text
+                    className="font-body-extrabold text-[9.5px] uppercase"
+                    style={{ color: verified ? colors.intermediate : colors.advanced }}
+                  >
+                    {verified ? "Verified" : "Awaiting booking upload"}
+                  </Text>
+                </View>
               </View>
             </View>
-          </View>
+          </PublishStamp>
         )}
       </ScrollView>
 

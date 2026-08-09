@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { View, Text, Pressable, ScrollView } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
+import Animated, { useAnimatedStyle, useSharedValue, withDelay, withSequence, withSpring } from "react-native-reanimated";
 import { colors, gradients, initial, reliabilityLabel } from "../../lib/theme";
 import { usePastGameDetail } from "../../lib/queries/games";
 import { useSubmitRatings } from "../../lib/queries/ratings";
@@ -9,8 +10,47 @@ import { useSession } from "../../lib/session";
 import { useProfile, useProfileStats, useProfileStreak } from "../../lib/queries/profile";
 import { Screen } from "../../components/Screen";
 import { BackButton } from "../../components/BackButton";
+import { Burst } from "../../components/Burst";
+import { RollingNumber } from "../../components/RollingNumber";
 import { haptics } from "../../lib/haptics";
+import { SPRING } from "../../lib/motion";
 import { SkeletonBlock } from "../../components/Skeleton";
+
+const REVEAL_HOLD_MS = 1200;
+
+function StatOdometer({ label, from, to }: { label: string; from: number; to: number }) {
+  return (
+    <View className="items-center gap-1">
+      <RollingNumber from={from} to={to} className="font-display-bold text-[30px]" style={{ color: colors.text }} />
+      <Text className="text-[11px] font-body-semibold uppercase tracking-wide" style={{ color: colors.textTertiary }}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+function StreakFlame({ streak, burst }: { streak: number; burst: boolean }) {
+  const scale = useSharedValue(0.4);
+
+  useEffect(() => {
+    scale.value = withDelay(
+      620,
+      withSequence(withSpring(1.25, SPRING.pop), withSpring(1, SPRING.settle)),
+    );
+  }, []);
+
+  const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  return (
+    <View className="items-center" style={{ position: "relative" }}>
+      <Animated.Text style={[{ fontSize: 32 }, style]}>🔥</Animated.Text>
+      <Text className="text-[12px] font-body-semibold mt-1" style={{ color: colors.accent }}>
+        {streak} week streak
+      </Text>
+      {burst && <Burst origin={{ x: 20, y: 20 }} onDone={() => {}} />}
+    </View>
+  );
+}
 
 export default function PostGame() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -26,11 +66,49 @@ export default function PostGame() {
   const { data: stats } = useProfileStats(userId);
   const { data: streak } = useProfileStreak(userId);
 
+  const [revealing, setRevealing] = useState(false);
+  const [showFlameBurst, setShowFlameBurst] = useState(false);
+  const hasStreak = !!streak && streak >= 2;
+
   const submit = () => {
     haptics.success();
     submitRatings.mutate({ gameId: id ?? "", stars: ratings });
-    router.replace("/(tabs)/my-games");
+    setRevealing(true);
   };
+
+  useEffect(() => {
+    if (!revealing) return;
+    const t = setTimeout(() => router.replace("/(tabs)/my-games"), REVEAL_HOLD_MS);
+    return () => clearTimeout(t);
+  }, [revealing]);
+
+  useEffect(() => {
+    if (!revealing || !hasStreak) return;
+    const t = setTimeout(() => {
+      setShowFlameBurst(true);
+      haptics.burst();
+    }, 700);
+    return () => clearTimeout(t);
+  }, [revealing, hasStreak]);
+
+  if (revealing) {
+    const gamesPlayed = stats?.gamesPlayed ?? 0;
+    const reliability = profile?.reliability_score ?? 0;
+    return (
+      <Screen>
+        <View className="flex-1 items-center justify-center px-8" style={{ gap: 26 }}>
+          <Text className="font-display text-[20px]" style={{ color: colors.text }}>
+            Nice game!
+          </Text>
+          <View className="flex-row justify-around w-full">
+            <StatOdometer label="Games played" from={Math.max(0, gamesPlayed - 1)} to={gamesPlayed} />
+            <StatOdometer label={reliability ? reliabilityLabel(reliability) : "Reliability"} from={0} to={reliability} />
+          </View>
+          {hasStreak && <StreakFlame streak={streak!} burst={showFlameBurst} />}
+        </View>
+      </Screen>
+    );
+  }
 
   if (gameQuery.isLoading) {
     return (

@@ -192,7 +192,7 @@ export default function GameDetails() {
             <Button label="Request sent" variant="secondary" disabled />
           ) : (
             <HoldButton
-              label={`Hold to join — $${perPlayer}`}
+              label={`Hold to join · $${perPlayer}`}
               completeLabel="Request sent"
               sfx="chime"
               onComplete={() => {

@@ -280,7 +280,7 @@ export default function Wizard() {
     const sport = sports.find((s) => s.slug === SPORT_SLUG);
     const tier = tiers.find((t) => t.label === wizard.skill);
     if (!sport || !tier || !wizard.venueId) {
-      Alert.alert("Not ready yet", "Still loading match settings — try again in a moment.");
+      Alert.alert("Not ready yet", "Still loading match settings, try again in a moment.");
       return;
     }
     setPublishing(true);
@@ -502,7 +502,7 @@ export default function Wizard() {
         {step === 3 && (
           <View>
             <StepIcon name="cash" />
-            <StepHeading title="Split the cost" subtitle="Court fees, shared evenly — no awkward math." />
+            <StepHeading title="Split the cost" subtitle="Court fees, shared evenly, no awkward math." />
             <View className="flex-row items-center justify-center gap-6 rounded-2xl p-5 mb-4 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
               <Stepper onPress={decCost} icon="remove" />
               <Text className="font-display text-[30px]" style={{ color: colors.accent }}>
@@ -544,7 +544,7 @@ export default function Wizard() {
                 <Image source={{ uri: confirmationUri }} className="w-full h-32 rounded-xl mb-2" resizeMode="cover" />
               ) : null}
               <Text className="font-body-bold text-[13px]" style={{ color: confirmationUri ? colors.intermediate : colors.textMuted }}>
-                {confirmationUri ? "✓ Selected — uploads when you publish" : "Tap to upload confirmation (photo)"}
+                {confirmationUri ? "✓ Selected, uploads when you publish" : "Tap to upload confirmation (photo)"}
               </Text>
             </Pressable>
           </View>

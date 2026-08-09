@@ -21,7 +21,7 @@ export default function ChatList() {
       ) : threads.length === 0 ? (
         <View className="items-center gap-2.5 px-5 pt-8">
           <Text className="text-[13px] text-center" style={{ color: colors.textSecondary }}>
-            No chats yet — join or host a game to start one.
+            No chats yet. Join or host a game to start one.
           </Text>
           <Pressable onPress={() => router.push("/(tabs)/discover")} className="rounded-pill px-4 py-2 border-[1.5px]" style={{ borderColor: "rgba(255,255,255,0.15)" }}>
             <Text className="font-body-bold text-[12.5px]" style={{ color: colors.text }}>

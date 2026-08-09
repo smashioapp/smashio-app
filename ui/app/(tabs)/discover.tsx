@@ -109,7 +109,7 @@ export default function Discover() {
                 No games nearby yet
               </Text>
               <Text className="text-[12.5px] text-center max-w-[220px]" style={{ color: colors.textSecondary }}>
-                Be the first to host a match this week — it takes under a minute.
+                Be the first to host a match this week, it takes under a minute.
               </Text>
               <Button label="Create a game" fullWidth={false} onPress={() => router.push("/wizard")} />
             </View>

@@ -35,6 +35,7 @@ module.exports = {
       "expo-font",
       "expo-splash-screen",
       "expo-secure-store",
+      "expo-audio",
       [
         "expo-image-picker",
         {

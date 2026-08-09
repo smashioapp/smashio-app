@@ -1,0 +1,20 @@
+# Native project artifacts EAS generates in the cloud — never needed in the upload
+android/
+ios/
+
+# Local debug/dev leftovers, not referenced by any app code
+apk_extract/
+installed_base.apk
+scr_*.png
+icon_row*.png
+icon_crop*.png
+smashio_icon*.png
+toggle_row*.png
+toggle_crop.png
+mono_on_black.png
+gmail_check.png
+ic_launcher_check.png
+ic_launcher_round_check.png
+
+# Caches
+.expo/

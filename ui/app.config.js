@@ -11,6 +11,9 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.smashio.app",
+      infoPlist: {
+        ITSAppUsesNonExemptEncryption: false,
+      },
     },
     android: {
       package: "com.ajayaradhya.smashio",

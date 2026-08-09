@@ -57,11 +57,11 @@ Phase 2 of [ux-plan.md](ux-plan.md) added tiers, streaks and the reliability exp
 - [ ] **Tier badge** — Bronze/Silver/Gold gets a shine sweep on mount, tilt-on-press, and a progress ring showing distance to the next tier. Progress toward a thing you can see is the cheapest motivation there is.
 - [ ] **Streak flame** — scale and particle density grow with streak length.
 
-## Phase 4 — journey (product decision, not polish)
+## Phase 4 — journey (product decision, not polish) — PARKED
 
 Not Boring's real hook isn't the checkbox, it's the 66-level mountain the checkbox climbs. SMASHIO's equivalent would be a **season ladder**: games played maps to rungs on a court-themed progression, unlocking cosmetic avatar frames and card skins at 10/25/50.
 
-This is a product change with backend implications (new tables, new queries), not a motion pass. Scoped here only so it isn't forgotten. Needs a yes/no before any work starts.
+This is a product change with backend implications (new tables, new queries), not a motion pass. Scoped here only so it isn't forgotten. **Parked 2026-08-09** — phases 0–3 are done and live; revisit this only on explicit go-ahead, still needs a yes/no before any work starts.
 
 ## Not doing
 
@@ -78,3 +78,5 @@ This is a product change with backend implications (new tables, new queries), no
 ## Working order
 
 Phase 0 → 1 → 2 → 3. Phase 0 is a hard prerequisite; phases 1–3 are independent of each other after that and can be reordered by appetite.
+
+**Status (2026-08-09): phases 0–3 shipped and committed.** Phase 4 parked, needs explicit go-ahead.

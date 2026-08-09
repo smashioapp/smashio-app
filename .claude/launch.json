@@ -4,8 +4,20 @@
     {
       "name": "smashio-web",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "web", "--prefix", "ui", "--", "--port", "8090"],
-      "port": 8090
+      "runtimeArgs": ["run", "web", "--", "--port", "8082"],
+      "port": 8082
+    },
+    {
+      "name": "smashio-web-alt",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "ui", "run", "web", "--", "--port", "8083"],
+      "port": 8083
+    },
+    {
+      "name": "smashio-android",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "ui", "run", "android"],
+      "port": 8081
     }
   ]
 }

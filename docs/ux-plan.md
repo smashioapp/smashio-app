@@ -47,7 +47,7 @@ Currently zero. Two entry points missing entirely.
 
 Do this once web preview is no longer needed for dev/demo — it's still useful until then, don't rip out early.
 
-- [ ] Strip `Platform.OS === "web"` shell code from Screen.tsx, wizard.tsx, TabBar.tsx (the 430px phone-frame hack) once web target is formally dropped.
+- [x] Strip `Platform.OS === "web"` shell code from Screen.tsx, wizard.tsx, TabBar.tsx (the 430px phone-frame hack) once web target is formally dropped.
 - [ ] Verify Map view (native-only per code, `GameMap` on Discover) actually works on a real device/simulator — untestable on web preview.
 - [ ] Full pass on iOS + Android simulators for anything not verifiable via web preview: image picker flows, push notifications, haptics, native maps/directions.
 

@@ -1,10 +1,11 @@
-import { View, Text, Pressable, FlatList, RefreshControl } from "react-native";
+import { View, Text, Pressable } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../../lib/theme";
 import { useChatThreads } from "../../lib/queries/messages";
 import { Screen } from "../../components/Screen";
 import { ChatRowSkeletonList } from "../../components/Skeleton";
+import { RefreshableList } from "../../components/RefreshableList";
 
 export default function ChatList() {
   const threadsQuery = useChatThreads();
@@ -29,14 +30,12 @@ export default function ChatList() {
           </Pressable>
         </View>
       ) : (
-        <FlatList
-          style={{ flex: 1 }}
+        <RefreshableList
           data={threads}
           keyExtractor={(t) => t.id}
           contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 110 }}
-          refreshControl={
-            <RefreshControl refreshing={threadsQuery.isRefetching} onRefresh={() => threadsQuery.refetch()} tintColor={colors.accent} />
-          }
+          refreshing={threadsQuery.isRefetching}
+          onRefresh={() => threadsQuery.refetch()}
           renderItem={({ item }) => (
             <Pressable
               onPress={() => router.push(`/chat/${item.id}`)}

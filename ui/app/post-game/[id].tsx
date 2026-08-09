@@ -29,6 +29,43 @@ function StatOdometer({ label, from, to }: { label: string; from: number; to: nu
   );
 }
 
+function Star({ filled, popDelay, popToken, onPress }: { filled: boolean; popDelay: number; popToken: number; onPress: () => void }) {
+  const scale = useSharedValue(1);
+
+  useEffect(() => {
+    if (popToken === 0) return;
+    scale.value = withDelay(popDelay, withSequence(withSpring(1.4, SPRING.pop), withSpring(1, SPRING.settle)));
+  }, [popToken]);
+
+  const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  return (
+    <Pressable onPress={onPress}>
+      <Animated.Text style={[{ fontSize: 18, color: filled ? colors.accent : "rgba(255,255,255,0.15)" }, style]}>★</Animated.Text>
+    </Pressable>
+  );
+}
+
+function StarRow({ value, onChange }: { value: number; onChange: (n: number) => void }) {
+  const [popToken, setPopToken] = useState(0);
+
+  const press = (n: number) => {
+    onChange(n);
+    setPopToken((t) => t + 1);
+    for (let i = 0; i < n; i++) {
+      setTimeout(() => haptics.tick(), i * 40);
+    }
+  };
+
+  return (
+    <View className="flex-row gap-0.5">
+      {[0, 1, 2, 3, 4].map((i) => (
+        <Star key={i} filled={value >= i + 1} popDelay={i < value ? i * 40 : 0} popToken={i < value ? popToken : 0} onPress={() => press(i + 1)} />
+      ))}
+    </View>
+  );
+}
+
 function StreakFlame({ streak, burst }: { streak: number; burst: boolean }) {
   const scale = useSharedValue(0.4);
 
@@ -159,13 +196,7 @@ export default function PostGame() {
               <Text className="flex-1 font-body-bold text-[14px]" style={{ color: colors.text }}>
                 {p.name}
               </Text>
-              <View className="flex-row gap-0.5">
-                {[1, 2, 3, 4, 5].map((n) => (
-                  <Pressable key={n} onPress={() => rate(p.id, n)}>
-                    <Text style={{ fontSize: 18, color: (ratings[p.id] ?? 0) >= n ? colors.accent : "rgba(255,255,255,0.15)" }}>★</Text>
-                  </Pressable>
-                ))}
-              </View>
+              <StarRow value={ratings[p.id] ?? 0} onChange={(n) => rate(p.id, n)} />
             </View>
           ))}
 

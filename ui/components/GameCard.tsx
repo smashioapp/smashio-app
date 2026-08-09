@@ -1,22 +1,38 @@
+import { useEffect, useRef } from "react";
 import { Pressable, View, Text } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import Animated, { FadeInUp, useSharedValue, useAnimatedStyle, withSpring } from "react-native-reanimated";
+import Animated, { FadeInUp, useSharedValue, useAnimatedStyle, withSequence, withSpring } from "react-native-reanimated";
 import { colors, gradients } from "../lib/theme";
 import { Badge } from "./Badge";
 import { SkillPill } from "./SkillPill";
 import { AvatarStack } from "./Avatar";
 import { CountdownChip } from "./CountdownChip";
 import { Game, perPlayerCost } from "../lib/mockData";
+import { haptics } from "../lib/haptics";
+import { SPRING } from "../lib/motion";
 
 export function GameCard({ game, onPress, index = 0 }: { game: Game; onPress: () => void; index?: number }) {
   const scale = useSharedValue(1);
   const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
+  const joinedScale = useSharedValue(1);
+  const prevJoined = useRef(game.joinedCount);
+  useEffect(() => {
+    if (prevJoined.current !== game.joinedCount) {
+      joinedScale.value = withSequence(withSpring(1.3, SPRING.pop), withSpring(1, SPRING.settle));
+      prevJoined.current = game.joinedCount;
+    }
+  }, [game.joinedCount]);
+  const joinedStyle = useAnimatedStyle(() => ({ transform: [{ scale: joinedScale.value }] }));
+
   return (
     <Animated.View entering={FadeInUp.delay(index * 60).duration(320)} style={animatedStyle}>
       <Pressable
         onPress={onPress}
-        onPressIn={() => (scale.value = withSpring(0.97, { damping: 18, stiffness: 300 }))}
+        onPressIn={() => {
+          haptics.tick();
+          scale.value = withSpring(0.97, { damping: 18, stiffness: 300 });
+        }}
         onPressOut={() => (scale.value = withSpring(1, { damping: 18, stiffness: 300 }))}
       >
         <LinearGradient
@@ -57,9 +73,9 @@ export function GameCard({ game, onPress, index = 0 }: { game: Game; onPress: ()
             <Text className="font-display-bold text-[16px]" style={{ color: colors.accent }}>
               ${perPlayerCost(game.cost, game.maxPlayers)} <Text className="font-body-semibold text-[11px]" style={{ color: colors.textTertiary }}>/ player</Text>
             </Text>
-            <Text className="text-[11px] font-body-bold" style={{ color: colors.textMuted }}>
+            <Animated.Text className="text-[11px] font-body-bold" style={[{ color: colors.textMuted }, joinedStyle]}>
               {game.joinedCount}/{game.maxPlayers} joined
-            </Text>
+            </Animated.Text>
           </View>
         </LinearGradient>
       </Pressable>

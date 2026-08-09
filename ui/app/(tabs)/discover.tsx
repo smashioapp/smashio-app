@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, Text, Pressable, ScrollView, FlatList, Linking, Platform, RefreshControl } from "react-native";
+import { View, Text, Pressable, ScrollView, Linking, Platform } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppStore } from "../../lib/store";
@@ -11,6 +11,7 @@ import { Chip } from "../../components/Chip";
 import { GameCard } from "../../components/GameCard";
 import { Button } from "../../components/Button";
 import { GameMap } from "../../components/GameMap";
+import { RefreshableList } from "../../components/RefreshableList";
 import type { Game } from "../../lib/mockData";
 
 function openDirections(game: Game) {
@@ -89,14 +90,12 @@ export default function Discover() {
       </View>
 
       {discoverView === "list" ? (
-        <FlatList
-          style={{ flex: 1 }}
+        <RefreshableList
           data={games}
           keyExtractor={(g) => g.id}
           contentContainerStyle={{ padding: 20, paddingTop: 4, paddingBottom: 110, gap: 12 }}
-          refreshControl={
-            <RefreshControl refreshing={discoverQuery.isRefetching} onRefresh={() => discoverQuery.refetch()} tintColor={colors.accent} />
-          }
+          refreshing={discoverQuery.isRefetching}
+          onRefresh={() => discoverQuery.refetch()}
           renderItem={({ item, index }) => <GameCard game={item} index={index} onPress={() => router.push(`/game/${item.id}`)} />}
           ListEmptyComponent={
             <View className="items-center gap-3 pt-16 px-5">

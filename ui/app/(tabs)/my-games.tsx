@@ -1,4 +1,4 @@
-import { View, Text, Pressable, FlatList, RefreshControl } from "react-native";
+import { View, Text, Pressable } from "react-native";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { useAppStore } from "../../lib/store";
@@ -11,6 +11,7 @@ import { Badge } from "../../components/Badge";
 import { CountdownChip } from "../../components/CountdownChip";
 import { Button } from "../../components/Button";
 import { GameCardSkeletonList } from "../../components/Skeleton";
+import { RefreshableList } from "../../components/RefreshableList";
 
 export default function MyGames() {
   const { myGamesTab, setMyGamesTab } = useAppStore();
@@ -33,14 +34,12 @@ export default function MyGames() {
         (joinedQuery.isLoading ? (
           <GameCardSkeletonList />
         ) : (
-          <FlatList
-            style={{ flex: 1 }}
+          <RefreshableList
             data={joinedQuery.data ?? []}
             keyExtractor={(g) => g.id}
             contentContainerStyle={{ padding: 20, paddingTop: 0, paddingBottom: 110, gap: 12 }}
-            refreshControl={
-              <RefreshControl refreshing={joinedQuery.isRefetching} onRefresh={() => joinedQuery.refetch()} tintColor={colors.accent} />
-            }
+            refreshing={joinedQuery.isRefetching}
+            onRefresh={() => joinedQuery.refetch()}
             ListEmptyComponent={
               <View className="items-center gap-2.5 pt-14">
                 <Text className="text-[13px]" style={{ color: colors.textSecondary }}>
@@ -57,14 +56,12 @@ export default function MyGames() {
         (hostingQuery.isLoading ? (
           <GameCardSkeletonList />
         ) : (
-          <FlatList
-            style={{ flex: 1 }}
+          <RefreshableList
             data={hostingQuery.data ?? []}
             keyExtractor={(g) => g.id}
             contentContainerStyle={{ padding: 20, paddingTop: 0, paddingBottom: 110, gap: 12 }}
-            refreshControl={
-              <RefreshControl refreshing={hostingQuery.isRefetching} onRefresh={() => hostingQuery.refetch()} tintColor={colors.accent} />
-            }
+            refreshing={hostingQuery.isRefetching}
+            onRefresh={() => hostingQuery.refetch()}
             ListEmptyComponent={
               <View className="items-center gap-2.5 pt-14">
                 <Text className="text-[13px]" style={{ color: colors.textSecondary }}>
@@ -105,14 +102,12 @@ export default function MyGames() {
         (pastQuery.isLoading ? (
           <GameCardSkeletonList />
         ) : (
-          <FlatList
-            style={{ flex: 1 }}
+          <RefreshableList
             data={pastQuery.data ?? []}
             keyExtractor={(g) => g.id}
             contentContainerStyle={{ padding: 20, paddingTop: 0, paddingBottom: 110, gap: 12 }}
-            refreshControl={
-              <RefreshControl refreshing={pastQuery.isRefetching} onRefresh={() => pastQuery.refetch()} tintColor={colors.accent} />
-            }
+            refreshing={pastQuery.isRefetching}
+            onRefresh={() => pastQuery.refetch()}
             ListEmptyComponent={
               <View className="items-center gap-2.5 pt-14">
                 <Text className="text-[13px]" style={{ color: colors.textSecondary }}>

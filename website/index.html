@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SMASHIO — Find a court. Find your match.</title>
+<meta name="description" content="SMASHIO finds badminton games happening near you tonight — real courts, real players, sorted by skill. Join in two taps or host your own. Launching Sydney, spring 2026." />
+<link rel="icon" type="image/png" href="assets/smashio-logo.png" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
+<script type="module" src="https://unpkg.com/ionicons@7.4.0/dist/ionicons/ionicons.esm.js"></script>
+<style>
+  html { scroll-behavior: smooth; }
+  body { margin: 0; background: #0A0A0B; color: #F5F5F7; font-family: Manrope, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  a { color: #D6FF3F; text-decoration: none; }
+  a:hover { color: #EBFF7A; }
+  ::selection { background: #D6FF3F; color: #0A0A0B; }
+  @keyframes smash-drift { 0% { transform: translateY(0); } 100% { transform: translateY(-14px); } }
+  @keyframes smash-pulse { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
+  @keyframes smash-marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+
+  .nav-link { display: none; }
+  @media (min-width: 760px) { .nav-link { display: block; } }
+</style>
+
+</head>
+<body style="margin:0">
+
+
+<div style="background:#0A0A0B; overflow-x:hidden">
+
+<header style="position:sticky; top:0; z-index:50; backdrop-filter:blur(18px); background:rgba(10,10,11,.72); border-bottom:1px solid rgba(255,255,255,.06)">
+  <div style="max-width:1180px; margin:0 auto; padding:14px 20px; display:flex; align-items:center; justify-content:space-between; gap:16px">
+    <a href="#top" style="display:flex; align-items:center; gap:9px; color:#F5F5F7">
+      <img src="assets/smashio-logo.png" alt="SMASHIO" style="width:30px; height:30px; object-fit:contain" />
+      <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:19px; letter-spacing:-.02em">SMASHIO</span>
+    </a>
+    <nav style="display:flex; align-items:center; gap:26px">
+      <a href="#how" class="nav-link" style="color:#96969E; font-size:13px; font-weight:600">How it works</a>
+      <a href="#features" class="nav-link" style="color:#96969E; font-size:13px; font-weight:600">Features</a>
+      <a href="#app" class="nav-link" style="color:#96969E; font-size:13px; font-weight:600">The app</a>
+      <a href="#waitlist" style="background:linear-gradient(135deg,#EBFF7A,#AEE62A); color:#0A0A0B; font-size:13px; font-weight:800; padding:9px 16px; border-radius:100px">Get early access</a>
+    </nav>
+  </div>
+</header>
+
+<section id="top" style="position:relative; overflow:hidden; border-bottom:1px solid rgba(255,255,255,.06)">
+  <div style="position:absolute; inset:0; pointer-events:none">
+    <svg viewBox="0 0 1200 800" preserveAspectRatio="xMidYMax slice" style="position:absolute; inset:0; width:100%; height:100%">
+      <defs>
+        <linearGradient id="laneFade" x1="0" y1="380" x2="0" y2="800" gradientUnits="userSpaceOnUse">
+          <stop offset="0" stop-color="#D6FF3F" stop-opacity="0" />
+          <stop offset="0.35" stop-color="#D6FF3F" stop-opacity="0.10" />
+          <stop offset="1" stop-color="#D6FF3F" stop-opacity="0.22" />
+        </linearGradient>
+        <radialGradient id="bloomVolt" cx="50%" cy="50%" r="50%">
+          <stop offset="0" stop-color="#D6FF3F" stop-opacity="0.30" />
+          <stop offset="0.45" stop-color="#D6FF3F" stop-opacity="0.09" />
+          <stop offset="1" stop-color="#D6FF3F" stop-opacity="0" />
+        </radialGradient>
+        <radialGradient id="bloomCool" cx="50%" cy="50%" r="50%">
+          <stop offset="0" stop-color="#35D6A6" stop-opacity="0.16" />
+          <stop offset="0.5" stop-color="#35D6A6" stop-opacity="0.05" />
+          <stop offset="1" stop-color="#35D6A6" stop-opacity="0" />
+        </radialGradient>
+      </defs>
+      <ellipse cx="1050" cy="60" rx="900" ry="300" fill="url(#bloomVolt)" />
+      <ellipse cx="40" cy="620" rx="820" ry="300" fill="url(#bloomCool)" />
+      <g>
+        <line x1="420" y1="380" x2="-960" y2="800" stroke="url(#laneFade)" stroke-width="1" />
+        <line x1="510" y1="380" x2="-180" y2="800" stroke="url(#laneFade)" stroke-width="1" />
+        <line x1="600" y1="380" x2="600" y2="800" stroke="url(#laneFade)" stroke-width="1" />
+        <line x1="690" y1="380" x2="1380" y2="800" stroke="url(#laneFade)" stroke-width="1" />
+        <line x1="780" y1="380" x2="2160" y2="800" stroke="url(#laneFade)" stroke-width="1" />
+        <line x1="420" y1="389" x2="780" y2="389" stroke="#D6FF3F" stroke-opacity="0.09" stroke-width="1" />
+        <line x1="340" y1="418" x2="860" y2="418" stroke="#D6FF3F" stroke-opacity="0.11" stroke-width="1" />
+        <line x1="220" y1="475" x2="980" y2="475" stroke="#D6FF3F" stroke-opacity="0.13" stroke-width="1" />
+        <line x1="60" y1="562" x2="1140" y2="562" stroke="#D6FF3F" stroke-opacity="0.16" stroke-width="1" />
+        <line x1="-160" y1="676" x2="1360" y2="676" stroke="#D6FF3F" stroke-opacity="0.19" stroke-width="1" />
+        <line x1="-420" y1="800" x2="1620" y2="800" stroke="#D6FF3F" stroke-opacity="0.22" stroke-width="1" />
+        <line x1="372" y1="382" x2="828" y2="382" stroke="#D6FF3F" stroke-opacity="0.30" stroke-width="1.5" />
+      </g>
+    </svg>
+  </div>
+
+  <div style="position:relative; max-width:1180px; margin:0 auto; padding:78px 20px 96px; display:flex; flex-direction:column; align-items:center; text-align:center; gap:26px">
+    <div style="display:flex; align-items:center; gap:8px; background:rgba(214,255,63,.10); border:1px solid rgba(214,255,63,.22); padding:7px 14px; border-radius:100px">
+      <span style="width:6px; height:6px; border-radius:50%; background:#D6FF3F; animation:smash-pulse 1.6s ease-in-out infinite"></span>
+      <span style="font-size:11px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:#D6FF3F">Sydney · Spring 2026</span>
+    </div>
+
+    <h1 style="margin:0; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:clamp(44px,9vw,88px); line-height:.94; letter-spacing:-.035em; max-width:14ch; text-wrap:balance">Find a court.<br />Find your<br /><span style="background:linear-gradient(120deg,#EBFF7A,#AEE62A); -webkit-background-clip:text; background-clip:text; color:transparent">match.</span></h1>
+
+    <p style="margin:0; max-width:46ch; font-size:clamp(15px,2.2vw,18px); line-height:1.55; color:#96969E; text-wrap:pretty">SMASHIO finds badminton games happening near you tonight — real courts, real players, sorted by skill. Join in two taps or host your own.</p>
+
+    <div style="display:flex; flex-wrap:wrap; gap:12px; justify-content:center; align-items:center; margin-top:2px">
+      <a href="#waitlist" style="display:flex; align-items:center; gap:11px; background:#141416; border:1px solid rgba(255,255,255,.10); padding:12px 20px 12px 17px; border-radius:14px; color:#F5F5F7">
+        <ion-icon name="logo-apple" style="font-size:24px; color:#F5F5F7"></ion-icon>
+        <span style="display:flex; flex-direction:column; align-items:flex-start; line-height:1.15">
+          <span style="font-size:9.5px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:#7A7A82">Notify me on</span>
+          <span style="font-size:16px; font-weight:800; letter-spacing:-.01em">App Store</span>
+        </span>
+      </a>
+      <a href="#waitlist" style="display:flex; align-items:center; gap:11px; background:#141416; border:1px solid rgba(255,255,255,.10); padding:12px 20px 12px 17px; border-radius:14px; color:#F5F5F7">
+        <ion-icon name="logo-google-playstore" style="font-size:22px; color:#F5F5F7"></ion-icon>
+        <span style="display:flex; flex-direction:column; align-items:flex-start; line-height:1.15">
+          <span style="font-size:9.5px; font-weight:700; letter-spacing:.1em; text-transform:uppercase; color:#7A7A82">Notify me on</span>
+          <span style="font-size:16px; font-weight:800; letter-spacing:-.01em">Google Play</span>
+        </span>
+      </a>
+    </div>
+
+    <div style="display:flex; align-items:center; gap:14px; background:rgba(20,20,22,.7); border:1px solid rgba(255,255,255,.07); padding:12px 18px 12px 12px; border-radius:18px; margin-top:6px">
+      <div style="background:#0A0A0B; border:1px solid rgba(214,255,63,.25); border-radius:12px; padding:7px; line-height:0">
+        <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&amp;margin=0&amp;data=https%3A%2F%2Fsmashio.com.au&amp;bgcolor=0A0A0B&amp;color=D6FF3F" alt="Scan for smashio.com.au" style="width:64px; height:64px; display:block" />
+      </div>
+      <div style="text-align:left">
+        <div style="font-size:13px; font-weight:800; color:#F5F5F7">Scan to hold your spot</div>
+        <div style="font-size:12px; color:#7A7A82; margin-top:3px">smashio.com.au · 1,400 players already in</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="position:relative; border-top:1px solid rgba(255,255,255,.06); background:rgba(20,20,22,.5); overflow:hidden">
+    <div style="display:flex; width:max-content; animation:smash-marquee 34s linear infinite">
+      <div style="display:flex; align-items:center; gap:34px; padding:13px 17px">
+        <span style="font-size:12px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:#7A7A82">Olympic Park · 7:30pm</span><span style="color:#D6FF3F">·</span>
+        <span style="font-size:12px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:#7A7A82">Chatswood · 6 spots</span><span style="color:#D6FF3F">·</span>
+        <span style="font-size:12px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:#7A7A82">Intermediate doubles</span><span style="color:#D6FF3F">·</span>
+        <span style="font-size:12px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:#7A7A82">Auburn · $9 / player</span><span style="color:#D6FF3F">·</span>
+        <span style="font-size:12px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:#7A7A82">Rhodes · starts in 2h</span><span style="color:#D6FF3F">·</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:34px; padding:13px 17px" aria-hidden="true">
+        <span style="font-size:12px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:#7A7A82">Olympic Park · 7:30pm</span><span style="color:#D6FF3F">·</span>
+        <span style="font-size:12px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:#7A7A82">Chatswood · 6 spots</span><span style="color:#D6FF3F">·</span>
+        <span style="font-size:12px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:#7A7A82">Intermediate doubles</span><span style="color:#D6FF3F">·</span>
+        <span style="font-size:12px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:#7A7A82">Auburn · $9 / player</span><span style="color:#D6FF3F">·</span>
+        <span style="font-size:12px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:#7A7A82">Rhodes · starts in 2h</span><span style="color:#D6FF3F">·</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="how" style="max-width:1180px; margin:0 auto; padding:88px 20px">
+  <div style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; margin-bottom:38px">
+    <span style="font-size:11px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:#D6FF3F">How it works</span>
+    <h2 style="margin:0; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:clamp(30px,5vw,46px); letter-spacing:-.03em; line-height:1.02">Court to court in three taps</h2>
+  </div>
+
+  <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px">
+    <div style="position:relative; background:linear-gradient(150deg,#18181C,#0E0E10); border:1px solid rgba(255,255,255,.08); border-radius:22px; padding:26px 24px 28px; overflow:hidden">
+      <div style="position:absolute; right:-26px; top:-26px; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:150px; line-height:1; color:rgba(255,255,255,.03)">01</div>
+      <div style="position:relative; width:46px; height:46px; border-radius:14px; background:rgba(214,255,63,.12); display:flex; align-items:center; justify-content:center; margin-bottom:18px">
+        <ion-icon name="search" style="font-size:21px; color:#D6FF3F"></ion-icon>
+      </div>
+      <h3 style="position:relative; margin:0 0 8px; font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:20px; letter-spacing:-.02em">Find a game near you</h3>
+      <p style="position:relative; margin:0; font-size:14px; line-height:1.6; color:#96969E">Live listings ranked by distance and start time. Filter by level, or just tap Tonight and see what's on.</p>
+    </div>
+
+    <div style="position:relative; background:linear-gradient(150deg,#18181C,#0E0E10); border:1px solid rgba(255,255,255,.08); border-radius:22px; padding:26px 24px 28px; overflow:hidden">
+      <div style="position:absolute; right:-26px; top:-26px; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:150px; line-height:1; color:rgba(255,255,255,.03)">02</div>
+      <div style="position:relative; width:46px; height:46px; border-radius:14px; background:rgba(214,255,63,.12); display:flex; align-items:center; justify-content:center; margin-bottom:18px">
+        <ion-icon name="add" style="font-size:24px; color:#D6FF3F"></ion-icon>
+      </div>
+      <h3 style="position:relative; margin:0 0 8px; font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:20px; letter-spacing:-.02em">Join it, or host your own</h3>
+      <p style="position:relative; margin:0; font-size:14px; line-height:1.6; color:#96969E">Hold to request a spot and the host approves. Hosting takes under a minute — court cost splits evenly, automatically.</p>
+    </div>
+
+    <div style="position:relative; background:linear-gradient(150deg,#18181C,#0E0E10); border:1px solid rgba(255,255,255,.08); border-radius:22px; padding:26px 24px 28px; overflow:hidden">
+      <div style="position:absolute; right:-26px; top:-26px; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:150px; line-height:1; color:rgba(255,255,255,.03)">03</div>
+      <div style="position:relative; width:46px; height:46px; border-radius:14px; background:rgba(214,255,63,.12); display:flex; align-items:center; justify-content:center; margin-bottom:18px">
+        <ion-icon name="tennisball-outline" style="font-size:21px; color:#D6FF3F"></ion-icon>
+      </div>
+      <h3 style="position:relative; margin:0 0 8px; font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:20px; letter-spacing:-.02em">Show up and play</h3>
+      <p style="position:relative; margin:0; font-size:14px; line-height:1.6; color:#96969E">Directions, group chat and a countdown in your pocket. Turn up, play, rate the session. Your reliability does the rest.</p>
+    </div>
+  </div>
+</section>
+
+<section id="features" style="border-top:1px solid rgba(255,255,255,.06); border-bottom:1px solid rgba(255,255,255,.06); background:#0E0E10">
+  <div style="max-width:1180px; margin:0 auto; padding:88px 20px">
+    <div style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; margin-bottom:38px">
+      <span style="font-size:11px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:#D6FF3F">Features</span>
+      <h2 style="margin:0; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:clamp(30px,5vw,46px); letter-spacing:-.03em; line-height:1.02">Built for people who actually turn up</h2>
+    </div>
+
+    <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(420px,1fr)); gap:16px">
+      <div style="background:#141416; border:1px solid rgba(255,255,255,.08); border-radius:22px; padding:26px 24px; display:flex; flex-direction:column; gap:16px">
+        <div style="display:flex; align-items:center; gap:10px">
+          <ion-icon name="flash" style="font-size:18px; color:#D6FF3F"></ion-icon>
+          <h3 style="margin:0; font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:19px; letter-spacing:-.02em">Live game listings</h3>
+        </div>
+        <p style="margin:0; font-size:14px; line-height:1.6; color:#96969E">Spots fill in real time. Countdown chips go red in the last hour, so you always know what's still live.</p>
+        <div style="display:flex; gap:8px; flex-wrap:wrap">
+          <span style="background:rgba(214,255,63,.14); color:#D6FF3F; font-size:10px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; padding:5px 10px; border-radius:100px">In 3h 20m</span>
+          <span style="background:rgba(255,103,103,.16); color:#FF6767; font-size:10px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; padding:5px 10px; border-radius:100px">In 42m</span>
+          <span style="background:rgba(255,255,255,.06); color:#7A7A82; font-size:10px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; padding:5px 10px; border-radius:100px">6/8 joined</span>
+        </div>
+        <div style="margin-top:auto; display:flex; flex-direction:column; gap:12px; padding-top:4px">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px">
+            <span style="font-size:12.5px; font-weight:700; color:#C7C7CE">Sydney Olympic Park · 7:30 pm</span>
+            <span style="font-size:11.5px; font-weight:800; color:#D6FF3F">2 spots left</span>
+          </div>
+          <div style="height:6px; border-radius:100px; background:rgba(255,255,255,.07); overflow:hidden">
+            <div style="width:75%; height:100%; border-radius:100px; background:linear-gradient(90deg,#EBFF7A,#AEE62A)"></div>
+          </div>
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:12px">
+            <span style="font-size:12.5px; font-weight:700; color:#C7C7CE">Chatswood Sports Hall · 6:00 pm</span>
+            <span style="font-size:11.5px; font-weight:800; color:#7A7A82">4 spots left</span>
+          </div>
+          <div style="height:6px; border-radius:100px; background:rgba(255,255,255,.07); overflow:hidden">
+            <div style="width:33%; height:100%; border-radius:100px; background:linear-gradient(90deg,#EBFF7A,#AEE62A)"></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:#141416; border:1px solid rgba(255,255,255,.08); border-radius:22px; padding:26px 24px; display:flex; flex-direction:column; gap:16px">
+        <div style="display:flex; align-items:center; gap:10px">
+          <ion-icon name="podium-outline" style="font-size:18px; color:#D6FF3F"></ion-icon>
+          <h3 style="margin:0; font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:19px; letter-spacing:-.02em">Four honest skill tiers</h3>
+        </div>
+        <p style="margin:0; font-size:14px; line-height:1.6; color:#96969E">No sandbagging. Every game states its level up front, so you're never the only beginner on a Pro court.</p>
+        <div style="display:flex; flex-direction:column; gap:7px; margin-top:auto">
+          <div style="display:flex; align-items:center; gap:9px"><span style="background:rgba(111,203,255,.13); color:#6FCBFF; font-size:10px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; padding:5px 10px; border-radius:100px">Beginner</span><span style="font-size:12px; color:#5C5C64">New or casual play</span></div>
+          <div style="display:flex; align-items:center; gap:9px"><span style="background:rgba(53,214,166,.13); color:#35D6A6; font-size:10px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; padding:5px 10px; border-radius:100px">Intermediate</span><span style="font-size:12px; color:#5C5C64">Comfortable rallies</span></div>
+          <div style="display:flex; align-items:center; gap:9px"><span style="background:rgba(255,182,72,.13); color:#FFB648; font-size:10px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; padding:5px 10px; border-radius:100px">Advanced</span><span style="font-size:12px; color:#5C5C64">Competitive play</span></div>
+          <div style="display:flex; align-items:center; gap:9px"><span style="background:rgba(192,140,255,.13); color:#C08CFF; font-size:10px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; padding:5px 10px; border-radius:100px">Pro</span><span style="font-size:12px; color:#5C5C64">Tournament level</span></div>
+        </div>
+      </div>
+
+      <div style="background:#141416; border:1px solid rgba(255,255,255,.08); border-radius:22px; padding:26px 24px; display:flex; flex-direction:column; gap:16px">
+        <div style="display:flex; align-items:center; gap:10px">
+          <ion-icon name="shield-checkmark-outline" style="font-size:18px; color:#D6FF3F"></ion-icon>
+          <h3 style="margin:0; font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:19px; letter-spacing:-.02em">Reliability score</h3>
+        </div>
+        <p style="margin:0; font-size:14px; line-height:1.6; color:#96969E">Everyone starts at 100. No-shows and late cancels cost you; hosts see it before they approve. Four-player games stay four-player games.</p>
+        <div style="display:flex; align-items:center; gap:16px; margin-top:auto">
+          <div style="position:relative; width:76px; height:76px; flex:none">
+            <svg width="76" height="76" viewBox="0 0 76 76" style="transform:rotate(-90deg)">
+              <circle cx="38" cy="38" r="34.5" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="7" />
+              <circle cx="38" cy="38" r="34.5" fill="none" stroke="#35D6A6" stroke-width="7" stroke-linecap="round" stroke-dasharray="216.8" stroke-dashoffset="21.7" />
+            </svg>
+            <span style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:19px">90</span>
+          </div>
+          <div>
+            <div style="font-size:13px; font-weight:800; color:#35D6A6">Excellent</div>
+            <div style="font-size:12px; color:#5C5C64; margin-top:3px">Visible to hosts reviewing your join request</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="background:#141416; border:1px solid rgba(255,255,255,.08); border-radius:22px; padding:26px 24px; display:flex; flex-direction:column; gap:16px; overflow:hidden">
+        <div style="display:flex; align-items:center; gap:10px">
+          <ion-icon name="navigate-outline" style="font-size:18px; color:#D6FF3F"></ion-icon>
+          <h3 style="margin:0; font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:19px; letter-spacing:-.02em">Court maps & directions</h3>
+        </div>
+        <p style="margin:0; font-size:14px; line-height:1.6; color:#96969E">Verified venues pinned on a map, with one tap through to directions. Know the courts before you commit.</p>
+        <div style="position:relative; margin-top:auto; height:112px; border-radius:16px; background:#111113; border:1px solid rgba(255,255,255,.06); overflow:hidden">
+          <svg viewBox="0 0 360 112" preserveAspectRatio="none" style="position:absolute; inset:0; width:100%; height:100%">
+            <path d="M-10 78 L120 40 L250 62 L370 26" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="10" />
+            <path d="M40 120 L96 40 L140 -8" fill="none" stroke="rgba(255,255,255,.05)" stroke-width="7" />
+            <path d="M210 120 L246 56 L300 -8" fill="none" stroke="rgba(255,255,255,.05)" stroke-width="7" />
+          </svg>
+          <span style="position:absolute; left:78px; top:32px; width:14px; height:14px; border-radius:50%; background:#D6FF3F; box-shadow:0 0 0 6px rgba(214,255,63,.16)"></span>
+          <span style="position:absolute; left:232px; top:56px; width:11px; height:11px; border-radius:50%; background:#D6FF3F; opacity:.75; box-shadow:0 0 0 5px rgba(214,255,63,.12)"></span>
+          <span style="position:absolute; left:160px; top:78px; width:11px; height:11px; border-radius:50%; background:#D6FF3F; opacity:.75; box-shadow:0 0 0 5px rgba(214,255,63,.12)"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="app" style="position:relative; overflow:hidden">
+  <div style="position:absolute; left:50%; top:120px; width:900px; height:560px; transform:translateX(-50%); background:radial-gradient(closest-side,rgba(214,255,63,.10),transparent); pointer-events:none"></div>
+  <div style="position:relative; max-width:1180px; margin:0 auto; padding:88px 20px 96px">
+    <div style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; margin-bottom:14px">
+      <span style="font-size:11px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:#D6FF3F">The app</span>
+      <h2 style="margin:0; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:clamp(30px,5vw,46px); letter-spacing:-.03em; line-height:1.02">Dark, fast, and out of your way</h2>
+    </div>
+    <p style="margin:0 0 44px; max-width:52ch; font-size:15px; line-height:1.6; color:#96969E">Four screens is the whole app. Discover what's on, see the court on a map, check the split before you commit, and keep your record clean.</p>
+
+    <div style="display:flex; gap:28px; overflow-x:auto; padding-bottom:14px; scroll-snap-type:x mandatory">
+
+      <div style="flex:none; scroll-snap-align:center; display:flex; flex-direction:column; gap:14px">
+        <div style="width:312px; height:675px; position:relative">
+          <div style="position:absolute; top:0; left:0; width:390px; height:844px; transform:scale(.8); transform-origin:top left; background:#0A0A0B; border:9px solid #212126; border-radius:56px; box-shadow:0 40px 80px rgba(0,0,0,.6), 0 0 60px rgba(214,255,63,.06); overflow:hidden">
+            <div style="position:absolute; top:9px; left:50%; transform:translateX(-50%); width:112px; height:32px; background:#000; border-radius:100px; z-index:5"></div>
+            <div style="height:56px; display:flex; align-items:flex-end; justify-content:space-between; padding:0 26px 8px; font-size:13.5px; font-weight:700; color:#F5F5F7"><span>9:41</span><span style="display:flex; gap:5px; align-items:center"><ion-icon name="cellular" style="font-size:14px"></ion-icon><ion-icon name="wifi" style="font-size:14px"></ion-icon><ion-icon name="battery-full" style="font-size:16px"></ion-icon></span></div>
+
+            <div style="padding:12px 20px 10px; display:flex; justify-content:space-between; align-items:flex-start">
+              <div>
+                <div style="display:flex; align-items:center; gap:4px">
+                  <ion-icon name="location-outline" style="font-size:12px; color:#7A7A82"></ion-icon>
+                  <span style="font-size:11px; font-weight:700; color:#7A7A82">Sydney, NSW</span>
+                </div>
+                <div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:26px; margin-top:2px; letter-spacing:-.02em">Discover</div>
+              </div>
+              <div style="width:38px; height:38px; border-radius:50%; background:#17171A; border:1px solid rgba(255,255,255,.08); display:flex; align-items:center; justify-content:center">
+                <ion-icon name="notifications-outline" style="font-size:16px; color:#96969E"></ion-icon>
+              </div>
+            </div>
+
+            <div style="display:flex; gap:8px; padding:4px 20px; align-items:center; overflow:hidden">
+              <span style="background:linear-gradient(135deg,#EBFF7A,#AEE62A); color:#0A0A0B; font-size:11px; font-weight:700; padding:8px 14px; border-radius:100px; white-space:nowrap">All levels</span>
+              <span style="background:#1F1F24; border:1px solid rgba(255,255,255,.08); color:#C7C7CE; font-size:11px; font-weight:600; padding:8px 14px; border-radius:100px; white-space:nowrap">Beginner</span>
+              <span style="background:#1F1F24; border:1px solid rgba(255,255,255,.08); color:#C7C7CE; font-size:11px; font-weight:600; padding:8px 14px; border-radius:100px; white-space:nowrap">Intermediate</span>
+              <span style="background:#1F1F24; border:1px solid rgba(255,255,255,.08); color:#C7C7CE; font-size:11px; font-weight:600; padding:8px 14px; border-radius:100px; white-space:nowrap">Advanced</span>
+            </div>
+
+            <div style="display:flex; gap:6px; padding:4px 20px 10px">
+              <span style="background:linear-gradient(135deg,#EBFF7A,#AEE62A); color:#0A0A0B; font-size:12px; font-weight:700; padding:10px 16px; border-radius:100px">List</span>
+              <span style="background:#1F1F24; border:1px solid rgba(255,255,255,.08); color:#C7C7CE; font-size:12px; font-weight:600; padding:10px 16px; border-radius:100px">Map</span>
+            </div>
+
+            <div style="padding:4px 20px; display:flex; flex-direction:column; gap:12px">
+              <div style="background:linear-gradient(150deg,#18181C,#0E0E10); border:1px solid rgba(255,255,255,.08); border-radius:18px; padding:16px; display:flex; flex-direction:column; gap:10px">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start">
+                  <div style="flex:1; padding-right:8px">
+                    <div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:15px">Sydney Olympic Park</div>
+                    <div style="font-size:11.5px; color:#7A7A82; margin-top:2px">Homebush · 3.2 km</div>
+                  </div>
+                  <span style="background:rgba(53,214,166,.15); color:#35D6A6; font-size:9.5px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; padding:6px 10px; border-radius:100px">Verified</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center">
+                  <span style="font-size:12px; font-weight:600; color:#C7C7CE">Tonight · 7:30 pm</span>
+                  <span style="background:rgba(214,255,63,.14); color:#D6FF3F; font-size:10px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; padding:4px 10px; border-radius:100px">In 3h 12m</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center">
+                  <div style="display:flex; align-items:center">
+                    <span style="width:26px; height:26px; border-radius:50%; background:#35D6A6; border:2px solid #0A0A0B; display:flex; align-items:center; justify-content:center; color:#0A0A0B; font-size:10px; font-weight:800">M</span>
+                    <span style="width:26px; height:26px; border-radius:50%; background:#C08CFF; border:2px solid #0A0A0B; margin-left:-8px; display:flex; align-items:center; justify-content:center; color:#0A0A0B; font-size:10px; font-weight:800">A</span>
+                    <span style="width:26px; height:26px; border-radius:50%; background:#6FCBFF; border:2px solid #0A0A0B; margin-left:-8px; display:flex; align-items:center; justify-content:center; color:#0A0A0B; font-size:10px; font-weight:800">J</span>
+                    <span style="width:26px; height:26px; border-radius:50%; background:#1F1F24; border:1.5px solid #0A0A0B; margin-left:-8px; display:flex; align-items:center; justify-content:center; color:#96969E; font-size:10px; font-weight:800">+3</span>
+                  </div>
+                  <span style="background:rgba(53,214,166,.13); color:#35D6A6; font-size:10px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; padding:4px 10px; border-radius:100px">Intermediate</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; padding-top:8px; border-top:1px solid rgba(255,255,255,.06)">
+                  <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:16px; color:#D6FF3F">$9 <span style="font-family:Manrope,sans-serif; font-weight:600; font-size:11px; color:#7A7A82">/ player</span></span>
+                  <span style="font-size:11px; font-weight:700; color:#5C5C64">6/8 joined</span>
+                </div>
+              </div>
+
+              <div style="background:linear-gradient(150deg,#18181C,#0E0E10); border:1px solid rgba(255,255,255,.08); border-radius:18px; padding:16px; display:flex; flex-direction:column; gap:10px">
+                <div style="display:flex; justify-content:space-between; align-items:flex-start">
+                  <div style="flex:1; padding-right:8px">
+                    <div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:15px">Chatswood Sports Hall</div>
+                    <div style="font-size:11.5px; color:#7A7A82; margin-top:2px">Chatswood · 5.8 km</div>
+                  </div>
+                  <span style="background:rgba(255,182,72,.15); color:#FFB648; font-size:9.5px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; padding:6px 10px; border-radius:100px">Pending</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center">
+                  <span style="font-size:12px; font-weight:600; color:#C7C7CE">Tomorrow · 6:00 pm</span>
+                  <span style="background:rgba(214,255,63,.14); color:#D6FF3F; font-size:10px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; padding:4px 10px; border-radius:100px">In 22h</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center">
+                  <div style="display:flex; align-items:center">
+                    <span style="width:26px; height:26px; border-radius:50%; background:#FFB648; border:2px solid #0A0A0B; display:flex; align-items:center; justify-content:center; color:#0A0A0B; font-size:10px; font-weight:800">P</span>
+                    <span style="width:26px; height:26px; border-radius:50%; background:#FF6767; border:2px solid #0A0A0B; margin-left:-8px; display:flex; align-items:center; justify-content:center; color:#0A0A0B; font-size:10px; font-weight:800">R</span>
+                  </div>
+                  <span style="background:rgba(255,182,72,.13); color:#FFB648; font-size:10px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; padding:4px 10px; border-radius:100px">Advanced</span>
+                </div>
+                <div style="display:flex; justify-content:space-between; align-items:center; padding-top:8px; border-top:1px solid rgba(255,255,255,.06)">
+                  <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:16px; color:#D6FF3F">$12 <span style="font-family:Manrope,sans-serif; font-weight:600; font-size:11px; color:#7A7A82">/ player</span></span>
+                  <span style="font-size:11px; font-weight:700; color:#5C5C64">2/6 joined</span>
+                </div>
+              </div>
+            </div>
+
+            <div style="position:absolute; left:16px; right:16px; bottom:14px; height:64px; border-radius:100px; background:rgba(23,23,26,.85); backdrop-filter:blur(20px); border:1px solid rgba(255,255,255,.08); display:flex; align-items:center; justify-content:space-around">
+              <span style="width:42px; height:42px; border-radius:50%; background:rgba(214,255,63,.12); display:flex; align-items:center; justify-content:center"><ion-icon name="search" style="font-size:19px; color:#D6FF3F"></ion-icon></span>
+              <span style="width:42px; height:42px; display:flex; align-items:center; justify-content:center"><ion-icon name="calendar-outline" style="font-size:19px; color:#96969E"></ion-icon></span>
+              <span style="width:56px; height:56px; border-radius:28px; margin-top:-32px; background:linear-gradient(135deg,#EBFF7A,#9FE020); border:3px solid #0A0A0B; display:flex; align-items:center; justify-content:center"><ion-icon name="add" style="font-size:24px; color:#0A0A0B"></ion-icon></span>
+              <span style="width:42px; height:42px; display:flex; align-items:center; justify-content:center"><ion-icon name="chatbubble-ellipses-outline" style="font-size:19px; color:#96969E"></ion-icon></span>
+              <span style="width:42px; height:42px; display:flex; align-items:center; justify-content:center"><ion-icon name="person-outline" style="font-size:19px; color:#96969E"></ion-icon></span>
+            </div>
+          </div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:13px; font-weight:800">Discover</div>
+          <div style="font-size:12px; color:#7A7A82; margin-top:2px">Everything on tonight, ranked by distance</div>
+        </div>
+      </div>
+
+      <div style="flex:none; scroll-snap-align:center; display:flex; flex-direction:column; gap:14px">
+        <div style="width:312px; height:675px; position:relative">
+          <div style="position:absolute; top:0; left:0; width:390px; height:844px; transform:scale(.8); transform-origin:top left; background:#0A0A0B; border:9px solid #212126; border-radius:56px; box-shadow:0 40px 80px rgba(0,0,0,.6); overflow:hidden">
+            <div style="position:absolute; top:9px; left:50%; transform:translateX(-50%); width:112px; height:32px; background:#000; border-radius:100px; z-index:5"></div>
+            <div style="height:150px; background:linear-gradient(#1F1F24,#141416); padding-top:56px">
+              <div style="padding:0 16px; display:flex; justify-content:space-between; align-items:center">
+                <span style="width:36px; height:36px; border-radius:50%; background:rgba(255,255,255,.1); display:flex; align-items:center; justify-content:center"><ion-icon name="chevron-back" style="font-size:18px; color:#F5F5F7"></ion-icon></span>
+                <span style="width:36px; height:36px; border-radius:50%; background:rgba(255,255,255,.1); display:flex; align-items:center; justify-content:center"><ion-icon name="share-outline" style="font-size:17px; color:#F5F5F7"></ion-icon></span>
+              </div>
+            </div>
+
+            <div style="padding:18px 20px 0">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start">
+                <div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:22px; flex:1; padding-right:12px; letter-spacing:-.02em">Sydney Olympic Park</div>
+                <span style="background:rgba(53,214,166,.15); color:#35D6A6; font-size:9.5px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; padding:6px 10px; border-radius:100px">Verified</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; align-items:center; margin-top:4px">
+                <span style="font-size:12.5px; color:#7A7A82">Homebush · Courts 3–4</span>
+                <span style="background:rgba(214,255,63,.14); color:#D6FF3F; font-size:10px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; padding:4px 10px; border-radius:100px">In 3h 12m</span>
+              </div>
+
+              <div style="display:flex; gap:8px; margin-top:14px">
+                <div style="flex:1; background:#18181C; border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:10px 14px; font-size:12.5px; font-weight:600">Tonight</div>
+                <div style="flex:1; background:#18181C; border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:10px 14px; font-size:12.5px; font-weight:600">7:30 pm</div>
+                <div style="flex:1; display:flex; align-items:center; justify-content:center"><span style="background:rgba(53,214,166,.13); color:#35D6A6; font-size:10px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; padding:4px 10px; border-radius:100px">Intermediate</span></div>
+              </div>
+
+              <div style="font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:#7A7A82; margin:22px 0 10px">Players joined (6/8)</div>
+              <div style="display:flex; flex-wrap:wrap; gap:10px">
+                <div style="width:52px; display:flex; flex-direction:column; align-items:center; gap:6px"><span style="width:38px; height:38px; border-radius:50%; background:#35D6A6; display:flex; align-items:center; justify-content:center; color:#0A0A0B; font-size:12px; font-weight:800">M</span><span style="font-size:10px; font-weight:600; color:#96969E">Mia</span></div>
+                <div style="width:52px; display:flex; flex-direction:column; align-items:center; gap:6px"><span style="width:38px; height:38px; border-radius:50%; background:#C08CFF; display:flex; align-items:center; justify-content:center; color:#0A0A0B; font-size:12px; font-weight:800">A</span><span style="font-size:10px; font-weight:600; color:#96969E">Arun</span></div>
+                <div style="width:52px; display:flex; flex-direction:column; align-items:center; gap:6px"><span style="width:38px; height:38px; border-radius:50%; background:#6FCBFF; display:flex; align-items:center; justify-content:center; color:#0A0A0B; font-size:12px; font-weight:800">J</span><span style="font-size:10px; font-weight:600; color:#96969E">Jas</span></div>
+                <div style="width:52px; display:flex; flex-direction:column; align-items:center; gap:6px"><span style="width:38px; height:38px; border-radius:50%; background:#FFB648; display:flex; align-items:center; justify-content:center; color:#0A0A0B; font-size:12px; font-weight:800">P</span><span style="font-size:10px; font-weight:600; color:#96969E">Priya</span></div>
+                <div style="width:52px; display:flex; flex-direction:column; align-items:center; gap:6px"><span style="width:38px; height:38px; border-radius:50%; background:#FF6767; display:flex; align-items:center; justify-content:center; color:#0A0A0B; font-size:12px; font-weight:800">R</span><span style="font-size:10px; font-weight:600; color:#96969E">Ravi</span></div>
+                <div style="width:52px; display:flex; flex-direction:column; align-items:center; gap:6px"><span style="width:38px; height:38px; border-radius:50%; background:#35D6A6; display:flex; align-items:center; justify-content:center; color:#0A0A0B; font-size:12px; font-weight:800">T</span><span style="font-size:10px; font-weight:600; color:#96969E">Tom</span></div>
+              </div>
+
+              <div style="font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:#7A7A82; margin:22px 0 10px">Cost split</div>
+              <div style="background:#18181C; border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:16px">
+                <div style="display:flex; justify-content:space-between; margin-bottom:8px"><span style="font-size:13px; color:#96969E">Total court cost</span><span style="font-size:13px; font-weight:700">$72</span></div>
+                <div style="display:flex; justify-content:space-between; margin-bottom:10px"><span style="font-size:13px; color:#96969E">Split 8 ways · even</span><span style="font-size:13px; font-weight:700">$9</span></div>
+                <div style="background:rgba(214,255,63,.1); border-radius:12px; padding:12px; display:flex; justify-content:space-between; align-items:center">
+                  <span style="font-size:13px; font-weight:700; color:#D6FF3F">Your share</span>
+                  <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:19px; color:#D6FF3F">$9</span>
+                </div>
+              </div>
+            </div>
+
+            <div style="position:absolute; left:0; right:0; bottom:0; background:#0A0A0B; padding:14px 20px 32px; display:flex; gap:10px">
+              <span style="width:56px; border-radius:100px; border:1.5px solid rgba(255,255,255,.15); display:flex; align-items:center; justify-content:center"><ion-icon name="chatbubble-ellipses-outline" style="font-size:19px; color:#F5F5F7"></ion-icon></span>
+              <span style="flex:1; border-radius:100px; background:linear-gradient(135deg,#EBFF7A,#AEE62A); color:#0A0A0B; font-size:15px; font-weight:800; padding:16px 0; text-align:center; box-shadow:0 0 30px rgba(214,255,63,.25)">Hold to join — $9</span>
+            </div>
+          </div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:13px; font-weight:800">Game detail</div>
+          <div style="font-size:12px; color:#7A7A82; margin-top:2px">Roster, split, and a hold-to-join button</div>
+        </div>
+      </div>
+
+      <div style="flex:none; scroll-snap-align:center; display:flex; flex-direction:column; gap:14px">
+        <div style="width:312px; height:675px; position:relative">
+          <div style="position:absolute; top:0; left:0; width:390px; height:844px; transform:scale(.8); transform-origin:top left; background:#0A0A0B; border:9px solid #212126; border-radius:56px; box-shadow:0 40px 80px rgba(0,0,0,.6); overflow:hidden">
+            <div style="position:absolute; top:9px; left:50%; transform:translateX(-50%); width:112px; height:32px; background:#000; border-radius:100px; z-index:5"></div>
+            <div style="height:56px; display:flex; align-items:flex-end; justify-content:space-between; padding:0 26px 8px; font-size:13.5px; font-weight:700"><span>9:41</span><span style="display:flex; gap:5px; align-items:center"><ion-icon name="cellular" style="font-size:14px"></ion-icon><ion-icon name="wifi" style="font-size:14px"></ion-icon><ion-icon name="battery-full" style="font-size:16px"></ion-icon></span></div>
+
+            <div style="padding:12px 20px 10px; display:flex; justify-content:space-between; align-items:flex-start">
+              <div>
+                <div style="display:flex; align-items:center; gap:4px">
+                  <ion-icon name="location-outline" style="font-size:12px; color:#7A7A82"></ion-icon>
+                  <span style="font-size:11px; font-weight:700; color:#7A7A82">Sydney, NSW</span>
+                </div>
+                <div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:26px; margin-top:2px; letter-spacing:-.02em">Discover</div>
+              </div>
+              <div style="width:38px; height:38px; border-radius:50%; background:#17171A; border:1px solid rgba(255,255,255,.08); display:flex; align-items:center; justify-content:center">
+                <ion-icon name="notifications-outline" style="font-size:16px; color:#96969E"></ion-icon>
+              </div>
+            </div>
+
+            <div style="display:flex; gap:6px; padding:4px 20px 10px">
+              <span style="background:#1F1F24; border:1px solid rgba(255,255,255,.08); color:#C7C7CE; font-size:12px; font-weight:600; padding:10px 16px; border-radius:100px">List</span>
+              <span style="background:linear-gradient(135deg,#EBFF7A,#AEE62A); color:#0A0A0B; font-size:12px; font-weight:700; padding:10px 16px; border-radius:100px">Map</span>
+            </div>
+
+            <div style="position:absolute; left:0; right:0; top:200px; bottom:0; background:#111113; overflow:hidden">
+              <svg viewBox="0 0 390 644" preserveAspectRatio="xMidYMid slice" style="position:absolute; inset:0; width:100%; height:100%">
+                <rect width="390" height="644" fill="#111113" />
+                <path d="M-20 180 L140 120 L280 190 L420 130" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="16" />
+                <path d="M-20 420 L120 380 L300 450 L420 400" fill="none" stroke="rgba(255,255,255,.06)" stroke-width="12" />
+                <path d="M90 -20 L120 200 L80 420 L140 660" fill="none" stroke="rgba(255,255,255,.05)" stroke-width="11" />
+                <path d="M290 -20 L260 210 L310 430 L270 660" fill="none" stroke="rgba(255,255,255,.05)" stroke-width="11" />
+                <rect x="150" y="230" width="90" height="120" fill="rgba(255,255,255,.03)" />
+                <rect x="30" y="470" width="110" height="90" fill="rgba(255,255,255,.03)" />
+              </svg>
+              <span style="position:absolute; left:120px; top:150px; width:16px; height:16px; border-radius:50%; background:#D6FF3F; box-shadow:0 0 0 8px rgba(214,255,63,.16)"></span>
+              <span style="position:absolute; left:262px; top:250px; width:13px; height:13px; border-radius:50%; background:#D6FF3F; opacity:.7; box-shadow:0 0 0 6px rgba(214,255,63,.12)"></span>
+              <span style="position:absolute; left:82px; top:330px; width:13px; height:13px; border-radius:50%; background:#D6FF3F; opacity:.7; box-shadow:0 0 0 6px rgba(214,255,63,.12)"></span>
+
+              <div style="position:absolute; left:16px; right:16px; bottom:94px; background:#18181C; border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:14px">
+                <div style="display:flex; justify-content:space-between; align-items:center">
+                  <div style="flex:1; padding-right:8px">
+                    <div style="font-size:13px; font-weight:700">Sydney Olympic Park</div>
+                    <div style="font-size:11px; color:#7A7A82; margin-top:2px">Tonight · 7:30 pm</div>
+                  </div>
+                  <div style="display:flex; align-items:center; gap:4px"><span style="font-size:13px; font-weight:800; color:#D6FF3F">View</span><ion-icon name="arrow-forward" style="font-size:13px; color:#D6FF3F"></ion-icon></div>
+                </div>
+                <div style="display:flex; align-items:center; gap:4px; margin-top:10px">
+                  <ion-icon name="navigate-outline" style="font-size:13px; color:#96969E"></ion-icon>
+                  <span style="font-size:11.5px; font-weight:700; color:#96969E">Directions</span>
+                </div>
+              </div>
+            </div>
+
+            <div style="position:absolute; left:16px; right:16px; bottom:14px; height:64px; border-radius:100px; background:rgba(23,23,26,.85); backdrop-filter:blur(20px); border:1px solid rgba(255,255,255,.08); display:flex; align-items:center; justify-content:space-around">
+              <span style="width:42px; height:42px; border-radius:50%; background:rgba(214,255,63,.12); display:flex; align-items:center; justify-content:center"><ion-icon name="search" style="font-size:19px; color:#D6FF3F"></ion-icon></span>
+              <span style="width:42px; height:42px; display:flex; align-items:center; justify-content:center"><ion-icon name="calendar-outline" style="font-size:19px; color:#96969E"></ion-icon></span>
+              <span style="width:56px; height:56px; border-radius:28px; margin-top:-32px; background:linear-gradient(135deg,#EBFF7A,#9FE020); border:3px solid #0A0A0B; display:flex; align-items:center; justify-content:center"><ion-icon name="add" style="font-size:24px; color:#0A0A0B"></ion-icon></span>
+              <span style="width:42px; height:42px; display:flex; align-items:center; justify-content:center"><ion-icon name="chatbubble-ellipses-outline" style="font-size:19px; color:#96969E"></ion-icon></span>
+              <span style="width:42px; height:42px; display:flex; align-items:center; justify-content:center"><ion-icon name="person-outline" style="font-size:19px; color:#96969E"></ion-icon></span>
+            </div>
+          </div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:13px; font-weight:800">Map view</div>
+          <div style="font-size:12px; color:#7A7A82; margin-top:2px">Every pinned court, one tap to directions</div>
+        </div>
+      </div>
+
+      <div style="flex:none; scroll-snap-align:center; display:flex; flex-direction:column; gap:14px">
+        <div style="width:312px; height:675px; position:relative">
+          <div style="position:absolute; top:0; left:0; width:390px; height:844px; transform:scale(.8); transform-origin:top left; background:#0A0A0B; border:9px solid #212126; border-radius:56px; box-shadow:0 40px 80px rgba(0,0,0,.6); overflow:hidden">
+            <div style="position:absolute; top:9px; left:50%; transform:translateX(-50%); width:112px; height:32px; background:#000; border-radius:100px; z-index:5"></div>
+            <div style="height:56px; display:flex; align-items:flex-end; justify-content:space-between; padding:0 26px 8px; font-size:13.5px; font-weight:700"><span>9:41</span><span style="display:flex; gap:5px; align-items:center"><ion-icon name="cellular" style="font-size:14px"></ion-icon><ion-icon name="wifi" style="font-size:14px"></ion-icon><ion-icon name="battery-full" style="font-size:16px"></ion-icon></span></div>
+
+            <div style="display:flex; flex-direction:column; align-items:center; gap:8px; padding:8px 24px 16px">
+              <div style="width:84px; height:84px; border-radius:50%; background:#C08CFF; display:flex; align-items:center; justify-content:center; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:24px; color:#0A0A0B">A</div>
+              <div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:20px">Arun Mehta</div>
+              <div style="font-size:12px; color:#7A7A82">Newtown, Sydney</div>
+              <span style="background:rgba(53,214,166,.13); color:#35D6A6; font-size:11px; font-weight:800; text-transform:uppercase; padding:6px 14px; border-radius:100px; margin-top:2px">Intermediate</span>
+            </div>
+
+            <div style="display:flex; flex-wrap:wrap; gap:10px; padding:0 20px">
+              <div style="width:47%; background:linear-gradient(150deg,#18181C,#0E0E10); border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:14px; display:flex; flex-direction:column; align-items:center">
+                <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:22px">18</span>
+                <span style="font-size:10.5px; font-weight:700; color:#7A7A82; margin-top:2px">Games played</span>
+                <span style="background:rgba(199,205,214,.13); color:#C7CDD6; font-size:9px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; padding:2px 8px; border-radius:100px; margin-top:6px">Silver</span>
+              </div>
+              <div style="width:47%; background:linear-gradient(150deg,#18181C,#0E0E10); border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:14px; display:flex; flex-direction:column; align-items:center">
+                <div style="position:relative; width:76px; height:76px">
+                  <svg width="76" height="76" viewBox="0 0 76 76" style="transform:rotate(-90deg)">
+                    <circle cx="38" cy="38" r="34.5" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="7" />
+                    <circle cx="38" cy="38" r="34.5" fill="none" stroke="#35D6A6" stroke-width="7" stroke-linecap="round" stroke-dasharray="216.8" stroke-dashoffset="17.3" />
+                  </svg>
+                  <span style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:19px">92</span>
+                </div>
+                <div style="display:flex; align-items:center; gap:4px; margin-top:4px">
+                  <span style="font-size:10.5px; font-weight:700; color:#7A7A82">Reliability</span>
+                  <ion-icon name="information-circle-outline" style="font-size:12px; color:#5C5C64"></ion-icon>
+                </div>
+              </div>
+            </div>
+
+            <div style="margin:10px 20px 0; border-radius:16px; background:linear-gradient(135deg,#EBFF7A,#9FE020); padding:14px 16px; display:flex; align-items:center; justify-content:space-between">
+              <div>
+                <div style="font-size:9.5px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:rgba(10,10,11,.6)">Member since</div>
+                <div style="font-family:'Bricolage Grotesque',sans-serif; font-weight:700; font-size:19px; color:#0A0A0B">2026</div>
+              </div>
+              <ion-icon name="ribbon-outline" style="font-size:26px; color:rgba(10,10,11,.55)"></ion-icon>
+            </div>
+
+            <div style="margin:16px 20px 0; border-radius:16px; background:linear-gradient(150deg,#18181C,#0E0E10); border:1px solid rgba(255,255,255,.08); overflow:hidden">
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:14px; border-bottom:1px solid rgba(255,255,255,.06)"><span style="font-size:13.5px; font-weight:600; color:#D6FF3F">Invite friends</span><ion-icon name="share-social-outline" style="font-size:16px; color:#D6FF3F"></ion-icon></div>
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:14px; border-bottom:1px solid rgba(255,255,255,.06)"><span style="font-size:13.5px; font-weight:600">Edit profile</span><span style="color:#5C5C64">›</span></div>
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:14px; border-bottom:1px solid rgba(255,255,255,.06)"><span style="font-size:13.5px; font-weight:600">Notifications</span><span style="color:#5C5C64">›</span></div>
+              <div style="display:flex; justify-content:space-between; align-items:center; padding:14px"><span style="font-size:13.5px; font-weight:600">Email verified</span><span style="background:rgba(53,214,166,.15); color:#35D6A6; font-size:9.5px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; padding:6px 10px; border-radius:100px">Verified</span></div>
+            </div>
+
+            <div style="position:absolute; left:16px; right:16px; bottom:14px; height:64px; border-radius:100px; background:rgba(23,23,26,.85); backdrop-filter:blur(20px); border:1px solid rgba(255,255,255,.08); display:flex; align-items:center; justify-content:space-around">
+              <span style="width:42px; height:42px; display:flex; align-items:center; justify-content:center"><ion-icon name="search" style="font-size:19px; color:#96969E"></ion-icon></span>
+              <span style="width:42px; height:42px; display:flex; align-items:center; justify-content:center"><ion-icon name="calendar-outline" style="font-size:19px; color:#96969E"></ion-icon></span>
+              <span style="width:56px; height:56px; border-radius:28px; margin-top:-32px; background:linear-gradient(135deg,#EBFF7A,#9FE020); border:3px solid #0A0A0B; display:flex; align-items:center; justify-content:center"><ion-icon name="add" style="font-size:24px; color:#0A0A0B"></ion-icon></span>
+              <span style="width:42px; height:42px; display:flex; align-items:center; justify-content:center"><ion-icon name="chatbubble-ellipses-outline" style="font-size:19px; color:#96969E"></ion-icon></span>
+              <span style="width:42px; height:42px; border-radius:50%; background:rgba(214,255,63,.12); display:flex; align-items:center; justify-content:center"><ion-icon name="person-outline" style="font-size:19px; color:#D6FF3F"></ion-icon></span>
+            </div>
+          </div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:13px; font-weight:800">Profile</div>
+          <div style="font-size:12px; color:#7A7A82; margin-top:2px">Your tier, your record, your reliability</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<section id="waitlist" style="position:relative; border-top:1px solid rgba(255,255,255,.06); background:#0E0E10; overflow:hidden">
+  <div style="position:absolute; inset:0; background:radial-gradient(60% 90% at 50% 110%, rgba(214,255,63,.14), transparent); pointer-events:none"></div>
+  <div style="position:relative; max-width:820px; margin:0 auto; padding:96px 20px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:24px">
+    <img src="assets/smashio-logo.png" alt="" style="width:56px; height:56px; object-fit:contain; animation:smash-drift 3.4s ease-in-out infinite alternate" />
+    <h2 style="margin:0; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:clamp(32px,6vw,60px); line-height:1; letter-spacing:-.035em; text-wrap:balance">Sydney courts are<br />waiting. So are we.</h2>
+    <p style="margin:0; max-width:44ch; font-size:16px; line-height:1.6; color:#96969E">1,400 players are already on the list. Get the notification the day SMASHIO lands — first games go live in Sydney this spring, Melbourne next.</p>
+    <div style="display:flex; flex-wrap:wrap; gap:12px; justify-content:center">
+      <a href="#top" style="display:flex; align-items:center; gap:11px; background:linear-gradient(135deg,#EBFF7A,#AEE62A); padding:14px 24px 14px 20px; border-radius:14px; color:#0A0A0B; box-shadow:0 0 44px rgba(214,255,63,.28)">
+        <ion-icon name="logo-apple" style="font-size:24px"></ion-icon>
+        <span style="display:flex; flex-direction:column; align-items:flex-start; line-height:1.15">
+          <span style="font-size:9.5px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; opacity:.62">Notify me on</span>
+          <span style="font-size:16px; font-weight:800; letter-spacing:-.01em">App Store</span>
+        </span>
+      </a>
+      <a href="#top" style="display:flex; align-items:center; gap:11px; background:#141416; border:1px solid rgba(255,255,255,.12); padding:14px 24px 14px 20px; border-radius:14px; color:#F5F5F7">
+        <ion-icon name="logo-google-playstore" style="font-size:22px"></ion-icon>
+        <span style="display:flex; flex-direction:column; align-items:flex-start; line-height:1.15">
+          <span style="font-size:9.5px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:#7A7A82">Notify me on</span>
+          <span style="font-size:16px; font-weight:800; letter-spacing:-.01em">Google Play</span>
+        </span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<footer style="border-top:1px solid rgba(255,255,255,.06)">
+  <div style="max-width:1180px; margin:0 auto; padding:52px 20px 40px; display:flex; flex-wrap:wrap; gap:36px; justify-content:space-between">
+    <div style="max-width:320px; display:flex; flex-direction:column; gap:12px">
+      <div style="display:flex; align-items:center; gap:9px">
+        <img src="assets/smashio-logo.png" alt="" style="width:26px; height:26px; object-fit:contain" />
+        <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:17px; letter-spacing:-.02em">SMASHIO</span>
+      </div>
+      <p style="margin:0; font-size:13px; line-height:1.6; color:#7A7A82">Local badminton, organised. Launching in Sydney, spring 2026 — Melbourne next.</p>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:10px">
+      <span style="font-size:10.5px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:#5C5C64">Product</span>
+      <a href="#how" style="font-size:13.5px; color:#96969E; font-weight:600">How it works</a>
+      <a href="#features" style="font-size:13.5px; color:#96969E; font-weight:600">Features</a>
+      <a href="#app" style="font-size:13.5px; color:#96969E; font-weight:600">The app</a>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:10px">
+      <span style="font-size:10.5px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:#5C5C64">Company</span>
+      <a href="privacy.html" style="font-size:13.5px; color:#96969E; font-weight:600">Privacy policy</a>
+      <a href="mailto:hello@smashio.com.au" style="font-size:13.5px; color:#96969E; font-weight:600">Support</a>
+      <a href="mailto:hello@smashio.com.au" style="font-size:13.5px; color:#96969E; font-weight:600">hello@smashio.com.au</a>
+    </div>
+    <div style="display:flex; flex-direction:column; gap:12px">
+      <span style="font-size:10.5px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:#5C5C64">Get notified</span>
+      <div style="display:flex; gap:8px">
+        <a href="#waitlist" style="display:flex; align-items:center; gap:8px; background:#141416; border:1px solid rgba(255,255,255,.10); padding:9px 14px; border-radius:11px; color:#F5F5F7"><ion-icon name="logo-apple" style="font-size:18px"></ion-icon><span style="font-size:12.5px; font-weight:700">App Store</span></a>
+        <a href="#waitlist" style="display:flex; align-items:center; gap:8px; background:#141416; border:1px solid rgba(255,255,255,.10); padding:9px 14px; border-radius:11px; color:#F5F5F7"><ion-icon name="logo-google-playstore" style="font-size:17px"></ion-icon><span style="font-size:12.5px; font-weight:700">Google Play</span></a>
+      </div>
+    </div>
+  </div>
+  <div style="border-top:1px solid rgba(255,255,255,.06)">
+    <div style="max-width:1180px; margin:0 auto; padding:18px 20px; display:flex; flex-wrap:wrap; gap:10px; justify-content:space-between; font-size:12px; color:#5C5C64">
+      <span>© 2026 SMASHIO. Made in Sydney.</span>
+      <span>Not affiliated with any court operator — yet.</span>
+    </div>
+  </div>
+</footer>
+
+</div>
+
+</body>
+</html>

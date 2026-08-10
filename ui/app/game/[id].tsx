@@ -1,9 +1,9 @@
-import { View, Text, Pressable, ScrollView, Alert } from "react-native";
+import { View, Text, Pressable, ScrollView, Alert, Linking, Platform } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, gradients, initial } from "../../lib/theme";
-import { perPlayerCost } from "../../lib/mockData";
+import { perPlayerCost, spotsLeft, type Game } from "../../lib/mockData";
 import { useGameDetail } from "../../lib/queries/games";
 import {
   useDecideJoinRequest,
@@ -11,6 +11,7 @@ import {
   useJoinRequests,
   useLeaveGame,
   useMyMembership,
+  useRemovePlayer,
   useRequestToJoin,
 } from "../../lib/queries/gamePlayers";
 import { Badge } from "../../components/Badge";
@@ -22,6 +23,19 @@ import { CountdownChip } from "../../components/CountdownChip";
 import { haptics } from "../../lib/haptics";
 import { shareGame } from "../../lib/share";
 import { GameDetailSkeleton } from "../../components/Skeleton";
+
+// Same deep-link shape discover's map card uses — maps: on iOS, geo: on Android, web fallback.
+function openDirections(game: Game) {
+  const label = encodeURIComponent(game.venue);
+  const hasCoords = game.venueLat != null && game.venueLng != null;
+  const query = hasCoords ? `${game.venueLat},${game.venueLng}` : encodeURIComponent(game.venueAddress ?? game.venue);
+  const url = Platform.select({
+    ios: hasCoords ? `maps:0,0?q=${label}@${query}` : `maps:0,0?q=${query}`,
+    android: hasCoords ? `geo:0,0?q=${query}(${label})` : `geo:0,0?q=${query}`,
+    default: `https://www.google.com/maps/search/?api=1&query=${query}`,
+  });
+  Linking.openURL(url!).catch(() => Alert.alert("Couldn't open maps", "No maps app is available on this device."));
+}
 
 export default function GameDetails() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -58,6 +72,10 @@ export default function GameDetails() {
   const perPlayer = perPlayerCost(game.cost, game.maxPlayers);
   const joined = rosterQuery.data ?? [];
   const membership = membershipQuery.data;
+  const isOrganizer = membership?.isOrganizer ?? false;
+  const cancelled = game.status === "cancelled";
+  const open = spotsLeft(game);
+  const full = open === 0;
 
   const confirmLeave = () => {
     Alert.alert("Leave this game?", "You'll lose your spot and may need to request to rejoin.", [
@@ -79,43 +97,101 @@ export default function GameDetails() {
         <LinearGradient colors={["#1F1F24", "#141416"]} style={{ height: 150, paddingTop: 56 }}>
           <View className="px-4 flex-row justify-between items-center">
             <BackButton dark onPress={() => router.back()} />
-            <Pressable
-              onPress={() => {
-                haptics.tap();
-                shareGame(game);
-              }}
-              className="w-9 h-9 rounded-full items-center justify-center"
-              style={{ backgroundColor: "rgba(255,255,255,0.1)" }}
-            >
-              <Ionicons name="share-outline" size={17} color={colors.text} />
-            </Pressable>
+            <View className="flex-row items-center gap-2">
+              {isOrganizer && !cancelled && (
+                <Pressable
+                  onPress={() => {
+                    haptics.tap();
+                    router.push(`/game/edit/${game.id}`);
+                  }}
+                  className="flex-row items-center gap-1.5 h-9 px-3.5 rounded-pill"
+                  style={{ backgroundColor: "rgba(255,255,255,0.1)" }}
+                >
+                  <Ionicons name="create-outline" size={15} color={colors.text} />
+                  <Text className="font-body-bold text-[14px]" style={{ color: colors.text }}>
+                    Edit
+                  </Text>
+                </Pressable>
+              )}
+              <Pressable
+                onPress={() => {
+                  haptics.tap();
+                  shareGame(game);
+                }}
+                className="w-9 h-9 rounded-full items-center justify-center"
+                style={{ backgroundColor: "rgba(255,255,255,0.1)" }}
+              >
+                <Ionicons name="share-outline" size={17} color={colors.text} />
+              </Pressable>
+            </View>
           </View>
         </LinearGradient>
 
         <View className="px-5 pt-4.5">
+          {cancelled && (
+            <View
+              className="flex-row items-start gap-2.5 rounded-2xl p-3.5 mb-4 border"
+              style={{ backgroundColor: "rgba(255,103,103,0.1)", borderColor: "rgba(255,103,103,0.3)" }}
+            >
+              <Ionicons name="close-circle-outline" size={17} color={colors.danger} style={{ marginTop: 1 }} />
+              <Text className="flex-1 text-[14px]" style={{ color: colors.danger }}>
+                {isOrganizer
+                  ? "You cancelled this game. Everyone who joined has been notified."
+                  : "The host cancelled this game. Your spot has been released."}
+              </Text>
+            </View>
+          )}
+
           <View className="flex-row justify-between items-start">
-            <Text className="font-display text-[22px] flex-1 pr-3" style={{ color: colors.text }}>
+            <Text className="font-display text-[22.5px] flex-1 pr-3" style={{ color: colors.text }}>
               {game.venue}
             </Text>
-            {game.verificationStatus !== "none" && (
-              <Badge state={game.verified ? "verified" : "pending"} label={game.verified ? "Verified" : "Pending"} />
+            {cancelled ? (
+              <Badge state="cancelled" label="Cancelled" />
+            ) : (
+              game.verificationStatus !== "none" && (
+                <Badge state={game.verified ? "verified" : "pending"} label={game.verified ? "Verified" : "Pending"} />
+              )
             )}
           </View>
           <View className="flex-row items-center justify-between mt-1">
-            <Text className="text-[12.5px]" style={{ color: colors.textTertiary }}>
-              {game.suburb} · {game.courts}
+            <Text className="text-[14.5px]" style={{ color: colors.textTertiary }}>
+              {game.suburb}
+              {game.courts ? ` · ${game.courts}` : ""}
             </Text>
-            <CountdownChip startsAt={game.startsAt} />
+            {!cancelled && <CountdownChip startsAt={game.startsAt} />}
           </View>
 
-          <View className="flex-row gap-2 mt-3.5">
+          <Pressable
+            onPress={() => {
+              haptics.tap();
+              openDirections(game);
+            }}
+            className="flex-row items-center gap-3 rounded-2xl px-3.5 py-3 mt-3.5 border"
+            style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}
+          >
+            <View className="w-9 h-9 rounded-full items-center justify-center" style={{ backgroundColor: "rgba(214,255,63,0.12)" }}>
+              <Ionicons name="navigate" size={16} color={colors.accent} />
+            </View>
+            <View className="flex-1">
+              <Text className="font-body-semibold text-[14.5px]" style={{ color: colors.text }} numberOfLines={2}>
+                {game.venueAddress ?? game.suburb}
+              </Text>
+              <Text className="text-[13px] mt-0.5" style={{ color: colors.textTertiary }}>
+                Tap for directions
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={15} color={colors.textMuted} />
+          </Pressable>
+
+          <View className="flex-row gap-2 mt-2.5">
             <View className="flex-1 rounded-xl px-3.5 py-2.5 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
-              <Text className="text-[12.5px] font-body-semibold" style={{ color: colors.text }}>
+              <Text className="text-[14.5px] font-body-semibold" style={{ color: colors.text }}>
                 {game.date}
               </Text>
             </View>
             <View className="flex-1 rounded-xl px-3.5 py-2.5 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
-              <Text className="text-[12.5px] font-body-semibold" style={{ color: colors.text }}>
+              <Text className="text-[14.5px] font-body-semibold" style={{ color: colors.text }}>
                 {game.time}
               </Text>
             </View>
@@ -124,56 +200,58 @@ export default function GameDetails() {
             </View>
           </View>
 
-          <Text className="font-body-extrabold text-[11px] uppercase tracking-wide mt-5.5 mb-2.5" style={{ color: colors.textTertiary }}>
-            Players joined ({game.joinedCount}/{game.maxPlayers})
-          </Text>
-          <View className="flex-row flex-wrap gap-2.5">
-            {joined.map((p, i) => (
-              <View key={i} className="items-center gap-1.5" style={{ width: 52 }}>
-                <View
-                  className="w-[38px] h-[38px] rounded-full items-center justify-center"
-                  style={{ backgroundColor: p.color }}
-                >
-                  <Text style={{ color: colors.base, fontSize: 12, fontWeight: "800" }}>{initial(p.name)}</Text>
-                </View>
-                <Text className="text-[10px] font-body-semibold" style={{ color: colors.textSecondary }}>
-                  {p.name}
+          <View className="flex-row items-center justify-between mt-5.5 mb-2.5">
+            <Text className="font-body-extrabold text-[13px] uppercase tracking-wide" style={{ color: colors.textTertiary }}>
+              Players joined ({game.joinedCount}/{game.maxPlayers})
+            </Text>
+            {!cancelled && (
+              <View
+                className="rounded-pill px-2.5 py-1"
+                style={{ backgroundColor: full ? "rgba(255,103,103,0.12)" : "rgba(214,255,63,0.12)" }}
+              >
+                <Text className="font-body-extrabold text-[11.5px] uppercase" style={{ color: full ? colors.danger : colors.accent }}>
+                  {full ? "Full" : `${open} ${open === 1 ? "spot" : "spots"} left`}
                 </Text>
               </View>
+            )}
+          </View>
+          <View className="flex-row flex-wrap gap-2.5">
+            {joined.map((p) => (
+              <RosterAvatar key={p.id} gameId={gameId} player={p} canRemove={isOrganizer && !cancelled} />
             ))}
           </View>
 
-          <Text className="font-body-extrabold text-[11px] uppercase tracking-wide mt-5.5 mb-2.5" style={{ color: colors.textTertiary }}>
+          <Text className="font-body-extrabold text-[13px] uppercase tracking-wide mt-5.5 mb-2.5" style={{ color: colors.textTertiary }}>
             Cost split
           </Text>
           <View className="rounded-2xl p-4 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
             <View className="flex-row justify-between mb-2">
-              <Text className="text-[13px]" style={{ color: colors.textSecondary }}>
+              <Text className="text-[14.5px]" style={{ color: colors.textSecondary }}>
                 Total court cost
               </Text>
-              <Text className="text-[13px] font-body-bold" style={{ color: colors.text }}>
+              <Text className="text-[14.5px] font-body-bold" style={{ color: colors.text }}>
                 ${game.cost}
               </Text>
             </View>
             <View className="flex-row justify-between mb-2.5">
-              <Text className="text-[13px]" style={{ color: colors.textSecondary }}>
+              <Text className="text-[14.5px]" style={{ color: colors.textSecondary }}>
                 Split {game.maxPlayers} ways · even
               </Text>
-              <Text className="text-[13px] font-body-bold" style={{ color: colors.text }}>
+              <Text className="text-[14.5px] font-body-bold" style={{ color: colors.text }}>
                 ${perPlayer}
               </Text>
             </View>
             <View className="rounded-xl p-3 flex-row justify-between items-center" style={{ backgroundColor: "rgba(214,255,63,0.1)" }}>
-              <Text className="text-[13px] font-body-bold" style={{ color: colors.accent }}>
+              <Text className="text-[14.5px] font-body-bold" style={{ color: colors.accent }}>
                 Your share
               </Text>
-              <Text className="font-display-bold text-[19px]" style={{ color: colors.accent }}>
+              <Text className="font-display-bold text-[20px]" style={{ color: colors.accent }}>
                 ${perPlayer}
               </Text>
             </View>
           </View>
 
-          {membership?.isOrganizer && <JoinRequests gameId={gameId} />}
+          {isOrganizer && !cancelled && <JoinRequests gameId={gameId} full={full} />}
         </View>
       </ScrollView>
 
@@ -186,12 +264,16 @@ export default function GameDetails() {
           <Ionicons name="chatbubble-ellipses-outline" size={19} color={colors.text} />
         </Pressable>
         <View className="flex-1">
-          {membership?.isOrganizer ? (
-            <Button label="You're organizing this game" variant="secondary" disabled />
+          {cancelled ? (
+            <Button label="Game cancelled" variant="secondary" disabled />
+          ) : isOrganizer ? (
+            <Button label="Manage this game" variant="secondary" onPress={() => router.push(`/game/edit/${game.id}`)} />
           ) : membership?.status === "approved" ? (
             <Button label="Leave game" variant="secondary" loading={leaveGame.isPending} onPress={confirmLeave} />
           ) : membership?.status === "requested" ? (
             <Button label="Request sent" variant="secondary" disabled />
+          ) : full ? (
+            <Button label="Game full" variant="secondary" disabled />
           ) : (
             <HoldButton
               label={`Hold to join · $${perPlayer}`}
@@ -210,7 +292,62 @@ export default function GameDetails() {
   );
 }
 
-function JoinRequests({ gameId }: { gameId: string }) {
+function RosterAvatar({
+  gameId,
+  player,
+  canRemove,
+}: {
+  gameId: string;
+  player: { id: string; name: string; color: string };
+  canRemove: boolean;
+}) {
+  const removePlayer = useRemovePlayer(gameId);
+
+  const confirmRemove = () => {
+    if (!canRemove) return;
+    Alert.alert(`Remove ${player.name}?`, "They'll be notified and their spot opens back up.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Remove",
+        style: "destructive",
+        onPress: () => {
+          haptics.tap();
+          removePlayer.mutate(player.id, {
+            onError: (e) => Alert.alert("Couldn't remove player", e instanceof Error ? e.message : "Try again."),
+          });
+        },
+      },
+    ]);
+  };
+
+  return (
+    <Pressable
+      onLongPress={confirmRemove}
+      disabled={!canRemove || removePlayer.isPending}
+      className="items-center gap-1.5"
+      style={{ width: 52, opacity: removePlayer.isPending ? 0.4 : 1 }}
+    >
+      <View className="w-[38px] h-[38px] rounded-full items-center justify-center" style={{ backgroundColor: player.color }}>
+        <Text style={{ color: colors.base, fontSize: 12, fontWeight: "800" }}>{initial(player.name)}</Text>
+      </View>
+      <Text className="text-[12px] font-body-semibold" style={{ color: colors.textSecondary }} numberOfLines={1}>
+        {player.name}
+      </Text>
+      {canRemove && (
+        <Pressable
+          onPress={confirmRemove}
+          hitSlop={8}
+          className="absolute w-[18px] h-[18px] rounded-full items-center justify-center border"
+          style={{ top: -2, right: 3, backgroundColor: colors.surfaceAlt, borderColor: colors.cardBorder }}
+        >
+          <Ionicons name="close" size={11} color={colors.danger} />
+        </Pressable>
+      )}
+    </Pressable>
+  );
+}
+
+function JoinRequests({ gameId, full }: { gameId: string; full: boolean }) {
   const requestsQuery = useJoinRequests(gameId);
   const decide = useDecideJoinRequest(gameId);
   const requests = requestsQuery.data ?? [];
@@ -219,9 +356,14 @@ function JoinRequests({ gameId }: { gameId: string }) {
 
   return (
     <>
-      <Text className="font-body-extrabold text-[11px] uppercase tracking-wide mt-5.5 mb-2.5" style={{ color: colors.textTertiary }}>
+      <Text className="font-body-extrabold text-[13px] uppercase tracking-wide mt-5.5 mb-2.5" style={{ color: colors.textTertiary }}>
         Join requests ({requests.length})
       </Text>
+      {full && (
+        <Text className="text-[13.5px] mb-2.5" style={{ color: colors.advanced }}>
+          Your game is full. Raise max players in Edit, or decline these requests.
+        </Text>
+      )}
       <View className="gap-2.5">
         {requests.map((r) => (
           <View
@@ -232,18 +374,25 @@ function JoinRequests({ gameId }: { gameId: string }) {
             <View className="w-9 h-9 rounded-full items-center justify-center" style={{ backgroundColor: r.color }}>
               <Text style={{ color: colors.base, fontSize: 12, fontWeight: "800" }}>{initial(r.name)}</Text>
             </View>
-            <Text className="flex-1 font-body-semibold text-[13px]" style={{ color: colors.text }}>
+            <Text className="flex-1 font-body-semibold text-[14.5px]" style={{ color: colors.text }}>
               {r.name}
             </Text>
             <Pressable
               onPress={() => {
+                if (full) {
+                  Alert.alert("Game is full", "Raise max players in Edit before approving anyone else.");
+                  return;
+                }
                 haptics.tap();
-                decide.mutate({ profileId: r.profileId, approve: true });
+                decide.mutate(
+                  { profileId: r.profileId, approve: true },
+                  { onError: (e) => Alert.alert("Couldn't approve", e instanceof Error ? e.message : "Try again.") }
+                );
               }}
               className="rounded-pill px-3.5 py-2"
-              style={{ backgroundColor: colors.accent }}
+              style={{ backgroundColor: colors.accent, opacity: full ? 0.4 : 1 }}
             >
-              <Text className="font-body-extrabold text-[12px]" style={{ color: colors.base }}>
+              <Text className="font-body-extrabold text-[14px]" style={{ color: colors.base }}>
                 Approve
               </Text>
             </Pressable>
@@ -255,7 +404,7 @@ function JoinRequests({ gameId }: { gameId: string }) {
               className="rounded-pill px-3.5 py-2 border-[1.5px]"
               style={{ borderColor: "rgba(255,255,255,0.15)" }}
             >
-              <Text className="font-body-bold text-[12px]" style={{ color: colors.text }}>
+              <Text className="font-body-bold text-[14px]" style={{ color: colors.text }}>
                 Decline
               </Text>
             </Pressable>

@@ -5,6 +5,7 @@ import { supabase } from "../supabase";
 import type { Database } from "../db.types";
 import type { Game, PastGame } from "../mockData";
 import { formatDate, formatDistance, formatTimeRange } from "../format";
+import { GAME_DURATION_MS } from "../schedule";
 import { avatarColor } from "../theme";
 
 // Sydney CBD — fallback center when device location is unavailable or denied. Sydney-only for launch.
@@ -26,7 +27,11 @@ function toGame(row: NearbyGameRow): Game {
     date: formatDate(row.starts_at),
     time: formatTimeRange(row.starts_at, row.ends_at),
     startsAt: row.starts_at,
+    status: (row.status as Game["status"]) ?? "published",
     skill: row.skill_tier_label as Game["skill"],
+    // nearby_games projects the tier by slug/label only — the id is a detail-screen concern
+    // (editing), and detail always comes from games_public.
+    skillTierId: "",
     maxPlayers: row.max_players,
     // Named roster is a separate fetch (useGameRoster), gated by RLS to organizer + approved
     // members — a discover card only ever gets the headcount.
@@ -53,7 +58,9 @@ function toGameFromPublicRow(row: GamesPublicRow): Game {
     date: formatDate(row.starts_at!),
     time: formatTimeRange(row.starts_at!, row.ends_at!),
     startsAt: row.starts_at!,
+    status: (row.status as Game["status"]) ?? "published",
     skill: row.skill_tier_label as Game["skill"],
+    skillTierId: row.skill_tier_id!,
     maxPlayers: row.max_players!,
     joined: [],
     joinedCount: row.approved_count ?? 0,
@@ -97,8 +104,6 @@ export function useDiscoverGames(
   });
 }
 
-const GAME_DURATION_MS = 2 * 60 * 60 * 1000; // Wizard offers a single start time; every game is a fixed 2h block for MVP.
-
 export function useCreateGame() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -140,6 +145,47 @@ export function useCreateGame() {
   });
 }
 
+function invalidateGameLists(queryClient: ReturnType<typeof useQueryClient>, gameId: string) {
+  queryClient.invalidateQueries({ queryKey: ["games_public", gameId] });
+  queryClient.invalidateQueries({ queryKey: ["nearby_games"] });
+  queryClient.invalidateQueries({ queryKey: ["my_games"] });
+}
+
+// Venue is deliberately not editable — it's what the uploaded booking confirmation verifies
+// against, so changing it would silently invalidate the Verified badge.
+export function useUpdateGame(gameId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { startsAt: Date; skillTierId: string; maxPlayers: number; costTotalCents: number }) => {
+      const { error } = await supabase
+        .from("games")
+        .update({
+          starts_at: input.startsAt.toISOString(),
+          ends_at: new Date(input.startsAt.getTime() + GAME_DURATION_MS).toISOString(),
+          skill_tier_id: input.skillTierId,
+          max_players: input.maxPlayers,
+          cost_total_cents: input.costTotalCents,
+        })
+        .eq("id", gameId);
+      if (error) throw error;
+    },
+    onSuccess: () => invalidateGameLists(queryClient, gameId),
+  });
+}
+
+// Cancel, never delete: joined players still need the game in their list (with its chat) to
+// find out why it's off, and the DB trigger fires the cancellation push off this transition.
+export function useCancelGame(gameId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.from("games").update({ status: "cancelled" }).eq("id", gameId);
+      if (error) throw error;
+    },
+    onSuccess: () => invalidateGameLists(queryClient, gameId),
+  });
+}
+
 export function useGameDetail(gameId: string) {
   return useQuery({
     queryKey: ["games_public", gameId],
@@ -168,11 +214,14 @@ export function useMyJoinedGames() {
       if (mErr) throw mErr;
       const gameIds = (memberships ?? []).map((m) => m.game_id);
       if (gameIds.length === 0) return [];
+      // Cancelled games stay in the list until they're in the past — dropping them the
+      // instant the organiser cancels is how a player ends up turning up to nothing.
       const { data, error } = await supabase
         .from("games_public")
         .select("*")
         .in("id", gameIds)
-        .eq("status", "published")
+        .in("status", ["published", "cancelled"])
+        .gte("starts_at", new Date().toISOString())
         .order("starts_at", { ascending: true });
       if (error) throw error;
       return (data ?? []).map(toGameFromPublicRow);
@@ -192,7 +241,8 @@ export function useMyHostingGames() {
         .from("games_public")
         .select("*")
         .eq("organizer_id", user.id)
-        .eq("status", "published")
+        .in("status", ["published", "cancelled"])
+        .gte("starts_at", new Date().toISOString())
         .order("starts_at", { ascending: true });
       if (error) throw error;
       return (data ?? []).map(toGameFromPublicRow);

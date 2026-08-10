@@ -622,6 +622,10 @@ export type Database = {
         Returns: boolean
       }
       leave_game: { Args: { p_game_id: string }; Returns: undefined }
+      remove_player: {
+        Args: { p_game_id: string; p_profile_id: string }
+        Returns: undefined
+      }
       nearby_games: {
         Args: {
           from_ts?: string

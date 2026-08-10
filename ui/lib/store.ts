@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { TierId } from "./theme";
+import { firstBookableSlot, isSlotBookable } from "./schedule";
 
 export type WizardDraft = {
   venueId: string | null;
@@ -9,10 +10,13 @@ export type WizardDraft = {
   cost: number;
 };
 
+// 7pm today is the slot most hosts want, but it's already gone if the wizard is opened in the
+// evening — fall back to the next bookable slot so the draft never starts out in the past.
 function defaultStartsAt(): Date {
   const d = new Date();
   d.setHours(19, 0, 0, 0);
-  return d;
+  if (isSlotBookable(d, 19, 0)) return d;
+  return firstBookableSlot() ?? d;
 }
 
 const initialWizard: WizardDraft = {

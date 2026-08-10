@@ -7,7 +7,7 @@ import { Badge } from "./Badge";
 import { SkillPill } from "./SkillPill";
 import { AvatarStack } from "./Avatar";
 import { CountdownChip } from "./CountdownChip";
-import { Game, perPlayerCost } from "../lib/mockData";
+import { Game, perPlayerCost, spotsLeft } from "../lib/mockData";
 import { haptics } from "../lib/haptics";
 import { SPRING } from "../lib/motion";
 
@@ -24,6 +24,7 @@ export function GameCard({ game, onPress, index = 0 }: { game: Game; onPress: ()
     }
   }, [game.joinedCount]);
   const joinedStyle = useAnimatedStyle(() => ({ transform: [{ scale: joinedScale.value }] }));
+  const full = spotsLeft(game) === 0;
 
   return (
     <Animated.View entering={FadeInUp.delay(index * 60).duration(320)} style={animatedStyle}>
@@ -44,10 +45,10 @@ export function GameCard({ game, onPress, index = 0 }: { game: Game; onPress: ()
         >
           <View className="flex-row justify-between items-start">
             <View className="flex-1 pr-2">
-              <Text className="font-display-bold text-[15px]" style={{ color: colors.text }}>
+              <Text className="font-display-bold text-[16.5px]" style={{ color: colors.text }}>
                 {game.venue}
               </Text>
-              <Text className="text-[11.5px] mt-0.5" style={{ color: colors.textTertiary }}>
+              <Text className="text-[13.5px] mt-0.5" style={{ color: colors.textTertiary }}>
                 {game.suburb} · {game.distance}
               </Text>
             </View>
@@ -57,7 +58,7 @@ export function GameCard({ game, onPress, index = 0 }: { game: Game; onPress: ()
           </View>
 
           <View className="flex-row items-center justify-between">
-            <Text className="text-[12px] font-body-semibold" style={{ color: colors.textDim }}>
+            <Text className="text-[14px] font-body-semibold" style={{ color: colors.textDim }}>
               {game.date} · {game.time}
             </Text>
             <CountdownChip startsAt={game.startsAt} />
@@ -72,11 +73,14 @@ export function GameCard({ game, onPress, index = 0 }: { game: Game; onPress: ()
             className="flex-row justify-between items-center pt-1.5 mt-0.5 border-t"
             style={{ borderColor: "rgba(255,255,255,0.06)" }}
           >
-            <Text className="font-display-bold text-[16px]" style={{ color: colors.accent }}>
-              ${perPlayerCost(game.cost, game.maxPlayers)} <Text className="font-body-semibold text-[11px]" style={{ color: colors.textTertiary }}>/ player</Text>
+            <Text className="font-display-bold text-[17px]" style={{ color: colors.accent }}>
+              ${perPlayerCost(game.cost, game.maxPlayers)} <Text className="font-body-semibold text-[13px]" style={{ color: colors.textTertiary }}>/ player</Text>
             </Text>
-            <Animated.Text className="text-[11px] font-body-bold" style={[{ color: colors.textMuted }, joinedStyle]}>
-              {game.joinedCount}/{game.maxPlayers} joined
+            <Animated.Text
+              className="text-[13px] font-body-bold"
+              style={[{ color: full ? colors.danger : colors.textMuted }, joinedStyle]}
+            >
+              {full ? "Full" : `${game.joinedCount}/${game.maxPlayers} joined`}
             </Animated.Text>
           </View>
         </LinearGradient>

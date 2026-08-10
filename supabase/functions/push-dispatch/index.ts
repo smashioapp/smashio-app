@@ -8,8 +8,10 @@ const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 
 type Payload =
   | { type: "message"; game_id: string; sender_id: string; message_id: string }
-  | { type: "join_decision"; game_id: string; profile_id: string; status: "approved" | "rejected" }
-  | { type: "reminder"; game_id: string };
+  | { type: "join_decision"; game_id: string; profile_id: string; status: "approved" | "rejected" | "removed" }
+  | { type: "reminder"; game_id: string }
+  | { type: "game_cancelled"; game_id: string }
+  | { type: "game_rescheduled"; game_id: string; organizer_id: string };
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -81,11 +83,45 @@ Deno.serve(async (req) => {
       .rpc("push_game_summary", { p_game_id: payload.game_id })
       .single();
     if (recipient?.length && summary) {
-      const verb = payload.status === "approved" ? "You're in!" : "Request declined";
+      const verb = payload.status === "approved"
+        ? "You're in!"
+        : payload.status === "removed"
+        ? "Removed from a game"
+        : "Request declined";
       await sendExpoPush(
         recipient,
         verb,
         `${summary.sport_name} at ${summary.venue_name}, ${shortTime(summary.starts_at)}`,
+        { screen: "game", game_id: payload.game_id },
+      );
+    }
+  } else if (payload.type === "game_cancelled") {
+    const [{ data: recipients }, { data: summary }] = await Promise.all([
+      supabase.rpc("push_recipients_for_game", { p_game_id: payload.game_id }),
+      supabase.rpc("push_game_summary", { p_game_id: payload.game_id }).single(),
+    ]);
+    if (recipients?.length && summary) {
+      await sendExpoPush(
+        recipients,
+        "Game cancelled",
+        `${summary.venue_name}, ${shortTime(summary.starts_at)} is off. Your spot has been released.`,
+        { screen: "game", game_id: payload.game_id },
+      );
+    }
+  } else if (payload.type === "game_rescheduled") {
+    // Organiser excluded — they just made the change.
+    const [{ data: recipients }, { data: summary }] = await Promise.all([
+      supabase.rpc("push_recipients_for_game", {
+        p_game_id: payload.game_id,
+        p_exclude_profile: payload.organizer_id,
+      }),
+      supabase.rpc("push_game_summary", { p_game_id: payload.game_id }).single(),
+    ]);
+    if (recipients?.length && summary) {
+      await sendExpoPush(
+        recipients,
+        "New time for your game",
+        `${summary.venue_name} now starts ${shortTime(summary.starts_at)}.`,
         { screen: "game", game_id: payload.game_id },
       );
     }

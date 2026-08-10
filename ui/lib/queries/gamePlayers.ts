@@ -22,6 +22,7 @@ export function useGameRoster(gameId: string) {
         .eq("status", "approved");
       if (error) throw error;
       return (data ?? []).map((row) => ({
+        id: row.profile_id,
         name: (row.profiles as { display_name: string } | null)?.display_name || "Player",
         color: avatarColor(row.profile_id),
       }));
@@ -118,6 +119,18 @@ export function useLeaveGame(gameId: string) {
   return useMutation({
     mutationFn: async () => {
       const { error } = await supabase.rpc("leave_game", { p_game_id: gameId });
+      if (error) throw error;
+    },
+    onSuccess: () => invalidateGame(queryClient, gameId),
+  });
+}
+
+// Organiser-side counterpart to leave_game — frees the spot and pushes the player a notice.
+export function useRemovePlayer(gameId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (profileId: string) => {
+      const { error } = await supabase.rpc("remove_player", { p_game_id: gameId, p_profile_id: profileId });
       if (error) throw error;
     },
     onSuccess: () => invalidateGame(queryClient, gameId),

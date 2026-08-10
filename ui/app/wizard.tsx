@@ -7,6 +7,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useAppStore } from "../lib/store";
 import { colors, gradients, TIERS } from "../lib/theme";
 import { formatDate, formatTimeRange } from "../lib/format";
+import { GAME_DURATION_MS, TIME_OPTIONS, dateOptions, isSlotBookable, slotAt } from "../lib/schedule";
 import { useUpsertPlaceVenue } from "../lib/queries/venues";
 import { useSkillTiers, useSports } from "../lib/queries/sports";
 import { useCreateGame, useUploadConfirmation } from "../lib/queries/games";
@@ -33,16 +34,6 @@ import Animated, {
 const STEP_COUNT = 6;
 const NEXT_LABELS = ["Continue", "Continue", "Continue", "Continue", "Publish match", "Let's go!"];
 const SPORT_SLUG = "badminton";
-const GAME_DURATION_MS = 2 * 60 * 60 * 1000;
-
-const TIME_OPTIONS = [
-  { label: "6:00 PM", h: 18, m: 0 },
-  { label: "7:00 PM", h: 19, m: 0 },
-  { label: "7:30 PM", h: 19, m: 30 },
-  { label: "8:00 PM", h: 20, m: 0 },
-  { label: "9:00 AM", h: 9, m: 0 },
-  { label: "10:00 AM", h: 10, m: 0 },
-];
 
 // Layers the publish moment: two lines sweep in from the edges, the checkmark stamps
 // with an overshoot + rotation whip, a burst fires at peak, then the summary card
@@ -143,23 +134,13 @@ function PublishStamp({ active, children }: { active: boolean; children: React.R
         )}
       </View>
 
-      <Animated.Text entering={FadeInUp.delay(150).duration(300)} className="font-display text-[23px]" style={{ color: colors.text }}>
+      <Animated.Text entering={FadeInUp.delay(150).duration(300)} className="font-display text-[23.5px]" style={{ color: colors.text }}>
         You're hosting!
       </Animated.Text>
 
       <Animated.View style={[{ width: "100%" }, cardStyle]}>{children}</Animated.View>
     </View>
   );
-}
-
-function dateOptions(): { label: string; date: Date }[] {
-  return Array.from({ length: 4 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() + i);
-    d.setHours(0, 0, 0, 0);
-    const label = i === 0 ? "Today" : i === 1 ? "Tomorrow" : formatDate(d.toISOString());
-    return { label, date: d };
-  });
 }
 
 export default function Wizard() {
@@ -244,7 +225,10 @@ export default function Wizard() {
 
   const venue = selectedVenue;
   const perPlayer = (wizard.cost / wizard.maxPlayers).toFixed(0);
-  const nextDisabled = step === 0 && !wizard.venueId;
+  // The store's default slot is 7pm today, which is already gone if you open the wizard in the
+  // evening — block Continue rather than letting a past-dated game reach the DB.
+  const startInPast = !isSlotBookable(wizard.startsAt, wizard.startsAt.getHours(), wizard.startsAt.getMinutes());
+  const nextDisabled = (step === 0 && !wizard.venueId) || (step === 1 && startInPast);
   const endsAt = new Date(wizard.startsAt.getTime() + GAME_DURATION_MS);
 
   const goBack = () => {
@@ -284,8 +268,9 @@ export default function Wizard() {
       return;
     }
     setPublishing(true);
+    let id: string;
     try {
-      const id = await createGame.mutateAsync({
+      id = await createGame.mutateAsync({
         venueId: wizard.venueId,
         sportId: sport.id,
         skillTierId: tier.id,
@@ -293,18 +278,29 @@ export default function Wizard() {
         maxPlayers: wizard.maxPlayers,
         costTotalCents: Math.round(wizard.cost * 100),
       });
-      setCreatedGameId(id);
-      if (confirmationUri) {
-        await uploadConfirmation.mutateAsync({ gameId: id, localUri: confirmationUri });
-        setVerified(true);
-      }
-      setStep(step + 1);
     } catch (e) {
       haptics.error();
       Alert.alert("Couldn't publish match", e instanceof Error ? e.message : "Try again.");
-    } finally {
       setPublishing(false);
+      return;
     }
+    // Match is live at this point — a failure below is only the (best-effort) verification
+    // upload, so it must not surface as a publish failure or block the success screen.
+    setCreatedGameId(id);
+    if (confirmationUri) {
+      try {
+        await uploadConfirmation.mutateAsync({ gameId: id, localUri: confirmationUri });
+        setVerified(true);
+      } catch (e) {
+        haptics.error();
+        Alert.alert(
+          "Match published",
+          "Your booking confirmation couldn't be uploaded, so the match isn't verified yet. You can try again from the match page."
+        );
+      }
+    }
+    setStep(step + 1);
+    setPublishing(false);
   };
 
   const goNext = () => {
@@ -325,7 +321,7 @@ export default function Wizard() {
         <Pressable onPress={goBack} className="w-[34px] h-[34px] rounded-full items-center justify-center" style={{ backgroundColor: "#17171A" }}>
           <Ionicons name="chevron-back" size={16} color={colors.text} />
         </Pressable>
-        <Text className="font-display text-[19px]" style={{ color: colors.text }}>
+        <Text className="font-display text-[20px]" style={{ color: colors.text }}>
           Host a Match
         </Text>
       </View>
@@ -347,7 +343,7 @@ export default function Wizard() {
                 onChangeText={changeVenueQuery}
                 placeholder="Search venues, courts, sports centres…"
                 placeholderTextColor={colors.textMuted}
-                className="flex-1 py-3.5 text-[14px]"
+                className="flex-1 py-3.5 text-[15.5px]"
                 style={{ color: colors.text }}
               />
               {(venueSearching || venueResolving) && <ActivityIndicator size="small" color={colors.accent} />}
@@ -368,10 +364,10 @@ export default function Wizard() {
                 >
                   <View className="w-1 self-stretch rounded" style={{ backgroundColor: colors.beginner }} />
                   <View className="flex-1">
-                    <Text className="font-body-bold text-[14px]" style={{ color: colors.text }}>
+                    <Text className="font-body-bold text-[15.5px]" style={{ color: colors.text }}>
                       {p.mainText}
                     </Text>
-                    <Text className="text-[11.5px] mt-0.5" style={{ color: colors.textSecondary }}>
+                    <Text className="text-[13.5px] mt-0.5" style={{ color: colors.textSecondary }}>
                       {p.secondaryText}
                     </Text>
                   </View>
@@ -379,7 +375,7 @@ export default function Wizard() {
               ))}
 
             {!selectedVenue && !venueSearching && venueQuery.trim().length >= 3 && venueResults.length === 0 && (
-              <Text className="text-[12.5px] mt-2" style={{ color: colors.textMuted }}>
+              <Text className="text-[14.5px] mt-2" style={{ color: colors.textMuted }}>
                 No venues found. Try a different search.
               </Text>
             )}
@@ -400,10 +396,10 @@ export default function Wizard() {
                   >
                     <View className="w-1 self-stretch rounded" style={{ backgroundColor: colors.intermediate }} />
                     <View className="flex-1">
-                      <Text className="font-body-bold text-[14px]" style={{ color: colors.text }}>
+                      <Text className="font-body-bold text-[15.5px]" style={{ color: colors.text }}>
                         {v.name}
                       </Text>
-                      <Text className="text-[11.5px] mt-0.5" style={{ color: colors.textSecondary }}>
+                      <Text className="text-[13.5px] mt-0.5" style={{ color: colors.textSecondary }}>
                         {v.suburb}, {v.state}
                       </Text>
                     </View>
@@ -414,10 +410,10 @@ export default function Wizard() {
 
             {selectedVenue && (
               <View className="rounded-2xl px-3.5 py-3.5 border-[1.5px]" style={{ backgroundColor: "#1D2416", borderColor: colors.accent }}>
-                <Text className="font-body-bold text-[14px]" style={{ color: colors.text }}>
+                <Text className="font-body-bold text-[15.5px]" style={{ color: colors.text }}>
                   {selectedVenue.name}
                 </Text>
-                <Text className="text-[11.5px] mt-0.5" style={{ color: colors.textSecondary }}>
+                <Text className="text-[13.5px] mt-0.5" style={{ color: colors.textSecondary }}>
                   {selectedVenue.address}
                 </Text>
               </View>
@@ -438,11 +434,7 @@ export default function Wizard() {
                     key={label}
                     label={label}
                     active={active}
-                    onPress={() => {
-                      const next = new Date(date);
-                      next.setHours(wizard.startsAt.getHours(), wizard.startsAt.getMinutes());
-                      setStartsAt(next);
-                    }}
+                    onPress={() => setStartsAt(slotAt(date, wizard.startsAt.getHours(), wizard.startsAt.getMinutes()))}
                   />
                 );
               })}
@@ -451,20 +443,19 @@ export default function Wizard() {
             <View className="flex-row flex-wrap gap-2">
               {TIME_OPTIONS.map(({ label, h, m }) => {
                 const active = wizard.startsAt.getHours() === h && wizard.startsAt.getMinutes() === m;
+                const bookable = isSlotBookable(wizard.startsAt, h, m);
                 return (
-                  <Chip
-                    key={label}
-                    label={label}
-                    active={active}
-                    onPress={() => {
-                      const next = new Date(wizard.startsAt);
-                      next.setHours(h, m);
-                      setStartsAt(next);
-                    }}
-                  />
+                  <View key={label} style={{ opacity: bookable ? 1 : 0.35 }}>
+                    <Chip label={label} active={active && bookable} onPress={() => bookable && setStartsAt(slotAt(wizard.startsAt, h, m))} />
+                  </View>
                 );
               })}
             </View>
+            {startInPast && (
+              <Text className="text-[13.5px] mt-3.5" style={{ color: colors.advanced }}>
+                That slot has already passed today. Pick a later time or another day.
+              </Text>
+            )}
           </View>
         )}
 
@@ -482,7 +473,7 @@ export default function Wizard() {
                   style={{ backgroundColor: active ? colors.surfaceAlt : colors.surface, borderColor: active ? t.color : "rgba(255,255,255,0.07)" }}
                 >
                   <View className="w-2.5 h-2.5 rounded-full mr-2.5" style={{ backgroundColor: t.color }} />
-                  <Text className="font-body-extrabold text-[14px]" style={{ color: colors.text }}>
+                  <Text className="font-body-extrabold text-[15.5px]" style={{ color: colors.text }}>
                     {t.id}
                   </Text>
                 </Pressable>
@@ -514,10 +505,10 @@ export default function Wizard() {
               className="rounded-2xl p-4 flex-row justify-between items-center border"
               style={{ backgroundColor: "rgba(214,255,63,0.1)", borderColor: "rgba(214,255,63,0.25)" }}
             >
-              <Text className="text-[13px] font-body-bold" style={{ color: colors.accent }}>
+              <Text className="text-[14.5px] font-body-bold" style={{ color: colors.accent }}>
                 Even split · {wizard.maxPlayers} players
               </Text>
-              <Text className="font-display-bold text-[19px]" style={{ color: colors.accent }}>
+              <Text className="font-display-bold text-[20px]" style={{ color: colors.accent }}>
                 ${perPlayer}
               </Text>
             </View>
@@ -543,7 +534,7 @@ export default function Wizard() {
               {confirmationUri ? (
                 <Image source={{ uri: confirmationUri }} className="w-full h-32 rounded-xl mb-2" resizeMode="cover" />
               ) : null}
-              <Text className="font-body-bold text-[13px]" style={{ color: confirmationUri ? colors.intermediate : colors.textMuted }}>
+              <Text className="font-body-bold text-[14.5px]" style={{ color: confirmationUri ? colors.intermediate : colors.textMuted }}>
                 {confirmationUri ? "✓ Selected, uploads when you publish" : "Tap to upload confirmation (photo)"}
               </Text>
             </Pressable>
@@ -553,14 +544,14 @@ export default function Wizard() {
         {step === 5 && (
           <PublishStamp active={step === 5}>
             <View className="items-center gap-3.5">
-              <Text className="text-[12.5px] text-center max-w-[230px]" style={{ color: colors.textSecondary }}>
+              <Text className="text-[14.5px] text-center max-w-[230px]" style={{ color: colors.textSecondary }}>
                 Your match at {venue?.name ?? "your venue"} is live. Players will start joining any moment.
               </Text>
               <View className="w-full rounded-2xl p-4 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
-                <Text className="font-body-bold text-[14px]" style={{ color: colors.text }}>
+                <Text className="font-body-bold text-[15.5px]" style={{ color: colors.text }}>
                   {venue?.name ?? "your venue"}
                 </Text>
-                <Text className="text-[12px] mt-1" style={{ color: colors.textSecondary }}>
+                <Text className="text-[14px] mt-1" style={{ color: colors.textSecondary }}>
                   {formatDate(wizard.startsAt.toISOString())} · {formatTimeRange(wizard.startsAt.toISOString(), endsAt.toISOString())}
                 </Text>
                 <View
@@ -568,7 +559,7 @@ export default function Wizard() {
                   style={{ backgroundColor: verified ? "rgba(76,217,100,0.15)" : "rgba(255,182,72,0.15)" }}
                 >
                   <Text
-                    className="font-body-extrabold text-[9.5px] uppercase"
+                    className="font-body-extrabold text-[11.5px] uppercase"
                     style={{ color: verified ? colors.intermediate : colors.advanced }}
                   >
                     {verified ? "Verified" : "Awaiting booking upload"}
@@ -583,14 +574,14 @@ export default function Wizard() {
       <View className="px-5 pb-8 pt-3.5">
         {nextDisabled ? (
           <View className="rounded-pill py-4 items-center" style={{ backgroundColor: colors.surfaceAlt }}>
-            <Text className="font-body-extrabold text-[15px]" style={{ color: colors.textMuted }}>
+            <Text className="font-body-extrabold text-[16.5px]" style={{ color: colors.textMuted }}>
               {NEXT_LABELS[step]}
             </Text>
           </View>
         ) : (
           <LinearGradient colors={gradients.accent} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} className="rounded-pill">
             <Pressable onPress={goNext} disabled={publishing} className="py-4 items-center" style={{ opacity: publishing ? 0.6 : 1 }}>
-              <Text className="font-body-extrabold text-[15px]" style={{ color: colors.base }}>
+              <Text className="font-body-extrabold text-[16.5px]" style={{ color: colors.base }}>
                 {publishing ? "Publishing…" : NEXT_LABELS[step]}
               </Text>
             </Pressable>
@@ -612,10 +603,10 @@ function StepIcon({ name }: { name: keyof typeof Ionicons.glyphMap }) {
 function StepHeading({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <View className="mb-4.5">
-      <Text className="font-display text-[22px] mb-1" style={{ color: colors.text }}>
+      <Text className="font-display text-[22.5px] mb-1" style={{ color: colors.text }}>
         {title}
       </Text>
-      <Text className="text-[12.5px]" style={{ color: "#8A8A92" }}>
+      <Text className="text-[14.5px]" style={{ color: "#8A8A92" }}>
         {subtitle}
       </Text>
     </View>
@@ -624,7 +615,7 @@ function StepHeading({ title, subtitle }: { title: string; subtitle: string }) {
 
 function Label({ children, style }: { children: string; style?: object }) {
   return (
-    <Text className="font-body-extrabold text-[11px] uppercase mb-2.5" style={{ color: colors.textTertiary, ...(style ?? {}) }}>
+    <Text className="font-body-extrabold text-[13px] uppercase mb-2.5" style={{ color: colors.textTertiary, ...(style ?? {}) }}>
       {children}
     </Text>
   );

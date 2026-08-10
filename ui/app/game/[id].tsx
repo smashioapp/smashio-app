@@ -24,13 +24,14 @@ import { haptics } from "../../lib/haptics";
 import { shareGame } from "../../lib/share";
 import { GameDetailSkeleton } from "../../components/Skeleton";
 
-// Same deep-link shape discover's map card uses — maps: on iOS, geo: on Android, web fallback.
+// https://maps.apple.com / geo: universal links — not the maps:/geo: custom schemes, which prompt
+// an App Store "Restore Maps?"/"no app found" dialog when the stock app has been removed.
 function openDirections(game: Game) {
   const label = encodeURIComponent(game.venue);
   const hasCoords = game.venueLat != null && game.venueLng != null;
   const query = hasCoords ? `${game.venueLat},${game.venueLng}` : encodeURIComponent(game.venueAddress ?? game.venue);
   const url = Platform.select({
-    ios: hasCoords ? `maps:0,0?q=${label}@${query}` : `maps:0,0?q=${query}`,
+    ios: hasCoords ? `https://maps.apple.com/?ll=${query}&q=${label}` : `https://maps.apple.com/?q=${query}`,
     android: hasCoords ? `geo:0,0?q=${query}(${label})` : `geo:0,0?q=${query}`,
     default: `https://www.google.com/maps/search/?api=1&query=${query}`,
   });

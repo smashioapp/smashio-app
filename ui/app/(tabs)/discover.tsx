@@ -18,7 +18,7 @@ function openDirections(game: Game) {
   if (game.venueLat == null || game.venueLng == null) return;
   const label = encodeURIComponent(game.venue);
   const url = Platform.select({
-    ios: `maps:0,0?q=${label}@${game.venueLat},${game.venueLng}`,
+    ios: `https://maps.apple.com/?ll=${game.venueLat},${game.venueLng}&q=${label}`,
     android: `geo:0,0?q=${game.venueLat},${game.venueLng}(${label})`,
     default: `https://www.google.com/maps/search/?api=1&query=${game.venueLat},${game.venueLng}`,
   });

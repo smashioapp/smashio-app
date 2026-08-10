@@ -17,7 +17,6 @@ import { Chip } from "../components/Chip";
 import { StepProgress } from "../components/StepProgress";
 import { Burst } from "../components/Burst";
 import { haptics } from "../lib/haptics";
-import { sound } from "../lib/sound";
 import { SPRING, useReduceMotion } from "../lib/motion";
 import Animated, {
   Easing,
@@ -86,7 +85,6 @@ function PublishStamp({ active, children }: { active: boolean; children: React.R
   useEffect(() => {
     if (!showBurst) return;
     haptics.burst();
-    sound.play("sparkle");
   }, [showBurst]);
 
   const lineLeftStyle = useAnimatedStyle(() => ({ transform: [{ scaleX: lineLeft.value }] }));

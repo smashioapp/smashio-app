@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { decode } from "base64-arraybuffer";
 import { File } from "expo-file-system";
 import { supabase } from "../supabase";
 import type { TablesUpdate } from "../db.types";
@@ -127,11 +126,11 @@ export function useUploadAvatar() {
   return useMutation({
     mutationFn: async (localUri: string) => {
       const id = await currentUserId();
-      const base64 = await new File(localUri).base64();
+      const bytes = await new File(localUri).arrayBuffer();
       const path = `${id}/avatar.jpg`;
       const { error: uploadError } = await supabase.storage
         .from("avatars")
-        .upload(path, decode(base64), { contentType: "image/jpeg", upsert: true });
+        .upload(path, bytes, { contentType: "image/jpeg", upsert: true });
       if (uploadError) throw uploadError;
 
       const { error: updateError } = await supabase.from("profiles").update({ photo_path: path }).eq("id", id);

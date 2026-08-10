@@ -10,7 +10,7 @@ type Payload =
   | { type: "message"; game_id: string; sender_id: string; message_id: string }
   | { type: "join_decision"; game_id: string; profile_id: string; status: "approved" | "rejected" | "removed" }
   | { type: "reminder"; game_id: string }
-  | { type: "game_cancelled"; game_id: string }
+  | { type: "game_cancelled"; game_id: string; organizer_id: string }
   | { type: "game_rescheduled"; game_id: string; organizer_id: string };
 
 const supabase = createClient(
@@ -96,8 +96,12 @@ Deno.serve(async (req) => {
       );
     }
   } else if (payload.type === "game_cancelled") {
+    // Organiser excluded — they just cancelled it.
     const [{ data: recipients }, { data: summary }] = await Promise.all([
-      supabase.rpc("push_recipients_for_game", { p_game_id: payload.game_id }),
+      supabase.rpc("push_recipients_for_game", {
+        p_game_id: payload.game_id,
+        p_exclude_profile: payload.organizer_id,
+      }),
       supabase.rpc("push_game_summary", { p_game_id: payload.game_id }).single(),
     ]);
     if (recipients?.length && summary) {

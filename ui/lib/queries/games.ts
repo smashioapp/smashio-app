@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { decode } from "base64-arraybuffer";
 import { File } from "expo-file-system";
 import { supabase } from "../supabase";
 import type { Database } from "../db.types";
@@ -317,11 +316,11 @@ export function usePastGameDetail(gameId: string) {
 export function useUploadConfirmation() {
   return useMutation({
     mutationFn: async ({ gameId, localUri }: { gameId: string; localUri: string }) => {
-      const base64 = await new File(localUri).base64();
+      const bytes = await new File(localUri).arrayBuffer();
       const path = `${gameId}/confirmation.jpg`;
       const { error: uploadError } = await supabase.storage
         .from("confirmations")
-        .upload(path, decode(base64), { contentType: "image/jpeg", upsert: true });
+        .upload(path, bytes, { contentType: "image/jpeg", upsert: true });
       if (uploadError) throw uploadError;
 
       const { error: parseError } = await supabase.functions.invoke("ai-proxy", {

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, Text, Pressable, ScrollView } from "react-native";
+import { View, Text, Image, Pressable, ScrollView } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, gradients, initial, tierColor, RELIABILITY_EXPLAINER } from "../../lib/theme";
@@ -11,6 +11,7 @@ import { RollingNumber } from "../../components/RollingNumber";
 import { ReliabilityGauge } from "../../components/ReliabilityGauge";
 import { TierBadge } from "../../components/TierBadge";
 import { useSession } from "../../lib/session";
+import { supabase } from "../../lib/supabase";
 import { useProfile, useProfileSports, useProfileStats } from "../../lib/queries/profile";
 import { signOut } from "../../lib/auth";
 import { shareReferral } from "../../lib/share";
@@ -35,6 +36,9 @@ export default function Profile() {
   const skill = profileSports?.[0]?.skill_tiers?.label ?? "Intermediate";
   const color = tierColor(skill);
   const memberSinceYear = profile ? new Date(profile.created_at).getFullYear() : "—";
+  const photoUrl = profile?.photo_path
+    ? supabase.storage.from("avatars").getPublicUrl(profile.photo_path).data.publicUrl
+    : null;
 
   const handleLogout = async () => {
     await signOut();
@@ -46,12 +50,16 @@ export default function Profile() {
       <ScrollView contentContainerStyle={{ paddingBottom: 110 }}>
         <View className="items-center gap-2 px-6 pt-2 pb-4">
           <View
-            className="w-[84px] h-[84px] rounded-full items-center justify-center"
+            className="w-[84px] h-[84px] rounded-full items-center justify-center overflow-hidden"
             style={{ backgroundColor: colors.pro }}
           >
-            <Text className="font-display text-[24.5px]" style={{ color: colors.base }}>
-              {initial(displayName)}
-            </Text>
+            {photoUrl ? (
+              <Image source={{ uri: photoUrl }} className="w-[84px] h-[84px]" />
+            ) : (
+              <Text className="font-display text-[24.5px]" style={{ color: colors.base }}>
+                {initial(displayName)}
+              </Text>
+            )}
           </View>
           <Text className="font-display text-[20.5px]" style={{ color: colors.text }}>
             {displayName}

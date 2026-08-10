@@ -221,7 +221,9 @@ export function useMyJoinedGames() {
         .select("*")
         .in("id", gameIds)
         .in("status", ["published", "cancelled"])
-        .gte("starts_at", new Date().toISOString())
+        // ends_at, not starts_at — a game you're at right now must stay in the list. The
+        // completion cron only sweeps hourly, so this is what actually retires a finished one.
+        .gte("ends_at", new Date().toISOString())
         .order("starts_at", { ascending: true });
       if (error) throw error;
       return (data ?? []).map(toGameFromPublicRow);
@@ -242,7 +244,9 @@ export function useMyHostingGames() {
         .select("*")
         .eq("organizer_id", user.id)
         .in("status", ["published", "cancelled"])
-        .gte("starts_at", new Date().toISOString())
+        // ends_at, not starts_at — a game you're at right now must stay in the list. The
+        // completion cron only sweeps hourly, so this is what actually retires a finished one.
+        .gte("ends_at", new Date().toISOString())
         .order("starts_at", { ascending: true });
       if (error) throw error;
       return (data ?? []).map(toGameFromPublicRow);

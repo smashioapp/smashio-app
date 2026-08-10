@@ -12,16 +12,17 @@ import { readFileSync } from "node:fs";
 
 const PASSWORD = "Test1234!";
 
-// [email, display_name] — first entry is the primary login account requested for local testing.
+// [email, display_name] — first three are named personal accounts (App Store review + team);
+// bot1-5 are "existing user" accounts that host events so discover/map aren't empty on first run.
 const TEST_USERS = [
   ["test@smashio.dev", "Test User"],
+  ["ajay@smashio.dev", "Ajay"],
+  ["maitri@smashio.dev", "Maitri"],
   ["bot1@smashio.dev", "Priya Nair"],
   ["bot2@smashio.dev", "Jordan Lee"],
   ["bot3@smashio.dev", "Mia Chen"],
   ["bot4@smashio.dev", "Liam O'Brien"],
   ["bot5@smashio.dev", "Ava Singh"],
-  ["bot6@smashio.dev", "Noah Kim"],
-  ["bot7@smashio.dev", "Sam Carter"],
 ];
 
 function projectRef() {

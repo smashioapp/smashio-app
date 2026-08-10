@@ -1,23 +1,38 @@
--- Test data for the 8 accounts created by create-test-users.mjs (test@smashio.dev + bot1-7).
+-- Test data for the 8 accounts created by create-test-users.mjs:
+--   test@smashio.dev / maitri@smashio.dev / ajay@smashio.dev  — named accounts, no events, no
+--     memberships. Left clean so these can be used to test creating events and joining others'.
+--   bot1-5@smashio.dev — "existing users" who already host events, so discover/map/list aren't
+--     empty on first login. Nobody is a member of anybody's event — join/approve flow is untested
+--     state, ready to exercise by hand.
 -- Run against the LINKED hosted project after that script:
 --   npx supabase db query --linked -f supabase/seed-test-data.sql
 --
--- NOT idempotent for games/messages/ratings (each run adds another batch) — safe to run once.
--- To wipe just this batch: delete from public.games where organizer_id in
--- (select id from auth.users where email like '%@smashio.dev'); (cascades players/messages/ratings).
--- profiles/profile_sports upserts below ARE safe to re-run.
+-- Idempotent: re-running first deletes this batch's own games (cascades players/messages/ratings)
+-- before re-inserting. Only ever touches rows owned by an @smashio.dev account.
 
--- Venues come from supabase/seed.sql (Sydney-only). Nothing to add here.
+delete from public.games where organizer_id in (select id from auth.users where email like '%@smashio.dev');
 
--- Profile polish + skill tiers for all 8 test accounts.
-with test_profiles as (
-  select u.id, u.email from auth.users u where u.email like '%@smashio.dev'
+-- Venues come from supabase/seed.sql (Sydney-only, real courts). Nothing to add here.
+
+-- Profile polish + skill tiers for all 8 test accounts, spread across Sydney suburbs.
+with home as (
+  select * from (values
+    ('test@smashio.dev', 'Surry Hills', 151.2117, -33.8886, 'intermediate'),
+    ('ajay@smashio.dev', 'Newtown', 151.1795, -33.8978, 'intermediate'),
+    ('maitri@smashio.dev', 'Chatswood', 151.1810, -33.7969, 'beginner'),
+    ('bot1@smashio.dev', 'Parramatta', 151.0011, -33.8150, 'intermediate'),
+    ('bot2@smashio.dev', 'Hurstville', 151.1027, -33.9669, 'beginner'),
+    ('bot3@smashio.dev', 'Marrickville', 151.1552, -33.9107, 'advanced'),
+    ('bot4@smashio.dev', 'Ryde', 151.1229, -33.7940, 'intermediate'),
+    ('bot5@smashio.dev', 'Bondi Junction', 151.2493, -33.8926, 'pro')
+  ) as h(email, suburb, lng, lat, tier_slug)
 )
 update public.profiles p
-set home_suburb = 'Surry Hills',
-    home_point = extensions.ST_SetSRID(extensions.ST_MakePoint(151.2117, -33.8886), 4326)
-from test_profiles tp
-where p.id = tp.id and p.home_suburb is null;
+set home_suburb = h.suburb,
+    home_point = extensions.ST_SetSRID(extensions.ST_MakePoint(h.lng, h.lat), 4326)
+from home h
+join auth.users u on u.email = h.email
+where p.id = u.id;
 
 with badminton as (select id from public.sports where slug = 'badminton'),
 tiers as (
@@ -28,13 +43,13 @@ assignments as (
   from auth.users u
   join (values
     ('test@smashio.dev', 'intermediate'),
+    ('ajay@smashio.dev', 'intermediate'),
+    ('maitri@smashio.dev', 'beginner'),
     ('bot1@smashio.dev', 'intermediate'),
     ('bot2@smashio.dev', 'beginner'),
     ('bot3@smashio.dev', 'advanced'),
     ('bot4@smashio.dev', 'intermediate'),
-    ('bot5@smashio.dev', 'pro'),
-    ('bot6@smashio.dev', 'beginner'),
-    ('bot7@smashio.dev', 'advanced')
+    ('bot5@smashio.dev', 'pro')
   ) as v(email, tier_slug) on v.email = u.email
 )
 insert into public.profile_sports (profile_id, sport_id, skill_tier_id)
@@ -43,7 +58,10 @@ from assignments a
 join tiers on tiers.slug = a.tier_slug
 on conflict (profile_id, sport_id) do update set skill_tier_id = excluded.skill_tier_id;
 
--- Everything below keys off these 9 named lookups (8 test users + venues).
+-- Events — all organized by the bot1-5 "existing user" accounts, spread across the 8 real
+-- venues, skill tiers, and dates. verification_status set directly (no game_confirmations row
+-- needed to exercise the badge) so Discover/My Games show a realistic mix out of the box.
+-- No game_players rows anywhere — join/request/approve is left for manual testing.
 with u as (
   select email, id from auth.users where email like '%@smashio.dev'
 ),
@@ -54,164 +72,26 @@ tier as (
   select st.slug, st.id from public.skill_tiers st
   join public.sports s on s.id = st.sport_id where s.slug = 'badminton'
 ),
-badminton as (select id from public.sports where slug = 'badminton'),
+badminton as (select id from public.sports where slug = 'badminton')
 
--- G1: organizer=test, near-full (5/6 approved), +2 days, Sydney Badminton Centre, intermediate.
-g1 as (
-  insert into public.games (sport_id, venue_id, organizer_id, starts_at, ends_at, court_label, skill_tier_id, max_players, cost_total_cents, status)
-  select (select id from badminton), (select id from venue where name = 'Sydney Badminton Centre'),
-    (select id from u where email = 'test@smashio.dev'),
-    now() + interval '2 days' + interval '18 hours', now() + interval '2 days' + interval '20 hours',
-    'Court 3', (select id from tier where slug = 'intermediate'), 6, 1800, 'published'
-  returning id
-),
--- G2: organizer=test, 2 pending join requests to approve, +3 days, Bondi Badminton Club, beginner.
-g2 as (
-  insert into public.games (sport_id, venue_id, organizer_id, starts_at, ends_at, court_label, skill_tier_id, max_players, cost_total_cents, status)
-  select (select id from badminton), (select id from venue where name = 'Bondi Badminton Club'),
-    (select id from u where email = 'test@smashio.dev'),
-    now() + interval '3 days' + interval '19 hours', now() + interval '3 days' + interval '21 hours',
-    'Court 1', (select id from tier where slug = 'beginner'), 8, 0, 'published'
-  returning id
-),
--- G3: organizer=bot1, test is an approved player, +1 day, Inner West Badminton Centre, intermediate.
-g3 as (
-  insert into public.games (sport_id, venue_id, organizer_id, starts_at, ends_at, court_label, skill_tier_id, max_players, cost_total_cents, status)
-  select (select id from badminton), (select id from venue where name = 'Inner West Badminton Centre'),
-    (select id from u where email = 'bot1@smashio.dev'),
-    now() + interval '1 day' + interval '17 hours', now() + interval '1 day' + interval '19 hours',
-    'Court 2', (select id from tier where slug = 'intermediate'), 4, 1200, 'published'
-  returning id
-),
--- G4: organizer=bot2, test has a pending (unapproved) request, +4 days, Parramatta Badminton Arena, advanced.
-g4 as (
-  insert into public.games (sport_id, venue_id, organizer_id, starts_at, ends_at, court_label, skill_tier_id, max_players, cost_total_cents, status)
-  select (select id from badminton), (select id from venue where name = 'Parramatta Badminton Arena'),
-    (select id from u where email = 'bot2@smashio.dev'),
-    now() + interval '4 days' + interval '18 hours', now() + interval '4 days' + interval '20 hours',
-    'Court 1', (select id from tier where slug = 'advanced'), 4, 1500, 'published'
-  returning id
-),
--- G5: organizer=bot3, open discover game test hasn't touched, +5 days, Chatswood Badminton Centre, pro.
-g5 as (
-  insert into public.games (sport_id, venue_id, organizer_id, starts_at, ends_at, court_label, skill_tier_id, max_players, cost_total_cents, status)
-  select (select id from badminton), (select id from venue where name = 'Chatswood Badminton Centre'),
-    (select id from u where email = 'bot3@smashio.dev'),
-    now() + interval '5 days' + interval '10 hours', now() + interval '5 days' + interval '12 hours',
-    'Court 4', (select id from tier where slug = 'pro'), 4, 2000, 'published'
-  returning id
-),
--- G6: organizer=bot4, test approved, starts in 90 min — exercises the urgent countdown chip.
-g6 as (
-  insert into public.games (sport_id, venue_id, organizer_id, starts_at, ends_at, court_label, skill_tier_id, max_players, cost_total_cents, status)
-  select (select id from badminton), (select id from venue where name = 'Sydney Badminton Centre'),
-    (select id from u where email = 'bot4@smashio.dev'),
-    now() + interval '90 minutes', now() + interval '3 hours',
-    'Court 2', (select id from tier where slug = 'intermediate'), 4, 1000, 'published'
-  returning id
-),
--- G7: completed, organizer=test, ended yesterday — feeds the ratings flow. Ryde Badminton Stadium.
-g7 as (
-  insert into public.games (sport_id, venue_id, organizer_id, starts_at, ends_at, court_label, skill_tier_id, max_players, cost_total_cents, status)
-  select (select id from badminton), (select id from venue where name = 'Ryde Badminton Stadium'),
-    (select id from u where email = 'test@smashio.dev'),
-    now() - interval '1 day' - interval '3 hours', now() - interval '1 day' - interval '1 hours',
-    'Court 1', (select id from tier where slug = 'intermediate'), 4, 1200, 'completed'
-  returning id, starts_at
-),
--- G8: cancelled, organizer=bot5, test's request is now moot — Rockdale Badminton Centre.
-g8 as (
-  insert into public.games (sport_id, venue_id, organizer_id, starts_at, ends_at, court_label, skill_tier_id, max_players, cost_total_cents, status)
-  select (select id from badminton), (select id from venue where name = 'Rockdale Badminton Centre'),
-    (select id from u where email = 'bot5@smashio.dev'),
-    now() + interval '6 days' + interval '15 hours', now() + interval '6 days' + interval '17 hours',
-    'Court 3', (select id from tier where slug = 'beginner'), 4, 0, 'cancelled'
-  returning id
-),
-
-game_players_ins as (
-  insert into public.game_players (game_id, profile_id, status, requested_at, decided_at)
-  select (select id from g1), u.id, 'approved', now() - interval '1 day', now() - interval '1 day'
-  from u where u.email in ('bot1@smashio.dev','bot2@smashio.dev','bot3@smashio.dev','bot4@smashio.dev','bot6@smashio.dev')
-  union all
-  select (select id from g2), u.id, 'approved', now() - interval '1 day', now() - interval '1 day'
-  from u where u.email in ('bot1@smashio.dev','bot6@smashio.dev','bot7@smashio.dev')
-  union all
-  select (select id from g2), u.id, 'requested', now() - interval '2 hours', null
-  from u where u.email in ('bot2@smashio.dev','bot3@smashio.dev')
-  union all
-  select (select id from g3), u.id, 'approved', now() - interval '1 day', now() - interval '1 day'
-  from u where u.email = 'test@smashio.dev'
-  union all
-  select (select id from g3), u.id, 'approved', now() - interval '1 day', now() - interval '1 day'
-  from u where u.email = 'bot7@smashio.dev'
-  union all
-  select (select id from g4), u.id, 'requested', now() - interval '3 hours', null
-  from u where u.email = 'test@smashio.dev'
-  union all
-  select (select id from g4), u.id, 'approved', now() - interval '1 day', now() - interval '1 day'
-  from u where u.email = 'bot6@smashio.dev'
-  union all
-  select (select id from g5), u.id, 'approved', now() - interval '1 day', now() - interval '1 day'
-  from u where u.email in ('bot4@smashio.dev','bot7@smashio.dev')
-  union all
-  select (select id from g6), u.id, 'approved', now() - interval '1 day', now() - interval '1 day'
-  from u where u.email in ('test@smashio.dev','bot1@smashio.dev','bot3@smashio.dev')
-  union all
-  select (select id from g7), u.id, 'approved', now() - interval '2 days', now() - interval '2 days'
-  from u where u.email in ('bot1@smashio.dev','bot2@smashio.dev')
-  union all
-  -- late leave on g7 (decided after starts_at) so recompute_reliability_scores has a signal to dock.
-  select (select id from g7), u.id, 'left',
-    now() - interval '2 days',
-    (select starts_at from g7) + interval '10 minutes'
-  from u where u.email = 'bot3@smashio.dev'
-  union all
-  select (select id from g8), u.id, 'requested', now() - interval '2 days', null
-  from u where u.email = 'test@smashio.dev'
-  returning game_id, profile_id
-),
-
-messages_ins as (
-  insert into public.messages (game_id, sender_id, body, created_at)
-  select (select id from g1), u.id, m.body, now() - m.ago
-  from (values
-    ('test@smashio.dev', 'Court''s booked, see you all Thursday!', interval '20 hours'),
-    ('bot1@smashio.dev', 'Nice, I''ll bring an extra shuttle tube', interval '18 hours'),
-    ('bot4@smashio.dev', 'Running 5 min late, save me a spot', interval '2 hours')
-  ) as m(email, body, ago)
-  join u on u.email = m.email
-  union all
-  select (select id from g3), u.id, m.body, now() - m.ago
-  from (values
-    ('bot1@smashio.dev', 'Anyone know if the courts have AC? Last time it was brutal', interval '10 hours'),
-    ('test@smashio.dev', 'Yeah it''s fine, decent aircon there', interval '9 hours')
-  ) as m(email, body, ago)
-  join u on u.email = m.email
-  union all
-  select (select id from g6), u.id, m.body, now() - m.ago
-  from (values
-    ('bot4@smashio.dev', 'Starting soon, heading over now', interval '30 minutes')
-  ) as m(email, body, ago)
-  join u on u.email = m.email
-  returning id
-),
-
-ratings_ins as (
-  insert into public.ratings (game_id, rater_id, ratee_id, stars, created_at)
-  select (select id from g7), rater.id, ratee.id, r.stars, now() - interval '12 hours'
-  from (values
-    ('bot1@smashio.dev', 'test@smashio.dev', 5),
-    ('bot2@smashio.dev', 'test@smashio.dev', 4),
-    ('test@smashio.dev', 'bot1@smashio.dev', 5),
-    ('test@smashio.dev', 'bot2@smashio.dev', 4)
-  ) as r(rater_email, ratee_email, stars)
-  join u rater on rater.email = r.rater_email
-  join u ratee on ratee.email = r.ratee_email
-  returning game_id
+insert into public.games (
+  sport_id, venue_id, organizer_id, starts_at, ends_at, court_label, skill_tier_id,
+  max_players, cost_total_cents, status, verification_status
 )
-
-select
-  (select count(*) from game_players_ins) as game_players_inserted,
-  (select count(*) from messages_ins) as messages_inserted,
-  (select count(*) from ratings_ins) as ratings_inserted;
+select (select id from badminton), (select id from venue where name = v.venue_name),
+  (select id from u where email = v.organizer_email),
+  now() + v.starts_in, now() + v.starts_in + v.duration,
+  v.court_label, (select id from tier where slug = v.tier_slug),
+  v.max_players, v.cost_cents, 'published', v.verification
+from (values
+  -- organizer_email, venue_name, starts_in, duration, court_label, tier_slug, max_players, cost_cents, verification
+  ('bot1@smashio.dev', 'NBC Homebush', interval '1 day' + interval '18 hours', interval '2 hours', 'Court 5', 'intermediate', 6, 1800, 'verified'),
+  ('bot2@smashio.dev', 'Alpha Badminton Centre', interval '2 days' + interval '19 hours', interval '2 hours', 'Court 12', 'beginner', 8, 0, 'none'),
+  ('bot3@smashio.dev', 'PCYC Auburn', interval '3 days' + interval '17 hours', interval '2 hours', 'Court 2', 'advanced', 4, 1600, 'pending'),
+  ('bot4@smashio.dev', 'Sydney Badminton', interval '3 hours', interval '2 hours', 'Court 1', 'intermediate', 4, 1200, 'none'),
+  ('bot5@smashio.dev', 'Willoughby Leisure Centre', interval '5 days' + interval '10 hours', interval '2 hours', 'Court 3', 'pro', 4, 2000, 'verified'),
+  ('bot1@smashio.dev', 'MUSAC', interval '4 days' + interval '18 hours 30 minutes', interval '2 hours', 'Court 7', 'intermediate', 6, 1500, 'none'),
+  ('bot2@smashio.dev', 'PCYC Marrickville', interval '6 days' + interval '19 hours', interval '2 hours', 'Court 1', 'beginner', 8, 0, 'none'),
+  ('bot3@smashio.dev', 'Australian Badminton Academy - North Parramatta', interval '2 days' + interval '20 hours', interval '2 hours', 'Court 4', 'advanced', 4, 1400, 'pending'),
+  ('bot4@smashio.dev', 'NBC Homebush', interval '7 days' + interval '16 hours', interval '2 hours', 'Court 9', 'intermediate', 6, 1800, 'none')
+) as v(organizer_email, venue_name, starts_in, duration, court_label, tier_slug, max_players, cost_cents, verification);

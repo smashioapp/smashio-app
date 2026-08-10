@@ -47,7 +47,7 @@ export function ReliabilityGauge({ score, size = 76 }: { score: number; size?: n
           animatedProps={animatedProps}
         />
       </Svg>
-      <RollingNumber from={0} to={score} className="font-display-bold text-[19px]" style={{ color: colors.text }} />
+      <RollingNumber from={0} to={score} className="font-display-bold text-[20px]" style={{ color: colors.text }} />
     </View>
   );
 }

@@ -68,7 +68,7 @@ export default function ProfileEdit() {
     <Screen>
       <View className="flex-row items-center gap-3 px-5 pt-2 pb-1">
         <BackButton onPress={() => router.back()} />
-        <Text className="font-display text-[19px]" style={{ color: colors.text }}>
+        <Text className="font-display text-[20px]" style={{ color: colors.text }}>
           Edit profile
         </Text>
       </View>
@@ -81,13 +81,13 @@ export default function ProfileEdit() {
           {previewUri ? (
             <Image source={{ uri: previewUri }} className="w-24 h-24" />
           ) : (
-            <Text className="text-center text-[11px] font-body-bold" style={{ color: colors.textMuted }}>
+            <Text className="text-center text-[13px] font-body-bold" style={{ color: colors.textMuted }}>
               Add{"\n"}photo
             </Text>
           )}
         </Pressable>
 
-        <Text className="font-body-extrabold text-[11px] uppercase tracking-wide" style={{ color: colors.textTertiary }}>
+        <Text className="font-body-extrabold text-[13px] uppercase tracking-wide" style={{ color: colors.textTertiary }}>
           Full name
         </Text>
         <TextInput
@@ -97,11 +97,11 @@ export default function ProfileEdit() {
             setName(t);
           }}
           placeholderTextColor={colors.textMuted}
-          className="rounded-2xl px-4 py-4 border font-body-semibold text-[15px]"
+          className="rounded-2xl px-4 py-4 border font-body-semibold text-[16.5px]"
           style={{ backgroundColor: colors.surfaceAlt, borderColor: "rgba(255,255,255,0.1)", color: colors.text }}
         />
 
-        <Text className="font-body-extrabold text-[11px] uppercase tracking-wide" style={{ color: colors.textTertiary }}>
+        <Text className="font-body-extrabold text-[13px] uppercase tracking-wide" style={{ color: colors.textTertiary }}>
           Suburb
         </Text>
         <TextInput
@@ -112,11 +112,11 @@ export default function ProfileEdit() {
           }}
           placeholder="e.g. Bondi Junction NSW"
           placeholderTextColor={colors.textMuted}
-          className="rounded-2xl px-4 py-4 border font-body-semibold text-[15px]"
+          className="rounded-2xl px-4 py-4 border font-body-semibold text-[16.5px]"
           style={{ backgroundColor: colors.surfaceAlt, borderColor: "rgba(255,255,255,0.1)", color: colors.text }}
         />
 
-        <Text className="font-body-extrabold text-[11px] uppercase tracking-wide mt-1.5" style={{ color: colors.textTertiary }}>
+        <Text className="font-body-extrabold text-[13px] uppercase tracking-wide mt-1.5" style={{ color: colors.textTertiary }}>
           Skill level
         </Text>
         {TIERS.map((t) => {
@@ -129,7 +129,7 @@ export default function ProfileEdit() {
               style={{ backgroundColor: active ? colors.surfaceAlt : colors.surface, borderColor: active ? t.color : "rgba(255,255,255,0.07)" }}
             >
               <View className="w-2.5 h-2.5 rounded-full mr-3" style={{ backgroundColor: t.color }} />
-              <Text className="font-body-extrabold text-[14px]" style={{ color: colors.text }}>
+              <Text className="font-body-extrabold text-[15.5px]" style={{ color: colors.text }}>
                 {t.id}
               </Text>
             </Pressable>

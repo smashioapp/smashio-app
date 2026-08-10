@@ -107,7 +107,7 @@ export function HoldButton({
           end={{ x: 1, y: 1 }}
           className="rounded-pill py-4 px-6 flex-row items-center justify-center"
         >
-          <Text className="font-body-extrabold text-[15px]" style={{ color: colors.base }}>
+          <Text className="font-body-extrabold text-[16.5px]" style={{ color: colors.base }}>
             {completed ? completeLabel : label}
           </Text>
         </LinearGradient>

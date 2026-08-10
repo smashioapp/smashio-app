@@ -69,7 +69,7 @@ export default function ProfilePhoto() {
       <View className="flex-1">
         <StepProgress step={0} count={2} />
         <View className="flex-1 px-6 pt-2 gap-3.5">
-        <Text className="font-display text-[24px]" style={{ color: colors.text }}>
+        <Text className="font-display text-[24.5px]" style={{ color: colors.text }}>
           Set up your profile
         </Text>
 
@@ -81,13 +81,13 @@ export default function ProfilePhoto() {
           {previewUri ? (
             <Image source={{ uri: previewUri }} className="w-24 h-24" />
           ) : (
-            <Text className="text-center text-[11px] font-body-bold" style={{ color: colors.textMuted }}>
+            <Text className="text-center text-[13px] font-body-bold" style={{ color: colors.textMuted }}>
               Add{"\n"}photo
             </Text>
           )}
         </Pressable>
 
-        <Text className="font-body-extrabold text-[11px] uppercase tracking-wide" style={{ color: colors.textTertiary }}>
+        <Text className="font-body-extrabold text-[13px] uppercase tracking-wide" style={{ color: colors.textTertiary }}>
           Full name
         </Text>
         <TextInput
@@ -95,11 +95,11 @@ export default function ProfilePhoto() {
           onChangeText={setName}
           placeholder="e.g. Chloe Bennett"
           placeholderTextColor={colors.textMuted}
-          className="rounded-2xl px-4 py-4 border font-body-semibold text-[15px]"
+          className="rounded-2xl px-4 py-4 border font-body-semibold text-[16.5px]"
           style={{ backgroundColor: colors.surfaceAlt, borderColor: "rgba(255,255,255,0.1)", color: colors.text }}
         />
 
-        <Text className="font-body-extrabold text-[11px] uppercase tracking-wide" style={{ color: colors.textTertiary }}>
+        <Text className="font-body-extrabold text-[13px] uppercase tracking-wide" style={{ color: colors.textTertiary }}>
           Suburb
         </Text>
         <TextInput
@@ -107,7 +107,7 @@ export default function ProfilePhoto() {
           onChangeText={setSuburb}
           placeholder="e.g. Bondi Junction NSW"
           placeholderTextColor={colors.textMuted}
-          className="rounded-2xl px-4 py-4 border font-body-semibold text-[15px]"
+          className="rounded-2xl px-4 py-4 border font-body-semibold text-[16.5px]"
           style={{ backgroundColor: colors.surfaceAlt, borderColor: "rgba(255,255,255,0.1)", color: colors.text }}
         />
 

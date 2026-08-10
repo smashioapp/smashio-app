@@ -49,18 +49,18 @@ export default function Profile() {
             className="w-[84px] h-[84px] rounded-full items-center justify-center"
             style={{ backgroundColor: colors.pro }}
           >
-            <Text className="font-display text-[24px]" style={{ color: colors.base }}>
+            <Text className="font-display text-[24.5px]" style={{ color: colors.base }}>
               {initial(displayName)}
             </Text>
           </View>
-          <Text className="font-display text-[20px]" style={{ color: colors.text }}>
+          <Text className="font-display text-[20.5px]" style={{ color: colors.text }}>
             {displayName}
           </Text>
-          <Text className="text-[12px]" style={{ color: colors.textTertiary }}>
+          <Text className="text-[14px]" style={{ color: colors.textTertiary }}>
             {displaySuburb}
           </Text>
           <View className="rounded-pill px-3.5 py-1.5 mt-0.5" style={{ backgroundColor: color + "22" }}>
-            <Text className="font-body-extrabold text-[11px] uppercase" style={{ color }}>
+            <Text className="font-body-extrabold text-[13px] uppercase" style={{ color }}>
               {skill}
             </Text>
           </View>
@@ -68,8 +68,8 @@ export default function Profile() {
 
         <View className="flex-row flex-wrap gap-2.5 px-5">
           <LinearGradient colors={gradients.card} className="rounded-2xl p-3.5 items-center border" style={{ borderColor: colors.cardBorder, width: "47%" }}>
-            <RollingNumber from={0} to={stats?.gamesPlayed ?? 0} className="font-display-bold text-[22px]" style={{ color: colors.text }} />
-            <Text className="text-[10.5px] font-body-bold mt-0.5" style={{ color: colors.textTertiary }}>
+            <RollingNumber from={0} to={stats?.gamesPlayed ?? 0} className="font-display-bold text-[22.5px]" style={{ color: colors.text }} />
+            <Text className="text-[12.5px] font-body-bold mt-0.5" style={{ color: colors.textTertiary }}>
               Games played
             </Text>
             <View className="mt-1.5">
@@ -80,7 +80,7 @@ export default function Profile() {
             <LinearGradient colors={gradients.card} className="rounded-2xl p-3.5 items-center border" style={{ borderColor: colors.cardBorder }}>
               <ReliabilityGauge score={profile?.reliability_score ?? 0} />
               <View className="flex-row items-center gap-1 mt-1">
-                <Text className="text-[10.5px] font-body-bold" style={{ color: colors.textTertiary }}>
+                <Text className="text-[12.5px] font-body-bold" style={{ color: colors.textTertiary }}>
                   Reliability
                 </Text>
                 <Ionicons name="information-circle-outline" size={12} color={colors.textMuted} />
@@ -96,10 +96,10 @@ export default function Profile() {
           className="rounded-2xl mx-5 mt-2.5 px-4 py-3.5 flex-row items-center justify-between"
         >
           <View>
-            <Text className="font-body-extrabold text-[9.5px] uppercase tracking-wide" style={{ color: "rgba(10,10,11,0.6)" }}>
+            <Text className="font-body-extrabold text-[11.5px] uppercase tracking-wide" style={{ color: "rgba(10,10,11,0.6)" }}>
               Member since
             </Text>
-            <Text className="font-display-bold text-[19px]" style={{ color: colors.base }}>
+            <Text className="font-display-bold text-[20px]" style={{ color: colors.base }}>
               {memberSinceYear}
             </Text>
           </View>
@@ -107,12 +107,12 @@ export default function Profile() {
         </LinearGradient>
 
         <Sheet visible={reliabilitySheetOpen} onClose={() => setReliabilitySheetOpen(false)} title="Reliability score">
-          <Text className="text-[13.5px] leading-5" style={{ color: colors.textSecondary }}>
+          <Text className="text-[15px] leading-5" style={{ color: colors.textSecondary }}>
             {RELIABILITY_EXPLAINER}
           </Text>
           <Text className="font-display-bold text-[26px] mt-1" style={{ color: colors.accent }}>
             {profile?.reliability_score ?? "—"}
-            <Text className="font-body-semibold text-[13px]" style={{ color: colors.textTertiary }}>
+            <Text className="font-body-semibold text-[14.5px]" style={{ color: colors.textTertiary }}>
               {" "}
               / 100
             </Text>
@@ -132,7 +132,7 @@ export default function Profile() {
             className="flex-row justify-between items-center px-3.5 py-3.5"
             style={{ borderBottomWidth: 1, borderColor: "rgba(255,255,255,0.06)" }}
           >
-            <Text className="text-[13.5px] font-body-semibold" style={{ color: colors.accent }}>
+            <Text className="text-[15px] font-body-semibold" style={{ color: colors.accent }}>
               Invite friends
             </Text>
             <Ionicons name="share-social-outline" size={16} color={colors.accent} />
@@ -144,14 +144,14 @@ export default function Profile() {
               className="flex-row justify-between items-center px-3.5 py-3.5"
               style={{ borderBottomWidth: 1, borderColor: "rgba(255,255,255,0.06)" }}
             >
-              <Text className="text-[13.5px] font-body-semibold" style={{ color: colors.text }}>
+              <Text className="text-[15px] font-body-semibold" style={{ color: colors.text }}>
                 {row.label}
               </Text>
               <Text style={{ color: colors.textMuted }}>›</Text>
             </Pressable>
           ))}
           <View className="flex-row justify-between items-center px-3.5 py-3.5" style={{ borderBottomWidth: 1, borderColor: "rgba(255,255,255,0.06)" }}>
-            <Text className="text-[13.5px] font-body-semibold" style={{ color: colors.text }}>
+            <Text className="text-[15px] font-body-semibold" style={{ color: colors.text }}>
               Email verified
             </Text>
             {emailVerified ? (
@@ -161,7 +161,7 @@ export default function Profile() {
             )}
           </View>
           <Pressable className="flex-row justify-between items-center px-3.5 py-3.5" onPress={handleLogout}>
-            <Text className="text-[13.5px] font-body-semibold" style={{ color: colors.danger }}>
+            <Text className="text-[15px] font-body-semibold" style={{ color: colors.danger }}>
               Log out
             </Text>
           </Pressable>

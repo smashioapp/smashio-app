@@ -36,10 +36,10 @@ export default function ChatThread() {
         <View className="flex-row items-center gap-3 px-5 pt-1.5 pb-3 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
           <BackButton onPress={() => router.back()} />
           <View>
-            <Text className="font-body-bold text-[15px]" style={{ color: colors.text }}>
+            <Text className="font-body-bold text-[16.5px]" style={{ color: colors.text }}>
               {game?.venue ?? "Chat"}
             </Text>
-            <Text className="text-[11px]" style={{ color: colors.textTertiary }}>
+            <Text className="text-[13px]" style={{ color: colors.textTertiary }}>
               {game?.joinedCount ?? 0} players
             </Text>
           </View>
@@ -62,7 +62,7 @@ export default function ChatThread() {
               )}
               <View style={{ maxWidth: 220, alignItems: m.me ? "flex-end" : "flex-start" }}>
                 {!m.me && (
-                  <Text className="text-[10px] font-body-bold mb-0.5" style={{ color: colors.textMuted }}>
+                  <Text className="text-[12px] font-body-bold mb-0.5" style={{ color: colors.textMuted }}>
                     {m.from}
                   </Text>
                 )}
@@ -75,11 +75,11 @@ export default function ChatThread() {
                     borderBottomLeftRadius: m.me ? 16 : 3,
                   }}
                 >
-                  <Text className="text-[13.5px]" style={{ color: m.me ? "#EFFFC0" : colors.text }}>
+                  <Text className="text-[15px]" style={{ color: m.me ? "#EFFFC0" : colors.text }}>
                     {m.text}
                   </Text>
                 </View>
-                <Text className="text-[9.5px] mt-0.5" style={{ color: colors.textMuted }}>
+                <Text className="text-[11.5px] mt-0.5" style={{ color: colors.textMuted }}>
                   {m.time}
                 </Text>
               </View>

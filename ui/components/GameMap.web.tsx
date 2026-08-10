@@ -7,7 +7,7 @@ import type { GameMapProps } from "./GameMap";
 export function GameMap(_props: GameMapProps) {
   return (
     <View className="flex-1 items-center justify-center px-8">
-      <Text className="font-body-bold text-[13px] text-center" style={{ color: colors.textSecondary }}>
+      <Text className="font-body-bold text-[14.5px] text-center" style={{ color: colors.textSecondary }}>
         Map view is available in the mobile app.
       </Text>
     </View>

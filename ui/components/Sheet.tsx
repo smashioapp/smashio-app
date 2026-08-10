@@ -23,7 +23,7 @@ export function Sheet({
             style={{ borderColor: colors.cardBorder }}
           >
             <View className="w-9 h-1 rounded-pill self-center mb-1" style={{ backgroundColor: "rgba(255,255,255,0.2)" }} />
-            <Text className="font-display text-[17px]" style={{ color: colors.text }}>
+            <Text className="font-display text-[18px]" style={{ color: colors.text }}>
               {title}
             </Text>
             {children}

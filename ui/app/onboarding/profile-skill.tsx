@@ -35,16 +35,16 @@ export default function ProfileSkill() {
     <Screen>
       <StepProgress step={1} count={2} />
       <ScrollView className="flex-1 px-6" contentContainerStyle={{ paddingBottom: 24, gap: 14 }}>
-        <Text className="font-display text-[24px]" style={{ color: colors.text }}>
+        <Text className="font-display text-[24.5px]" style={{ color: colors.text }}>
           Your game
         </Text>
 
-        <Text className="font-body-extrabold text-[11px] uppercase tracking-wide" style={{ color: colors.textTertiary }}>
+        <Text className="font-body-extrabold text-[13px] uppercase tracking-wide" style={{ color: colors.textTertiary }}>
           Sport
         </Text>
         <View className="flex-row flex-wrap gap-2">
           <View className="rounded-pill px-4 py-2.5" style={{ backgroundColor: colors.accent }}>
-            <Text className="font-body-extrabold text-[13px]" style={{ color: colors.base }}>
+            <Text className="font-body-extrabold text-[14.5px]" style={{ color: colors.base }}>
               Badminton
             </Text>
           </View>
@@ -54,14 +54,14 @@ export default function ProfileSkill() {
               className="rounded-pill px-4 py-2.5 border"
               style={{ backgroundColor: "#17171A", borderColor: "rgba(255,255,255,0.06)" }}
             >
-              <Text className="font-body-bold text-[13px]" style={{ color: colors.textMuted }}>
+              <Text className="font-body-bold text-[14.5px]" style={{ color: colors.textMuted }}>
                 {label}
               </Text>
             </View>
           ))}
         </View>
 
-        <Text className="font-body-extrabold text-[11px] uppercase tracking-wide mt-1.5" style={{ color: colors.textTertiary }}>
+        <Text className="font-body-extrabold text-[13px] uppercase tracking-wide mt-1.5" style={{ color: colors.textTertiary }}>
           Skill level
         </Text>
         {TIERS.map((t) => {
@@ -75,10 +75,10 @@ export default function ProfileSkill() {
             >
               <View className="w-2.5 h-2.5 rounded-full mr-3" style={{ backgroundColor: t.color }} />
               <View className="flex-1">
-                <Text className="font-body-extrabold text-[14px]" style={{ color: colors.text }}>
+                <Text className="font-body-extrabold text-[15.5px]" style={{ color: colors.text }}>
                   {t.id}
                 </Text>
-                <Text className="text-[11px] mt-0.5" style={{ color: colors.textSecondary }}>
+                <Text className="text-[13px] mt-0.5" style={{ color: colors.textSecondary }}>
                   {t.desc}
                 </Text>
               </View>

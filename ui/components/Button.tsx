@@ -27,7 +27,7 @@ export function Button({
   fullWidth?: boolean;
 }) {
   const pad = size === "lg" ? "py-4" : size === "md" ? "py-3.5" : "py-2.5";
-  const textSize = size === "sm" ? "text-[13px]" : size === "md" ? "text-[14px]" : "text-[15px]";
+  const textSize = size === "sm" ? "text-[14.5px]" : size === "md" ? "text-[15.5px]" : "text-[16.5px]";
   const isDisabled = disabled || loading;
 
   const scale = useSharedValue(1);

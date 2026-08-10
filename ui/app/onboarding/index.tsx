@@ -189,7 +189,7 @@ export default function Splash() {
             >
               <View style={{ width: 5, height: 5, borderRadius: 3, backgroundColor: colors.accent }} />
               <Text
-                className="font-body-extrabold text-[10px] uppercase"
+                className="font-body-extrabold text-[12px] uppercase"
                 style={{ color: colors.accent2, letterSpacing: 2.4 }}
               >
                 Badminton · Australia
@@ -197,7 +197,7 @@ export default function Splash() {
             </View>
 
             <Text
-              className="text-center font-body-semibold text-[15px]"
+              className="text-center font-body-semibold text-[16.5px]"
               style={{ color: colors.textDim, lineHeight: 24, maxWidth: 300 }}
             >
               Find your court. Match your level.{"\n"}Never scramble for a fourth again.
@@ -209,7 +209,7 @@ export default function Splash() {
           <Animated.View style={[{ width: "100%", gap: 16 }, ctaStyle]}>
             <Button label="Get Started" onPress={goNext} />
             <Pressable onPress={goNext} hitSlop={10}>
-              <Text className="text-center font-body-bold text-[13px]" style={{ color: colors.textTertiary }}>
+              <Text className="text-center font-body-bold text-[14.5px]" style={{ color: colors.textTertiary }}>
                 I already have an account
               </Text>
             </Pressable>

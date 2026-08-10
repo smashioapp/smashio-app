@@ -43,7 +43,7 @@ export function CountdownChip({ startsAt }: { startsAt: string }) {
       ]}
     >
       <Text
-        className="font-body-extrabold text-[10px] uppercase tracking-wide"
+        className="font-body-extrabold text-[12px] uppercase tracking-wide"
         style={{ color: urgent ? colors.danger : colors.accent }}
       >
         {label}

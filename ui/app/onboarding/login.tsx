@@ -22,7 +22,7 @@ function SocialButton({
       className="rounded-pill py-3.5 items-center border"
       style={{ backgroundColor: colors.surfaceAlt, borderColor: "rgba(255,255,255,0.1)", opacity: loading ? 0.6 : 1 }}
     >
-      <Text className="font-body-bold text-[14px]" style={{ color: colors.text }}>
+      <Text className="font-body-bold text-[15.5px]" style={{ color: colors.text }}>
         {loading ? "Opening…" : label}
       </Text>
     </Pressable>
@@ -82,11 +82,11 @@ export default function Login() {
         <Text className="font-display text-[26px]" style={{ color: colors.text }}>
           Sign in to SMASHIO
         </Text>
-        <Text className="text-[13px] -mt-2 mb-1" style={{ color: colors.textSecondary }}>
+        <Text className="text-[14.5px] -mt-2 mb-1" style={{ color: colors.textSecondary }}>
           Australia's badminton-only match-up app.
         </Text>
 
-        <Text className="font-body-extrabold text-[11px] uppercase tracking-wide" style={{ color: colors.textTertiary }}>
+        <Text className="font-body-extrabold text-[13px] uppercase tracking-wide" style={{ color: colors.textTertiary }}>
           Email
         </Text>
         <TextInput
@@ -97,11 +97,11 @@ export default function Login() {
           autoCapitalize="none"
           autoComplete="email"
           keyboardType="email-address"
-          className="rounded-2xl px-4 py-4 border font-body-semibold text-[15px]"
+          className="rounded-2xl px-4 py-4 border font-body-semibold text-[16.5px]"
           style={{ backgroundColor: colors.surfaceAlt, borderColor: "rgba(255,255,255,0.1)", color: colors.text }}
         />
 
-        <Text className="font-body-extrabold text-[11px] uppercase tracking-wide" style={{ color: colors.textTertiary }}>
+        <Text className="font-body-extrabold text-[13px] uppercase tracking-wide" style={{ color: colors.textTertiary }}>
           Password
         </Text>
         <TextInput
@@ -112,12 +112,12 @@ export default function Login() {
           autoCapitalize="none"
           autoComplete="password"
           secureTextEntry
-          className="rounded-2xl px-4 py-4 border font-body-semibold text-[15px]"
+          className="rounded-2xl px-4 py-4 border font-body-semibold text-[16.5px]"
           style={{ backgroundColor: colors.surfaceAlt, borderColor: "rgba(255,255,255,0.1)", color: colors.text }}
         />
 
         {error && (
-          <Text className="text-[12px] font-body-semibold" style={{ color: colors.danger }}>
+          <Text className="text-[14px] font-body-semibold" style={{ color: colors.danger }}>
             {error}
           </Text>
         )}
@@ -133,7 +133,7 @@ export default function Login() {
 
         <View className="flex-row items-center gap-2.5 my-2">
           <View className="flex-1 h-px" style={{ backgroundColor: "rgba(255,255,255,0.1)" }} />
-          <Text className="text-[11px] font-body-bold" style={{ color: colors.textMuted }}>
+          <Text className="text-[13px] font-body-bold" style={{ color: colors.textMuted }}>
             OR
           </Text>
           <View className="flex-1 h-px" style={{ backgroundColor: "rgba(255,255,255,0.1)" }} />

@@ -56,7 +56,7 @@ export default function Discover() {
         <View>
           <View className="flex-row items-center gap-1">
             <Ionicons name="location-outline" size={12} color={colors.textTertiary} />
-            <Text className="text-[11px] font-body-bold" style={{ color: colors.textTertiary }}>
+            <Text className="text-[13px] font-body-bold" style={{ color: colors.textTertiary }}>
               Sydney, NSW
             </Text>
           </View>
@@ -105,10 +105,10 @@ export default function Discover() {
               >
                 <Ionicons name="tennisball-outline" size={26} color={colors.textMuted} />
               </View>
-              <Text className="font-display-bold text-[16px]" style={{ color: colors.text }}>
+              <Text className="font-display-bold text-[17px]" style={{ color: colors.text }}>
                 No games nearby yet
               </Text>
-              <Text className="text-[12.5px] text-center max-w-[220px]" style={{ color: colors.textSecondary }}>
+              <Text className="text-[14.5px] text-center max-w-[220px]" style={{ color: colors.textSecondary }}>
                 Be the first to host a match this week, it takes under a minute.
               </Text>
               <Button label="Create a game" fullWidth={false} onPress={() => router.push("/wizard")} />
@@ -125,15 +125,15 @@ export default function Discover() {
             >
               <Pressable onPress={() => router.push(`/game/${selectedGame.id}`)} className="flex-row justify-between items-center">
                 <View className="flex-1 pr-2">
-                  <Text className="font-body-bold text-[13px]" style={{ color: colors.text }} numberOfLines={1}>
+                  <Text className="font-body-bold text-[14.5px]" style={{ color: colors.text }} numberOfLines={1}>
                     {selectedGame.venue}
                   </Text>
-                  <Text className="text-[11px] mt-0.5" style={{ color: colors.textTertiary }}>
+                  <Text className="text-[13px] mt-0.5" style={{ color: colors.textTertiary }}>
                     {selectedGame.date} · {selectedGame.time}
                   </Text>
                 </View>
                 <View className="flex-row items-center gap-1">
-                  <Text className="font-body-extrabold text-[13px]" style={{ color: colors.accent }}>
+                  <Text className="font-body-extrabold text-[14.5px]" style={{ color: colors.accent }}>
                     View
                   </Text>
                   <Ionicons name="arrow-forward" size={13} color={colors.accent} />
@@ -141,7 +141,7 @@ export default function Discover() {
               </Pressable>
               <Pressable onPress={() => openDirections(selectedGame)} className="flex-row items-center gap-1 mt-2.5">
                 <Ionicons name="navigate-outline" size={13} color={colors.textSecondary} />
-                <Text className="text-[11.5px] font-body-bold" style={{ color: colors.textSecondary }}>
+                <Text className="text-[13.5px] font-body-bold" style={{ color: colors.textSecondary }}>
                   Directions
                 </Text>
               </Pressable>

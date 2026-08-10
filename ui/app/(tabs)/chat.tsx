@@ -20,11 +20,11 @@ export default function ChatList() {
         <ChatRowSkeletonList />
       ) : threads.length === 0 ? (
         <View className="items-center gap-2.5 px-5 pt-8">
-          <Text className="text-[13px] text-center" style={{ color: colors.textSecondary }}>
+          <Text className="text-[14.5px] text-center" style={{ color: colors.textSecondary }}>
             No chats yet. Join or host a game to start one.
           </Text>
           <Pressable onPress={() => router.push("/(tabs)/discover")} className="rounded-pill px-4 py-2 border-[1.5px]" style={{ borderColor: "rgba(255,255,255,0.15)" }}>
-            <Text className="font-body-bold text-[12.5px]" style={{ color: colors.text }}>
+            <Text className="font-body-bold text-[14.5px]" style={{ color: colors.text }}>
               Find a game
             </Text>
           </Pressable>
@@ -50,14 +50,14 @@ export default function ChatList() {
               </View>
               <View className="flex-1">
                 <View className="flex-row justify-between">
-                  <Text className="font-body-bold text-[14px]" style={{ color: colors.text }}>
+                  <Text className="font-body-bold text-[15.5px]" style={{ color: colors.text }}>
                     {item.venue}
                   </Text>
-                  <Text className="text-[10.5px] font-body-bold" style={{ color: colors.textMuted }}>
+                  <Text className="text-[12.5px] font-body-bold" style={{ color: colors.textMuted }}>
                     {item.time}
                   </Text>
                 </View>
-                <Text numberOfLines={1} className="text-[12.5px] mt-0.5" style={{ color: colors.textSecondary }}>
+                <Text numberOfLines={1} className="text-[14.5px] mt-0.5" style={{ color: colors.textSecondary }}>
                   {item.preview}
                 </Text>
               </View>

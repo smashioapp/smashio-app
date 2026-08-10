@@ -22,7 +22,7 @@ function StatOdometer({ label, from, to }: { label: string; from: number; to: nu
   return (
     <View className="items-center gap-1">
       <RollingNumber from={from} to={to} className="font-display-bold text-[30px]" style={{ color: colors.text }} />
-      <Text className="text-[11px] font-body-semibold uppercase tracking-wide" style={{ color: colors.textTertiary }}>
+      <Text className="text-[13px] font-body-semibold uppercase tracking-wide" style={{ color: colors.textTertiary }}>
         {label}
       </Text>
     </View>
@@ -84,7 +84,7 @@ function StreakFlame({ streak, burst }: { streak: number; burst: boolean }) {
   return (
     <View className="items-center" style={{ position: "relative" }}>
       <Animated.Text style={[{ fontSize }, style]}>🔥</Animated.Text>
-      <Text className="text-[12px] font-body-semibold mt-1" style={{ color: colors.accent }}>
+      <Text className="text-[14px] font-body-semibold mt-1" style={{ color: colors.accent }}>
         {streak} week streak
       </Text>
       {burst && <Burst origin={{ x: fontSize / 2, y: fontSize / 2 }} count={particleCount} onDone={() => {}} />}
@@ -137,7 +137,7 @@ export default function PostGame() {
     return (
       <Screen>
         <View className="flex-1 items-center justify-center px-8" style={{ gap: 26 }}>
-          <Text className="font-display text-[20px]" style={{ color: colors.text }}>
+          <Text className="font-display text-[20.5px]" style={{ color: colors.text }}>
             Nice game!
           </Text>
           <View className="flex-row justify-around w-full">
@@ -177,13 +177,13 @@ export default function PostGame() {
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         <View className="flex-row items-center gap-3 px-5 pt-1.5 pb-3.5">
           <BackButton onPress={() => router.back()} />
-          <Text className="font-display text-[18px]" style={{ color: colors.text }}>
+          <Text className="font-display text-[19px]" style={{ color: colors.text }}>
             Rate your match
           </Text>
         </View>
 
         <View className="px-5">
-          <Text className="text-[13px] mb-4.5" style={{ color: colors.textSecondary }}>
+          <Text className="text-[14.5px] mb-4.5" style={{ color: colors.textSecondary }}>
             {game.venue} · {game.date}
           </Text>
 
@@ -196,7 +196,7 @@ export default function PostGame() {
               <View className="w-10 h-10 rounded-full items-center justify-center" style={{ backgroundColor: p.color }}>
                 <Text style={{ color: colors.base, fontWeight: "800" }}>{initial(p.name)}</Text>
               </View>
-              <Text className="flex-1 font-body-bold text-[14px]" style={{ color: colors.text }}>
+              <Text className="flex-1 font-body-bold text-[15.5px]" style={{ color: colors.text }}>
                 {p.name}
               </Text>
               <StarRow value={ratings[p.id] ?? 0} onChange={(n) => rate(p.id, n)} />
@@ -204,31 +204,31 @@ export default function PostGame() {
           ))}
 
           <View className="rounded-2xl p-4 my-5 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
-            <Text className="font-body-extrabold text-[11px] uppercase mb-2" style={{ color: colors.textTertiary }}>
+            <Text className="font-body-extrabold text-[13px] uppercase mb-2" style={{ color: colors.textTertiary }}>
               Match stats updated
             </Text>
             <View className="flex-row justify-between mb-1.5">
-              <Text className="text-[13px] font-body-semibold" style={{ color: colors.text }}>
+              <Text className="text-[14.5px] font-body-semibold" style={{ color: colors.text }}>
                 Games played
               </Text>
-              <Text className="text-[13px] font-body-semibold" style={{ color: colors.text }}>
+              <Text className="text-[14.5px] font-body-semibold" style={{ color: colors.text }}>
                 {stats?.gamesPlayed ?? "—"}
               </Text>
             </View>
             <View className="flex-row justify-between">
-              <Text className="text-[13px] font-body-semibold" style={{ color: colors.text }}>
+              <Text className="text-[14.5px] font-body-semibold" style={{ color: colors.text }}>
                 Reliability score
               </Text>
-              <Text className="text-[13px] font-body-semibold" style={{ color: colors.accent }}>
+              <Text className="text-[14.5px] font-body-semibold" style={{ color: colors.accent }}>
                 {profile ? reliabilityLabel(profile.reliability_score) : "—"}
               </Text>
             </View>
             {!!streak && streak >= 2 && (
               <View className="flex-row justify-between mt-1.5 pt-1.5 border-t" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-                <Text className="text-[13px] font-body-semibold" style={{ color: colors.text }}>
+                <Text className="text-[14.5px] font-body-semibold" style={{ color: colors.text }}>
                   🔥 Streak
                 </Text>
-                <Text className="text-[13px] font-body-semibold" style={{ color: colors.accent }}>
+                <Text className="text-[14.5px] font-body-semibold" style={{ color: colors.accent }}>
                   {streak} weeks running
                 </Text>
               </View>
@@ -237,7 +237,7 @@ export default function PostGame() {
 
           <LinearGradient colors={gradients.accent} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} className="rounded-pill mb-2.5">
             <Pressable onPress={submit} className="py-4 items-center">
-              <Text className="font-body-extrabold text-[15px]" style={{ color: colors.base }}>
+              <Text className="font-body-extrabold text-[16.5px]" style={{ color: colors.base }}>
                 Submit ratings
               </Text>
             </Pressable>
@@ -247,7 +247,7 @@ export default function PostGame() {
             className="rounded-pill py-3.5 items-center border-[1.5px]"
             style={{ borderColor: "rgba(255,255,255,0.15)" }}
           >
-            <Text className="font-body-bold text-[14px]" style={{ color: colors.text }}>
+            <Text className="font-body-bold text-[15.5px]" style={{ color: colors.text }}>
               Rebook this game
             </Text>
           </Pressable>

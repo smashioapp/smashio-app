@@ -69,7 +69,7 @@ export function TierBadge({ gamesPlayed }: { gamesPlayed: number }) {
     <Pressable onPressIn={onPressIn} onPressOut={onPressOut}>
       <Animated.View style={containerStyle}>
         <View onLayout={onLayout} className="rounded-pill px-2 py-0.5" style={{ backgroundColor: tier.color + "22", overflow: "hidden" }}>
-          <Text className="font-body-extrabold text-[9px] uppercase tracking-wide" style={{ color: tier.color }}>
+          <Text className="font-body-extrabold text-[11px] uppercase tracking-wide" style={{ color: tier.color }}>
             {tier.id}
           </Text>
 

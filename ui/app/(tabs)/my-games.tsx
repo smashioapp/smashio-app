@@ -76,7 +76,9 @@ export default function MyGames() {
                   <Text className="font-display-bold text-[15px]" style={{ color: colors.text }}>
                     {item.venue}
                   </Text>
-                  <Badge state={item.verified ? "verified" : "pending"} label={item.verified ? "Verified" : "Pending review"} />
+                  {item.verificationStatus !== "none" && (
+                    <Badge state={item.verified ? "verified" : "pending"} label={item.verified ? "Verified" : "Pending review"} />
+                  )}
                 </View>
                 <View className="flex-row items-center justify-between">
                   <Text className="text-[12px]" style={{ color: colors.textDim }}>

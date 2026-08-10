@@ -5,7 +5,7 @@ import { DEFAULT_LAT, DEFAULT_LNG } from "./queries/games";
 type UserLocation = { lat: number; lng: number; isDeviceLocation: boolean };
 
 // One-shot coarse fetch on mount — good enough for centering the discover map/RPC radius.
-// Falls back to the Melbourne CBD default on denial, timeout, or simulators without a fix.
+// Falls back to the Sydney CBD default on denial, timeout, or simulators without a fix.
 export function useUserLocation(): UserLocation {
   const [location, setLocation] = useState<UserLocation>({ lat: DEFAULT_LAT, lng: DEFAULT_LNG, isDeviceLocation: false });
 

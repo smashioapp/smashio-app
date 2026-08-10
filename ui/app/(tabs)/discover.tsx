@@ -57,7 +57,7 @@ export default function Discover() {
           <View className="flex-row items-center gap-1">
             <Ionicons name="location-outline" size={12} color={colors.textTertiary} />
             <Text className="text-[11px] font-body-bold" style={{ color: colors.textTertiary }}>
-              Melbourne, VIC
+              Sydney, NSW
             </Text>
           </View>
           <Text className="font-display text-[26px] mt-0.5" style={{ color: colors.text }}>
@@ -120,8 +120,8 @@ export default function Discover() {
           <GameMap games={pinnedGames} center={userLocation} onSelectGame={setSelectedGameId} />
           {selectedGame && (
             <View
-              className="absolute left-4 right-4 bottom-4 rounded-2xl p-3.5 border"
-              style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}
+              className="absolute left-4 right-4 rounded-2xl p-3.5 border"
+              style={{ bottom: 92, backgroundColor: colors.card, borderColor: colors.cardBorder }}
             >
               <Pressable onPress={() => router.push(`/game/${selectedGame.id}`)} className="flex-row justify-between items-center">
                 <View className="flex-1 pr-2">

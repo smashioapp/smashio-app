@@ -110,7 +110,7 @@ export default function ProfileEdit() {
             setSuburbTouched(true);
             setSuburb(t);
           }}
-          placeholder="e.g. Albert Park VIC"
+          placeholder="e.g. Bondi Junction NSW"
           placeholderTextColor={colors.textMuted}
           className="rounded-2xl px-4 py-4 border font-body-semibold text-[15px]"
           style={{ backgroundColor: colors.surfaceAlt, borderColor: "rgba(255,255,255,0.1)", color: colors.text }}

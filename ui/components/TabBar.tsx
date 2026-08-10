@@ -104,7 +104,7 @@ function AddButton() {
       }}
       onPressIn={onPressIn}
       onPressOut={onPressOut}
-      style={{ marginTop: -32 }}
+      style={{ position: "absolute", left: "50%", marginLeft: -28, bottom: 36 }}
     >
       <Animated.View style={style}>
         <LinearGradient
@@ -163,7 +163,7 @@ export function TabBar({ state, navigation }: TabBarProps) {
           />
         ))}
 
-        <AddButton />
+        <View style={{ width: 56 }} />
 
         {state.routes.slice(2, 4).map((route, i) => (
           <TabButton
@@ -175,6 +175,7 @@ export function TabBar({ state, navigation }: TabBarProps) {
           />
         ))}
       </BlurView>
+      <AddButton />
     </View>
   );
 }

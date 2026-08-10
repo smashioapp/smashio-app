@@ -97,7 +97,9 @@ export default function GameDetails() {
             <Text className="font-display text-[22px] flex-1 pr-3" style={{ color: colors.text }}>
               {game.venue}
             </Text>
-            <Badge state={game.verified ? "verified" : "pending"} label={game.verified ? "Verified" : "Pending"} />
+            {game.verificationStatus !== "none" && (
+              <Badge state={game.verified ? "verified" : "pending"} label={game.verified ? "Verified" : "Pending"} />
+            )}
           </View>
           <View className="flex-row items-center justify-between mt-1">
             <Text className="text-[12.5px]" style={{ color: colors.textTertiary }}>

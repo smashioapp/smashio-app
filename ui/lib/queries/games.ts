@@ -1,15 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { decode } from "base64-arraybuffer";
-import * as FileSystem from "expo-file-system";
+import { File } from "expo-file-system";
 import { supabase } from "../supabase";
 import type { Database } from "../db.types";
 import type { Game, PastGame } from "../mockData";
 import { formatDate, formatDistance, formatTimeRange } from "../format";
 import { avatarColor } from "../theme";
 
-// Melbourne CBD — fallback center when device location is unavailable or denied.
-export const DEFAULT_LAT = -37.8136;
-export const DEFAULT_LNG = 144.9631;
+// Sydney CBD — fallback center when device location is unavailable or denied. Sydney-only for launch.
+export const DEFAULT_LAT = -33.8688;
+export const DEFAULT_LNG = 151.2093;
 const DEFAULT_RADIUS_M = 50_000;
 const SPORT_SLUG = "badminton"; // MVP ships badminton only; sport stays data, not code, once a picker exists.
 
@@ -34,6 +34,7 @@ function toGame(row: NearbyGameRow): Game {
     joinedCount: row.approved_count ?? 0,
     cost: row.cost_total_cents / 100,
     verified: row.verification_status === "verified",
+    verificationStatus: (row.verification_status as Game["verificationStatus"]) ?? "none",
     distance: formatDistance(row.distance_m),
     venueAddress: row.venue_address,
     venueLat: row.venue_lat,
@@ -58,6 +59,7 @@ function toGameFromPublicRow(row: GamesPublicRow): Game {
     joinedCount: row.approved_count ?? 0,
     cost: (row.cost_total_cents ?? 0) / 100,
     verified: row.verification_status === "verified",
+    verificationStatus: (row.verification_status as Game["verificationStatus"]) ?? "none",
     distance: "",
     venueAddress: row.venue_address,
     venueLat: row.venue_lat,
@@ -261,7 +263,7 @@ export function usePastGameDetail(gameId: string) {
 export function useUploadConfirmation() {
   return useMutation({
     mutationFn: async ({ gameId, localUri }: { gameId: string; localUri: string }) => {
-      const base64 = await FileSystem.readAsStringAsync(localUri, { encoding: FileSystem.EncodingType.Base64 });
+      const base64 = await new File(localUri).base64();
       const path = `${gameId}/confirmation.jpg`;
       const { error: uploadError } = await supabase.storage
         .from("confirmations")

@@ -12,14 +12,14 @@ from public.sports, (values
 ) as t(slug, label, ordinal)
 where sports.slug = 'badminton';
 
--- Venues, matching the mocked list so discover looks the same on first run.
+-- Venues. Sydney-only for launch — see docs/ux-plan.md.
 insert into public.venues (name, suburb, state, location, source) values
-  ('Melbourne Sports Centre', 'Albert Park', 'VIC', extensions.ST_SetSRID(extensions.ST_MakePoint(144.9631, -37.8446), 4326), 'partner'),
-  ('Bounce Badminton', 'Richmond', 'VIC', extensions.ST_SetSRID(extensions.ST_MakePoint(144.9982, -37.8225), 4326), 'partner'),
-  ('Victorian Badminton Centre', 'Boronia', 'VIC', extensions.ST_SetSRID(extensions.ST_MakePoint(145.2847, -37.8497), 4326), 'partner'),
-  ('Preston Sports Hub', 'Preston', 'VIC', extensions.ST_SetSRID(extensions.ST_MakePoint(145.0025, -37.7480), 4326), 'partner'),
   ('Sydney Badminton Centre', 'Homebush', 'NSW', extensions.ST_SetSRID(extensions.ST_MakePoint(151.0678, -33.8474), 4326), 'partner'),
   ('Ryde Badminton Stadium', 'North Ryde', 'NSW', extensions.ST_SetSRID(extensions.ST_MakePoint(151.1229, -33.7940), 4326), 'partner'),
-  ('Rockdale Badminton Centre', 'Rockdale', 'NSW', extensions.ST_SetSRID(extensions.ST_MakePoint(151.1385, -33.9522), 4326), 'partner');
+  ('Rockdale Badminton Centre', 'Rockdale', 'NSW', extensions.ST_SetSRID(extensions.ST_MakePoint(151.1385, -33.9522), 4326), 'partner'),
+  ('Bondi Badminton Club', 'Bondi Junction', 'NSW', extensions.ST_SetSRID(extensions.ST_MakePoint(151.2493, -33.8926), 4326), 'partner'),
+  ('Inner West Badminton Centre', 'Marrickville', 'NSW', extensions.ST_SetSRID(extensions.ST_MakePoint(151.1552, -33.9107), 4326), 'partner'),
+  ('Parramatta Badminton Arena', 'Parramatta', 'NSW', extensions.ST_SetSRID(extensions.ST_MakePoint(151.0011, -33.8150), 4326), 'partner'),
+  ('Chatswood Badminton Centre', 'Chatswood', 'NSW', extensions.ST_SetSRID(extensions.ST_MakePoint(151.1810, -33.7969), 4326), 'partner');
 
 -- Test games/users land once slice 3 (create wizard) can produce a real organizer + game.

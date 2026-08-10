@@ -19,6 +19,7 @@ export type Game = {
   joinedCount: number;
   cost: number;
   verified: boolean;
+  verificationStatus: "none" | "pending" | "verified";
   distance: string;
   venueAddress: string | null;
   venueLat: number | null;

@@ -51,7 +51,9 @@ export function GameCard({ game, onPress, index = 0 }: { game: Game; onPress: ()
                 {game.suburb} · {game.distance}
               </Text>
             </View>
-            <Badge state={game.verified ? "verified" : "pending"} label={game.verified ? "Verified" : "Pending"} />
+            {game.verificationStatus !== "none" && (
+              <Badge state={game.verified ? "verified" : "pending"} label={game.verified ? "Verified" : "Pending"} />
+            )}
           </View>
 
           <View className="flex-row items-center justify-between">

@@ -1,6 +1,6 @@
 import "../global.css";
 import "../lib/sentry";
-import { useCallback, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -12,6 +12,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "../lib/queryClient";
 import { SessionProvider } from "../lib/session";
 import { usePushRegistration } from "../lib/notifications";
+import { AnimatedSplash } from "../components/AnimatedSplash";
 import {
   useFonts as useBricolageFonts,
   BricolageGrotesque_500Medium,
@@ -47,6 +48,7 @@ export default function RootLayout() {
   });
 
   const fontsLoaded = bricolageLoaded && manropeLoaded;
+  const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
     if (fontsLoaded) SplashScreen.hideAsync().catch(() => {});
@@ -73,6 +75,7 @@ export default function RootLayout() {
               <Stack.Screen name="post-game/[id]" options={{ presentation: "card" }} />
               <Stack.Screen name="wizard" options={{ presentation: "modal" }} />
             </Stack>
+            {showSplash && <AnimatedSplash onFinish={() => setShowSplash(false)} />}
           </SafeAreaProvider>
         </SessionProvider>
       </QueryClientProvider>

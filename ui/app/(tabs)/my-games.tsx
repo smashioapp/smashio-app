@@ -11,6 +11,7 @@ import { GameCard } from "../../components/GameCard";
 import { Badge } from "../../components/Badge";
 import { CountdownChip } from "../../components/CountdownChip";
 import { Button } from "../../components/Button";
+import { EmptyState } from "../../components/EmptyState";
 import { GameCardSkeletonList } from "../../components/Skeleton";
 import { RefreshableList } from "../../components/RefreshableList";
 import type { Game } from "../../lib/mockData";
@@ -43,12 +44,12 @@ export default function MyGames() {
             refreshing={joinedQuery.isRefetching}
             onRefresh={() => joinedQuery.refetch()}
             ListEmptyComponent={
-              <View className="items-center gap-2.5 pt-14">
-                <Text className="text-[14.5px]" style={{ color: colors.textSecondary }}>
-                  No games joined yet.
-                </Text>
-                <Button label="Find a game" fullWidth={false} onPress={() => router.push("/(tabs)/discover")} />
-              </View>
+              <EmptyState
+                title="Nothing on your calendar"
+                subtitle="Find a match near you and lock in your spot before it fills up."
+                ctaLabel="Find a game"
+                onCta={() => router.push("/(tabs)/discover")}
+              />
             }
             renderItem={({ item, index }) =>
               item.status === "cancelled" ? (
@@ -71,12 +72,12 @@ export default function MyGames() {
             refreshing={hostingQuery.isRefetching}
             onRefresh={() => hostingQuery.refetch()}
             ListEmptyComponent={
-              <View className="items-center gap-2.5 pt-14">
-                <Text className="text-[14.5px]" style={{ color: colors.textSecondary }}>
-                  No games hosted yet.
-                </Text>
-                <Button label="Host a game" fullWidth={false} onPress={() => router.push("/wizard")} />
-              </View>
+              <EmptyState
+                title="You haven't called a game yet"
+                subtitle="Pick a court, set the time — SMASHIO fills the rest of the roster."
+                ctaLabel="Host a game"
+                onCta={() => router.push("/wizard")}
+              />
             }
             renderItem={({ item }) => {
               const cancelled = item.status === "cancelled";
@@ -144,12 +145,12 @@ export default function MyGames() {
             refreshing={pastQuery.isRefetching}
             onRefresh={() => pastQuery.refetch()}
             ListEmptyComponent={
-              <View className="items-center gap-2.5 pt-14">
-                <Text className="text-[14.5px]" style={{ color: colors.textSecondary }}>
-                  No past games yet.
-                </Text>
-                <Button label="Find a game" fullWidth={false} onPress={() => router.push("/(tabs)/discover")} />
-              </View>
+              <EmptyState
+                title="Your rally history starts here"
+                subtitle="Play your first match and it'll show up right here — ratings, streaks, all of it."
+                ctaLabel="Find a game"
+                onCta={() => router.push("/(tabs)/discover")}
+              />
             }
             renderItem={({ item }) => (
               <LinearGradient colors={gradients.card} className="rounded-[18px] p-4 border gap-2.5" style={{ borderColor: colors.cardBorder }}>

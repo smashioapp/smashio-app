@@ -9,7 +9,7 @@ import { useUserLocation } from "../../lib/location";
 import { Screen } from "../../components/Screen";
 import { Chip } from "../../components/Chip";
 import { GameCard } from "../../components/GameCard";
-import { Button } from "../../components/Button";
+import { EmptyState } from "../../components/EmptyState";
 import { GameMap } from "../../components/GameMap";
 import { RefreshableList } from "../../components/RefreshableList";
 import type { Game } from "../../lib/mockData";
@@ -98,21 +98,12 @@ export default function Discover() {
           onRefresh={() => discoverQuery.refetch()}
           renderItem={({ item, index }) => <GameCard game={item} index={index} onPress={() => router.push(`/game/${item.id}`)} />}
           ListEmptyComponent={
-            <View className="items-center gap-3 pt-16 px-5">
-              <View
-                className="w-16 h-16 rounded-full items-center justify-center border"
-                style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}
-              >
-                <Ionicons name="tennisball-outline" size={26} color={colors.textMuted} />
-              </View>
-              <Text className="font-display-bold text-[17px]" style={{ color: colors.text }}>
-                No games nearby yet
-              </Text>
-              <Text className="text-[14.5px] text-center max-w-[220px]" style={{ color: colors.textSecondary }}>
-                Be the first to host a match this week, it takes under a minute.
-              </Text>
-              <Button label="Create a game" fullWidth={false} onPress={() => router.push("/wizard")} />
-            </View>
+            <EmptyState
+              title="Court's quiet right now"
+              subtitle="Be the first to call a game this week — takes under a minute to set up."
+              ctaLabel="Host a game"
+              onCta={() => router.push("/wizard")}
+            />
           }
         />
       ) : (

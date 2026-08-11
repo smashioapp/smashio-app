@@ -18,7 +18,7 @@ module.exports = {
     android: {
       package: "com.ajayaradhya.smashio",
       adaptiveIcon: {
-        backgroundColor: "#E6F4FE",
+        backgroundColor: "#0A0A0B",
         foregroundImage: "./assets/android-icon-foreground.png",
         backgroundImage: "./assets/android-icon-background.png",
         monochromeImage: "./assets/android-icon-monochrome.png",
@@ -37,7 +37,15 @@ module.exports = {
       "expo-router",
       "expo-status-bar",
       "expo-font",
-      "expo-splash-screen",
+      [
+        "expo-splash-screen",
+        {
+          image: "./assets/splash-icon.png",
+          imageWidth: 180,
+          resizeMode: "contain",
+          backgroundColor: "#0A0A0B",
+        },
+      ],
       "expo-secure-store",
       "expo-audio",
       [

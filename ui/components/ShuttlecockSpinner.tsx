@@ -5,7 +5,8 @@ import Svg, { Circle, Path } from "react-native-svg";
 import { colors } from "../lib/theme";
 
 // Cork base + four fanned feathers, drawn simply enough to read at 22px while spinning.
-function ShuttlecockGlyph({ size = 22 }: { size?: number }) {
+// Exported for reuse anywhere a small badminton glyph is needed in place of a generic icon.
+export function ShuttlecockGlyph({ size = 22 }: { size?: number }) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
       <Path d="M12 13 L5 3 L12 6 L19 3 Z" fill={colors.text} opacity={0.85} />

@@ -1,11 +1,12 @@
 import { View, Text, Pressable } from "react-native";
 import { router } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../../lib/theme";
 import { useChatThreads } from "../../lib/queries/messages";
 import { Screen } from "../../components/Screen";
 import { ChatRowSkeletonList } from "../../components/Skeleton";
 import { RefreshableList } from "../../components/RefreshableList";
+import { EmptyState } from "../../components/EmptyState";
+import { ShuttlecockGlyph } from "../../components/ShuttlecockSpinner";
 
 export default function ChatList() {
   const threadsQuery = useChatThreads();
@@ -19,16 +20,12 @@ export default function ChatList() {
       {threadsQuery.isLoading ? (
         <ChatRowSkeletonList />
       ) : threads.length === 0 ? (
-        <View className="items-center gap-2.5 px-5 pt-8">
-          <Text className="text-[14.5px] text-center" style={{ color: colors.textSecondary }}>
-            No chats yet. Join or host a game to start one.
-          </Text>
-          <Pressable onPress={() => router.push("/(tabs)/discover")} className="rounded-pill px-4 py-2 border-[1.5px]" style={{ borderColor: "rgba(255,255,255,0.15)" }}>
-            <Text className="font-body-bold text-[14.5px]" style={{ color: colors.text }}>
-              Find a game
-            </Text>
-          </Pressable>
-        </View>
+        <EmptyState
+          title="Quiet in here"
+          subtitle="Join or host a game and the group chat opens up automatically."
+          ctaLabel="Find a game"
+          onCta={() => router.push("/(tabs)/discover")}
+        />
       ) : (
         <RefreshableList
           data={threads}
@@ -46,7 +43,7 @@ export default function ChatList() {
                 className="w-[46px] h-[46px] rounded-2xl items-center justify-center"
                 style={{ backgroundColor: colors.surfaceAlt }}
               >
-                <Ionicons name="tennisball-outline" size={20} color={colors.accent} />
+                <ShuttlecockGlyph size={20} />
               </View>
               <View className="flex-1">
                 <View className="flex-row justify-between">

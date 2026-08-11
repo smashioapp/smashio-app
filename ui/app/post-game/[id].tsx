@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { View, Text, Pressable, ScrollView } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
-import Animated, { useAnimatedStyle, useSharedValue, withDelay, withSequence, withSpring } from "react-native-reanimated";
-import { colors, gradients, initial, reliabilityLabel } from "../../lib/theme";
+import Animated, { useAnimatedStyle, useSharedValue, withDelay, withSequence, withSpring, withTiming } from "react-native-reanimated";
+import { colors, gradients, initial, reliabilityLabel, gamesPlayedTier } from "../../lib/theme";
 import { usePastGameDetail } from "../../lib/queries/games";
 import { useSubmitRatings } from "../../lib/queries/ratings";
 import { useSession } from "../../lib/session";
@@ -92,6 +92,33 @@ function StreakFlame({ streak, burst }: { streak: number; burst: boolean }) {
   );
 }
 
+function TierUpMoment({ tierId, color, burst }: { tierId: string; color: string; burst: boolean }) {
+  const scale = useSharedValue(0.5);
+  const opacity = useSharedValue(0);
+
+  useEffect(() => {
+    opacity.value = withDelay(900, withTiming(1, { duration: 240 }));
+    scale.value = withDelay(900, withSequence(withSpring(1.15, SPRING.pop), withSpring(1, SPRING.settle)));
+  }, []);
+
+  const style = useAnimatedStyle(() => ({ opacity: opacity.value, transform: [{ scale: scale.value }] }));
+
+  return (
+    <View className="items-center" style={{ position: "relative", marginTop: 4 }}>
+      <View className="absolute rounded-full" style={{ width: 160, height: 160, backgroundColor: color, opacity: 0.14, top: -30 }} />
+      <Animated.View style={[{ alignItems: "center" }, style]}>
+        <Text className="font-body-extrabold text-[12px] uppercase tracking-[3px]" style={{ color }}>
+          Tier up
+        </Text>
+        <Text className="font-display text-[36px] mt-0.5" style={{ color }}>
+          {tierId}
+        </Text>
+      </Animated.View>
+      {burst && <Burst origin={{ x: 0, y: 30 }} count={34} colors={[color, colors.accent, colors.accentSoft]} onDone={() => {}} />}
+    </View>
+  );
+}
+
 export default function PostGame() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const gameQuery = usePastGameDetail(id ?? "");
@@ -108,7 +135,12 @@ export default function PostGame() {
 
   const [revealing, setRevealing] = useState(false);
   const [showFlameBurst, setShowFlameBurst] = useState(false);
+  const [showTierBurst, setShowTierBurst] = useState(false);
   const hasStreak = !!streak && streak >= 2;
+  const gamesPlayed = stats?.gamesPlayed ?? 0;
+  const prevTier = gamesPlayedTier(Math.max(0, gamesPlayed - 1));
+  const newTier = gamesPlayedTier(gamesPlayed);
+  const tieredUp = gamesPlayed > 0 && prevTier.id !== newTier.id;
 
   const submit = () => {
     haptics.success();
@@ -118,9 +150,19 @@ export default function PostGame() {
 
   useEffect(() => {
     if (!revealing) return;
-    const t = setTimeout(() => router.replace("/(tabs)/my-games"), REVEAL_HOLD_MS);
+    const holdMs = tieredUp ? REVEAL_HOLD_MS + 900 : REVEAL_HOLD_MS;
+    const t = setTimeout(() => router.replace("/(tabs)/my-games"), holdMs);
     return () => clearTimeout(t);
-  }, [revealing]);
+  }, [revealing, tieredUp]);
+
+  useEffect(() => {
+    if (!revealing || !tieredUp) return;
+    const t = setTimeout(() => {
+      setShowTierBurst(true);
+      haptics.burst();
+    }, 900);
+    return () => clearTimeout(t);
+  }, [revealing, tieredUp]);
 
   useEffect(() => {
     if (!revealing || !hasStreak) return;
@@ -132,7 +174,6 @@ export default function PostGame() {
   }, [revealing, hasStreak]);
 
   if (revealing) {
-    const gamesPlayed = stats?.gamesPlayed ?? 0;
     const reliability = profile?.reliability_score ?? 0;
     return (
       <Screen>
@@ -144,7 +185,11 @@ export default function PostGame() {
             <StatOdometer label="Games played" from={Math.max(0, gamesPlayed - 1)} to={gamesPlayed} />
             <StatOdometer label={reliability ? reliabilityLabel(reliability) : "Reliability"} from={0} to={reliability} />
           </View>
-          {hasStreak && <StreakFlame streak={streak!} burst={showFlameBurst} />}
+          {tieredUp ? (
+            <TierUpMoment tierId={newTier.id} color={newTier.color} burst={showTierBurst} />
+          ) : (
+            hasStreak && <StreakFlame streak={streak!} burst={showFlameBurst} />
+          )}
         </View>
       </Screen>
     );

@@ -20,6 +20,7 @@ import { BackButton } from "../../components/BackButton";
 import { Button } from "../../components/Button";
 import { HoldButton } from "../../components/HoldButton";
 import { CountdownChip } from "../../components/CountdownChip";
+import { SwipeToDecide } from "../../components/SwipeToDecide";
 import { haptics } from "../../lib/haptics";
 import { shareGame } from "../../lib/share";
 import { GameDetailSkeleton } from "../../components/Skeleton";
@@ -357,8 +358,11 @@ function JoinRequests({ gameId, full }: { gameId: string; full: boolean }) {
 
   return (
     <>
-      <Text className="font-body-extrabold text-[13px] uppercase tracking-wide mt-5.5 mb-2.5" style={{ color: colors.textTertiary }}>
+      <Text className="font-body-extrabold text-[13px] uppercase tracking-wide mt-5.5" style={{ color: colors.textTertiary }}>
         Join requests ({requests.length})
+      </Text>
+      <Text className="text-[12px] mb-2.5" style={{ color: colors.textMuted }}>
+        Swipe a request right to approve, left to decline
       </Text>
       {full && (
         <Text className="text-[13.5px] mb-2.5" style={{ color: colors.advanced }}>
@@ -367,49 +371,60 @@ function JoinRequests({ gameId, full }: { gameId: string; full: boolean }) {
       )}
       <View className="gap-2.5">
         {requests.map((r) => (
-          <View
+          <SwipeToDecide
             key={r.profileId}
-            className="flex-row items-center gap-3 rounded-xl p-3 border"
-            style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}
+            canApprove={!full}
+            onApprove={() =>
+              decide.mutate(
+                { profileId: r.profileId, approve: true },
+                { onError: (e) => Alert.alert("Couldn't approve", e instanceof Error ? e.message : "Try again.") }
+              )
+            }
+            onDecline={() => decide.mutate({ profileId: r.profileId, approve: false })}
           >
-            <View className="w-9 h-9 rounded-full items-center justify-center" style={{ backgroundColor: r.color }}>
-              <Text style={{ color: colors.base, fontSize: 12, fontWeight: "800" }}>{initial(r.name)}</Text>
+            <View
+              className="flex-row items-center gap-3 rounded-xl p-3 border"
+              style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}
+            >
+              <View className="w-9 h-9 rounded-full items-center justify-center" style={{ backgroundColor: r.color }}>
+                <Text style={{ color: colors.base, fontSize: 12, fontWeight: "800" }}>{initial(r.name)}</Text>
+              </View>
+              <Text className="flex-1 font-body-semibold text-[14.5px]" style={{ color: colors.text }}>
+                {r.name}
+              </Text>
+              <Pressable
+                onPress={() => {
+                  if (full) {
+                    Alert.alert("Game is full", "Raise max players in Edit before approving anyone else.");
+                    return;
+                  }
+                  haptics.tap();
+                  decide.mutate(
+                    { profileId: r.profileId, approve: true },
+                    { onError: (e) => Alert.alert("Couldn't approve", e instanceof Error ? e.message : "Try again.") }
+                  );
+                }}
+                className="rounded-pill px-3.5 py-2"
+                style={{ backgroundColor: colors.accent, opacity: full ? 0.4 : 1 }}
+              >
+                <Text className="font-body-extrabold text-[14px]" style={{ color: colors.base }}>
+                  Approve
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={() => {
+                  haptics.tap();
+                  decide.mutate({ profileId: r.profileId, approve: false });
+                }}
+                className="rounded-pill px-3.5 py-2 border-[1.5px]"
+                style={{ borderColor: "rgba(255,255,255,0.15)" }}
+              >
+                <Text className="font-body-bold text-[14px]" style={{ color: colors.text }}>
+                  Decline
+                </Text>
+              </Pressable>
             </View>
-            <Text className="flex-1 font-body-semibold text-[14.5px]" style={{ color: colors.text }}>
-              {r.name}
-            </Text>
-            <Pressable
-              onPress={() => {
-                if (full) {
-                  Alert.alert("Game is full", "Raise max players in Edit before approving anyone else.");
-                  return;
-                }
-                haptics.tap();
-                decide.mutate(
-                  { profileId: r.profileId, approve: true },
-                  { onError: (e) => Alert.alert("Couldn't approve", e instanceof Error ? e.message : "Try again.") }
-                );
-              }}
-              className="rounded-pill px-3.5 py-2"
-              style={{ backgroundColor: colors.accent, opacity: full ? 0.4 : 1 }}
-            >
-              <Text className="font-body-extrabold text-[14px]" style={{ color: colors.base }}>
-                Approve
-              </Text>
-            </Pressable>
-            <Pressable
-              onPress={() => {
-                haptics.tap();
-                decide.mutate({ profileId: r.profileId, approve: false });
-              }}
-              className="rounded-pill px-3.5 py-2 border-[1.5px]"
-              style={{ borderColor: "rgba(255,255,255,0.15)" }}
-            >
-              <Text className="font-body-bold text-[14px]" style={{ color: colors.text }}>
-                Decline
-              </Text>
-            </Pressable>
-          </View>
+          </SwipeToDecide>
         ))}
       </View>
     </>

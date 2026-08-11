@@ -12,3 +12,6 @@ ui/ic_launcher*.png
 ui/gmail_check.png
 ui/mono_on_black.png
 ui/smashio_icon*.png
+
+# build/run logs
+ui/*.log

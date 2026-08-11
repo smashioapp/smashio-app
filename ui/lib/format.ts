@@ -14,6 +14,21 @@ export function formatDistance(meters: number): string {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+// Players think in days, not list position — Discover's day-grouped sections use this instead
+// of the full weekday/date formatDate() gives.
+export function dayLabel(iso: string, now: Date = new Date()): string {
+  const d = new Date(iso);
+  const startOfDay = (x: Date) => {
+    const y = new Date(x);
+    y.setHours(0, 0, 0, 0);
+    return y.getTime();
+  };
+  const diffDays = Math.round((startOfDay(d) - startOfDay(now)) / DAY_MS);
+  if (diffDays === 0) return "Tonight";
+  if (diffDays === 1) return "Tomorrow";
+  return d.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" });
+}
+
 // Only meaningful inside a 24h window — anything further out isn't "urgent", caller should
 // skip rendering the chip entirely (see useCountdown).
 export function formatCountdown(startsAtIso: string, now: Date = new Date()): string | null {

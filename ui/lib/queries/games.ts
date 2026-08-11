@@ -162,6 +162,28 @@ export function useDiscoverGames(
   });
 }
 
+// Pure social proof for the week-pulse strip — deliberately unfiltered by the viewer's own
+// level/time/price choices, since "18 games this week" is a claim about the whole scene, not
+// about what's currently on screen.
+export function useWeekPulseGames(center: { lat: number; lng: number } = { lat: DEFAULT_LAT, lng: DEFAULT_LNG }) {
+  return useQuery({
+    queryKey: ["nearby_games_pulse", SPORT_SLUG, center.lat, center.lng],
+    queryFn: async () => {
+      const { fromTs, toTs } = whenFilterRange("week");
+      const { data, error } = await supabase.rpc("nearby_games", {
+        lat: center.lat,
+        lng: center.lng,
+        radius_m: DEFAULT_RADIUS_M,
+        sport_slug: SPORT_SLUG,
+        from_ts: fromTs,
+        to_ts: toTs,
+      });
+      if (error) throw error;
+      return (data ?? []).map(toGame);
+    },
+  });
+}
+
 export function useCreateGame() {
   const queryClient = useQueryClient();
   return useMutation({

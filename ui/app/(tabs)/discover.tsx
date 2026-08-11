@@ -1,14 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, Pressable, ScrollView, Linking, Platform } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Notifications from "expo-notifications";
 import { useAppStore, WhenFilter, SortOption, DISCOVER_RADIUS_OPTIONS_KM, DEFAULT_DISCOVER_RADIUS_KM, PRICE_CAP_OPTIONS_CENTS } from "../../lib/store";
 import { colors, TIERS } from "../../lib/theme";
-import { useDiscoverGames } from "../../lib/queries/games";
+import { useDiscoverGames, useWeekPulseGames, useMyPastGames } from "../../lib/queries/games";
 import { useProfileSports } from "../../lib/queries/profile";
 import { useSession } from "../../lib/session";
 import { useUserLocation, useLocationLabel } from "../../lib/location";
+import { dayLabel } from "../../lib/format";
 import { Screen } from "../../components/Screen";
 import { Chip } from "../../components/Chip";
 import { GameCard } from "../../components/GameCard";
@@ -17,7 +18,53 @@ import { GameMap } from "../../components/GameMap";
 import { RefreshableList } from "../../components/RefreshableList";
 import { GameCardSkeletonList } from "../../components/Skeleton";
 import { Sheet } from "../../components/Sheet";
-import type { Game } from "../../lib/mockData";
+import { Rail } from "../../components/Rail";
+import { Game, spotsLeft, levelFit } from "../../lib/mockData";
+
+type DiscoverRow =
+  | { kind: "pulse"; id: string; text: string }
+  | { kind: "rail"; id: string; title: string; games: Game[] }
+  | { kind: "day"; id: string; label: string }
+  | { kind: "game"; id: string; game: Game; index: number };
+
+function buildDiscoverRows(games: Game[], rails: { title: string; games: Game[] }[], pulseText: string | null): DiscoverRow[] {
+  const rows: DiscoverRow[] = [];
+  if (pulseText) rows.push({ kind: "pulse", id: "pulse", text: pulseText });
+  rails.forEach((r, i) => {
+    if (r.games.length > 0) rows.push({ kind: "rail", id: `rail-${i}`, title: r.title, games: r.games });
+  });
+  let lastLabel: string | null = null;
+  games.forEach((g, index) => {
+    const label = dayLabel(g.startsAt);
+    if (label !== lastLabel) {
+      rows.push({ kind: "day", id: `day-${label}-${index}`, label });
+      lastLabel = label;
+    }
+    rows.push({ kind: "game", id: g.id, game: g, index });
+  });
+  return rows;
+}
+
+function DayHeader({ label }: { label: string }) {
+  return (
+    <View className="px-5 pt-3 pb-1.5" style={{ backgroundColor: colors.base }}>
+      <Text className="font-display-bold text-[14px]" style={{ color: colors.textSecondary }}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+function WeekPulseStrip({ text }: { text: string }) {
+  return (
+    <View className="flex-row items-center gap-1.5 mx-5 mb-3 px-3.5 py-2.5 rounded-xl border" style={{ borderColor: colors.cardBorder, backgroundColor: colors.surfaceAlt }}>
+      <Ionicons name="pulse-outline" size={13} color={colors.accent} />
+      <Text className="text-[12.5px] font-body-semibold flex-1" style={{ color: colors.textSecondary }}>
+        {text}
+      </Text>
+    </View>
+  );
+}
 
 function openDirections(game: Game) {
   if (game.venueLat == null || game.venueLng == null) return;
@@ -244,6 +291,45 @@ export default function Discover() {
     verifiedOnly ? { label: "Verified", onRemove: () => setVerifiedOnly(false) } : null,
   ].filter((t): t is { label: string; onRemove: () => void } => t != null);
 
+  // Rails, the pulse strip, and day-grouped sections only make sense when the list is in its
+  // natural chronological order — a custom sort (cheapest, most spots…) falls back to a plain
+  // flat list further down instead of fighting the shelves for a sense of order.
+  const chronological = sortBy === "soonest";
+  const viewerTierOrdinal = viewerTier?.ordinal ?? null;
+
+  const pulseQuery = useWeekPulseGames(userLocation);
+  const pastGamesQuery = useMyPastGames();
+
+  const pulseText = useMemo(() => {
+    const pulseGames = pulseQuery.data;
+    if (!pulseGames || pulseGames.length === 0) return null;
+    const openSpots = pulseGames.reduce((sum, g) => sum + spotsLeft(g), 0);
+    return `${pulseGames.length} game${pulseGames.length === 1 ? "" : "s"} nearby this week · ${openSpots} spot${openSpots === 1 ? "" : "s"} open`;
+  }, [pulseQuery.data]);
+
+  const rails = useMemo(() => {
+    if (!chronological) return [];
+    const now = Date.now();
+    const closingSoon = games
+      .filter((g) => spotsLeft(g) > 0 && new Date(g.startsAt).getTime() - now < 24 * 60 * 60 * 1000)
+      .slice(0, 10);
+    const atYourLevel =
+      viewerTierOrdinal != null ? games.filter((g) => levelFit(viewerTierOrdinal, g.skillTierOrdinal) === "match").slice(0, 10) : [];
+    const lastVenue = pastGamesQuery.data?.[0]?.venue;
+    const backAtVenue = lastVenue ? games.filter((g) => g.venue === lastVenue).slice(0, 10) : [];
+    return [
+      { title: "Closing soon", games: closingSoon },
+      { title: "At your level, near you", games: atYourLevel },
+      ...(lastVenue ? [{ title: `Back at ${lastVenue}`, games: backAtVenue }] : []),
+    ];
+  }, [chronological, games, viewerTierOrdinal, pastGamesQuery.data]);
+
+  const discoverRows = useMemo(
+    () => (chronological ? buildDiscoverRows(games, rails, pulseText) : []),
+    [chronological, games, rails, pulseText]
+  );
+  const stickyHeaderIndices = useMemo(() => discoverRows.flatMap((r, i) => (r.kind === "day" ? [i] : [])), [discoverRows]);
+
   return (
     <Screen>
       <View className="px-5 pt-3 pb-2.5 flex-row justify-between items-start">
@@ -352,22 +438,14 @@ export default function Discover() {
 
       {showInitialLoading ? (
         <GameCardSkeletonList />
-      ) : discoverView === "list" ? (
+      ) : discoverView === "list" && games.length === 0 ? (
         <RefreshableList
           data={games}
-          keyExtractor={(g) => g.id}
-          contentContainerStyle={{ padding: 20, paddingTop: 4, paddingBottom: 110, gap: 12 }}
+          keyExtractor={(g: Game) => g.id}
+          contentContainerStyle={{ padding: 20, paddingTop: 4, paddingBottom: 110, gap: 12, flexGrow: 1 }}
           refreshing={discoverQuery.isRefetching}
           onRefresh={() => discoverQuery.refetch()}
-          renderItem={({ item, index }) => (
-            <GameCard
-              game={item}
-              index={index}
-              onPress={() => router.push(`/game/${item.id}`)}
-              viewerTierOrdinal={viewerTier?.ordinal ?? null}
-              showJoinAction
-            />
-          )}
+          renderItem={() => null}
           ListEmptyComponent={
             showError ? (
               <EmptyState
@@ -395,6 +473,48 @@ export default function Discover() {
               />
             )
           }
+        />
+      ) : discoverView === "list" && chronological ? (
+        <RefreshableList
+          data={discoverRows}
+          keyExtractor={(r: DiscoverRow) => r.id}
+          stickyHeaderIndices={stickyHeaderIndices}
+          contentContainerStyle={{ paddingTop: 4, paddingBottom: 110 }}
+          refreshing={discoverQuery.isRefetching}
+          onRefresh={() => discoverQuery.refetch()}
+          renderItem={({ item }: { item: DiscoverRow }) => {
+            if (item.kind === "pulse") return <WeekPulseStrip text={item.text} />;
+            if (item.kind === "rail") return <Rail title={item.title} games={item.games} viewerTierOrdinal={viewerTierOrdinal} />;
+            if (item.kind === "day") return <DayHeader label={item.label} />;
+            return (
+              <View className="px-5 pb-3">
+                <GameCard
+                  game={item.game}
+                  index={item.index}
+                  onPress={() => router.push(`/game/${item.game.id}`)}
+                  viewerTierOrdinal={viewerTierOrdinal}
+                  showJoinAction
+                />
+              </View>
+            );
+          }}
+        />
+      ) : discoverView === "list" ? (
+        <RefreshableList
+          data={games}
+          keyExtractor={(g: Game) => g.id}
+          contentContainerStyle={{ padding: 20, paddingTop: 4, paddingBottom: 110, gap: 12 }}
+          refreshing={discoverQuery.isRefetching}
+          onRefresh={() => discoverQuery.refetch()}
+          renderItem={({ item, index }: { item: Game; index: number }) => (
+            <GameCard
+              game={item}
+              index={index}
+              onPress={() => router.push(`/game/${item.id}`)}
+              viewerTierOrdinal={viewerTierOrdinal}
+              showJoinAction
+            />
+          )}
         />
       ) : (
         <View className="flex-1 relative overflow-hidden mx-0" style={{ backgroundColor: "#111113" }}>

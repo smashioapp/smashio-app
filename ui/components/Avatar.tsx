@@ -1,7 +1,19 @@
-import { View, Text } from "react-native";
+import { View, Text, Image } from "react-native";
 import { colors, initial } from "../lib/theme";
 
-export function Avatar({ name, color, size = 28, overlap = false }: { name: string; color: string; size?: number; overlap?: boolean }) {
+export function Avatar({
+  name,
+  color,
+  size = 28,
+  overlap = false,
+  photoUri,
+}: {
+  name: string;
+  color: string;
+  size?: number;
+  overlap?: boolean;
+  photoUri?: string | null;
+}) {
   return (
     <View
       style={{
@@ -14,9 +26,14 @@ export function Avatar({ name, color, size = 28, overlap = false }: { name: stri
         borderColor: colors.base,
         alignItems: "center",
         justifyContent: "center",
+        overflow: "hidden",
       }}
     >
-      <Text style={{ color: colors.base, fontSize: size * 0.38, fontWeight: "800" }}>{initial(name)}</Text>
+      {photoUri ? (
+        <Image source={{ uri: photoUri }} style={{ width: size, height: size }} />
+      ) : (
+        <Text style={{ color: colors.base, fontSize: size * 0.38, fontWeight: "800" }}>{initial(name)}</Text>
+      )}
     </View>
   );
 }

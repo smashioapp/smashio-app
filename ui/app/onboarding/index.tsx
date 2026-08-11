@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { AccessibilityInfo, Image, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
@@ -26,8 +27,12 @@ import { CourtBackdrop } from "../../components/CourtBackdrop";
 const BOUNCE_MS = 620; // rough budget for the spring chain, used to time what follows
 
 export default function Splash() {
-  const goNext = () => router.push("/onboarding/login");
+  const goNext = () => {
+    console.log("PROBE: goNext fired");
+    router.push("/onboarding/login");
+  };
   const { height: h } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
 
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
 
@@ -113,7 +118,7 @@ export default function Splash() {
   }));
 
   return (
-    <Screen edges={["top", "bottom"]}>
+    <Screen edges={["bottom"]}>
       <View style={{ flex: 1, backgroundColor: colors.base }}>
         <LinearGradient
           colors={["#0C0E07", colors.base, "#050506"]}
@@ -131,7 +136,15 @@ export default function Splash() {
           pointerEvents="none"
         />
 
-        <View style={{ flex: 1, paddingHorizontal: 32, paddingTop: 48, paddingBottom: 28, alignItems: "center" }}>
+        <View
+          style={{
+            flex: 1,
+            paddingHorizontal: 32,
+            paddingTop: insets.top + 32,
+            paddingBottom: 40,
+            alignItems: "center",
+          }}
+        >
           <View style={{ height: 8 }} />
 
           <View style={{ alignItems: "center", justifyContent: "center" }}>

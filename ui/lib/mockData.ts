@@ -28,6 +28,13 @@ export type Game = {
   venueAddress: string | null;
   venueLat: number | null;
   venueLng: number | null;
+  // Only populated by nearby_games (Discover) — games_public rows (my-games) don't join
+  // profiles, so a card falls back to no host row rather than showing stale/wrong identity.
+  organizerName?: string;
+  organizerPhotoPath?: string | null;
+  organizerReliabilityScore?: number;
+  organizerHostedCount?: number;
+  skillTierOrdinal?: number | null;
 };
 
 export type PastPlayer = { id: string; name: string; color: string };
@@ -39,4 +46,17 @@ export function perPlayerCost(cost: number, maxPlayers: number): number {
 
 export function spotsLeft(game: Pick<Game, "joinedCount" | "maxPlayers">): number {
   return Math.max(0, game.maxPlayers - game.joinedCount);
+}
+
+export type LevelFit = "below" | "match" | "one-above" | "above";
+
+// null means we can't judge fit (viewer has no tier set for this sport, or the row predates
+// skill_tier_ordinal) — callers should fall back to showing the plain skill label instead of
+// guessing at a verdict.
+export function levelFit(viewerOrdinal: number | null | undefined, gameOrdinal: number | null | undefined): LevelFit | null {
+  if (viewerOrdinal == null || gameOrdinal == null) return null;
+  if (gameOrdinal === viewerOrdinal) return "match";
+  if (gameOrdinal === viewerOrdinal + 1) return "one-above";
+  if (gameOrdinal > viewerOrdinal) return "above";
+  return "below";
 }

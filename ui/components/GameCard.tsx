@@ -1,19 +1,35 @@
-import { useEffect, useRef } from "react";
-import { Pressable, View, Text } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { Pressable, View, Text, Alert, LayoutChangeEvent } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, { FadeInUp, useSharedValue, useAnimatedStyle, withSequence, withSpring } from "react-native-reanimated";
-import { colors, gradients } from "../lib/theme";
+import { colors, gradients, reliabilityLabel } from "../lib/theme";
 import { Badge } from "./Badge";
 import { SkillPill } from "./SkillPill";
-import { AvatarStack } from "./Avatar";
+import { Avatar } from "./Avatar";
 import { CountdownChip } from "./CountdownChip";
-import { Game, perPlayerCost, spotsLeft } from "../lib/mockData";
+import { VenueCourtHeader } from "./VenueCourtHeader";
+import { Game, perPlayerCost, spotsLeft, levelFit } from "../lib/mockData";
 import { haptics } from "../lib/haptics";
 import { SPRING } from "../lib/motion";
+import { supabase } from "../lib/supabase";
+import { useRequestToJoin } from "../lib/queries/gamePlayers";
 
-export function GameCard({ game, onPress, index = 0 }: { game: Game; onPress: () => void; index?: number }) {
+export function GameCard({
+  game,
+  onPress,
+  index = 0,
+  viewerTierOrdinal = null,
+  showJoinAction = false,
+}: {
+  game: Game;
+  onPress: () => void;
+  index?: number;
+  viewerTierOrdinal?: number | null;
+  showJoinAction?: boolean;
+}) {
   const scale = useSharedValue(1);
   const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const [cardWidth, setCardWidth] = useState(0);
 
   const joinedScale = useSharedValue(1);
   const prevJoined = useRef(game.joinedCount);
@@ -24,7 +40,35 @@ export function GameCard({ game, onPress, index = 0 }: { game: Game; onPress: ()
     }
   }, [game.joinedCount]);
   const joinedStyle = useAnimatedStyle(() => ({ transform: [{ scale: joinedScale.value }] }));
-  const full = spotsLeft(game) === 0;
+
+  const open = spotsLeft(game);
+  const full = open === 0;
+  const lastSpot = open === 1;
+  // Manufacturing urgency on a game that's barely started filling would be dishonest — only
+  // surface the count once the game is at least half full.
+  const showScarcity = full || open <= game.maxPlayers / 2;
+  const fillFraction = Math.min(1, game.joinedCount / game.maxPlayers);
+
+  const fit = levelFit(viewerTierOrdinal, game.skillTierOrdinal);
+
+  const organizerPhotoUrl = game.organizerPhotoPath
+    ? supabase.storage.from("avatars").getPublicUrl(game.organizerPhotoPath).data.publicUrl
+    : null;
+
+  const requestToJoin = useRequestToJoin(game.id);
+  const handleRequestJoin = () => {
+    haptics.tick();
+    requestToJoin.mutate(undefined, {
+      onError: (e) => {
+        const message = e instanceof Error ? e.message : "";
+        if (message.includes("duplicate key")) {
+          Alert.alert("Already requested", "You've already asked to join this game.");
+        } else {
+          Alert.alert("Couldn't send request", "Please try again.");
+        }
+      },
+    });
+  };
 
   return (
     <Animated.View entering={FadeInUp.delay(index * 60).duration(320)} style={animatedStyle}>
@@ -42,7 +86,10 @@ export function GameCard({ game, onPress, index = 0 }: { game: Game; onPress: ()
           end={{ x: 0.8, y: 1 }}
           className="rounded-[18px] p-4 border gap-2.5"
           style={{ borderColor: colors.cardBorder }}
+          onLayout={(e: LayoutChangeEvent) => setCardWidth(e.nativeEvent.layout.width)}
         >
+          {cardWidth > 0 && <VenueCourtHeader venueKey={game.venue + game.suburb} width={cardWidth - 32} />}
+
           <View className="flex-row justify-between items-start">
             <View className="flex-1 pr-2">
               <Text className="font-display-bold text-[16.5px]" style={{ color: colors.text }}>
@@ -64,9 +111,41 @@ export function GameCard({ game, onPress, index = 0 }: { game: Game; onPress: ()
             <CountdownChip startsAt={game.startsAt} />
           </View>
 
-          <View className="flex-row items-center justify-between mt-0.5">
-            <AvatarStack people={game.joined} />
-            <SkillPill skill={game.skill} />
+          {game.organizerName && (
+            <View className="flex-row items-center gap-2">
+              <Avatar name={game.organizerName} color={colors.surfaceAlt} size={24} photoUri={organizerPhotoUrl} />
+              <Text className="text-[13px] font-body-semibold flex-1" style={{ color: colors.textSecondary }} numberOfLines={1}>
+                {game.organizerName}
+                {game.organizerHostedCount != null && game.organizerHostedCount > 0 && (
+                  <Text style={{ color: colors.textMuted }}> · Hosted {game.organizerHostedCount}</Text>
+                )}
+                {game.organizerReliabilityScore != null && (
+                  <Text style={{ color: colors.textMuted }}> · {reliabilityLabel(game.organizerReliabilityScore)}</Text>
+                )}
+              </Text>
+            </View>
+          )}
+
+          <View className="gap-1.5 mt-0.5">
+            <View className="flex-row items-center justify-between">
+              <SkillPill skill={game.skill} fit={fit} />
+              {showScarcity && (
+                <Animated.Text
+                  className="text-[13px] font-body-bold"
+                  style={[{ color: full ? colors.danger : lastSpot ? colors.accent : colors.textMuted }, joinedStyle]}
+                >
+                  {full ? "Full" : lastSpot ? "Last spot" : `${open} spots left`}
+                </Animated.Text>
+              )}
+            </View>
+            {showScarcity && !full && (
+              <View className="h-1 rounded-pill overflow-hidden" style={{ backgroundColor: "rgba(255,255,255,0.08)" }}>
+                <View
+                  className="h-1 rounded-pill"
+                  style={{ width: `${fillFraction * 100}%`, backgroundColor: lastSpot ? colors.accent : colors.textMuted }}
+                />
+              </View>
+            )}
           </View>
 
           <View
@@ -76,12 +155,27 @@ export function GameCard({ game, onPress, index = 0 }: { game: Game; onPress: ()
             <Text className="font-display-bold text-[17px]" style={{ color: colors.accent }}>
               ${perPlayerCost(game.cost, game.maxPlayers)} <Text className="font-body-semibold text-[13px]" style={{ color: colors.textTertiary }}>/ player</Text>
             </Text>
-            <Animated.Text
-              className="text-[13px] font-body-bold"
-              style={[{ color: full ? colors.danger : colors.textMuted }, joinedStyle]}
-            >
-              {full ? "Full" : `${game.joinedCount}/${game.maxPlayers} joined`}
-            </Animated.Text>
+            {showJoinAction ? (
+              <Pressable
+                disabled={full || requestToJoin.isPending}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  handleRequestJoin();
+                }}
+                className="rounded-pill px-3.5 py-2"
+                style={{ backgroundColor: full ? colors.surfaceAlt : colors.accent, opacity: requestToJoin.isPending ? 0.6 : 1 }}
+              >
+                <Text className="font-body-extrabold text-[12.5px]" style={{ color: full ? colors.textMuted : colors.base }}>
+                  {full ? "Full" : requestToJoin.isSuccess ? "Requested" : "Request to join"}
+                </Text>
+              </Pressable>
+            ) : (
+              !showScarcity && (
+                <Text className="text-[13px] font-body-bold" style={{ color: colors.textMuted }}>
+                  {game.joinedCount}/{game.maxPlayers} joined
+                </Text>
+              )
+            )}
           </View>
         </LinearGradient>
       </Pressable>

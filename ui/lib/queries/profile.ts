@@ -80,7 +80,7 @@ export function useProfileSports(profileId: string | undefined) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("profile_sports")
-        .select("*, skill_tiers(label)")
+        .select("*, skill_tiers(slug, label, ordinal)")
         .eq("profile_id", profileId!);
       if (error) throw error;
       return data;

@@ -30,3 +30,32 @@ export function useUserLocation(): UserLocation {
 
   return location;
 }
+
+// Reverse-geocodes a device fix to a suburb name for the Discover header. Never resolves to
+// the hardcoded-city lie this replaced — a denied/unavailable fix (isDeviceLocation false) or
+// a failed lookup both fall back to "Near you", which is honest either way.
+export function useLocationLabel(location: UserLocation): string {
+  const [label, setLabel] = useState("Near you");
+
+  useEffect(() => {
+    if (!location.isDeviceLocation) {
+      setLabel("Near you");
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const [place] = await Location.reverseGeocodeAsync({ latitude: location.lat, longitude: location.lng });
+        const suburb = place?.district || place?.city || place?.subregion;
+        if (!cancelled && suburb) setLabel(suburb);
+      } catch {
+        // Keep "Near you" — a failed lookup shouldn't block the rest of the screen.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [location.isDeviceLocation, location.lat, location.lng]);
+
+  return label;
+}

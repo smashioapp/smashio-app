@@ -564,6 +564,7 @@ export type Database = {
           organizer_id: string | null
           skill_tier_id: string | null
           skill_tier_label: string | null
+          skill_tier_ordinal: number | null
           skill_tier_slug: string | null
           sport_id: string | null
           starts_at: string | null
@@ -622,19 +623,19 @@ export type Database = {
         Returns: boolean
       }
       leave_game: { Args: { p_game_id: string }; Returns: undefined }
-      remove_player: {
-        Args: { p_game_id: string; p_profile_id: string }
-        Returns: undefined
-      }
       nearby_games: {
         Args: {
           from_ts?: string
+          has_spots_only?: boolean
           lat: number
           lng: number
+          max_cost_per_player_cents?: number
           radius_m: number
+          sort_by?: string
           sport_slug: string
           tier_slugs?: string[]
           to_ts?: string
+          verified_only?: boolean
         }
         Returns: {
           approved_count: number
@@ -644,8 +645,13 @@ export type Database = {
           ends_at: string
           id: string
           max_players: number
+          organizer_display_name: string
+          organizer_hosted_count: number
           organizer_id: string
+          organizer_photo_path: string
+          organizer_reliability_score: number
           skill_tier_label: string
+          skill_tier_ordinal: number
           skill_tier_slug: string
           starts_at: string
           status: string
@@ -674,6 +680,10 @@ export type Database = {
         }[]
       }
       recompute_reliability_scores: { Args: never; Returns: undefined }
+      remove_player: {
+        Args: { p_game_id: string; p_profile_id: string }
+        Returns: undefined
+      }
       upsert_places_venue: {
         Args: {
           p_address: string

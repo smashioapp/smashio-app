@@ -1,4 +1,5 @@
 import "../global.css";
+import "../lib/silenceExpoGoWarnings";
 import "../lib/sentry";
 import { useCallback, useEffect, useState } from "react";
 import { Stack } from "expo-router";

@@ -43,10 +43,16 @@ function toGame(row: NearbyGameRow): Game {
     venueAddress: row.venue_address,
     venueLat: row.venue_lat,
     venueLng: row.venue_lng,
+    organizerName: row.organizer_display_name || "Player",
+    organizerPhotoPath: row.organizer_photo_path,
+    organizerReliabilityScore: row.organizer_reliability_score,
+    organizerHostedCount: row.organizer_hosted_count,
+    skillTierOrdinal: row.skill_tier_ordinal,
   };
 }
 
-// my-games list rows (joined/hosting/past) come from games_public directly — no distance_m.
+// my-games list rows (joined/hosting/past) come from games_public directly — no distance_m,
+// and no organizer_* fields (the view doesn't join profiles); the card falls back to no host row.
 function toGameFromPublicRow(row: GamesPublicRow): Game {
   return {
     id: row.id!,
@@ -70,32 +76,85 @@ function toGameFromPublicRow(row: GamesPublicRow): Game {
     venueAddress: row.venue_address,
     venueLat: row.venue_lat,
     venueLng: row.venue_lng,
+    skillTierOrdinal: row.skill_tier_ordinal,
   };
 }
 
+export type WhenFilter = "tonight" | "tomorrow" | "week" | "all";
+
+// "week" and "all" share the same lower bound (now) — only the upper bound differs — so the
+// Hunter's default view (week, no level filter) is just "all" with a 7-day ceiling, not a
+// separate code path.
+function whenFilterRange(when: WhenFilter): { fromTs: string; toTs?: string } {
+  const now = new Date();
+  if (when === "tonight") {
+    const endOfToday = new Date();
+    endOfToday.setHours(23, 59, 59, 999);
+    return { fromTs: now.toISOString(), toTs: endOfToday.toISOString() };
+  }
+  if (when === "tomorrow") {
+    const startOfTomorrow = new Date();
+    startOfTomorrow.setDate(startOfTomorrow.getDate() + 1);
+    startOfTomorrow.setHours(0, 0, 0, 0);
+    const endOfTomorrow = new Date(startOfTomorrow);
+    endOfTomorrow.setHours(23, 59, 59, 999);
+    return { fromTs: startOfTomorrow.toISOString(), toTs: endOfTomorrow.toISOString() };
+  }
+  if (when === "week") {
+    const weekOut = new Date();
+    weekOut.setDate(weekOut.getDate() + 7);
+    return { fromTs: now.toISOString(), toTs: weekOut.toISOString() };
+  }
+  return { fromTs: now.toISOString() };
+}
+
 export function useDiscoverGames(
-  filter: { tierSlug?: string; tonightOnly?: boolean },
+  filter: {
+    tierSlugs?: string[];
+    when?: WhenFilter;
+    radiusKm?: number;
+    hasSpotsOnly?: boolean;
+    verifiedOnly?: boolean;
+    maxCostPerPlayerCents?: number | null;
+    sortBy?: string;
+  },
   center: { lat: number; lng: number } = { lat: DEFAULT_LAT, lng: DEFAULT_LNG }
 ) {
+  const tierSlugs = filter.tierSlugs?.length ? filter.tierSlugs : undefined;
+  const when = filter.when ?? "all";
+  const radiusM = (filter.radiusKm ?? DEFAULT_RADIUS_M / 1000) * 1000;
+  const hasSpotsOnly = filter.hasSpotsOnly ?? false;
+  const verifiedOnly = filter.verifiedOnly ?? false;
+  const maxCostPerPlayerCents = filter.maxCostPerPlayerCents ?? null;
+  const sortBy = filter.sortBy ?? "soonest";
   return useQuery({
-    queryKey: ["nearby_games", SPORT_SLUG, filter.tierSlug ?? null, filter.tonightOnly ?? false, center.lat, center.lng],
+    queryKey: [
+      "nearby_games",
+      SPORT_SLUG,
+      tierSlugs ?? null,
+      when,
+      center.lat,
+      center.lng,
+      radiusM,
+      hasSpotsOnly,
+      verifiedOnly,
+      maxCostPerPlayerCents,
+      sortBy,
+    ],
     queryFn: async () => {
-      let fromTs = new Date().toISOString();
-      let toTs: string | undefined;
-      if (filter.tonightOnly) {
-        const endOfToday = new Date();
-        endOfToday.setHours(23, 59, 59, 999);
-        toTs = endOfToday.toISOString();
-      }
-
+      const { fromTs, toTs } = whenFilterRange(when);
       const { data, error } = await supabase.rpc("nearby_games", {
         lat: center.lat,
         lng: center.lng,
-        radius_m: DEFAULT_RADIUS_M,
+        radius_m: radiusM,
         sport_slug: SPORT_SLUG,
         from_ts: fromTs,
         to_ts: toTs,
-        tier_slugs: filter.tierSlug ? [filter.tierSlug] : undefined,
+        tier_slugs: tierSlugs,
+        has_spots_only: hasSpotsOnly,
+        verified_only: verifiedOnly,
+        max_cost_per_player_cents: maxCostPerPlayerCents ?? undefined,
+        sort_by: sortBy,
       });
       if (error) throw error;
       return (data ?? []).map(toGame);

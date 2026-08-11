@@ -27,11 +27,32 @@ const initialWizard: WizardDraft = {
   cost: 64,
 };
 
+export type WhenFilter = "tonight" | "tomorrow" | "week" | "all";
+export type SortOption = "soonest" | "closest" | "cheapest" | "most_spots";
+
+export const DISCOVER_RADIUS_OPTIONS_KM = [5, 10, 25, 50];
+export const DEFAULT_DISCOVER_RADIUS_KM = 50;
+export const PRICE_CAP_OPTIONS_CENTS = [1000, 2000, 3000];
+
 type AppState = {
   discoverView: "list" | "map";
   setDiscoverView: (v: "list" | "map") => void;
-  activeFilter: string;
-  setActiveFilter: (v: string) => void;
+  whenFilter: WhenFilter;
+  setWhenFilter: (v: WhenFilter) => void;
+  levelFilters: string[];
+  toggleLevelFilter: (slug: string) => void;
+  setLevelFilters: (v: string[]) => void;
+  discoverRadiusKm: number;
+  setDiscoverRadiusKm: (v: number) => void;
+  hasSpotsOnly: boolean;
+  setHasSpotsOnly: (v: boolean) => void;
+  verifiedOnly: boolean;
+  setVerifiedOnly: (v: boolean) => void;
+  maxCostPerPlayerCents: number | null;
+  setMaxCostPerPlayerCents: (v: number | null) => void;
+  sortBy: SortOption;
+  setSortBy: (v: SortOption) => void;
+  clearDiscoverFilters: () => void;
 
   myGamesTab: "joined" | "hosting" | "past";
   setMyGamesTab: (v: "joined" | "hosting" | "past") => void;
@@ -50,8 +71,32 @@ type AppState = {
 export const useAppStore = create<AppState>((set) => ({
   discoverView: "list",
   setDiscoverView: (v) => set({ discoverView: v }),
-  activeFilter: "All levels",
-  setActiveFilter: (v) => set({ activeFilter: v }),
+  whenFilter: "week",
+  setWhenFilter: (v) => set({ whenFilter: v }),
+  levelFilters: [],
+  toggleLevelFilter: (slug) =>
+    set((s) => ({ levelFilters: s.levelFilters.includes(slug) ? s.levelFilters.filter((x) => x !== slug) : [...s.levelFilters, slug] })),
+  setLevelFilters: (v) => set({ levelFilters: v }),
+  discoverRadiusKm: DEFAULT_DISCOVER_RADIUS_KM,
+  setDiscoverRadiusKm: (v) => set({ discoverRadiusKm: v }),
+  hasSpotsOnly: false,
+  setHasSpotsOnly: (v) => set({ hasSpotsOnly: v }),
+  verifiedOnly: false,
+  setVerifiedOnly: (v) => set({ verifiedOnly: v }),
+  maxCostPerPlayerCents: null,
+  setMaxCostPerPlayerCents: (v) => set({ maxCostPerPlayerCents: v }),
+  sortBy: "soonest",
+  setSortBy: (v) => set({ sortBy: v }),
+  clearDiscoverFilters: () =>
+    set({
+      whenFilter: "all",
+      levelFilters: [],
+      discoverRadiusKm: DEFAULT_DISCOVER_RADIUS_KM,
+      hasSpotsOnly: false,
+      verifiedOnly: false,
+      maxCostPerPlayerCents: null,
+      sortBy: "soonest",
+    }),
 
   myGamesTab: "joined",
   setMyGamesTab: (v) => set({ myGamesTab: v }),

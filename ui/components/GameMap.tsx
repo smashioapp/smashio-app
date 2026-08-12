@@ -1,46 +1,105 @@
-import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from "react";
-import { View, Text } from "react-native";
-import MapView, { Marker, Region } from "react-native-maps";
+import { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
+import { View, Text, Pressable, Platform } from "react-native";
+import MapView, { Marker, Circle, PROVIDER_GOOGLE, Region } from "react-native-maps";
+import Animated, { useAnimatedStyle, useSharedValue, withSequence, withTiming } from "react-native-reanimated";
+import { Ionicons } from "@expo/vector-icons";
 import { colors, tierColor } from "../lib/theme";
-import { formatTimeShort } from "../lib/format";
+import { formatTimeShort, dayLabel } from "../lib/format";
+import { perPlayerCost, spotsLeft } from "../lib/mockData";
+import { haptics } from "../lib/haptics";
 import type { Game } from "../lib/mockData";
+
+// Cloud-styled map ID (docs/map-plan.md §4). Not a secret — a public identifier bound to the
+// iOS-restricted key. Must be literal: react-native-maps reads it from initialProps at native
+// view construction (AIRGoogleMapManager.mm:51) and it can't change after mount.
+const GOOGLE_MAP_ID = "65180cd85350fca689a8eb06";
+
+export type NoGameVenue = { id: string; name: string; lat: number; lng: number };
 
 export type GameMapProps = {
   games: Game[];
   center: { lat: number; lng: number; isDeviceLocation: boolean };
   onSelectGame: (gameId: string) => void;
   selectedGameId?: string | null;
+  radiusKm?: number | null;
+  bottomInset?: number;
+  noGameVenues?: NoGameVenue[];
+  onSelectNoGameVenue?: (venue: NoGameVenue) => void;
+  onSearchThisArea?: (region: { lat: number; lng: number; radiusKm: number }) => void;
 };
 
 export type GameMapHandle = {
   focusOn: (lat: number, lng: number) => void;
 };
 
-type Cluster = { key: string; lat: number; lng: number; games: Game[] };
+type VenueGroup = { key: string; lat: number; lng: number; games: Game[] };
+type Cluster = { key: string; lat: number; lng: number; venues: VenueGroup[] };
 
-// Grid-bucket clustering: cell size scales with the current zoom (latitudeDelta) so pins
-// merge into a count bubble when zoomed out and split apart as the user zooms in — no
-// extra clustering dependency needed for the pin counts this app deals with.
-function clusterGames(games: Game[], latitudeDelta: number): Cluster[] {
-  const cell = Math.max(latitudeDelta * 0.15, 0.0005);
-  const buckets = new Map<string, Game[]>();
+// Same venue, same coordinate — nearby_games doesn't project a stable venue id (only
+// games_public/my-games does), so venue identity here is name+coordinate. Good enough: two
+// different venues never share a rounded lat/lng.
+function venueKeyOf(g: Game): string {
+  return `${g.venue}@${g.venueLat!.toFixed(4)},${g.venueLng!.toFixed(4)}`;
+}
+
+function groupByVenue(games: Game[]): VenueGroup[] {
+  const map = new Map<string, VenueGroup>();
   for (const g of games) {
     if (g.venueLat == null || g.venueLng == null) continue;
-    const key = `${Math.round(g.venueLat / cell)}:${Math.round(g.venueLng / cell)}`;
+    const key = venueKeyOf(g);
+    const existing = map.get(key);
+    if (existing) existing.games.push(g);
+    else map.set(key, { key, lat: g.venueLat, lng: g.venueLng, games: [g] });
+  }
+  return Array.from(map.values());
+}
+
+// Grid-bucket clustering over venue groups (not raw games) — a venue with 3 games is one
+// pin, and only distinct venues merge into a count bubble when zoomed out.
+function clusterVenues(venues: VenueGroup[], latitudeDelta: number): Cluster[] {
+  const cell = Math.max(latitudeDelta * 0.15, 0.0005);
+  const buckets = new Map<string, VenueGroup[]>();
+  for (const v of venues) {
+    const key = `${Math.round(v.lat / cell)}:${Math.round(v.lng / cell)}`;
     const list = buckets.get(key);
-    if (list) list.push(g);
-    else buckets.set(key, [g]);
+    if (list) list.push(v);
+    else buckets.set(key, [v]);
   }
   return Array.from(buckets.entries()).map(([key, list]) => ({
     key,
-    lat: list.reduce((s, g) => s + g.venueLat!, 0) / list.length,
-    lng: list.reduce((s, g) => s + g.venueLng!, 0) / list.length,
-    games: list,
+    lat: list.reduce((s, v) => s + v.lat, 0) / list.length,
+    lng: list.reduce((s, v) => s + v.lng, 0) / list.length,
+    venues: list,
   }));
+}
+
+function gameLabel(game: Game): string {
+  const isToday = dayLabel(game.startsAt, new Date(), { todayLabel: "Today" }) === "Today";
+  return isToday ? formatTimeShort(game.startsAt) : `$${perPlayerCost(game.cost, game.maxPlayers)}`;
+}
+
+function startsWithinMs(game: Game, windowMs: number): boolean {
+  const diff = new Date(game.startsAt).getTime() - Date.now();
+  return diff > 0 && diff < windowMs;
+}
+
+// Marker content re-rasterizes every frame while tracksViewChanges is true — the perf
+// landmine map-plan.md flags. Default off; flip on briefly (long enough for one native
+// layout pass, or the full pulse window) whenever content actually changes.
+function useTracksViewChanges(deps: unknown[], settleMs: number): boolean {
+  const [tracks, setTracks] = useState(true);
+  useEffect(() => {
+    setTracks(true);
+    const t = setTimeout(() => setTracks(false), settleMs);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, deps);
+  return tracks;
 }
 
 function PinPill({ game, active }: { game: Game; active: boolean }) {
   const color = tierColor(game.skill);
+  const open = spotsLeft(game) > 0;
   return (
     <View
       className="rounded-full px-2.5 py-1 border"
@@ -48,26 +107,135 @@ function PinPill({ game, active }: { game: Game; active: boolean }) {
         backgroundColor: active ? color : colors.card,
         borderColor: color,
         borderWidth: active ? 0 : 1.5,
+        opacity: open || active ? 1 : 0.45,
         transform: [{ scale: active ? 1.15 : 1 }],
       }}
     >
       <Text className="font-body-extrabold text-[11px]" style={{ color: active ? colors.base : color }}>
-        {formatTimeShort(game.startsAt)}
+        {gameLabel(game)}
       </Text>
     </View>
   );
 }
 
-function ClusterBubble({ count }: { count: number }) {
+// Single game at a venue — pulses a few cycles on mount if it starts within 2h, then settles
+// (tracksViewChanges must go false eventually or the perf landmine comes right back).
+function GamePin({ game, active, onPress }: { game: Game; active: boolean; onPress: () => void }) {
+  const soon = startsWithinMs(game, 2 * 60 * 60 * 1000);
+  const scale = useSharedValue(1);
+  const tracks = useTracksViewChanges([active, soon, game.id], soon ? 1700 : 60);
+
+  useEffect(() => {
+    if (!soon) return;
+    scale.value = withSequence(
+      withTiming(1.12, { duration: 380 }),
+      withTiming(1, { duration: 380 }),
+      withTiming(1.12, { duration: 380 }),
+      withTiming(1, { duration: 380 })
+    );
+  }, [soon, game.id]);
+
+  const pulseStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+
+  return (
+    <Marker
+      coordinate={{ latitude: game.venueLat!, longitude: game.venueLng! }}
+      onPress={() => {
+        haptics.tap();
+        onPress();
+      }}
+      anchor={{ x: 0.5, y: 1 }}
+      zIndex={active ? 10 : 1}
+      tracksViewChanges={tracks}
+    >
+      <Animated.View style={pulseStyle}>
+        <PinPill game={game} active={active} />
+      </Animated.View>
+    </Marker>
+  );
+}
+
+// Venue with more than one upcoming game — one pin reading "N games" instead of stacked pills.
+function VenuePin({ venue, active, onPress }: { venue: VenueGroup; active: boolean; onPress: () => void }) {
+  const anyOpen = venue.games.some((g) => spotsLeft(g) > 0);
+  const tracks = useTracksViewChanges([active, venue.games.length], 60);
+  return (
+    <Marker
+      coordinate={{ latitude: venue.lat, longitude: venue.lng }}
+      onPress={() => {
+        haptics.tap();
+        onPress();
+      }}
+      anchor={{ x: 0.5, y: 1 }}
+      zIndex={active ? 10 : 1}
+      tracksViewChanges={tracks}
+    >
+      <View
+        className="rounded-full px-2.5 py-1.5 border"
+        style={{
+          backgroundColor: active ? colors.accent : colors.card,
+          borderColor: colors.accent,
+          borderWidth: active ? 0 : 1.5,
+          opacity: anyOpen || active ? 1 : 0.45,
+        }}
+      >
+        <Text className="font-body-extrabold text-[11px]" style={{ color: active ? colors.base : colors.accent }}>
+          {venue.games.length} games
+        </Text>
+      </View>
+    </Marker>
+  );
+}
+
+function ClusterBubble({ cluster, onPress }: { cluster: Cluster; onPress: () => void }) {
+  const count = cluster.venues.reduce((s, v) => s + v.games.length, 0);
+  const tracks = useTracksViewChanges([count], 60);
+  return (
+    <Marker coordinate={{ latitude: cluster.lat, longitude: cluster.lng }} onPress={onPress} tracksViewChanges={tracks}>
+      <View
+        className="rounded-full items-center justify-center border"
+        style={{ width: 32, height: 32, backgroundColor: colors.accent, borderColor: colors.base, borderWidth: 2 }}
+      >
+        <Text className="font-body-extrabold text-[12.5px]" style={{ color: colors.base }}>
+          {count}
+        </Text>
+      </View>
+    </Marker>
+  );
+}
+
+function NoGameVenuePin({ venue, onPress }: { venue: NoGameVenue; onPress: () => void }) {
+  const tracks = useTracksViewChanges([], 60);
+  return (
+    <Marker
+      coordinate={{ latitude: venue.lat, longitude: venue.lng }}
+      onPress={() => {
+        haptics.tap();
+        onPress();
+      }}
+      opacity={0.4}
+      tracksViewChanges={tracks}
+    >
+      <View
+        className="rounded-full items-center justify-center border"
+        style={{ width: 10, height: 10, backgroundColor: "transparent", borderColor: colors.textMuted, borderWidth: 1.5 }}
+      />
+    </Marker>
+  );
+}
+
+function UserDot() {
   return (
     <View
-      className="rounded-full items-center justify-center border"
-      style={{ width: 32, height: 32, backgroundColor: colors.accent, borderColor: colors.base, borderWidth: 2 }}
-    >
-      <Text className="font-body-extrabold text-[12.5px]" style={{ color: colors.base }}>
-        {count}
-      </Text>
-    </View>
+      style={{
+        width: 16,
+        height: 16,
+        borderRadius: 8,
+        backgroundColor: colors.accent,
+        borderWidth: 3,
+        borderColor: colors.base,
+      }}
+    />
   );
 }
 
@@ -75,12 +243,25 @@ function ClusterBubble({ count }: { count: number }) {
 // (Marker, Callout, ...) that react-native-web can't evaluate, so this file must never
 // load on web; Metro's .web.tsx platform split keeps the import out of that bundle.
 export const GameMap = forwardRef<GameMapHandle, GameMapProps>(function GameMap(
-  { games, center, onSelectGame, selectedGameId = null },
+  {
+    games,
+    center,
+    onSelectGame,
+    selectedGameId = null,
+    radiusKm = null,
+    bottomInset = 24,
+    noGameVenues = [],
+    onSelectNoGameVenue,
+    onSearchThisArea,
+  },
   ref
 ) {
   const mapRef = useRef<MapView>(null);
   const initialDelta = center.isDeviceLocation ? 0.08 : 0.3;
   const [delta, setDelta] = useState(initialDelta);
+  const [userPanned, setUserPanned] = useState(false);
+  const [pendingRegion, setPendingRegion] = useState<Region | null>(null);
+  const suppressNextFitRef = useRef(false);
 
   useImperativeHandle(ref, () => ({
     focusOn: (lat: number, lng: number) => {
@@ -88,47 +269,131 @@ export const GameMap = forwardRef<GameMapHandle, GameMapProps>(function GameMap(
     },
   }));
 
-  const clusters = useMemo(() => clusterGames(games, delta), [games, delta]);
+  const venueGroups = useMemo(() => groupByVenue(games), [games]);
+  const clusters = useMemo(() => clusterVenues(venueGroups, delta), [venueGroups, delta]);
+
+  // Fit to results on open and whenever the result set actually changes (filters, refetch) —
+  // not on every render, and not right after a "search this area" query the user just framed.
+  const gamesKey = games.map((g) => g.id).join(",");
+  useEffect(() => {
+    if (suppressNextFitRef.current) {
+      suppressNextFitRef.current = false;
+      return;
+    }
+    const coords = games
+      .filter((g) => g.venueLat != null && g.venueLng != null)
+      .map((g) => ({ latitude: g.venueLat!, longitude: g.venueLng! }));
+    if (coords.length === 0) return;
+    mapRef.current?.fitToCoordinates(coords, {
+      edgePadding: { top: 100, right: 50, bottom: bottomInset + 60, left: 50 },
+      animated: true,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gamesKey]);
+
+  const handleSearchThisArea = () => {
+    if (!pendingRegion || !onSearchThisArea) return;
+    haptics.tap();
+    // Half the viewport's vertical span, in km — close enough to "does this cover the area
+    // the user just framed" without a bbox-capable RPC (nearby_games is radius-only).
+    const radiusKm = Math.max(1, (pendingRegion.latitudeDelta * 111) / 2);
+    onSearchThisArea({ lat: pendingRegion.latitude, lng: pendingRegion.longitude, radiusKm });
+    suppressNextFitRef.current = true;
+    setUserPanned(false);
+    setPendingRegion(null);
+  };
 
   return (
-    <MapView
+    <View style={{ flex: 1 }}>
+      <MapView
       ref={mapRef}
       style={{ flex: 1 }}
+      provider={PROVIDER_GOOGLE}
+      googleMapId={Platform.OS === "ios" ? GOOGLE_MAP_ID : undefined}
+      mapPadding={{ top: 0, right: 0, bottom: bottomInset, left: 0 }}
       initialRegion={{
         latitude: center.lat,
         longitude: center.lng,
         latitudeDelta: initialDelta,
         longitudeDelta: initialDelta,
       }}
-      showsUserLocation={center.isDeviceLocation}
-      onRegionChangeComplete={(r: Region) => setDelta(r.latitudeDelta)}
+      showsUserLocation={false}
+      onPanDrag={() => setUserPanned(true)}
+      onRegionChangeComplete={(r: Region) => {
+        setDelta(r.latitudeDelta);
+        if (userPanned) setPendingRegion(r);
+      }}
     >
-      {clusters.map((c) =>
-        c.games.length === 1 ? (
-          <Marker
+      {radiusKm != null && (
+        <Circle
+          center={{ latitude: center.lat, longitude: center.lng }}
+          radius={radiusKm * 1000}
+          strokeColor="rgba(214,255,63,0.35)"
+          strokeWidth={1.5}
+          fillColor="rgba(214,255,63,0.05)"
+        />
+      )}
+
+      {center.isDeviceLocation && (
+        <Marker
+          coordinate={{ latitude: center.lat, longitude: center.lng }}
+          anchor={{ x: 0.5, y: 0.5 }}
+          tracksViewChanges={false}
+          zIndex={5}
+        >
+          <UserDot />
+        </Marker>
+      )}
+
+      {noGameVenues.map((v) => (
+        <NoGameVenuePin key={v.id} venue={v} onPress={() => onSelectNoGameVenue?.(v)} />
+      ))}
+
+      {clusters.map((c) => {
+        if (c.venues.length === 1) {
+          const venue = c.venues[0];
+          if (venue.games.length === 1) {
+            const game = venue.games[0];
+            return <GamePin key={c.key} game={game} active={game.id === selectedGameId} onPress={() => onSelectGame(game.id)} />;
+          }
+          const activeInVenue = venue.games.some((g) => g.id === selectedGameId);
+          return (
+            <VenuePin
+              key={c.key}
+              venue={venue}
+              active={activeInVenue}
+              onPress={() => onSelectGame(venue.games[0].id)}
+            />
+          );
+        }
+        return (
+          <ClusterBubble
             key={c.key}
-            coordinate={{ latitude: c.lat, longitude: c.lng }}
-            onPress={() => onSelectGame(c.games[0].id)}
-            anchor={{ x: 0.5, y: 1 }}
-            zIndex={c.games[0].id === selectedGameId ? 10 : 1}
-          >
-            <PinPill game={c.games[0]} active={c.games[0].id === selectedGameId} />
-          </Marker>
-        ) : (
-          <Marker
-            key={c.key}
-            coordinate={{ latitude: c.lat, longitude: c.lng }}
+            cluster={c}
             onPress={() =>
               mapRef.current?.animateToRegion(
                 { latitude: c.lat, longitude: c.lng, latitudeDelta: delta / 2.2, longitudeDelta: delta / 2.2 },
                 300
               )
             }
-          >
-            <ClusterBubble count={c.games.length} />
-          </Marker>
-        )
+          />
+        );
+      })}
+
+      </MapView>
+
+      {onSearchThisArea && userPanned && pendingRegion && (
+        <Pressable
+          onPress={handleSearchThisArea}
+          className="absolute self-center flex-row items-center gap-1.5 rounded-pill px-4 py-2.5 border"
+          style={{ top: 16, backgroundColor: colors.text, borderColor: colors.text }}
+        >
+          <Ionicons name="refresh-outline" size={14} color={colors.base} />
+          <Text className="font-body-extrabold text-[13px]" style={{ color: colors.base }}>
+            Search this area
+          </Text>
+        </Pressable>
       )}
-    </MapView>
+    </View>
   );
 });

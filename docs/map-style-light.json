@@ -1,0 +1,263 @@
+{
+  "variant": "light",
+  "backgroundColor": "#0a0a0b",
+  "metadata": {
+    "name": "SMASHIO Light",
+    "notes": "Same suppressed dark palette as the dark variant \u2014 the app is dark-only, so a light-mode device must still get the black map."
+  },
+  "styles": [
+    {
+      "id": "natural.base",
+      "geometry": {
+        "fillColor": "#0e0e10"
+      }
+    },
+    {
+      "id": "natural.land",
+      "geometry": {
+        "fillColor": "#101013"
+      },
+      "label": {
+        "textFillColor": "#5c5c64",
+        "textStrokeColor": "#0a0a0b"
+      }
+    },
+    {
+      "id": "natural.land.landCover",
+      "geometry": {
+        "fillColor": "#101013"
+      }
+    },
+    {
+      "id": "natural.water",
+      "geometry": {
+        "fillColor": "#08080a"
+      },
+      "label": {
+        "visible": false
+      }
+    },
+    {
+      "id": "natural.continent",
+      "label": {
+        "visible": false
+      }
+    },
+    {
+      "id": "natural.archipelago",
+      "label": {
+        "visible": false
+      }
+    },
+    {
+      "id": "natural.island",
+      "label": {
+        "visible": false
+      }
+    },
+    {
+      "id": "infrastructure",
+      "geometry": {
+        "fillColor": "#0e0e10",
+        "strokeColor": "#0e0e10"
+      },
+      "label": {
+        "textFillColor": "#6b6b73",
+        "textStrokeColor": "#0a0a0b"
+      }
+    },
+    {
+      "id": "infrastructure.urbanArea",
+      "geometry": {
+        "fillColor": "#0e0e10"
+      }
+    },
+    {
+      "id": "infrastructure.building",
+      "geometry": {
+        "visible": false
+      },
+      "label": {
+        "visible": false
+      }
+    },
+    {
+      "id": "infrastructure.businessCorridor",
+      "geometry": {
+        "visible": false
+      },
+      "label": {
+        "visible": false
+      }
+    },
+    {
+      "id": "infrastructure.railwayTrack",
+      "geometry": {
+        "visible": false
+      },
+      "label": {
+        "visible": false
+      }
+    },
+    {
+      "id": "infrastructure.transitStation",
+      "geometry": {
+        "visible": false
+      },
+      "label": {
+        "visible": false
+      }
+    },
+    {
+      "id": "infrastructure.roadNetwork",
+      "geometry": {
+        "fillColor": "#1f1f24",
+        "strokeColor": "#0a0a0b"
+      },
+      "label": {
+        "textFillColor": "#6b6b73",
+        "textStrokeColor": "#0a0a0b"
+      }
+    },
+    {
+      "id": "infrastructure.roadNetwork.road.local",
+      "geometry": {
+        "fillColor": "#1b1b20"
+      }
+    },
+    {
+      "id": "infrastructure.roadNetwork.road.arterial",
+      "geometry": {
+        "fillColor": "#26262d"
+      }
+    },
+    {
+      "id": "infrastructure.roadNetwork.road.highway",
+      "geometry": {
+        "fillColor": "#2a2a31"
+      }
+    },
+    {
+      "id": "infrastructure.roadNetwork.roadShield",
+      "geometry": {
+        "visible": false
+      },
+      "label": {
+        "visible": false
+      }
+    },
+    {
+      "id": "infrastructure.roadNetwork.roadSign",
+      "geometry": {
+        "visible": false
+      },
+      "label": {
+        "visible": false
+      }
+    },
+    {
+      "id": "infrastructure.roadNetwork.roadDetail",
+      "geometry": {
+        "visible": false
+      }
+    },
+    {
+      "id": "infrastructure.roadNetwork.parkingAisle",
+      "geometry": {
+        "visible": false
+      },
+      "label": {
+        "visible": false
+      }
+    },
+    {
+      "id": "pointOfInterest",
+      "geometry": {
+        "visible": false
+      },
+      "label": {
+        "visible": false
+      }
+    },
+    {
+      "id": "pointOfInterest.recreation.park",
+      "geometry": {
+        "visible": true,
+        "fillColor": "#121417"
+      },
+      "label": {
+        "visible": false
+      }
+    },
+    {
+      "id": "political",
+      "geometry": {
+        "visible": false
+      },
+      "label": {
+        "textFillColor": "#5c5c64",
+        "textStrokeColor": "#0a0a0b"
+      }
+    },
+    {
+      "id": "political.countryOrRegion",
+      "label": {
+        "visible": false
+      }
+    },
+    {
+      "id": "political.stateOrProvince",
+      "label": {
+        "visible": false
+      }
+    },
+    {
+      "id": "political.border",
+      "geometry": {
+        "visible": false
+      }
+    },
+    {
+      "id": "political.reservation",
+      "geometry": {
+        "visible": false
+      },
+      "label": {
+        "visible": false
+      }
+    },
+    {
+      "id": "political.landParcel",
+      "geometry": {
+        "visible": false
+      },
+      "label": {
+        "visible": false
+      }
+    },
+    {
+      "id": "political.city",
+      "label": {
+        "visible": true,
+        "textFillColor": "#5c5c64",
+        "textStrokeColor": "#0a0a0b"
+      }
+    },
+    {
+      "id": "political.sublocality",
+      "label": {
+        "visible": true,
+        "textFillColor": "#5c5c64",
+        "textStrokeColor": "#0a0a0b"
+      }
+    },
+    {
+      "id": "political.neighborhood",
+      "label": {
+        "visible": true,
+        "textFillColor": "#5c5c64",
+        "textStrokeColor": "#0a0a0b"
+      }
+    }
+  ]
+}

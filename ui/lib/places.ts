@@ -30,7 +30,7 @@ export async function searchPlaces(query: string, sessionToken: string): Promise
   const url =
     `${PLACES_BASE}/autocomplete/json?input=${encodeURIComponent(query)}` +
     `&types=establishment&components=country:au&sessiontoken=${sessionToken}&key=${API_KEY}`;
-  const res = await fetch(url);
+  const res = await fetch(url, { headers: { "X-Ios-Bundle-Identifier": "com.smashio.app" } });
   const json = await res.json();
   if (json.status !== "OK" && json.status !== "ZERO_RESULTS") {
     throw new Error(json.error_message ?? `Places autocomplete failed: ${json.status}`);
@@ -46,7 +46,7 @@ export async function getPlaceDetails(placeId: string, sessionToken: string): Pr
   const url =
     `${PLACES_BASE}/details/json?place_id=${placeId}` +
     `&fields=name,formatted_address,geometry,address_component&sessiontoken=${sessionToken}&key=${API_KEY}`;
-  const res = await fetch(url);
+  const res = await fetch(url, { headers: { "X-Ios-Bundle-Identifier": "com.smashio.app" } });
   const json = await res.json();
   if (json.status !== "OK") {
     throw new Error(json.error_message ?? `Places details failed: ${json.status}`);

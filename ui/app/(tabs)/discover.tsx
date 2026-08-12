@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, Pressable, ScrollView, Dimensions, FlatList, BackHandler, NativeSyntheticEvent, NativeScrollEvent } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Notifications from "expo-notifications";
 import { useAppStore, WhenFilter, SortOption, DISCOVER_RADIUS_OPTIONS_KM, DEFAULT_DISCOVER_RADIUS_KM, PRICE_CAP_OPTIONS_CENTS } from "../../lib/store";
 import { colors, TIERS } from "../../lib/theme";
-import { useTabBarSpace } from "../../lib/nav";
+import { NAV, tabBarBottom, useTabBarSpace } from "../../lib/nav";
 import { useReduceMotion } from "../../lib/motion";
 import { makeScrollHideHandler, registerScrollToTop, unregisterScrollToTop } from "../../lib/navScroll";
 import { BottomRail } from "../../components/BottomRail";
@@ -21,15 +22,15 @@ import { haptics } from "../../lib/haptics";
 import { Screen } from "../../components/Screen";
 import { Chip } from "../../components/Chip";
 import { GameCard } from "../../components/GameCard";
-import { SkillPill } from "../../components/SkillPill";
 import { EmptyState } from "../../components/EmptyState";
 import { GameMap, GameMapHandle } from "../../components/GameMap";
+import { MapSheet, MapSheetHandle, sheetSnapHeights } from "../../components/MapSheet";
 import { RefreshableList } from "../../components/RefreshableList";
 import { GameCardSkeletonList } from "../../components/Skeleton";
 import { Sheet } from "../../components/Sheet";
 import { Rail } from "../../components/Rail";
 import { DayHeader } from "../../components/DayHeader";
-import { Game, spotsLeft, levelFit, perPlayerCost } from "../../lib/mockData";
+import { Game, spotsLeft, levelFit } from "../../lib/mockData";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const CAROUSEL_GAP = 12;
@@ -68,44 +69,6 @@ function WeekPulseStrip({ text }: { text: string }) {
         {text}
       </Text>
     </View>
-  );
-}
-
-// Compact card for the full-screen map's bottom carousel — a lighter footprint than
-// GameCard so the map itself stays the star (Airbnb pattern: results and map coexist).
-function MapCarouselCard({ game, viewerTierOrdinal, onPress }: { game: Game; viewerTierOrdinal: number | null; onPress: () => void }) {
-  const open = spotsLeft(game);
-  const full = open === 0;
-  return (
-    <Pressable
-      onPress={onPress}
-      className="rounded-2xl p-3.5 border"
-      style={{ width: CAROUSEL_CARD_WIDTH, backgroundColor: colors.card, borderColor: colors.cardBorder }}
-    >
-      <View className="flex-row justify-between items-start">
-        <View className="flex-1 pr-2">
-          <Text className="font-display-bold text-[15px]" style={{ color: colors.text }} numberOfLines={1}>
-            {game.venue}
-          </Text>
-          <Text className="text-[12.5px] mt-0.5" style={{ color: colors.textTertiary }} numberOfLines={1}>
-            {game.date} · {game.time} · {game.suburb}
-          </Text>
-        </View>
-        <SkillPill skill={game.skill} fit={levelFit(viewerTierOrdinal, game.skillTierOrdinal)} />
-      </View>
-      <View className="flex-row justify-between items-center mt-2">
-        <Text className="font-display-bold text-[15px]" style={{ color: colors.accent }}>
-          ${perPlayerCost(game.cost, game.maxPlayers)}
-          <Text className="font-body-semibold text-[12px]" style={{ color: colors.textTertiary }}>
-            {" "}
-            / player
-          </Text>
-        </Text>
-        <Text className="text-[12.5px] font-body-bold" style={{ color: full ? colors.danger : colors.textMuted }}>
-          {full ? "Full" : `${open} spot${open === 1 ? "" : "s"} left`}
-        </Text>
-      </View>
-    </Pressable>
   );
 }
 
@@ -378,11 +341,22 @@ export default function Discover() {
   const [headerCompact, setHeaderCompact] = useState(false);
   const tabBarSpace = useTabBarSpace(true);
   const reduceMotion = useReduceMotion();
+  const insets = useSafeAreaInsets();
   const mapRef = useRef<GameMapHandle>(null);
+  const mapSheetRef = useRef<MapSheetHandle>(null);
   const listRef = useRef<FlatList<any>>(null);
   const scrollHide = useRef(makeScrollHideHandler()).current;
   const carouselRef = useRef<FlatList<Game>>(null);
   const carouselScrollIsProgrammatic = useRef(false);
+
+  // "Search this area" (map-plan.md §P3) frames a viewport the user panned to, independent of
+  // the device-location + radius filter that drives the list. Null = map follows the filters
+  // like everything else.
+  const [mapAreaOverride, setMapAreaOverride] = useState<{ lat: number; lng: number; radiusKm: number } | null>(null);
+  // Clears geometry above the tab bar's floating action rail (BottomRail's own bottom math,
+  // see lib/nav.ts) — the sheet must never sit under the still-visible MapToggle/HostFab.
+  const mapSheetBottomSpace = tabBarBottom(insets.bottom) + NAV.BAR_HEIGHT + NAV.RAIL_GAP + NAV.RAIL_HEIGHT + NAV.RAIL_GAP;
+  const [sheetHeight, setSheetHeight] = useState(() => sheetSnapHeights().peek + mapSheetBottomSpace);
 
   useEffect(() => {
     registerScrollToTop("discover", () => listRef.current?.scrollToOffset({ offset: 0, animated: true }));
@@ -398,6 +372,12 @@ export default function Discover() {
       return true;
     });
     return () => sub.remove();
+  }, [discoverView]);
+
+  // A "search this area" override is a temporary exploration of the map, not a filter change —
+  // closing the map (either control) drops it so reopening starts back at the real filters.
+  useEffect(() => {
+    if (discoverView !== "map") setMapAreaOverride(null);
   }, [discoverView]);
 
   useFocusEffect(
@@ -427,6 +407,18 @@ export default function Discover() {
   );
   const games = discoverQuery.data ?? [];
   const pinnedGames = games.filter((g) => g.venueLat != null && g.venueLng != null);
+
+  // Same queryKey as discoverQuery when there's no area override, so react-query dedupes them
+  // into one fetch — a "search this area" pan only costs an extra request once it actually
+  // diverges from the filter-driven center, and never mutates what the list tab shows.
+  const mapCenter = mapAreaOverride ? { lat: mapAreaOverride.lat, lng: mapAreaOverride.lng } : userLocation;
+  const mapRadiusKm = mapAreaOverride ? mapAreaOverride.radiusKm : discoverRadiusKm;
+  const mapQuery = useDiscoverGames(
+    { tierSlugs: levelFilters, when: whenFilter, radiusKm: mapRadiusKm, hasSpotsOnly, verifiedOnly, maxCostPerPlayerCents, sortBy },
+    mapCenter,
+    { enabled: discoverView === "map" }
+  );
+  const mapPinnedGames = (mapQuery.data ?? []).filter((g) => g.venueLat != null && g.venueLng != null);
 
   const showInitialLoading = discoverQuery.isLoading;
   const showError = discoverQuery.isError && !showInitialLoading;
@@ -507,7 +499,10 @@ export default function Discover() {
   // and re-drive the map, fighting the animation that's already in flight.
   const handleSelectFromMap = (id: string) => {
     setSelectedGameId(id);
-    const idx = pinnedGames.findIndex((g) => g.id === id);
+    // Dragging never hides pins (map-plan.md §P4): a pin tap drops the sheet back to peek so
+    // the map around the newly selected pin is visible, even if the sheet was at half/full.
+    mapSheetRef.current?.snapTo("peek");
+    const idx = mapPinnedGames.findIndex((g) => g.id === id);
     if (idx >= 0) {
       carouselScrollIsProgrammatic.current = true;
       carouselRef.current?.scrollToOffset({ offset: idx * CAROUSEL_STEP, animated: true });
@@ -519,12 +514,13 @@ export default function Discover() {
       return;
     }
     const idx = Math.round(e.nativeEvent.contentOffset.x / CAROUSEL_STEP);
-    const g = pinnedGames[idx];
+    const g = mapPinnedGames[idx];
     if (g && g.venueLat != null && g.venueLng != null) {
       setSelectedGameId(g.id);
       mapRef.current?.focusOn(g.venueLat, g.venueLng);
     }
   };
+  const handleMapSnapChange = (_snap: "peek" | "half" | "full", heightPx: number) => setSheetHeight(heightPx);
 
   const filterSummary = [
     levelFilters.length === 1 ? LEVEL_FILTERS.find((l) => l.slug === levelFilters[0])?.label : levelFilters.length > 1 ? "your levels" : null,
@@ -798,7 +794,7 @@ export default function Discover() {
 
       {discoverView === "map" && (
         // Map is a floating-button layer, not a mode swap (Airbnb pattern) — results stay
-        // intact underneath; this overlay covers the screen and a snap carousel keeps the
+        // intact underneath; this overlay covers the screen and a 3-snap sheet keeps the
         // pinned list reachable without leaving the map. The toggle back to list lives in
         // BottomRail's centre slot below — same control, same spot, label flips (Airbnb).
         <Animated.View
@@ -807,34 +803,59 @@ export default function Discover() {
           className="absolute inset-0"
           style={{ backgroundColor: colors.base }}
         >
-          <GameMap ref={mapRef} games={pinnedGames} center={userLocation} onSelectGame={handleSelectFromMap} selectedGameId={selectedGameId} />
+          <GameMap
+            ref={mapRef}
+            games={mapPinnedGames}
+            center={mapAreaOverride ? { lat: mapAreaOverride.lat, lng: mapAreaOverride.lng, isDeviceLocation: false } : userLocation}
+            onSelectGame={handleSelectFromMap}
+            selectedGameId={selectedGameId}
+            radiusKm={mapAreaOverride ? null : discoverRadiusKm}
+            bottomInset={sheetHeight}
+            onSearchThisArea={(region) => setMapAreaOverride(region)}
+          />
 
-          <View
-            className="absolute rounded-pill px-3 py-1.5 border"
-            style={{ top: 16, right: 16, backgroundColor: colors.card, borderColor: colors.cardBorder }}
-          >
-            <Text className="font-body-bold text-[12.5px]" style={{ color: colors.textSecondary }}>
-              {pinnedGames.length} game{pinnedGames.length === 1 ? "" : "s"}
-            </Text>
-          </View>
-
-          {pinnedGames.length > 0 && (
-            <FlatList
-              ref={carouselRef}
-              data={pinnedGames}
-              keyExtractor={(g: Game) => g.id}
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              snapToInterval={CAROUSEL_STEP}
-              decelerationRate="fast"
-              contentContainerStyle={{ gap: CAROUSEL_GAP, paddingHorizontal: 20 }}
-              style={{ position: "absolute", left: 0, right: 0, bottom: 24 }}
-              onMomentumScrollEnd={handleCarouselSettle}
-              renderItem={({ item }: { item: Game }) => (
-                <MapCarouselCard game={item} viewerTierOrdinal={viewerTierOrdinal} onPress={() => router.push(`/game/${item.id}`)} />
-              )}
-            />
-          )}
+          <MapSheet
+            ref={mapSheetRef}
+            pinnedGames={mapPinnedGames}
+            viewerTierOrdinal={viewerTierOrdinal}
+            bottomSpace={mapSheetBottomSpace}
+            onCardPress={(id) => router.push(`/game/${id}`)}
+            onCarouselSettle={handleCarouselSettle}
+            carouselRef={carouselRef}
+            onSnapChange={handleMapSnapChange}
+            carouselStep={CAROUSEL_STEP}
+            carouselGap={CAROUSEL_GAP}
+            cardWidth={CAROUSEL_CARD_WIDTH}
+            emptyState={
+              <View className="items-center gap-2 px-6 pb-4">
+                <Ionicons name="search-outline" size={26} color={colors.textTertiary} />
+                <Text className="font-display-bold text-[15px] text-center" style={{ color: colors.text }}>
+                  {mapAreaOverride ? "Nothing here yet" : "No games pinned nearby"}
+                </Text>
+                <Text className="text-[13px] text-center max-w-[240px]" style={{ color: colors.textSecondary }}>
+                  {mapAreaOverride ? "No upcoming games in this part of the map." : "Widen your filters or be the first to host here."}
+                </Text>
+                <View className="flex-row gap-2 mt-1">
+                  {mapAreaOverride && (
+                    <Pressable
+                      onPress={() => setMapAreaOverride(null)}
+                      className="rounded-pill px-4 py-2.5 border"
+                      style={{ borderColor: colors.cardBorder }}
+                    >
+                      <Text className="font-body-bold text-[13px]" style={{ color: colors.textSecondary }}>
+                        Back to my area
+                      </Text>
+                    </Pressable>
+                  )}
+                  <Pressable onPress={() => router.push("/wizard")} className="rounded-pill px-4 py-2.5" style={{ backgroundColor: colors.accent }}>
+                    <Text className="font-body-extrabold text-[13px]" style={{ color: colors.base }}>
+                      Host a game
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            }
+          />
         </Animated.View>
       )}
 

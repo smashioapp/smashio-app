@@ -65,9 +65,10 @@ module.exports = {
       [
         "react-native-maps",
         {
-          // Blank until a key is provisioned (see .env.example) — Android map tiles stay blank til then.
-          // Restrict by package name + SHA-1 in Google Cloud Console before shipping.
-          androidGoogleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? "",
+          // Android has no Play Store build yet and the key is iOS-restricted — Android map tiles
+          // stay blank grey until a second, Android-restricted key exists (docs/map-plan.md §4).
+          androidGoogleMapsApiKey: "",
+          iosGoogleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? "",
         },
       ],
       [

@@ -92,14 +92,16 @@ export function NextUpHero({
             {headline}
           </Text>
 
-          <View>
-            <Text className="font-display-bold text-[17px]" style={{ color: colors.text }}>
+          <View className="pr-1">
+            <Text className="font-display-bold text-[17px]" style={{ color: colors.text }} numberOfLines={1}>
               {game.venue}
             </Text>
-            <Text className="text-[13.5px] mt-0.5" style={{ color: colors.textTertiary }} numberOfLines={1}>
-              {game.venueAddress ?? game.suburb}
-              {game.courts ? ` · ${game.courts}` : ""}
-            </Text>
+            <View className="flex-row items-center gap-1 mt-0.5">
+              <Ionicons name="location-outline" size={12} color={colors.textTertiary} />
+              <Text className="text-[13.5px] flex-1" style={{ color: colors.textTertiary }} numberOfLines={1}>
+                {game.venueAddress ?? game.suburb}
+              </Text>
+            </View>
           </View>
 
           <View className="flex-row items-center justify-between">

@@ -168,10 +168,24 @@ export default function Profile() {
               <Badge state="pending" label="Unverified" />
             )}
           </View>
-          <Pressable className="flex-row justify-between items-center px-3.5 py-3.5" onPress={handleLogout}>
+          <Pressable
+            className="flex-row justify-between items-center px-3.5 py-3.5"
+            style={{ borderBottomWidth: 1, borderColor: "rgba(255,255,255,0.06)" }}
+            onPress={handleLogout}
+          >
             <Text className="text-[15px] font-body-semibold" style={{ color: colors.danger }}>
               Log out
             </Text>
+          </Pressable>
+          {/* Play's User Data policy requires this in-app, not just on the website. */}
+          <Pressable
+            className="flex-row justify-between items-center px-3.5 py-3.5"
+            onPress={() => router.push("/delete-account")}
+          >
+            <Text className="text-[15px] font-body-semibold" style={{ color: colors.danger }}>
+              Delete account
+            </Text>
+            <Ionicons name="chevron-forward" size={14} color={colors.danger} />
           </Pressable>
         </LinearGradient>
       </ScrollView>

@@ -58,5 +58,10 @@ verify_jwt = false
 # here; the function does its own organizer check on top before writing anything.
 verify_jwt = true
 
+[functions.delete-account]
+# Client-facing and destructive — the JWT is the whole authorization story. The function reads
+# the user id off the verified token and ignores the body, so it can only delete the caller.
+verify_jwt = true
+
 [realtime]
 enabled = true

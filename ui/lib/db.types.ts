@@ -397,6 +397,7 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string
+          deleted_at: string | null
           display_name: string
           home_point: unknown
           home_suburb: string | null
@@ -406,6 +407,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          deleted_at?: string | null
           display_name?: string
           home_point?: unknown
           home_suburb?: string | null
@@ -415,6 +417,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          deleted_at?: string | null
           display_name?: string
           home_point?: unknown
           home_suburb?: string | null
@@ -669,6 +672,7 @@ export type Database = {
         Args: { approve: boolean; p_game_id: string; p_profile_id: string }
         Returns: undefined
       }
+      delete_account: { Args: { p_profile_id: string }; Returns: Json }
       dispatch_game_reminders: { Args: never; Returns: undefined }
       is_approved_player: {
         Args: { p_game_id: string; p_profile_id: string }

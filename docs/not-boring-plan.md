@@ -24,38 +24,38 @@ The gap is that every one of those is a **single-channel** effect. One spring, o
 
 Build these five first; every later phase composes them. Nothing user-visible ships in this phase alone.
 
-- [ ] **`lib/motion.ts`** (new) — one shared spring vocabulary so the whole app moves like one system: `SPRING.pop` (overshoot, hero), `SPRING.settle` (damped, arrivals), `SPRING.press` (tight, 0.96 scale), `DURATION.*`. Also a `useReduceMotion()` hook — that logic is currently inline in [onboarding/index.tsx](../ui/app/onboarding/index.tsx) and will get copy-pasted four more times otherwise.
-- [ ] **`lib/haptics.ts`** (extend) — today it is three one-shots ([haptics.ts](../ui/lib/haptics.ts)). Add: `tick()` (Rigid, for scrubbing/selection), `ramp(ms)` (escalating Light→Heavy ticks during a hold), `burst()` (Heavy→Heavy→Medium→Light sequenced over ~180ms — this is what reads as an "explosion"; a single Heavy does not).
-- [ ] **`lib/sound.ts`** (new) — `expo-audio` (SDK 57) wrapper: preloaded player pool, `sound.play('pop')`, global mute honoring a stored setting, no-op when unsupported. **Blocked on assets** — needs 5 short files in `ui/assets/sfx/`: `pop`, `whoosh`, `chime`, `thunk`, `sparkle`. See [Open decisions](#open-decisions).
-- [ ] **`components/Burst.tsx`** (new) — reusable radial particle burst. ~16 particles on randomized vectors, spring outward + gravity droop + fade, self-unmounting. Reanimated + Views only, no Skia needed at this count. Props: `origin`, `count`, `colors`, `onDone`.
-- [ ] **`components/HoldButton.tsx`** (new) — our checkbox equivalent, and the single most important thing in this document. Press and hold ~600ms; a ring fills around the button, scale creeps up, haptic ramp escalates with the fill, then at completion: burst + sound + `haptics.burst()` + label swap. Releasing early springs everything back with no penalty.
+- [x] **`lib/motion.ts`** (new) — one shared spring vocabulary so the whole app moves like one system: `SPRING.pop` (overshoot, hero), `SPRING.settle` (damped, arrivals), `SPRING.press` (tight, 0.96 scale), `DURATION.*`. Also a `useReduceMotion()` hook — that logic is currently inline in [onboarding/index.tsx](../ui/app/onboarding/index.tsx) and will get copy-pasted four more times otherwise.
+- [x] **`lib/haptics.ts`** (extend) — today it is three one-shots ([haptics.ts](../ui/lib/haptics.ts)). Add: `tick()` (Rigid, for scrubbing/selection), `ramp(ms)` (escalating Light→Heavy ticks during a hold), `burst()` (Heavy→Heavy→Medium→Light sequenced over ~180ms — this is what reads as an "explosion"; a single Heavy does not).
+- [x] **`lib/sound.ts`** (new) — `expo-audio` (SDK 57) wrapper: preloaded player pool, `sound.play('pop')`, global mute honoring a stored setting, no-op when unsupported. **Blocked on assets** — needs 5 short files in `ui/assets/sfx/`: `pop`, `whoosh`, `chime`, `thunk`, `sparkle`. See [Open decisions](#open-decisions).
+- [x] **`components/Burst.tsx`** (new) — reusable radial particle burst. ~16 particles on randomized vectors, spring outward + gravity droop + fade, self-unmounting. Reanimated + Views only, no Skia needed at this count. Props: `origin`, `count`, `colors`, `onDone`.
+- [x] **`components/HoldButton.tsx`** (new) — our checkbox equivalent, and the single most important thing in this document. Press and hold ~600ms; a ring fills around the button, scale creeps up, haptic ramp escalates with the fill, then at completion: burst + sound + `haptics.burst()` + label swap. Releasing early springs everything back with no penalty.
 
 ## Phase 1 — hero moments
 
 Full 6-channel treatment. Three moments only — spending it anywhere else devalues it.
 
-- [ ] **Join a game** — [game/[id].tsx:194](../ui/app/game/[id].tsx) is a plain `Button` with a `haptics.tap()`. This is the highest-commitment action in the app (money, a time slot, four people depending on you) and it currently feels like a checkbox. Swap to `HoldButton`. On success: burst from the button, the roster avatar slams into the `AvatarStack` with a spring, the joined-count ticks over, `chime`.
-- [ ] **Publish a match** — [wizard.tsx:433](../ui/app/wizard.tsx) already has a `ZoomIn` checkmark, which is one channel. Layer it: court lines sweep in from the edges, checkmark *stamps* (scale 1.3 → 0.95 → 1 with rotation whip), radial burst behind it, the summary card slides up from under the checkmark rather than fading, `haptics.burst()`, `sparkle`. This is the moment a host becomes a host.
-- [ ] **Submit ratings** — [post-game/[id].tsx:29](../ui/app/post-game/[id].tsx) fires `haptics.success()` then `router.replace()` **immediately**. The streak — the whole reward, already computed and sitting right there — is never seen. Fix: hold the screen ~1.2s, roll the games-played and reliability numbers up as odometers, and if the streak incremented, flame-scale it with a burst. *Then* navigate.
+- [x] **Join a game** — [game/[id].tsx:194](../ui/app/game/[id].tsx) is a plain `Button` with a `haptics.tap()`. This is the highest-commitment action in the app (money, a time slot, four people depending on you) and it currently feels like a checkbox. Swap to `HoldButton`. On success: burst from the button, the roster avatar slams into the `AvatarStack` with a spring, the joined-count ticks over, `chime`.
+- [x] **Publish a match** — [wizard.tsx:433](../ui/app/wizard.tsx) already has a `ZoomIn` checkmark, which is one channel. Layer it: court lines sweep in from the edges, checkmark *stamps* (scale 1.3 → 0.95 → 1 with rotation whip), radial burst behind it, the summary card slides up from under the checkmark rather than fading, `haptics.burst()`, `sparkle`. This is the moment a host becomes a host.
+- [x] **Submit ratings** — [post-game/[id].tsx:29](../ui/app/post-game/[id].tsx) fires `haptics.success()` then `router.replace()` **immediately**. The streak — the whole reward, already computed and sitting right there — is never seen. Fix: hold the screen ~1.2s, roll the games-played and reliability numbers up as odometers, and if the streak incremented, flame-scale it with a burst. *Then* navigate.
 
 ## Phase 2 — everyday texture
 
 Cheap, high frequency, this is what makes the app feel alive between hero moments.
 
-- [ ] **Star rating row** — [post-game/[id].tsx:84](../ui/app/post-game/[id].tsx) renders bare `Text` stars with zero feedback on tap. Add per-star scale-pop, `haptics.tick()`, and sequential fill (tapping 4 fills 1→4 in a 40ms cascade, not all at once).
-- [ ] **Tab bar** — [TabBar.tsx](../ui/components/TabBar.tsx). Focused state is currently a color and background swap. Add: icon spring-pop on switch + `tick()`; the center `+` FAB gets press-scale, a slight rotation, and a `whoosh`; the unread dot pulses instead of sitting still.
-- [ ] **GameCard** — [GameCard.tsx](../ui/components/GameCard.tsx) has press-scale but no haptic. Add `tick()` on press-in. Make `joinedCount` pop when it changes underneath the user.
-- [ ] **CountdownChip** — pulse when under one hour. Urgency should be felt, not read.
-- [ ] **Pull-to-refresh** — replace the stock spinner with a spinning shuttlecock (the `Shuttlecock` SVG removed from the splash is reusable here — recover it from git history at [onboarding/index.tsx@42f0e45](../ui/app/onboarding/index.tsx)).
+- [x] **Star rating row** — [post-game/[id].tsx:84](../ui/app/post-game/[id].tsx) renders bare `Text` stars with zero feedback on tap. Add per-star scale-pop, `haptics.tick()`, and sequential fill (tapping 4 fills 1→4 in a 40ms cascade, not all at once).
+- [x] **Tab bar** — [TabBar.tsx](../ui/components/TabBar.tsx). Focused state is currently a color and background swap. Add: icon spring-pop on switch + `tick()`; the center `+` FAB gets press-scale, a slight rotation, and a `whoosh`; the unread dot pulses instead of sitting still.
+- [x] **GameCard** — [GameCard.tsx](../ui/components/GameCard.tsx) has press-scale but no haptic. Add `tick()` on press-in. Make `joinedCount` pop when it changes underneath the user.
+- [x] **CountdownChip** — pulse when under one hour. Urgency should be felt, not read.
+- [x] **Pull-to-refresh** — replace the stock spinner with a spinning shuttlecock (the `Shuttlecock` SVG removed from the splash is reusable here — recover it from git history at [onboarding/index.tsx@42f0e45](../ui/app/onboarding/index.tsx)).
 
 ## Phase 3 — status layer worth staring at
 
 Phase 2 of [ux-plan.md](ux-plan.md) added tiers, streaks and the reliability explainer, but they all render as static text. Numbers that never move are numbers nobody looks at twice.
 
-- [ ] **Odometer numbers** — a `<RollingNumber>` component; every profile stat counts up on mount instead of appearing.
-- [ ] **Reliability gauge** — replace the flat score with an arc that fills on mount, colored by band ([reliabilityLabel](../ui/lib/theme.ts)).
-- [ ] **Tier badge** — Bronze/Silver/Gold gets a shine sweep on mount, tilt-on-press, and a progress ring showing distance to the next tier. Progress toward a thing you can see is the cheapest motivation there is.
-- [ ] **Streak flame** — scale and particle density grow with streak length.
+- [x] **Odometer numbers** — a `<RollingNumber>` component; every profile stat counts up on mount instead of appearing.
+- [x] **Reliability gauge** — replace the flat score with an arc that fills on mount, colored by band ([reliabilityLabel](../ui/lib/theme.ts)).
+- [x] **Tier badge** — Bronze/Silver/Gold gets a shine sweep on mount, tilt-on-press, and a progress ring showing distance to the next tier. Progress toward a thing you can see is the cheapest motivation there is.
+- [x] **Streak flame** — scale and particle density grow with streak length.
 
 ## Phase 4 — journey (product decision, not polish) — PARKED
 

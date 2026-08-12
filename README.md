@@ -2,9 +2,9 @@
 
 Player-matching app for the Australian market — Playo (India) style, multi-sport engine under the hood, badminton first. Core action is finding/matching with players for a game; venue is a detail on the game, not the product (SMASHIO is not a venue-booking app).
 
-- **Platform**: iOS/Android only (React Native + Expo). No in-app web — smashio.com.au is marketing/store-links only.
+- **Platform**: iOS/Android only (React Native + Expo). No in-app web — smashio.com.au ([website/](website/)) is marketing/store-links only.
 - **UI direction**: CRED-style — dark theme, high creative/premium UX.
-- **Status**: ABN registered (sole trader), backend fully built, UI phases 0–3 shipped. See [docs/backend-plan.md](docs/backend-plan.md) and [docs/ux-plan.md](docs/ux-plan.md).
+- **Status**: ABN registered (sole trader), backend fully built and live, in **private beta** (Sydney, iOS via TestFlight, Android added in batches). Core loop plus Discover, My Games, bottom nav, and the Google-Maps-backed map are all rebuilt and shipped; in-app account deletion is live. See [docs/backend-plan.md](docs/backend-plan.md), [docs/ux-plan.md](docs/ux-plan.md), and the [Docs](#docs) section below for what's still open.
 
 ## Architecture
 
@@ -17,13 +17,14 @@ flowchart TB
     end
 
     subgraph Supabase["☁️ Supabase Project"]
-        AUTH["Auth\n(email + Google OAuth)"]
+        AUTH["Auth\n(email + Google + Apple OAuth)"]
         PG[("Postgres + PostGIS\nprofiles, games, venues,\nmessages, ratings")]
         RT["Realtime\n(game chat channels)"]
         ST["Storage\n(avatars, booking\nconfirmations)"]
         subgraph EdgeFn["Edge Functions"]
             AIP["ai-proxy\n(organizer-checked)"]
             PD["push-dispatch\n(triggered by pg_net)"]
+            DEL["delete-account\n(JWT-authed)"]
         end
     end
 
@@ -37,6 +38,7 @@ flowchart TB
     RN -->|"subscribe"| RT
     RN -->|"upload/read"| ST
     RN -->|"authed JWT"| AIP
+    RN -->|"authed JWT"| DEL
     RN -->|"react-native-maps"| GMAPS
     AIP -->|"server-side key"| ANTHROPIC
     PG -->|"DB trigger"| PD
@@ -44,7 +46,7 @@ flowchart TB
     PG -.->|"Realtime replication"| RT
 ```
 
-**Why this shape**: sport is config, not hardcode (badminton ships first, engine assumes more sports later); AI calls are always server-side via `ai-proxy` — the client never holds an LLM key; chat is built in-house on Supabase Realtime rather than a third-party chat SDK, to keep a single vendor.
+**Why this shape**: sport is config, not hardcode (badminton ships first, engine assumes more sports later); AI calls are always server-side via `ai-proxy` — the client never holds an LLM key; chat is built in-house on Supabase Realtime rather than a third-party chat SDK, to keep a single vendor. The Discover map runs on Google Maps (with a cloud-styled brand Map ID) on both platforms — iOS no longer falls back to Apple Maps, see [docs/map-plan.md](docs/map-plan.md).
 
 ## Repo layout
 
@@ -57,8 +59,9 @@ smashio-app/
 │   └── app.config.js    # Expo app config (icons, plugins, permissions)
 ├── supabase/            # Backend: Postgres schema, Edge Functions, config
 │   ├── migrations/      # Ordered SQL migrations (schema, RLS, RPCs)
-│   ├── functions/       # ai-proxy, push-dispatch (Deno Edge Functions)
+│   ├── functions/       # ai-proxy, push-dispatch, delete-account (Deno Edge Functions)
 │   └── seed.sql         # Local dev seed data (reference tables, sample venues)
+├── website/             # Static marketing site (smashio.com.au) — no build step, no app functionality
 └── docs/                # Product/tech/business docs (read before proposing features)
 ```
 
@@ -121,9 +124,9 @@ Edit `ui/.env`:
 | `EXPO_PUBLIC_SUPABASE_URL` | Yes | printed by `supabase start` (defaults to `http://127.0.0.1:54321`) |
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | Yes | printed by `supabase start` — same key on every machine for local dev |
 | `EXPO_PUBLIC_SENTRY_DSN` | No | blank disables Sentry locally |
-| `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` | No* | Google Cloud Console — enable "Maps SDK for Android" + "Places API" (legacy). Blank = grey map tiles on Android + no venue search results in the create wizard (iOS map still works via Apple Maps) |
+| `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` | No* | Google Cloud Console — enable Maps SDK for iOS/Android + Places API. Blank = grey map tiles on **both** platforms and no venue search results in the create wizard (Discover's map runs on Google Maps with a cloud-styled brand Map ID, not Apple Maps — see [docs/map-plan.md](docs/map-plan.md)) |
 
-\* Not required to boot the app; required for map tiles on Android and venue search in the game-creation wizard.
+\* Not required to boot the app; required for map tiles and venue search in the game-creation wizard. The current key is iOS-restricted only (bundle `com.smashio.app`) — Android has no Play Store build yet, don't loosen the iOS key to cover it, provision a second Android-restricted key instead.
 
 Run it:
 
@@ -140,6 +143,7 @@ npm run web       # experimental web preview (not a shipped platform)
 |---|---|---|
 | `ai-proxy` | called by the client with the caller's session JWT | `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `ANTHROPIC_API_KEY` |
 | `push-dispatch` | invoked only by Postgres (`pg_net` trigger/cron), not user-facing | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `PUSH_DISPATCH_KEY` (shared secret, not a Supabase JWT) |
+| `delete-account` | called by the client with the caller's session JWT (Profile → Delete account) | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` |
 
 Local Supabase auto-injects `SUPABASE_URL`/`SUPABASE_ANON_KEY`/`SUPABASE_SERVICE_ROLE_KEY`. Set the rest with:
 
@@ -159,7 +163,7 @@ supabase functions serve
 ```bash
 supabase link --project-ref <your-project-ref>
 supabase db push                      # apply migrations
-supabase functions deploy ai-proxy push-dispatch
+supabase functions deploy ai-proxy push-dispatch delete-account
 supabase secrets set ANTHROPIC_API_KEY=... PUSH_DISPATCH_KEY=...
 ```
 
@@ -167,15 +171,27 @@ Then point `ui/.env` at the hosted project's URL + anon key, and provision the G
 
 ## App store builds
 
-Builds go through [EAS](https://docs.expo.dev/eas/) (`eas.json` not yet committed — set up via `eas build:configure` when ready to cut a release build).
+Builds go through [EAS](https://docs.expo.dev/eas/) — config is in [ui/eas.json](ui/eas.json). iOS submit config (App Store Connect team/app ID) is set up; Android submit config is not yet — see [docs/store-readiness-plan.md](docs/store-readiness-plan.md) for the remaining store-submission blockers.
+
+```bash
+cd ui
+eas build --profile production --platform ios
+eas submit --profile production --platform ios
+```
 
 ## Docs
 
 - [docs/mvp-spec.md](docs/mvp-spec.md) — MVP feature flow
 - [docs/business-context.md](docs/business-context.md) — entity, naming, market context
 - [docs/tech-stack.md](docs/tech-stack.md) — stack decisions + rationale
-- [docs/backend-plan.md](docs/backend-plan.md) — backend build + UI integration plan
-- [docs/ux-plan.md](docs/ux-plan.md) — UX polish phases
+- [docs/backend-plan.md](docs/backend-plan.md) — backend build plan (all 10 slices shipped, live in production)
+- [docs/ux-plan.md](docs/ux-plan.md) — app-wide UX/motion polish phases (shipped)
+- [docs/not-boring-plan.md](docs/not-boring-plan.md) — CRED/(Not Boring)-style feel pass: haptics, sound, hold-to-join (phases 0–3 shipped, phase 4 "season ladder" parked)
+- [docs/discover-plan.md](docs/discover-plan.md) — Discover tab rebuild: trust, filters, rails, map-as-layer (shipped)
+- [docs/my-games-plan.md](docs/my-games-plan.md) — My Games rebuild: single agenda, day-of hero, host console (shipped)
+- [docs/nav-plan.md](docs/nav-plan.md) — bottom nav bar redesign: labels, safe-area, action rail, motion (shipped)
+- [docs/map-plan.md](docs/map-plan.md) — Discover map rebuild: Google Maps + brand style, venue clustering, bottom sheet (shipped)
+- [docs/store-readiness-plan.md](docs/store-readiness-plan.md) — App Store/Play Store submission audit — remaining blockers before first submission
 
 ## Scope discipline
 

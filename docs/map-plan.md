@@ -2,9 +2,12 @@
 
 Written 2026-08-12.
 
-**Status:** Google Cloud setup **done** (§4). App code **not started** — §6 is the build order.
+**Status: shipped.** Google Cloud setup done (§4). App code — P1–P4 in §6 — landed same day across
+three commits: Google Maps + brand style + venue clustering + bottom sheet, a maps-app picker for
+directions, and dimmed no-game venue pins (§5.10). iOS only for now — Android isn't on the Play
+Store yet (§6 "Later / not now" is still open).
 
-Scope: the Discover map overlay ([discover.tsx:754](../ui/app/(tabs)/discover.tsx)) and
+Scope: the Discover map overlay ([discover.tsx](../ui/app/(tabs)/discover.tsx)) and
 [GameMap.tsx](../ui/components/GameMap.tsx). iOS only for now — Android isn't on the Play Store yet.
 
 ---

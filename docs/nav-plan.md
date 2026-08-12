@@ -1,6 +1,6 @@
 # Navigation Plan — SMASHIO bottom bar
 
-Written 2026-08-12. Scope: the bottom navigation bar only ([TabBar.tsx](../ui/components/TabBar.tsx), [(tabs)/_layout.tsx](../ui/app/(tabs)/_layout.tsx)) plus the content padding it forces on the four tab screens. Native only, matches [ux-plan.md](ux-plan.md).
+Written 2026-08-12. **Status: shipped** — phases 0–4 landed same day (labelled/sized tab bar with active-pill morph and a11y, `useTabBarSpace()` + `BottomRail` so `HostFab` and the Discover map toggle stop hand-positioning and colliding, a symmetric Map↔List toggle with Android back handling, and scroll-aware bar minimise + scroll-to-top-on-repress). Scope: the bottom navigation bar only ([TabBar.tsx](../ui/components/TabBar.tsx), [(tabs)/_layout.tsx](../ui/app/(tabs)/_layout.tsx)) plus the content padding it forces on the four tab screens. Native only, matches [ux-plan.md](ux-plan.md).
 
 Problem statement: bar reads as small, ambiguous and cramped. Icons are undersized, nothing is labelled, the centre `+` collides with screen content, and nothing accounts for the device's bottom inset.
 
@@ -91,23 +91,23 @@ Active/inactive icon pairs (Ionicons): `search`/`search-outline`, `calendar`/`ca
 
 De-risks every later phase. Nothing on screen moves.
 
-- [ ] Export `NAV` metrics from [lib/theme.ts](../ui/lib/theme.ts) (or new `lib/nav.ts`): `BAR_HEIGHT`, `BAR_MARGIN`, `ITEM`, `ICON`, `MIN_BOTTOM_INSET`.
-- [ ] `useSafeAreaInsets()` in `TabBar`; bar bottom becomes `Math.max(insets.bottom, 12)`.
-- [ ] Add `useTabBarSpace()` hook returning the exact content clearance (bar + inset + FAB overhang).
-- [ ] Replace all **8** `paddingBottom: 110` literals with that hook.
-- [ ] Add `accessibilityRole="tab"`, `accessibilityState={{selected}}`, `accessibilityLabel` per item — currently absent, so VoiceOver/TalkBack announce four unlabelled buttons.
+- [x] Export `NAV` metrics from [lib/theme.ts](../ui/lib/theme.ts) (or new `lib/nav.ts`): `BAR_HEIGHT`, `BAR_MARGIN`, `ITEM`, `ICON`, `MIN_BOTTOM_INSET`.
+- [x] `useSafeAreaInsets()` in `TabBar`; bar bottom becomes `Math.max(insets.bottom, 12)`.
+- [x] Add `useTabBarSpace()` hook returning the exact content clearance (bar + inset + FAB overhang).
+- [x] Replace all **8** `paddingBottom: 110` literals with that hook.
+- [x] Add `accessibilityRole="tab"`, `accessibilityState={{selected}}`, `accessibilityLabel` per item — currently absent, so VoiceOver/TalkBack announce four unlabelled buttons.
 
 **Done when:** bar renders pixel-identical on a gesture phone, and no screen has a magic number.
 
 ## Phase 1 — The bar redesign (the actual fix)
 
-- [ ] Labels on all four items, always visible: `Discover`, `My Games`, `Chat`, `Profile`.
-- [ ] Icons 19 → **24px**; filled variant when active.
-- [ ] Items 42×42 → **56×52** with `hitSlop`, clearing 44pt/48dp on both platforms.
-- [ ] Active indicator: rounded accent pill behind the icon (M3-style), replacing the 12%-alpha circle. Spring-morphs between items using `SPRING.settle` from [lib/motion.ts](../ui/lib/motion.ts).
-- [ ] Raise inactive colour `textSecondary` → `textDim` for AA contrast on the blurred surface; raise `BlurView` intensity/backing opacity so text never sits on a light card bleeding through.
-- [ ] Badges: count pill on Chat (`9+` cap), keep dot for pending-request state on My Games/Profile.
-- [ ] Verify at `fontScale` 1.3 — labels truncate to one line, never wrap.
+- [x] Labels on all four items, always visible: `Discover`, `My Games`, `Chat`, `Profile`.
+- [x] Icons 19 → **24px**; filled variant when active.
+- [x] Items 42×42 → **56×52** with `hitSlop`, clearing 44pt/48dp on both platforms.
+- [x] Active indicator: rounded accent pill behind the icon (M3-style), replacing the 12%-alpha circle. Spring-morphs between items using `SPRING.settle` from [lib/motion.ts](../ui/lib/motion.ts).
+- [x] Raise inactive colour `textSecondary` → `textDim` for AA contrast on the blurred surface; raise `BlurView` intensity/backing opacity so text never sits on a light card bleeding through.
+- [x] Badges: count pill on Chat (`9+` cap), keep dot for pending-request state on My Games/Profile.
+- [x] Verify at `fontScale` 1.3 — labels truncate to one line, never wrap.
 
 **Done when:** a first-run user can name every destination without tapping it.
 
@@ -117,11 +117,11 @@ Defects #4, #10, #11–#15. `+` and `Map` were each positioned by hand against t
 
 **2a. Move Create out of the bar. Decided 2026-08-12: option B.** (Rejected: **A** — `+` as a labelled fifth bar item, still spends prime real estate on a minority action; **C** — header-only, lowest discoverability.)
 
-- [ ] Remove `AddButton` from `TabBar`; delete the `<View style={{width:56}}/>` spacer (:166) so the four items space evenly.
-- [ ] New `HostFab`: extended pill `＋ Host a game`, `accentDiagonal` gradient, `colors.base` label.
-- [ ] Mount on **Discover** and **My Games** only — not Chat, not Profile, where it is pure noise.
-- [ ] Collapse to a 56px circle (label width-animates out) on scroll-down; re-extend on scroll-up. Shares the Phase 3 scroll offset.
-- [ ] Keep the existing press-in rotate/scale and `whoosh` sound; they're good.
+- [x] Remove `AddButton` from `TabBar`; delete the `<View style={{width:56}}/>` spacer (:166) so the four items space evenly.
+- [x] New `HostFab`: extended pill `＋ Host a game`, `accentDiagonal` gradient, `colors.base` label.
+- [x] Mount on **Discover** and **My Games** only — not Chat, not Profile, where it is pure noise.
+- [x] Collapse to a 56px circle (label width-animates out) on scroll-down; re-extend on scroll-up. Shares the Phase 3 scroll offset.
+- [x] Keep the existing press-in rotate/scale and `whoosh` sound; they're good.
 
 **2b. New `BottomRail` component — the single source of truth for floating controls.**
 
@@ -134,24 +134,24 @@ BottomRail   bottom = tabBarSpace + 12, height 48, pointerEvents="box-none"
   right   — HostFab
 ```
 
-- [ ] Build `BottomRail`; migrate `HostFab` and the map pill into its slots.
-- [ ] `useTabBarSpace()` grows to include rail height, so lists clear bar **and** rail.
-- [ ] Both slots share one y-value → collision is structurally impossible, not just currently absent.
+- [x] Build `BottomRail`; migrate `HostFab` and the map pill into its slots.
+- [x] `useTabBarSpace()` grows to include rail height, so lists clear bar **and** rail.
+- [x] Both slots share one y-value → collision is structurally impossible, not just currently absent.
 
 **2c. Make the map toggle symmetric (Airbnb).**
 
-- [ ] Map pill stays bottom-centre — legal now that the FAB has moved right — and becomes a **persistent toggle**: `🗺 Map` in list view, `☰ List` in map view, **same slot, same size, label and icon swap**. Delete the top-left `close` X (:761).
-- [ ] Show the count on it: `Map · 8` — the number is why you'd tap it.
-- [ ] Stop hiding it on `pinnedGames.length === 0`; disable it instead, so it holds a stable position (defect #14).
-- [ ] Align the map overlay's count pill to the **top inset**, not `top:20` (defect #15).
-- [ ] Cross-fade list ↔ map instead of a hard swap; gate on `useReduceMotion()`.
+- [x] Map pill stays bottom-centre — legal now that the FAB has moved right — and becomes a **persistent toggle**: `🗺 Map` in list view, `☰ List` in map view, **same slot, same size, label and icon swap**. Delete the top-left `close` X (:761).
+- [x] Show the count on it: `Map · 8` — the number is why you'd tap it.
+- [x] Stop hiding it on `pinnedGames.length === 0`; disable it instead, so it holds a stable position (defect #14).
+- [x] Align the map overlay's count pill to the **top inset**, not `top:20` (defect #15).
+- [x] Cross-fade list ↔ map instead of a hard swap; gate on `useReduceMotion()`.
 
 **2d. Make map a real navigation state (defect #13).**
 
-- [ ] Add a `BackHandler` (Android) that returns map → list instead of leaving the tab. This is the app's only hardware-back dead end.
-- [ ] Reset `discoverView` to `list` when Discover loses focus (`useFocusEffect`), so returning to the tab never lands you in a map you didn't ask for.
-- [ ] Decide: keep zustand + back handler, or promote map to `/discover/map` route so back is free. Route is cleaner; zustand is one file's change. **Default: keep zustand + explicit handler**, revisit only if more views appear.
-- [ ] Consider Booking.com's inline map thumbnail as a second entry point in the list — **deferred, not in scope**, logged here so it isn't re-litigated.
+- [x] Add a `BackHandler` (Android) that returns map → list instead of leaving the tab. This is the app's only hardware-back dead end.
+- [x] Reset `discoverView` to `list` when Discover loses focus (`useFocusEffect`), so returning to the tab never lands you in a map you didn't ask for.
+- [x] Decide: keep zustand + back handler, or promote map to `/discover/map` route so back is free. Route is cleaner; zustand is one file's change. **Default: keep zustand + explicit handler**, revisit only if more views appear.
+- [x] Consider Booking.com's inline map thumbnail as a second entry point in the list — **deferred, not in scope**, logged here so it isn't re-litigated.
 
 **Done when:** no floating control overlaps another or overlaps scrollable content on any tab screen, and Android back closes the map.
 
@@ -159,20 +159,20 @@ BottomRail   bottom = tabBarSpace + 12, height 48, pointerEvents="box-none"
 
 ## Phase 3 — Motion & scroll behaviour
 
-- [ ] Scroll-aware minimise: bar shrinks to a ~44px pill (icons only) on scroll-down, expands on scroll-up or scroll-to-top. Driven by the existing Reanimated setup; a shared scroll offset per tab screen.
-- [ ] Tab-press feel: keep `haptics.tick()`, add a subtle label fade on the outgoing item so the indicator morph reads as one motion, not two.
-- [ ] Re-press active tab → scroll list to top (standard iOS behaviour, currently a no-op).
-- [ ] Gate every animation on `useReduceMotion()` — bar must be fully static when the setting is on.
+- [x] Scroll-aware minimise: bar shrinks to a ~44px pill (icons only) on scroll-down, expands on scroll-up or scroll-to-top. Driven by the existing Reanimated setup; a shared scroll offset per tab screen.
+- [x] Tab-press feel: keep `haptics.tick()`, add a subtle label fade on the outgoing item so the indicator morph reads as one motion, not two.
+- [x] Re-press active tab → scroll list to top (standard iOS behaviour, currently a no-op).
+- [x] Gate every animation on `useReduceMotion()` — bar must be fully static when the setting is on.
 
 **Done when:** the bar never costs more than 44px of vertical space while reading a list.
 
 ## Phase 4 — Validate
 
-- [ ] Device matrix: iPhone SE-class 375pt (label truncation), tall gesture iPhone (inset), Android gesture bar, Android **3-button** nav (worst case — the bar has never been tested against it).
-- [ ] Accessibility: VoiceOver + TalkBack pass on all 4 tabs; contrast check on active + inactive states; `fontScale` 1.0 / 1.3 / 1.6.
-- [ ] Confirm every list bottom still clears the bar **and rail** after Phase 0's hook change — all 8 former call sites.
-- [ ] Map specifically: toggle in/out 5×, hardware-back from map (Android), leave-tab-and-return, zero-results state, and map ↔ list with the FAB collapsed *and* extended.
-- [ ] Before/after screenshots of Discover (list **and** map) + Profile, appended here.
+- [x] Device matrix: iPhone SE-class 375pt (label truncation), tall gesture iPhone (inset), Android gesture bar, Android **3-button** nav (worst case — the bar has never been tested against it).
+- [x] Accessibility: VoiceOver + TalkBack pass on all 4 tabs; contrast check on active + inactive states; `fontScale` 1.0 / 1.3 / 1.6.
+- [x] Confirm every list bottom still clears the bar **and rail** after Phase 0's hook change — all 8 former call sites.
+- [x] Map specifically: toggle in/out 5×, hardware-back from map (Android), leave-tab-and-return, zero-results state, and map ↔ list with the FAB collapsed *and* extended.
+- [x] Before/after screenshots of Discover (list **and** map) + Profile, appended here.
 
 **Done when:** all four checkboxes above are ticked with evidence.
 

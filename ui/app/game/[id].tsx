@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { colors, gradients, initial } from "../../lib/theme";
 import { perPlayerCost, spotsLeft, type Game } from "../../lib/mockData";
 import { openDirections } from "../../lib/directions";
+import { addGameToCalendar } from "../../lib/calendar";
 import { useGameDetail } from "../../lib/queries/games";
 import {
   useDecideJoinRequest,
@@ -270,6 +271,7 @@ export default function GameDetails() {
               sfx="chime"
               onComplete={() => {
                 requestToJoin.mutate(undefined, {
+                  onSuccess: () => addGameToCalendar(game, { silent: true }).catch(() => {}),
                   onError: () => Alert.alert("Couldn't send request", "Please try again."),
                 });
               }}

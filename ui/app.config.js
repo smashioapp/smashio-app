@@ -77,6 +77,12 @@ module.exports = {
           color: "#0A0A0B",
         },
       ],
+      [
+        "expo-calendar",
+        {
+          calendarPermission: "SMASHIO adds your games to your calendar when you ask it to.",
+        },
+      ],
     ],
   },
 };

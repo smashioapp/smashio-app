@@ -8,6 +8,8 @@ import { usePastGameDetail } from "../../lib/queries/games";
 import { useSubmitRatings } from "../../lib/queries/ratings";
 import { useSession } from "../../lib/session";
 import { useProfile, useProfileStats, useProfileStreak } from "../../lib/queries/profile";
+import { useAppStore } from "../../lib/store";
+import { nextRebookSlot } from "../../lib/schedule";
 import { Screen } from "../../components/Screen";
 import { BackButton } from "../../components/BackButton";
 import { Burst } from "../../components/Burst";
@@ -141,6 +143,24 @@ export default function PostGame() {
   const prevTier = gamesPlayedTier(Math.max(0, gamesPlayed - 1));
   const newTier = gamesPlayedTier(gamesPlayed);
   const tieredUp = gamesPlayed > 0 && prevTier.id !== newTier.id;
+
+  // Same rebook path as the Past tab (my-games-plan.md §M4) — was `router.replace("/wizard")`
+  // with an empty draft, which booked nothing, just opened the host flow.
+  const handleRebook = () => {
+    if (game?.venueId) {
+      useAppStore.getState().setRebookSeed({
+        venueId: game.venueId,
+        venueName: game.venue,
+        venueSuburb: game.venueSuburb,
+        venueAddress: game.venueAddress ?? "",
+        skill: game.skill,
+        maxPlayers: game.maxPlayers,
+        cost: game.cost,
+        startsAt: nextRebookSlot(new Date(game.startsAtIso)),
+      });
+    }
+    router.replace("/wizard");
+  };
 
   const submit = () => {
     haptics.success();
@@ -288,7 +308,7 @@ export default function PostGame() {
             </Pressable>
           </LinearGradient>
           <Pressable
-            onPress={() => router.replace("/wizard")}
+            onPress={handleRebook}
             className="rounded-pill py-3.5 items-center border-[1.5px]"
             style={{ borderColor: "rgba(255,255,255,0.15)" }}
           >

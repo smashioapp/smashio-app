@@ -13,6 +13,7 @@ export type Game = {
   date: string;
   time: string;
   startsAt: string;
+  endsAt: string;
   status: GameStatus;
   skill: TierId;
   skillTierId: string;
@@ -32,6 +33,10 @@ export type Game = {
   venueAddress: string | null;
   venueLat: number | null;
   venueLng: number | null;
+  // Only populated by toGameFromPublicRow (my-games) — nearby_games doesn't project it, and
+  // Discover cards never need it. Rebook (M4) is the only consumer: the wizard's venue step
+  // needs the venues.id row, not just the display fields.
+  venueId?: string;
   // Only populated by nearby_games (Discover) — games_public rows (my-games) don't join
   // profiles, so a card falls back to no host row rather than showing stale/wrong identity.
   organizerName?: string;
@@ -45,7 +50,22 @@ export type Game = {
 };
 
 export type PastPlayer = { id: string; name: string; color: string };
-export type PastGame = { id: string; venue: string; date: string; time: string; players: PastPlayer[] };
+export type PastGame = {
+  id: string;
+  venue: string;
+  date: string;
+  time: string;
+  players: PastPlayer[];
+  // Rebook fields (M4) — post-game's "Rebook this game" needs the same source data as the
+  // Past tab's card, not just what the ratings screen itself displays.
+  venueId: string | null;
+  venueSuburb: string;
+  venueAddress: string | null;
+  skill: TierId;
+  maxPlayers: number;
+  cost: number;
+  startsAtIso: string;
+};
 
 export function perPlayerCost(cost: number, maxPlayers: number): number {
   return Math.round(cost / maxPlayers);

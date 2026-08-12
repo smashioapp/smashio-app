@@ -1,4 +1,5 @@
 import { View, Text, Image } from "react-native";
+import Animated, { FadeIn } from "react-native-reanimated";
 import { colors, initial } from "../lib/theme";
 
 export function Avatar({
@@ -44,7 +45,9 @@ export function AvatarStack({ people, max = 3 }: { people: { name: string; color
   return (
     <View className="flex-row items-center">
       {shown.map((p, i) => (
-        <Avatar key={`${p.name}-${i}`} name={p.name} color={p.color} size={26} overlap={i > 0} />
+        <Animated.View key={`${p.name}-${i}`} entering={FadeIn.delay(i * 70).duration(220)}>
+          <Avatar name={p.name} color={p.color} size={26} overlap={i > 0} />
+        </Animated.View>
       ))}
       {overflow > 0 && (
         <View

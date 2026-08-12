@@ -110,41 +110,41 @@ The structural call: **merge Joined and Hosting into a single "Upcoming"**, role
   - Action row: **Directions** (lift `openDirections` out of [game/[id].tsx:30](../ui/app/game/[id].tsx#L30) into `lib/`), **Chat** with unread dot from `useChatThreads`, and Leave / Manage.
 - [x] Cancelled card keeps its treatment, gains "Find a replacement" → Discover (host's own cancellation skips it — nothing to replace).
 
-### M2 — Next up (the day-of surface)
+### M2 — Next up (the day-of surface) ✅
 
-- [ ] **Hero card** for the next game inside 24 h: large live countdown, address with one-tap directions, roster faces, chat, and "Bring $8".
-- [ ] **Live state** while `now` is between `starts_at` and `ends_at`: "On now · ends 9:00pm" with a pulsing dot. Data we already have and never render.
-- [ ] **Add to calendar** (`expo-calendar`) on join and from the card — the highest-utility, lowest-cost retention primitive available to this screen.
-- [ ] Countdown escalates to accent/danger under 2 h, matching Discover's D6 rule.
+- [x] **Hero card** for the next game inside 24 h: large live countdown, address with one-tap directions, roster faces, chat, and "Bring $8".
+- [x] **Live state** while `now` is between `starts_at` and `ends_at`: "On now · ends 9:00pm" with a pulsing dot. Data we already have and never render.
+- [x] **Add to calendar** (`expo-calendar`) on join and from the card — the highest-utility, lowest-cost retention primitive available to this screen.
+- [x] Countdown escalates to accent/danger under 2 h, matching Discover's D6 rule.
 
-### M3 — Host console
+### M3 — Host console ✅
 
 Turns the tab-bar dot into something that pays off.
 
-- [ ] **Pending requests inline**: grouped counts (one `game_players` query over my hosted ids — no migration), rendered on the hosting card as a decide-in-place strip reusing [SwipeToDecide.tsx](../ui/components/SwipeToDecide.tsx). Approve/decline without opening the game.
-- [ ] **Fill health**: "2 spots open · 26 h to go" + Share invite (`shareGame` already exists) when a game is under-filled and close.
-- [ ] **Verification path after creation** — upload/re-upload the booking confirmation from the hosting card, closing the `verification_status = 'none'` trap. Reuses `useUploadConfirmation` as-is.
-- [ ] Cancel game from the card (hold-to-confirm via [HoldButton.tsx](../ui/components/HoldButton.tsx)) instead of a trip through Edit.
+- [x] **Pending requests inline**: grouped counts (one `game_players` query over my hosted ids — no migration), rendered on the hosting card as a decide-in-place strip reusing [SwipeToDecide.tsx](../ui/components/SwipeToDecide.tsx). Approve/decline without opening the game.
+- [x] **Fill health**: "2 spots open · 26 h to go" + Share invite (`shareGame` already exists) when a game is under-filled and close.
+- [x] **Verification path after creation** — upload/re-upload the booking confirmation from the hosting card, closing the `verification_status = 'none'` trap. Reuses `useUploadConfirmation` as-is.
+- [x] Cancel game from the card (hold-to-confirm via [HoldButton.tsx](../ui/components/HoldButton.tsx)) instead of a trip through Edit.
 
-### M4 — Past as history worth keeping
+### M4 — Past as history worth keeping ✅
 
-- [ ] **Ratings owed**: read `ratings` for `rater_id = me` across past game ids (policy already permits) → "Rate 3 players" vs "Rated ✓". Stop re-inviting finished work.
-- [ ] **Rebook that rebooks**: prefill the wizard draft from the past game — same venue, tier, max players, cost, same weekday next week. The store already has `selectVenue` / `setStartsAt` / `selectWizardTier`; today's button just doesn't use them. Fix post-game's identical button in the same change.
-- [ ] **History header**: games played, week streak (`useProfileStreak`), most-played venue, and regulars ("You've played with Sam 5×") — all derivable from `game_players` + `games`.
-- [ ] Group past games by month; keep newest first.
+- [x] **Ratings owed**: read `ratings` for `rater_id = me` across past game ids (policy already permits) → "Rate 3 players" vs "Rated ✓". Stop re-inviting finished work.
+- [x] **Rebook that rebooks**: prefill the wizard draft from the past game — same venue, tier, max players, cost, same weekday next week. The store already has `selectVenue` / `setStartsAt` / `selectWizardTier`; today's button just doesn't use them. Fix post-game's identical button in the same change.
+- [x] **History header**: games played, week streak (`useProfileStreak`), most-played venue, and regulars ("You've played with Sam 5×") — all derivable from `game_players` + `games`.
+- [x] Group past games by month; keep newest first.
 
-### M5 — No dead ends
+### M5 — No dead ends ✅
 
-- [ ] Empty Upcoming isn't a wall: inline a live "Happening near you this week" rail (reuse [Rail.tsx](../ui/components/Rail.tsx) + `useDiscoverGames`) plus the alert primitive from [alerts.ts](../ui/lib/queries/alerts.ts).
-- [ ] After a cancellation: replacement suggestions at the same venue or the same night.
-- [ ] When the last upcoming game ends: "Rebook your regular slot" seeded from the most-played venue + weekday.
+- [x] Empty Upcoming isn't a wall: inline a live "Happening near you this week" rail (reuse [Rail.tsx](../ui/components/Rail.tsx) + `useDiscoverGames`) plus the alert primitive from [alerts.ts](../ui/lib/queries/alerts.ts).
+- [x] After a cancellation: replacement suggestions at the same venue or the same night.
+- [x] When the last upcoming game ends: "Rebook your regular slot" seeded from the most-played venue + weekday.
 
-### M6 — Feel
+### M6 — Feel ✅
 
-- [ ] Segment switch cross-fades (same key-remount trick as Discover's `filterSignature`).
-- [ ] Roster avatars enter with a stagger; host spot-fill animates through [RollingNumber.tsx](../ui/components/RollingNumber.tsx).
-- [ ] Haptic tick on approve/decline; success burst when a hosted game reaches full.
-- [ ] Hero countdown ticks live (existing `useCountdown`), not on re-render.
+- [x] Segment switch cross-fades (same key-remount trick as Discover's `filterSignature`).
+- [x] Roster avatars enter with a stagger; host spot-fill animates through [RollingNumber.tsx](../ui/components/RollingNumber.tsx).
+- [x] Haptic tick on approve/decline; success burst when a hosted game reaches full.
+- [x] Hero countdown ticks live (own interval in `NextUpHero`, not on parent re-render).
 
 ---
 

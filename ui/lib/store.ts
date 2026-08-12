@@ -27,6 +27,20 @@ const initialWizard: WizardDraft = {
   cost: 64,
 };
 
+// Rebook (my-games-plan.md §M4): carries both the draft fields and the venue *display* fields,
+// since the wizard's venue step shows a locally-held {name, suburb, address} it only otherwise
+// sets from a live places search — the draft's venueId alone renders no venue text on step 0.
+export type RebookSeed = {
+  venueId: string;
+  venueName: string;
+  venueSuburb: string;
+  venueAddress: string;
+  skill: TierId;
+  maxPlayers: number;
+  cost: number;
+  startsAt: Date;
+};
+
 export type WhenFilter = "tonight" | "tomorrow" | "week" | "all";
 export type SortOption = "soonest" | "closest" | "cheapest" | "most_spots";
 
@@ -66,6 +80,12 @@ type AppState = {
   decPlayers: () => void;
   incCost: () => void;
   decCost: () => void;
+  setMaxPlayers: (n: number) => void;
+  setCost: (n: number) => void;
+
+  rebookSeed: RebookSeed | null;
+  setRebookSeed: (seed: RebookSeed) => void;
+  clearRebookSeed: () => void;
 };
 
 export const useAppStore = create<AppState>((set) => ({
@@ -110,4 +130,10 @@ export const useAppStore = create<AppState>((set) => ({
   decPlayers: () => set((s) => ({ wizard: { ...s.wizard, maxPlayers: Math.max(4, s.wizard.maxPlayers - 2) } })),
   incCost: () => set((s) => ({ wizard: { ...s.wizard, cost: s.wizard.cost + 4 } })),
   decCost: () => set((s) => ({ wizard: { ...s.wizard, cost: Math.max(8, s.wizard.cost - 4) } })),
+  setMaxPlayers: (n) => set((s) => ({ wizard: { ...s.wizard, maxPlayers: n } })),
+  setCost: (n) => set((s) => ({ wizard: { ...s.wizard, cost: n } })),
+
+  rebookSeed: null,
+  setRebookSeed: (seed) => set({ rebookSeed: seed }),
+  clearRebookSeed: () => set({ rebookSeed: null }),
 }));

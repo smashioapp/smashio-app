@@ -143,7 +143,7 @@ function PublishStamp({ active, children }: { active: boolean; children: React.R
 
 export default function Wizard() {
   const [step, setStep] = useState(0);
-  const { wizard, resetWizard, selectVenue, setStartsAt, selectWizardTier, incPlayers, decPlayers, incCost, decCost } =
+  const { wizard, resetWizard, selectVenue, setStartsAt, selectWizardTier, incPlayers, decPlayers, incCost, decCost, setMaxPlayers, setCost } =
     useAppStore();
 
   const { data: sports = [] } = useSports();
@@ -166,13 +166,28 @@ export default function Wizard() {
   const sessionTokenRef = useRef(newSessionToken());
 
   useEffect(() => {
-    resetWizard();
+    // Rebook (my-games-plan.md §M4) seeds the draft before navigating here — consume it once
+    // instead of the usual resetWizard, and seed the venue step's local display state too,
+    // since that's held outside the store (see RebookSeed's comment in store.ts).
+    const seed = useAppStore.getState().rebookSeed;
+    if (seed) {
+      useAppStore.getState().clearRebookSeed();
+      selectVenue(seed.venueId);
+      setStartsAt(seed.startsAt);
+      selectWizardTier(seed.skill);
+      setMaxPlayers(seed.maxPlayers);
+      setCost(seed.cost);
+      setSelectedVenue({ name: seed.venueName, suburb: seed.venueSuburb, address: seed.venueAddress });
+      setVenueQuery(seed.venueName);
+    } else {
+      resetWizard();
+      setVenueQuery("");
+      setVenueResults([]);
+      setSelectedVenue(null);
+    }
     setConfirmationUri(null);
     setCreatedGameId(null);
     setVerified(false);
-    setVenueQuery("");
-    setVenueResults([]);
-    setSelectedVenue(null);
     sessionTokenRef.current = newSessionToken();
   }, []);
 

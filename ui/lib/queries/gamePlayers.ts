@@ -128,8 +128,44 @@ function invalidateGame(queryClient: ReturnType<typeof useQueryClient>, gameId: 
   queryClient.invalidateQueries({ queryKey: ["game_players", "membership", gameId] });
   queryClient.invalidateQueries({ queryKey: ["game_players", "requests", gameId] });
   queryClient.invalidateQueries({ queryKey: ["game_players", "pending_requests_count"] });
+  // Prefix match — these two are keyed by the full (sorted) game-id list, not a single gameId,
+  // so a partial ["game_players", "<name>"] key catches every variant currently cached.
+  queryClient.invalidateQueries({ queryKey: ["game_players", "my_games_roster"] });
+  queryClient.invalidateQueries({ queryKey: ["game_players", "hosted_pending"] });
   queryClient.invalidateQueries({ queryKey: ["nearby_games"] });
   queryClient.invalidateQueries({ queryKey: ["my_games"] });
+}
+
+export type PendingRequest = { profileId: string; name: string; color: string };
+
+// Grouped pending-request rows across every game I organize — one query, not one per hosting
+// card, so the card can decide in place without a trip to /game/[id] (my-games-plan.md §M3).
+export function useMyHostedPendingRequests(gameIds: string[]) {
+  const sortedIds = [...gameIds].sort();
+  return useQuery({
+    queryKey: ["game_players", "hosted_pending", sortedIds],
+    queryFn: async (): Promise<Map<string, PendingRequest[]>> => {
+      if (sortedIds.length === 0) return new Map();
+      const { data, error } = await supabase
+        .from("game_players")
+        .select("game_id, profile_id, requested_at, profiles(display_name)")
+        .in("game_id", sortedIds)
+        .eq("status", "requested")
+        .order("requested_at", { ascending: true });
+      if (error) throw error;
+      const byGame = new Map<string, PendingRequest[]>();
+      for (const row of data ?? []) {
+        const request: PendingRequest = {
+          profileId: row.profile_id,
+          name: (row.profiles as { display_name: string } | null)?.display_name || "Player",
+          color: avatarColor(row.profile_id),
+        };
+        byGame.set(row.game_id, [...(byGame.get(row.game_id) ?? []), request]);
+      }
+      return byGame;
+    },
+    enabled: sortedIds.length > 0,
+  });
 }
 
 export function useRequestToJoin(gameId: string) {

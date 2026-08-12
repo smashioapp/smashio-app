@@ -26,6 +26,7 @@ function toGame(row: NearbyGameRow): Game {
     date: formatDate(row.starts_at),
     time: formatTimeRange(row.starts_at, row.ends_at),
     startsAt: row.starts_at,
+    endsAt: row.ends_at,
     status: (row.status as Game["status"]) ?? "published",
     skill: row.skill_tier_label as Game["skill"],
     // nearby_games projects the tier by slug/label only — the id is a detail-screen concern
@@ -64,6 +65,7 @@ function toGameFromPublicRow(row: GamesPublicRow): Game {
     date: formatDate(row.starts_at!),
     time: formatTimeRange(row.starts_at!, row.ends_at!),
     startsAt: row.starts_at!,
+    endsAt: row.ends_at!,
     status: (row.status as Game["status"]) ?? "published",
     skill: row.skill_tier_label as Game["skill"],
     skillTierId: row.skill_tier_id!,
@@ -77,6 +79,7 @@ function toGameFromPublicRow(row: GamesPublicRow): Game {
     venueAddress: row.venue_address,
     venueLat: row.venue_lat,
     venueLng: row.venue_lng,
+    venueId: row.venue_id ?? undefined,
     organizerName: row.organizer_display_name || "Player",
     organizerPhotoPath: row.organizer_photo_path,
     organizerReliabilityScore: row.organizer_reliability_score ?? undefined,
@@ -404,6 +407,13 @@ export function usePastGameDetail(gameId: string) {
             name: (p.profiles as { display_name: string } | null)?.display_name || "Player",
             color: avatarColor(p.profile_id),
           })),
+        venueId: game.venue_id ?? null,
+        venueSuburb: game.venue_suburb!,
+        venueAddress: game.venue_address,
+        skill: game.skill_tier_label as PastGame["skill"],
+        maxPlayers: game.max_players!,
+        cost: (game.cost_total_cents ?? 0) / 100,
+        startsAtIso: game.starts_at!,
       };
     },
     enabled: !!gameId,
@@ -411,6 +421,7 @@ export function usePastGameDetail(gameId: string) {
 }
 
 export function useUploadConfirmation() {
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ gameId, localUri }: { gameId: string; localUri: string }) => {
       const bytes = await new File(localUri).arrayBuffer();
@@ -425,5 +436,9 @@ export function useUploadConfirmation() {
       });
       if (parseError) throw parseError;
     },
+    // Wizard's own success screen tracks verified state locally and doesn't need a refetch —
+    // this only matters for the M3 upload-from-hosting-card path, where the card must pick up
+    // the new verification_status without the user navigating away and back.
+    onSuccess: (_data, { gameId }) => invalidateGameLists(queryClient, gameId),
   });
 }

@@ -53,3 +53,18 @@ export function firstBookableSlot(now: Date = new Date()): Date | null {
 export function isSameSlot(a: Date, b: Date): boolean {
   return a.getTime() === b.getTime();
 }
+
+// Rebook prefill (my-games-plan.md §M4): same weekday + time as the past game, but snapped to
+// a slot the wizard's own pickers can actually show — dateOptions only spans 4 days and time is
+// one of TIME_OPTIONS, so a raw "+7 days" startsAt would land on a chip that isn't rendered.
+export function nextRebookSlot(pastStartsAt: Date, now: Date = new Date()): Date {
+  const targetWeekday = pastStartsAt.getDay();
+  const targetH = pastStartsAt.getHours();
+  const targetM = pastStartsAt.getMinutes();
+  const timeMatch = TIME_OPTIONS.find(({ h, m }) => h === targetH && m === targetM) ?? TIME_OPTIONS[0];
+  const dateMatch = dateOptions(now).find(({ date }) => date.getDay() === targetWeekday);
+  if (dateMatch && isSlotBookable(dateMatch.date, timeMatch.h, timeMatch.m, now)) {
+    return slotAt(dateMatch.date, timeMatch.h, timeMatch.m);
+  }
+  return firstBookableSlot(now) ?? slotAt(now, timeMatch.h, timeMatch.m);
+}

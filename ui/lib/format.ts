@@ -26,6 +26,14 @@ export function formatTimeShort(iso: string): string {
   return m === 0 ? `${h12}${period}` : `${h12}:${String(m).padStart(2, "0")}${period}`;
 }
 
+// Past tab groups by month, not by day — a history list is long enough that day headers would
+// just be noise (my-games-plan.md §M4).
+export function monthLabel(iso: string, now: Date = new Date()): string {
+  const d = new Date(iso);
+  if (d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()) return "This month";
+  return d.toLocaleDateString("en-AU", { month: "long", year: "numeric" });
+}
+
 export function dayLabel(iso: string, now: Date = new Date(), opts: { todayLabel?: string } = {}): string {
   const d = new Date(iso);
   const startOfDay = (x: Date) => {

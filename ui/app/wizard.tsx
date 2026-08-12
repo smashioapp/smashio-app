@@ -170,6 +170,7 @@ export default function Wizard() {
     // instead of the usual resetWizard, and seed the venue step's local display state too,
     // since that's held outside the store (see RebookSeed's comment in store.ts).
     const seed = useAppStore.getState().rebookSeed;
+    const hostHereSeed = useAppStore.getState().hostHereSeed;
     if (seed) {
       useAppStore.getState().clearRebookSeed();
       selectVenue(seed.venueId);
@@ -179,6 +180,15 @@ export default function Wizard() {
       setCost(seed.cost);
       setSelectedVenue({ name: seed.venueName, suburb: seed.venueSuburb, address: seed.venueAddress });
       setVenueQuery(seed.venueName);
+    } else if (hostHereSeed) {
+      // Discover map's dim "no games here" pin (map-plan.md §5.10) — only the venue is known,
+      // everything else starts at the wizard's normal defaults.
+      useAppStore.getState().clearHostHereSeed();
+      resetWizard();
+      selectVenue(hostHereSeed.venueId);
+      setSelectedVenue({ name: hostHereSeed.venueName, suburb: hostHereSeed.venueSuburb, address: hostHereSeed.venueAddress });
+      setVenueQuery(hostHereSeed.venueName);
+      setVenueResults([]);
     } else {
       resetWizard();
       setVenueQuery("");

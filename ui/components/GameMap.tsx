@@ -38,8 +38,12 @@ type Cluster = { key: string; lat: number; lng: number; venues: VenueGroup[] };
 // Same venue, same coordinate — nearby_games doesn't project a stable venue id (only
 // games_public/my-games does), so venue identity here is name+coordinate. Good enough: two
 // different venues never share a rounded lat/lng.
-function venueKeyOf(g: Game): string {
+export function venueKeyOf(g: Game): string {
   return `${g.venue}@${g.venueLat!.toFixed(4)},${g.venueLng!.toFixed(4)}`;
+}
+
+export function venueKeyOfCoords(name: string, lat: number, lng: number): string {
+  return `${name}@${lat.toFixed(4)},${lng.toFixed(4)}`;
 }
 
 function groupByVenue(games: Game[]): VenueGroup[] {

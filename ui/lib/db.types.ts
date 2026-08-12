@@ -752,6 +752,18 @@ export type Database = {
         }
         Returns: string
       }
+      venues_near: {
+        Args: { lat: number; lng: number; radius_m: number }
+        Returns: {
+          address: string
+          id: string
+          lat: number
+          lng: number
+          name: string
+          state: string
+          suburb: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

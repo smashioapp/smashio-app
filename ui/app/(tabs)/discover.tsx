@@ -13,6 +13,7 @@ import { makeScrollHideHandler, registerScrollToTop, unregisterScrollToTop } fro
 import { BottomRail } from "../../components/BottomRail";
 import { HostFab } from "../../components/HostFab";
 import { useDiscoverGames, useWeekPulseGames, useMyPastGames } from "../../lib/queries/games";
+import { useVenuesForMap } from "../../lib/queries/venues";
 import { useCreateAlert } from "../../lib/queries/alerts";
 import { useProfileSports } from "../../lib/queries/profile";
 import { useSession } from "../../lib/session";
@@ -23,7 +24,7 @@ import { Screen } from "../../components/Screen";
 import { Chip } from "../../components/Chip";
 import { GameCard } from "../../components/GameCard";
 import { EmptyState } from "../../components/EmptyState";
-import { GameMap, GameMapHandle } from "../../components/GameMap";
+import { GameMap, GameMapHandle, venueKeyOf, venueKeyOfCoords } from "../../components/GameMap";
 import { MapSheet, MapSheetHandle, sheetSnapHeights } from "../../components/MapSheet";
 import { RefreshableList } from "../../components/RefreshableList";
 import { GameCardSkeletonList } from "../../components/Skeleton";
@@ -420,6 +421,31 @@ export default function Discover() {
   );
   const mapPinnedGames = (mapQuery.data ?? []).filter((g) => g.venueLat != null && g.venueLng != null);
 
+  // Dim "no games here yet" pins (map-plan.md §5.10) — venues near the map viewport that have
+  // none of the games already fetched above. Diffed client-side since venues aren't sport-scoped
+  // and games don't carry a stable venue id (venueKeyOf's name+coordinate key is what nearby_games
+  // already uses for venue identity — see its comment in GameMap.tsx).
+  const venuesNearQuery = useVenuesForMap(mapCenter, mapRadiusKm, { enabled: discoverView === "map" });
+  const noGameVenues = useMemo(() => {
+    const gameVenueKeys = new Set(mapPinnedGames.map(venueKeyOf));
+    return (venuesNearQuery.data ?? [])
+      .filter((v) => v.lat != null && v.lng != null && !gameVenueKeys.has(venueKeyOfCoords(v.name, v.lat, v.lng)))
+      .map((v) => ({ id: v.id, name: v.name, lat: v.lat, lng: v.lng }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [venuesNearQuery.data, mapQuery.data]);
+
+  const handleSelectNoGameVenue = (venue: { id: string; name: string; lat: number; lng: number }) => {
+    haptics.tap();
+    const full = venuesNearQuery.data?.find((v) => v.id === venue.id);
+    useAppStore.getState().setHostHereSeed({
+      venueId: venue.id,
+      venueName: venue.name,
+      venueSuburb: full?.suburb ?? "",
+      venueAddress: full?.address ?? `${full?.suburb ?? ""}, ${full?.state ?? ""}`,
+    });
+    router.push("/wizard");
+  };
+
   const showInitialLoading = discoverQuery.isLoading;
   const showError = discoverQuery.isError && !showInitialLoading;
   const advancedFilterCount = [
@@ -812,6 +838,8 @@ export default function Discover() {
             radiusKm={mapAreaOverride ? null : discoverRadiusKm}
             bottomInset={sheetHeight}
             onSearchThisArea={(region) => setMapAreaOverride(region)}
+            noGameVenues={noGameVenues}
+            onSelectNoGameVenue={handleSelectNoGameVenue}
           />
 
           <MapSheet

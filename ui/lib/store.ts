@@ -41,6 +41,15 @@ export type RebookSeed = {
   startsAt: Date;
 };
 
+// Discover map's "no games here yet — host one" pin (map-plan.md §5.10): seeds only the venue,
+// unlike RebookSeed which also carries the exact slot/skill/players/cost of a past game.
+export type HostHereSeed = {
+  venueId: string;
+  venueName: string;
+  venueSuburb: string;
+  venueAddress: string;
+};
+
 export type WhenFilter = "tonight" | "tomorrow" | "week" | "all";
 export type SortOption = "soonest" | "closest" | "cheapest" | "most_spots";
 
@@ -86,6 +95,10 @@ type AppState = {
   rebookSeed: RebookSeed | null;
   setRebookSeed: (seed: RebookSeed) => void;
   clearRebookSeed: () => void;
+
+  hostHereSeed: HostHereSeed | null;
+  setHostHereSeed: (seed: HostHereSeed) => void;
+  clearHostHereSeed: () => void;
 };
 
 export const useAppStore = create<AppState>((set) => ({
@@ -136,4 +149,8 @@ export const useAppStore = create<AppState>((set) => ({
   rebookSeed: null,
   setRebookSeed: (seed) => set({ rebookSeed: seed }),
   clearRebookSeed: () => set({ rebookSeed: null }),
+
+  hostHereSeed: null,
+  setHostHereSeed: (seed) => set({ hostHereSeed: seed }),
+  clearHostHereSeed: () => set({ hostHereSeed: null }),
 }));

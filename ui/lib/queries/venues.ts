@@ -15,6 +15,25 @@ export function useVenues() {
   });
 }
 
+// Discover map's dim "no games here" pins (map-plan.md §5.10) — venues near the current
+// viewport, independent of whether they have any upcoming games (that diff happens client-side
+// against the games already fetched for the map, since venues aren't sport-scoped).
+export function useVenuesForMap(center: { lat: number; lng: number } | null, radiusKm: number, options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: ["venuesForMap", center?.lat, center?.lng, radiusKm],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("venues_near", {
+        lat: center!.lat,
+        lng: center!.lng,
+        radius_m: radiusKm * 1000,
+      });
+      if (error) throw error;
+      return data;
+    },
+    enabled: (options?.enabled ?? true) && center != null,
+  });
+}
+
 // Upserts a Places-sourced venue (dedupes on google_place_id via the RPC) and returns its id.
 export function useUpsertPlaceVenue() {
   return useMutation({

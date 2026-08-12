@@ -1,9 +1,10 @@
-import { View, Text, Pressable, ScrollView, Alert, Linking, Platform } from "react-native";
+import { View, Text, Pressable, ScrollView, Alert } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, gradients, initial } from "../../lib/theme";
 import { perPlayerCost, spotsLeft, type Game } from "../../lib/mockData";
+import { openDirections } from "../../lib/directions";
 import { useGameDetail } from "../../lib/queries/games";
 import {
   useDecideJoinRequest,
@@ -24,20 +25,6 @@ import { SwipeToDecide } from "../../components/SwipeToDecide";
 import { haptics } from "../../lib/haptics";
 import { shareGame } from "../../lib/share";
 import { GameDetailSkeleton } from "../../components/Skeleton";
-
-// https://maps.apple.com / geo: universal links — not the maps:/geo: custom schemes, which prompt
-// an App Store "Restore Maps?"/"no app found" dialog when the stock app has been removed.
-function openDirections(game: Game) {
-  const label = encodeURIComponent(game.venue);
-  const hasCoords = game.venueLat != null && game.venueLng != null;
-  const query = hasCoords ? `${game.venueLat},${game.venueLng}` : encodeURIComponent(game.venueAddress ?? game.venue);
-  const url = Platform.select({
-    ios: hasCoords ? `https://maps.apple.com/?ll=${query}&q=${label}` : `https://maps.apple.com/?q=${query}`,
-    android: hasCoords ? `geo:0,0?q=${query}(${label})` : `geo:0,0?q=${query}`,
-    default: `https://www.google.com/maps/search/?api=1&query=${query}`,
-  });
-  Linking.openURL(url!).catch(() => Alert.alert("Couldn't open maps", "No maps app is available on this device."));
-}
 
 export default function GameDetails() {
   const { id } = useLocalSearchParams<{ id: string }>();

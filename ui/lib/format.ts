@@ -26,7 +26,7 @@ export function formatTimeShort(iso: string): string {
   return m === 0 ? `${h12}${period}` : `${h12}:${String(m).padStart(2, "0")}${period}`;
 }
 
-export function dayLabel(iso: string, now: Date = new Date()): string {
+export function dayLabel(iso: string, now: Date = new Date(), opts: { todayLabel?: string } = {}): string {
   const d = new Date(iso);
   const startOfDay = (x: Date) => {
     const y = new Date(x);
@@ -34,7 +34,7 @@ export function dayLabel(iso: string, now: Date = new Date()): string {
     return y.getTime();
   };
   const diffDays = Math.round((startOfDay(d) - startOfDay(now)) / DAY_MS);
-  if (diffDays === 0) return "Tonight";
+  if (diffDays === 0) return opts.todayLabel ?? "Tonight";
   if (diffDays === 1) return "Tomorrow";
   return d.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" });
 }

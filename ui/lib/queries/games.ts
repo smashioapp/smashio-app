@@ -52,8 +52,8 @@ function toGame(row: NearbyGameRow): Game {
   };
 }
 
-// my-games list rows (joined/hosting/past) come from games_public directly — no distance_m,
-// and no organizer_* fields (the view doesn't join profiles); the card falls back to no host row.
+// my-games list rows (joined/hosting/past) come from games_public directly — no distance_m
+// (there's no viewer location to measure from), but organizer_* is joined same as nearby_games.
 function toGameFromPublicRow(row: GamesPublicRow): Game {
   return {
     id: row.id!,
@@ -77,6 +77,10 @@ function toGameFromPublicRow(row: GamesPublicRow): Game {
     venueAddress: row.venue_address,
     venueLat: row.venue_lat,
     venueLng: row.venue_lng,
+    organizerName: row.organizer_display_name || "Player",
+    organizerPhotoPath: row.organizer_photo_path,
+    organizerReliabilityScore: row.organizer_reliability_score ?? undefined,
+    organizerHostedCount: row.organizer_hosted_count ?? undefined,
     skillTierOrdinal: row.skill_tier_ordinal,
   };
 }

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, Pressable, ScrollView, Dimensions, FlatList, NativeSyntheticEvent, NativeScrollEvent } from "react-native";
-import Animated, { FadeIn, FadeOut, useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
+import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Notifications from "expo-notifications";
@@ -23,6 +23,7 @@ import { RefreshableList } from "../../components/RefreshableList";
 import { GameCardSkeletonList } from "../../components/Skeleton";
 import { Sheet } from "../../components/Sheet";
 import { Rail } from "../../components/Rail";
+import { DayHeader } from "../../components/DayHeader";
 import { Game, spotsLeft, levelFit, perPlayerCost } from "../../lib/mockData";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
@@ -52,28 +53,6 @@ function buildDiscoverRows(games: Game[], rails: { title: string; games: Game[] 
     rows.push({ kind: "game", id: g.id, game: g, index });
   });
   return rows;
-}
-
-// Shrinks once the list has scrolled a little — a sticky header that stays full-size forever
-// eats space the cards should have (D6).
-function DayHeader({ label, compact }: { label: string; compact: boolean }) {
-  const progress = useSharedValue(compact ? 1 : 0);
-  useEffect(() => {
-    progress.value = withTiming(compact ? 1 : 0, { duration: 180 });
-  }, [compact]);
-  const style = useAnimatedStyle(() => ({
-    paddingTop: 12 - progress.value * 6,
-    paddingBottom: 6 - progress.value * 2,
-    transform: [{ scale: 1 - progress.value * 0.12 }],
-  }));
-
-  return (
-    <Animated.View className="px-5" style={[{ backgroundColor: colors.base }, style]}>
-      <Text className="font-display-bold text-[14px]" style={{ color: colors.textSecondary }}>
-        {label}
-      </Text>
-    </Animated.View>
-  );
 }
 
 function WeekPulseStrip({ text }: { text: string }) {

@@ -609,7 +609,11 @@ export type Database = {
           ends_at: string | null
           id: string | null
           max_players: number | null
+          organizer_display_name: string | null
+          organizer_hosted_count: number | null
           organizer_id: string | null
+          organizer_photo_path: string | null
+          organizer_reliability_score: number | null
           skill_tier_id: string | null
           skill_tier_label: string | null
           skill_tier_ordinal: number | null

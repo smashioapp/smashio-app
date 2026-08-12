@@ -31,6 +31,36 @@ export function useGameRoster(gameId: string) {
   });
 }
 
+// One query across every game on My Games, not one per card — cheap under RLS
+// (organizer + approved members can read game_players) and the roster-faces upgrade doesn't
+// scale with list length.
+export function useMyGamesRoster(gameIds: string[]) {
+  const sortedIds = [...gameIds].sort();
+  return useQuery({
+    queryKey: ["game_players", "my_games_roster", sortedIds],
+    queryFn: async (): Promise<Map<string, Player[]>> => {
+      if (sortedIds.length === 0) return new Map();
+      const { data, error } = await supabase
+        .from("game_players")
+        .select("game_id, profile_id, profiles(display_name)")
+        .in("game_id", sortedIds)
+        .eq("status", "approved");
+      if (error) throw error;
+      const byGame = new Map<string, Player[]>();
+      for (const row of data ?? []) {
+        const player: Player = {
+          id: row.profile_id,
+          name: (row.profiles as { display_name: string } | null)?.display_name || "Player",
+          color: avatarColor(row.profile_id),
+        };
+        byGame.set(row.game_id, [...(byGame.get(row.game_id) ?? []), player]);
+      }
+      return byGame;
+    },
+    enabled: sortedIds.length > 0,
+  });
+}
+
 export type Membership = { isOrganizer: boolean; status: "requested" | "approved" | "rejected" | "left" | "removed" | null };
 
 export function useMyMembership(gameId: string, organizerId: string | null | undefined) {

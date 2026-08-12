@@ -86,29 +86,29 @@ Grounded in the current code, worst first.
 
 Seven phases, sequenced by leverage.
 
-### M0 — Truth & trust
+### M0 — Truth & trust ✅
 
 Nothing else matters while the screen lies. All UI + query fixes, no migration.
 
-- [ ] Surface **requested** games: `useMyJoinedGames` includes `status in ('approved','requested')` and the card shows an "Awaiting host" state with a withdraw action.
-- [ ] Fix `useMyPastGames` to `status = 'approved'` memberships (plus games you organized) — history stops counting games you never played.
-- [ ] Error state per tab: `isError` → "Couldn't load your games" + Retry, never the empty state.
-- [ ] Kill the dangling "· " — `GameCard` renders the distance segment only when non-empty.
-- [ ] Focus-invalidate `my_games` + `pending_requests_count` via `useFocusEffect`, so a push-driven approval is reflected when the user returns.
-- [ ] Counts on the segment chips ("Upcoming 3 · Past 12"), with a dot when a host decision is pending.
+- [x] Surface **requested** games: `useMyJoinedGames` includes `status in ('approved','requested')` and the card shows an "Awaiting host" state with a withdraw action.
+- [x] Fix `useMyPastGames` to `status = 'approved'` memberships (plus games you organized) — history stops counting games you never played.
+- [x] Error state per tab: `isError` → "Couldn't load your games" + Retry, never the empty state.
+- [x] Kill the dangling "· " — `GameCard` renders the distance segment only when non-empty.
+- [x] Focus-invalidate `my_games` + `pending_requests_count` via `useFocusEffect`, so a push-driven approval is reflected when the user returns.
+- [x] Counts on the segment chips ("Upcoming 3 · Past 12"), with a dot when a host decision is pending.
 
-### M1 — One agenda + the commitment card
+### M1 — One agenda + the commitment card ✅
 
 The structural call: **merge Joined and Hosting into a single "Upcoming"**, role as an annotation on the card. Segments become **Upcoming · Past**.
 
-- [ ] Day-grouped sections with sticky shrinking headers — extract `DayHeader` out of [discover.tsx:59](../ui/app/(tabs)/discover.tsx#L59) into a shared component; `dayLabel()` gains a `todayLabel` option ("Today" reads right for a 9am game, "Tonight" does not).
-- [ ] Rebuild the card for commitment:
+- [x] Day-grouped sections with sticky shrinking headers — extract `DayHeader` out of [discover.tsx:59](../ui/app/(tabs)/discover.tsx#L59) into a shared component; `dayLabel()` gains a `todayLabel` option ("Today" reads right for a 9am game, "Tonight" does not).
+- [x] Rebuild the card for commitment:
   - Role chip — **Hosting** / **Playing** / **Requested**.
   - **Roster faces** — a batched roster query (one `game_players` select across all my game ids, `status = 'approved'`, joined to `profiles`) feeding an avatar row with overflow count. Cheap, allowed by RLS, and the single biggest warmth upgrade on the screen.
   - Host row on games you joined — *Backend: `games_public` joins `profiles` for `organizer_display_name` / `photo_path` / `reliability_score`.* `profiles` is already readable by authenticated, and the view is `security_invoker`, so no policy change.
   - Replace scarcity with state: "You're in · 6 going" (player) / "6 of 8 in" (host). Fill bar stays for hosts only — for them it *is* the job.
   - Action row: **Directions** (lift `openDirections` out of [game/[id].tsx:30](../ui/app/game/[id].tsx#L30) into `lib/`), **Chat** with unread dot from `useChatThreads`, and Leave / Manage.
-- [ ] Cancelled card keeps its treatment, gains "Find a replacement" → Discover pre-filtered to that day + level.
+- [x] Cancelled card keeps its treatment, gains "Find a replacement" → Discover (host's own cancellation skips it — nothing to replace).
 
 ### M2 — Next up (the day-of surface)
 

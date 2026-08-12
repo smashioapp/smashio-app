@@ -1,11 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { View, Text, Pressable, ScrollView, Dimensions, FlatList, NativeSyntheticEvent, NativeScrollEvent } from "react-native";
+import { View, Text, Pressable, ScrollView, Dimensions, FlatList, BackHandler, NativeSyntheticEvent, NativeScrollEvent } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Notifications from "expo-notifications";
 import { useAppStore, WhenFilter, SortOption, DISCOVER_RADIUS_OPTIONS_KM, DEFAULT_DISCOVER_RADIUS_KM, PRICE_CAP_OPTIONS_CENTS } from "../../lib/store";
 import { colors, TIERS } from "../../lib/theme";
+import { useTabBarSpace } from "../../lib/nav";
+import { useReduceMotion } from "../../lib/motion";
+import { makeScrollHideHandler, registerScrollToTop, unregisterScrollToTop } from "../../lib/navScroll";
+import { BottomRail } from "../../components/BottomRail";
+import { HostFab } from "../../components/HostFab";
 import { useDiscoverGames, useWeekPulseGames, useMyPastGames } from "../../lib/queries/games";
 import { useCreateAlert } from "../../lib/queries/alerts";
 import { useProfileSports } from "../../lib/queries/profile";
@@ -326,6 +331,24 @@ function NotificationBell() {
   );
 }
 
+// Persistent toggle (Airbnb pattern): same slot, same size, icon + label swap instead of an
+// open/dismiss pair — kept enabled-but-disabled at zero pins so its position never moves.
+function MapToggle({ visible, isMap, count, onToggle }: { visible: boolean; isMap: boolean; count: number; onToggle: () => void }) {
+  return (
+    <Pressable
+      onPress={onToggle}
+      disabled={!visible}
+      className="flex-row items-center gap-1.5 rounded-pill px-4 py-3 border"
+      style={{ backgroundColor: colors.text, borderColor: colors.text, opacity: visible ? 1 : 0.35 }}
+    >
+      <Ionicons name={isMap ? "list" : "map-outline"} size={15} color={colors.base} />
+      <Text className="font-body-extrabold text-[13.5px]" style={{ color: colors.base }}>
+        {isMap ? "List" : count > 0 ? `Map · ${count}` : "Map"}
+      </Text>
+    </Pressable>
+  );
+}
+
 export default function Discover() {
   const {
     whenFilter,
@@ -353,9 +376,36 @@ export default function Discover() {
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [headerCompact, setHeaderCompact] = useState(false);
+  const tabBarSpace = useTabBarSpace(true);
+  const reduceMotion = useReduceMotion();
   const mapRef = useRef<GameMapHandle>(null);
+  const listRef = useRef<FlatList<any>>(null);
+  const scrollHide = useRef(makeScrollHideHandler()).current;
   const carouselRef = useRef<FlatList<Game>>(null);
   const carouselScrollIsProgrammatic = useRef(false);
+
+  useEffect(() => {
+    registerScrollToTop("discover", () => listRef.current?.scrollToOffset({ offset: 0, animated: true }));
+    return () => unregisterScrollToTop("discover");
+  }, []);
+
+  // Map is zustand state, not a route (nav-plan defect #13) — hardware back must close it
+  // instead of leaving the tab, and it must never persist after the tab loses focus.
+  useEffect(() => {
+    if (discoverView !== "map") return;
+    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+      setDiscoverView("list");
+      return true;
+    });
+    return () => sub.remove();
+  }, [discoverView]);
+
+  useFocusEffect(
+    useCallback(() => {
+      return () => setDiscoverView("list");
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+  );
 
   const { data: profileSports } = useProfileSports(session?.user.id);
   const viewerTier = profileSports?.[0]?.skill_tiers as { slug: string; ordinal: number } | null;
@@ -646,11 +696,14 @@ export default function Discover() {
         <Animated.View key={filterSignature} entering={FadeIn.duration(180)} exiting={FadeOut.duration(120)} style={{ flex: 1 }}>
           {games.length === 0 ? (
             <RefreshableList
+              ref={listRef}
               data={games}
               keyExtractor={(g: Game) => g.id}
-              contentContainerStyle={{ padding: 20, paddingTop: 4, paddingBottom: 110, gap: 12, flexGrow: 1 }}
+              contentContainerStyle={{ padding: 20, paddingTop: 4, paddingBottom: tabBarSpace, gap: 12, flexGrow: 1 }}
               refreshing={discoverQuery.isRefetching}
               onRefresh={() => discoverQuery.refetch()}
+              onScroll={(e: NativeSyntheticEvent<NativeScrollEvent>) => scrollHide(e.nativeEvent.contentOffset.y)}
+              scrollEventThrottle={32}
               renderItem={() => null}
               ListEmptyComponent={
                 showError ? (
@@ -689,15 +742,17 @@ export default function Discover() {
             />
           ) : chronological ? (
             <RefreshableList
+              ref={listRef}
               data={discoverRows}
               keyExtractor={(r: DiscoverRow) => r.id}
               stickyHeaderIndices={stickyHeaderIndices}
-              contentContainerStyle={{ paddingTop: 4, paddingBottom: 110 }}
+              contentContainerStyle={{ paddingTop: 4, paddingBottom: tabBarSpace }}
               refreshing={discoverQuery.isRefetching}
               onRefresh={() => discoverQuery.refetch()}
               onScroll={(e: NativeSyntheticEvent<NativeScrollEvent>) => {
                 const compact = e.nativeEvent.contentOffset.y > 24;
                 setHeaderCompact((prev) => (prev === compact ? prev : compact));
+                scrollHide(e.nativeEvent.contentOffset.y);
               }}
               scrollEventThrottle={32}
               renderItem={({ item }: { item: DiscoverRow }) => {
@@ -719,11 +774,14 @@ export default function Discover() {
             />
           ) : (
             <RefreshableList
+              ref={listRef}
               data={games}
               keyExtractor={(g: Game) => g.id}
-              contentContainerStyle={{ padding: 20, paddingTop: 4, paddingBottom: 110, gap: 12 }}
+              contentContainerStyle={{ padding: 20, paddingTop: 4, paddingBottom: tabBarSpace, gap: 12 }}
               refreshing={discoverQuery.isRefetching}
               onRefresh={() => discoverQuery.refetch()}
+              onScroll={(e: NativeSyntheticEvent<NativeScrollEvent>) => scrollHide(e.nativeEvent.contentOffset.y)}
+              scrollEventThrottle={32}
               renderItem={({ item, index }: { item: Game; index: number }) => (
                 <GameCard
                   game={item}
@@ -738,36 +796,22 @@ export default function Discover() {
         </Animated.View>
       )}
 
-      {!showInitialLoading && discoverView !== "map" && pinnedGames.length > 0 && (
-        <Pressable
-          onPress={() => setDiscoverView("map")}
-          className="absolute flex-row items-center gap-1.5 rounded-pill px-4 py-3 border"
-          style={{ bottom: 96, alignSelf: "center", backgroundColor: colors.text, borderColor: colors.text }}
-        >
-          <Ionicons name="map-outline" size={15} color={colors.base} />
-          <Text className="font-body-extrabold text-[13.5px]" style={{ color: colors.base }}>
-            Map
-          </Text>
-        </Pressable>
-      )}
-
       {discoverView === "map" && (
         // Map is a floating-button layer, not a mode swap (Airbnb pattern) — results stay
         // intact underneath; this overlay covers the screen and a snap carousel keeps the
-        // pinned list reachable without leaving the map.
-        <View className="absolute inset-0" style={{ backgroundColor: colors.base }}>
+        // pinned list reachable without leaving the map. The toggle back to list lives in
+        // BottomRail's centre slot below — same control, same spot, label flips (Airbnb).
+        <Animated.View
+          entering={reduceMotion ? undefined : FadeIn.duration(200)}
+          exiting={reduceMotion ? undefined : FadeOut.duration(150)}
+          className="absolute inset-0"
+          style={{ backgroundColor: colors.base }}
+        >
           <GameMap ref={mapRef} games={pinnedGames} center={userLocation} onSelectGame={handleSelectFromMap} selectedGameId={selectedGameId} />
 
-          <Pressable
-            onPress={() => setDiscoverView("list")}
-            className="absolute rounded-full items-center justify-center border"
-            style={{ top: 14, left: 16, width: 38, height: 38, backgroundColor: colors.card, borderColor: colors.cardBorder }}
-          >
-            <Ionicons name="close" size={18} color={colors.text} />
-          </Pressable>
           <View
             className="absolute rounded-pill px-3 py-1.5 border"
-            style={{ top: 20, right: 16, backgroundColor: colors.card, borderColor: colors.cardBorder }}
+            style={{ top: 16, right: 16, backgroundColor: colors.card, borderColor: colors.cardBorder }}
           >
             <Text className="font-body-bold text-[12.5px]" style={{ color: colors.textSecondary }}>
               {pinnedGames.length} game{pinnedGames.length === 1 ? "" : "s"}
@@ -791,8 +835,22 @@ export default function Discover() {
               )}
             />
           )}
-        </View>
+        </Animated.View>
       )}
+
+      <BottomRail
+        right={!showInitialLoading && <HostFab />}
+        centre={
+          !showInitialLoading && (
+            <MapToggle
+              visible={pinnedGames.length > 0}
+              isMap={discoverView === "map"}
+              count={pinnedGames.length}
+              onToggle={() => setDiscoverView(discoverView === "map" ? "list" : "map")}
+            />
+          )
+        }
+      />
     </Screen>
   );
 }

@@ -1,16 +1,28 @@
-import { View, Text, Pressable } from "react-native";
+import { useEffect, useRef } from "react";
+import { View, Text, Pressable, FlatList, NativeSyntheticEvent, NativeScrollEvent } from "react-native";
 import { router } from "expo-router";
 import { colors } from "../../lib/theme";
+import { useTabBarSpace } from "../../lib/nav";
+import { makeScrollHideHandler, registerScrollToTop, unregisterScrollToTop } from "../../lib/navScroll";
 import { useChatThreads } from "../../lib/queries/messages";
 import { Screen } from "../../components/Screen";
 import { ChatRowSkeletonList } from "../../components/Skeleton";
 import { RefreshableList } from "../../components/RefreshableList";
 import { EmptyState } from "../../components/EmptyState";
 import { ShuttlecockGlyph } from "../../components/ShuttlecockSpinner";
+import type { ChatThread } from "../../lib/queries/messages";
 
 export default function ChatList() {
   const threadsQuery = useChatThreads();
   const threads = threadsQuery.data ?? [];
+  const tabBarSpace = useTabBarSpace();
+  const listRef = useRef<FlatList<ChatThread>>(null);
+  const scrollHide = useRef(makeScrollHideHandler()).current;
+
+  useEffect(() => {
+    registerScrollToTop("chat", () => listRef.current?.scrollToOffset({ offset: 0, animated: true }));
+    return () => unregisterScrollToTop("chat");
+  }, []);
 
   return (
     <Screen>
@@ -28,11 +40,14 @@ export default function ChatList() {
         />
       ) : (
         <RefreshableList
+          ref={listRef}
           data={threads}
           keyExtractor={(t) => t.id}
-          contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: 110 }}
+          contentContainerStyle={{ paddingHorizontal: 12, paddingBottom: tabBarSpace }}
           refreshing={threadsQuery.isRefetching}
           onRefresh={() => threadsQuery.refetch()}
+          onScroll={(e: NativeSyntheticEvent<NativeScrollEvent>) => scrollHide(e.nativeEvent.contentOffset.y)}
+          scrollEventThrottle={32}
           renderItem={({ item }) => (
             <Pressable
               onPress={() => router.push(`/chat/${item.id}`)}

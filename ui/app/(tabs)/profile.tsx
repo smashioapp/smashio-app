@@ -1,8 +1,10 @@
-import { useState } from "react";
-import { View, Text, Image, Pressable, ScrollView } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { View, Text, Image, Pressable, ScrollView, NativeSyntheticEvent, NativeScrollEvent } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, gradients, initial, tierColor, RELIABILITY_EXPLAINER } from "../../lib/theme";
+import { useTabBarSpace } from "../../lib/nav";
+import { makeScrollHideHandler, registerScrollToTop, unregisterScrollToTop } from "../../lib/navScroll";
 import { LinearGradient } from "expo-linear-gradient";
 import { Screen } from "../../components/Screen";
 import { Badge } from "../../components/Badge";
@@ -30,6 +32,14 @@ export default function Profile() {
   const { data: profile } = useProfile(userId);
   const { data: profileSports } = useProfileSports(userId);
   const { data: stats } = useProfileStats(userId);
+  const tabBarSpace = useTabBarSpace();
+  const scrollRef = useRef<ScrollView>(null);
+  const scrollHide = useRef(makeScrollHideHandler()).current;
+
+  useEffect(() => {
+    registerScrollToTop("profile", () => scrollRef.current?.scrollTo({ y: 0, animated: true }));
+    return () => unregisterScrollToTop("profile");
+  }, []);
 
   const displayName = profile?.display_name || "—";
   const displaySuburb = profile?.home_suburb || "—";
@@ -47,7 +57,12 @@ export default function Profile() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={{ paddingBottom: 110 }}>
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={{ paddingBottom: tabBarSpace }}
+        onScroll={(e: NativeSyntheticEvent<NativeScrollEvent>) => scrollHide(e.nativeEvent.contentOffset.y)}
+        scrollEventThrottle={32}
+      >
         <View className="items-center gap-2 px-6 pt-2 pb-4">
           <View
             className="w-[84px] h-[84px] rounded-full items-center justify-center overflow-hidden"

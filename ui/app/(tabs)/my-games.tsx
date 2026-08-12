@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { View, Text, Pressable } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { View, Text, Pressable, FlatList, NativeSyntheticEvent, NativeScrollEvent } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
@@ -7,6 +7,10 @@ import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppStore } from "../../lib/store";
 import { colors, gradients } from "../../lib/theme";
+import { useTabBarSpace } from "../../lib/nav";
+import { makeScrollHideHandler, registerScrollToTop, unregisterScrollToTop } from "../../lib/navScroll";
+import { BottomRail } from "../../components/BottomRail";
+import { HostFab } from "../../components/HostFab";
 import { useMyHostingGames, useMyJoinedGames, useMyPastGames, useDiscoverGames } from "../../lib/queries/games";
 import { useMyPendingRequestsCount, useMyGamesRoster, useMyHostedPendingRequests } from "../../lib/queries/gamePlayers";
 import { useMyRatedGameIds } from "../../lib/queries/ratings";
@@ -54,6 +58,14 @@ type UpcomingRow = { kind: "day"; id: string; label: string } | { kind: "game"; 
 // the card, not a tab you have to know to check. See my-games-plan.md §4.
 export default function MyGames() {
   const { myGamesTab, setMyGamesTab } = useAppStore();
+  const tabBarSpace = useTabBarSpace(true);
+  const listRef = useRef<FlatList<any>>(null);
+  const scrollHide = useRef(makeScrollHideHandler()).current;
+
+  useEffect(() => {
+    registerScrollToTop("my-games", () => listRef.current?.scrollToOffset({ offset: 0, animated: true }));
+    return () => unregisterScrollToTop("my-games");
+  }, []);
   const joinedQuery = useMyJoinedGames();
   const hostingQuery = useMyHostingGames();
   const pastQuery = useMyPastGames();
@@ -254,15 +266,18 @@ export default function MyGames() {
           <GameCardSkeletonList />
         ) : (
           <RefreshableList
+            ref={listRef}
             data={upcomingRows}
             keyExtractor={(r: UpcomingRow) => r.id}
             stickyHeaderIndices={stickyHeaderIndices}
-            contentContainerStyle={{ paddingTop: 4, paddingBottom: 110 }}
+            contentContainerStyle={{ paddingTop: 4, paddingBottom: tabBarSpace }}
             refreshing={joinedQuery.isRefetching || hostingQuery.isRefetching}
             onRefresh={() => {
               joinedQuery.refetch();
               hostingQuery.refetch();
             }}
+            onScroll={(e: NativeSyntheticEvent<NativeScrollEvent>) => scrollHide(e.nativeEvent.contentOffset.y)}
+            scrollEventThrottle={32}
             ListEmptyComponent={
               isError ? (
                 <View className="px-5">
@@ -362,11 +377,14 @@ export default function MyGames() {
           <GameCardSkeletonList />
         ) : (
           <RefreshableList
+            ref={listRef}
             data={pastRows}
             keyExtractor={(r: PastRow) => r.id}
-            contentContainerStyle={{ paddingTop: 4, paddingBottom: 110 }}
+            contentContainerStyle={{ paddingTop: 4, paddingBottom: tabBarSpace }}
             refreshing={pastQuery.isRefetching}
             onRefresh={() => pastQuery.refetch()}
+            onScroll={(e: NativeSyntheticEvent<NativeScrollEvent>) => scrollHide(e.nativeEvent.contentOffset.y)}
+            scrollEventThrottle={32}
             ListHeaderComponent={
               historyStats ? <PastHistoryHeader gamesPlayed={pastCount} stats={historyStats} streak={streakQuery.data ?? 0} /> : null
             }
@@ -447,6 +465,8 @@ export default function MyGames() {
           />
         ))}
       </Animated.View>
+
+      <BottomRail right={<HostFab />} />
     </Screen>
   );
 }

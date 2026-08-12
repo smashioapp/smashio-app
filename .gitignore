@@ -15,3 +15,7 @@ ui/smashio_icon*.png
 
 # build/run logs
 ui/*.log
+
+# emulator screenshots
+_emu_*.png
+*.log

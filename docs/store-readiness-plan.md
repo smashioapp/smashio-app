@@ -12,6 +12,24 @@ Fixed in passing: missing `expo-asset` peer dep (required by `expo-audio` — ap
 - [ ] **`SYSTEM_ALERT_WINDOW` permission in the generated manifest.** Present in [android/app/src/main/AndroidManifest.xml](../ui/android/app/src/main/AndroidManifest.xml), almost certainly from expo-dev-client (dev-only overlay bubble). Confirm it drops from the release/production build — if it ships, Play Console requires a special-access-permission justification and may flag the app.
 - [ ] **Bundle ID mismatch across platforms.** iOS `com.smashio.app` vs Android `com.ajayaradhya.smashio` ([app.config.js:13,16](../ui/app.config.js)). Not a hard submission blocker (each store only cares about its own value) but inconsistent branding — fix now, changing an Android `applicationId` post-launch means a new listing.
 
+## Fixed 2026-08-12 — account deletion
+
+Play's User Data policy (enforced since April 2024) requires both halves for any app with accounts. Both now exist:
+
+- **In-app** — Profile tab → **Delete account** → [ui/app/delete-account.tsx](../ui/app/delete-account.tsx). Two-step confirm (screen, then a destructive `Alert`), spells out what goes and what stays, and warns with a live count when the user is hosting upcoming games.
+- **Web** — [website/delete-account.html](../website/delete-account.html), now leading with the in-app path. This is the URL to paste into the Play Console **Data deletion** field.
+- **Server** — [supabase/functions/delete-account/index.ts](../supabase/functions/delete-account/index.ts) (JWT-authed, service role, deletes only the caller) over `public.delete_account` in [20260812000200_account_deletion.sql](../supabase/migrations/20260812000200_account_deletion.sql). Upcoming hosted games are cancelled and the joined players pushed; the profile row survives as a scrubbed tombstone so other players' chat and finished games stay readable.
+
+**Deployed to production (`ajbsvsfwjfeofvjuhzrw`) 2026-08-12** — `db push` (this migration plus the two pending My Games M1 ones) and `functions deploy delete-account`. Verified live end-to-end against two disposable accounts: profile scrubbed to a tombstone (`display_name = 'Deleted user'`, photo/suburb null, score 100, `deleted_at` stamped), satellite rows gone, auth user deleted, the old JWT 401s, and unauthenticated calls 401 at the gateway.
+
+Still to do, in the consoles:
+
+- [ ] Paste `https://smashio.com.au/delete-account.html` into the Play Console **Data deletion** field.
+- [ ] Answer App Store Connect's account-deletion question with the same URL.
+- [ ] Three throwaway tombstone rows from the live test sit in `profiles` (`63e63b09…`, `576359a3…`, `9fa3b5c5…`). Harmless — no auth user, no games — but clear them next time the table is touched.
+
+Found while testing, unrelated and unfixed: **`service_role` has no PostgREST table grants on this project** — every `/rest/v1/<table>` call as service_role returns 403 `permission denied`. `delete-account` is unaffected (it only calls a function granted to `service_role`), but `ai-proxy` and two branches of `push-dispatch` read tables that way and are silently failing in production. See the follow-up task.
+
 ## Verified good
 
 - Icons: `icon.png` is 1024×1024, no alpha channel (App Store compliant). Android adaptive icon (foreground/background/monochrome) and all notification-icon densities present and wired in the manifest.

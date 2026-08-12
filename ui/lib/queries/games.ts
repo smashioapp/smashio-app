@@ -11,7 +11,7 @@ import { avatarColor } from "../theme";
 export const DEFAULT_LAT = -33.8688;
 export const DEFAULT_LNG = 151.2093;
 const DEFAULT_RADIUS_M = 50_000;
-const SPORT_SLUG = "badminton"; // MVP ships badminton only; sport stays data, not code, once a picker exists.
+export const SPORT_SLUG = "badminton"; // MVP ships badminton only; sport stays data, not code, once a picker exists.
 
 type NearbyGameRow = Database["public"]["Functions"]["nearby_games"]["Returns"][number];
 type GamesPublicRow = Database["public"]["Views"]["games_public"]["Row"];
@@ -40,6 +40,7 @@ function toGame(row: NearbyGameRow): Game {
     verified: row.verification_status === "verified",
     verificationStatus: (row.verification_status as Game["verificationStatus"]) ?? "none",
     distance: formatDistance(row.distance_m),
+    distanceM: row.distance_m,
     venueAddress: row.venue_address,
     venueLat: row.venue_lat,
     venueLng: row.venue_lng,
@@ -118,7 +119,8 @@ export function useDiscoverGames(
     maxCostPerPlayerCents?: number | null;
     sortBy?: string;
   },
-  center: { lat: number; lng: number } = { lat: DEFAULT_LAT, lng: DEFAULT_LNG }
+  center: { lat: number; lng: number } = { lat: DEFAULT_LAT, lng: DEFAULT_LNG },
+  options: { enabled?: boolean } = {}
 ) {
   const tierSlugs = filter.tierSlugs?.length ? filter.tierSlugs : undefined;
   const when = filter.when ?? "all";
@@ -128,6 +130,7 @@ export function useDiscoverGames(
   const maxCostPerPlayerCents = filter.maxCostPerPlayerCents ?? null;
   const sortBy = filter.sortBy ?? "soonest";
   return useQuery({
+    enabled: options.enabled ?? true,
     queryKey: [
       "nearby_games",
       SPORT_SLUG,
@@ -286,13 +289,16 @@ export function useMyJoinedGames() {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return [];
+      // Both statuses — a request the host hasn't decided yet still belongs on this screen;
+      // dropping it until approval makes the one screen named "My Games" silent about it.
       const { data: memberships, error: mErr } = await supabase
         .from("game_players")
-        .select("game_id")
+        .select("game_id, status")
         .eq("profile_id", user.id)
-        .eq("status", "approved");
+        .in("status", ["approved", "requested"]);
       if (mErr) throw mErr;
-      const gameIds = (memberships ?? []).map((m) => m.game_id);
+      const statusByGameId = new Map(memberships?.map((m) => [m.game_id, m.status as "approved" | "requested"]));
+      const gameIds = [...statusByGameId.keys()];
       if (gameIds.length === 0) return [];
       // Cancelled games stay in the list until they're in the past — dropping them the
       // instant the organiser cancels is how a player ends up turning up to nothing.
@@ -306,7 +312,7 @@ export function useMyJoinedGames() {
         .gte("ends_at", new Date().toISOString())
         .order("starts_at", { ascending: true });
       if (error) throw error;
-      return (data ?? []).map(toGameFromPublicRow);
+      return (data ?? []).map((row) => ({ ...toGameFromPublicRow(row), myStatus: statusByGameId.get(row.id!) }));
     },
   });
 }
@@ -344,7 +350,13 @@ export function useMyPastGames() {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return [];
-      const { data: memberships, error: mErr } = await supabase.from("game_players").select("game_id").eq("profile_id", user.id);
+      // Approved only — a rejected/left/removed membership isn't a game the user actually
+      // played, and history shouldn't count it (or offer a "Rate players" button for it).
+      const { data: memberships, error: mErr } = await supabase
+        .from("game_players")
+        .select("game_id")
+        .eq("profile_id", user.id)
+        .eq("status", "approved");
       if (mErr) throw mErr;
       const memberIds = (memberships ?? []).map((m) => m.game_id);
       const orClauses = [`organizer_id.eq.${user.id}`];

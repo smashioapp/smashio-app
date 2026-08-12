@@ -39,6 +39,54 @@ export type Database = {
   }
   public: {
     Tables: {
+      game_alerts: {
+        Row: {
+          center_lat: number
+          center_lng: number
+          created_at: string
+          id: string
+          profile_id: string
+          radius_m: number
+          sport_id: string
+          tier_slugs: string[] | null
+        }
+        Insert: {
+          center_lat: number
+          center_lng: number
+          created_at?: string
+          id?: string
+          profile_id: string
+          radius_m: number
+          sport_id: string
+          tier_slugs?: string[] | null
+        }
+        Update: {
+          center_lat?: number
+          center_lng?: number
+          created_at?: string
+          id?: string
+          profile_id?: string
+          radius_m?: number
+          sport_id?: string
+          tier_slugs?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_alerts_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "game_alerts_sport_id_fkey"
+            columns: ["sport_id"]
+            isOneToOne: false
+            referencedRelation: "sports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       game_confirmations: {
         Row: {
           created_at: string

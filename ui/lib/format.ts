@@ -16,6 +16,16 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 // Players think in days, not list position — Discover's day-grouped sections use this instead
 // of the full weekday/date formatDate() gives.
+// Compact form for map pins, where a full "7:00 PM" doesn't fit — "7pm" / "7:30pm".
+export function formatTimeShort(iso: string): string {
+  const d = new Date(iso);
+  const h = d.getHours();
+  const m = d.getMinutes();
+  const period = h >= 12 ? "pm" : "am";
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return m === 0 ? `${h12}${period}` : `${h12}:${String(m).padStart(2, "0")}${period}`;
+}
+
 export function dayLabel(iso: string, now: Date = new Date()): string {
   const d = new Date(iso);
   const startOfDay = (x: Date) => {

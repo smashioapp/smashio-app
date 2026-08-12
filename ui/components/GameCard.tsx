@@ -7,12 +7,13 @@ import { Badge } from "./Badge";
 import { SkillPill } from "./SkillPill";
 import { Avatar } from "./Avatar";
 import { CountdownChip } from "./CountdownChip";
+import { RollingNumber } from "./RollingNumber";
 import { VenueCourtHeader } from "./VenueCourtHeader";
 import { Game, perPlayerCost, spotsLeft, levelFit } from "../lib/mockData";
 import { haptics } from "../lib/haptics";
 import { SPRING } from "../lib/motion";
 import { supabase } from "../lib/supabase";
-import { useRequestToJoin } from "../lib/queries/gamePlayers";
+import { useRequestToJoin, useLeaveGame } from "../lib/queries/gamePlayers";
 
 export function GameCard({
   game,
@@ -56,6 +57,11 @@ export function GameCard({
     : null;
 
   const requestToJoin = useRequestToJoin(game.id);
+  const leaveGame = useLeaveGame(game.id);
+  const handleWithdraw = () => {
+    haptics.tick();
+    leaveGame.mutate();
+  };
   const handleRequestJoin = () => {
     haptics.tick();
     requestToJoin.mutate(undefined, {
@@ -96,7 +102,8 @@ export function GameCard({
                 {game.venue}
               </Text>
               <Text className="text-[13.5px] mt-0.5" style={{ color: colors.textTertiary }}>
-                {game.suburb} · {game.distance}
+                {game.suburb}
+                {game.distance ? ` · ${game.distance}` : ""}
               </Text>
             </View>
             {game.verificationStatus !== "none" && (
@@ -110,6 +117,12 @@ export function GameCard({
             </Text>
             <CountdownChip startsAt={game.startsAt} />
           </View>
+
+          {game.myStatus === "requested" && (
+            <Text className="text-[12.5px] font-body-bold" style={{ color: colors.accent }}>
+              Awaiting host approval
+            </Text>
+          )}
 
           {game.organizerName && (
             <View className="flex-row items-center gap-2">
@@ -130,12 +143,26 @@ export function GameCard({
             <View className="flex-row items-center justify-between">
               <SkillPill skill={game.skill} fit={fit} />
               {showScarcity && (
-                <Animated.Text
-                  className="text-[13px] font-body-bold"
-                  style={[{ color: full ? colors.danger : lastSpot ? colors.accent : colors.textMuted }, joinedStyle]}
-                >
-                  {full ? "Full" : lastSpot ? "Last spot" : `${open} spots left`}
-                </Animated.Text>
+                <Animated.View style={joinedStyle} className="flex-row items-center">
+                  {full || lastSpot ? (
+                    <Text className="text-[13px] font-body-bold" style={{ color: full ? colors.danger : colors.accent }}>
+                      {full ? "Full" : "Last spot"}
+                    </Text>
+                  ) : (
+                    <>
+                      <RollingNumber
+                        from={game.maxPlayers - prevJoined.current}
+                        to={open}
+                        className="text-[13px] font-body-bold"
+                        style={{ color: colors.textMuted }}
+                      />
+                      <Text className="text-[13px] font-body-bold" style={{ color: colors.textMuted }}>
+                        {" "}
+                        spots left
+                      </Text>
+                    </>
+                  )}
+                </Animated.View>
               )}
             </View>
             {showScarcity && !full && (
@@ -169,11 +196,33 @@ export function GameCard({
                   {full ? "Full" : requestToJoin.isSuccess ? "Requested" : "Request to join"}
                 </Text>
               </Pressable>
+            ) : game.myStatus === "requested" ? (
+              <Pressable
+                disabled={leaveGame.isPending}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  handleWithdraw();
+                }}
+                className="rounded-pill px-3.5 py-2 border-[1.5px]"
+                style={{ borderColor: "rgba(255,255,255,0.15)", opacity: leaveGame.isPending ? 0.6 : 1 }}
+              >
+                <Text className="font-body-bold text-[12.5px]" style={{ color: colors.textDim }}>
+                  {leaveGame.isPending ? "Withdrawing…" : "Withdraw request"}
+                </Text>
+              </Pressable>
             ) : (
               !showScarcity && (
-                <Text className="text-[13px] font-body-bold" style={{ color: colors.textMuted }}>
-                  {game.joinedCount}/{game.maxPlayers} joined
-                </Text>
+                <View className="flex-row items-center">
+                  <RollingNumber
+                    from={prevJoined.current}
+                    to={game.joinedCount}
+                    className="text-[13px] font-body-bold"
+                    style={{ color: colors.textMuted }}
+                  />
+                  <Text className="text-[13px] font-body-bold" style={{ color: colors.textMuted }}>
+                    /{game.maxPlayers} joined
+                  </Text>
+                </View>
               )
             )}
           </View>

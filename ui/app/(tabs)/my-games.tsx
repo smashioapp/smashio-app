@@ -1,10 +1,13 @@
+import { useCallback } from "react";
 import { View, Text, Pressable } from "react-native";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
+import { useQueryClient } from "@tanstack/react-query";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppStore } from "../../lib/store";
 import { colors, gradients } from "../../lib/theme";
 import { useMyHostingGames, useMyJoinedGames, useMyPastGames } from "../../lib/queries/games";
+import { useMyPendingRequestsCount } from "../../lib/queries/gamePlayers";
 import { Screen } from "../../components/Screen";
 import { Chip } from "../../components/Chip";
 import { GameCard } from "../../components/GameCard";
@@ -21,6 +24,22 @@ export default function MyGames() {
   const joinedQuery = useMyJoinedGames();
   const hostingQuery = useMyHostingGames();
   const pastQuery = useMyPastGames();
+  const pendingCountQuery = useMyPendingRequestsCount();
+  const queryClient = useQueryClient();
+
+  // Approvals and decisions arrive by push while this screen sits mounted in the background —
+  // RN's window-focus refetch is inert without an AppState bridge, so refresh explicitly.
+  useFocusEffect(
+    useCallback(() => {
+      queryClient.invalidateQueries({ queryKey: ["my_games"] });
+      queryClient.invalidateQueries({ queryKey: ["game_players", "pending_requests_count"] });
+    }, [queryClient])
+  );
+
+  const joinedCount = joinedQuery.data?.length ?? 0;
+  const hostingCount = hostingQuery.data?.length ?? 0;
+  const pastCount = pastQuery.data?.length ?? 0;
+  const hasPending = (pendingCountQuery.data ?? 0) > 0;
 
   return (
     <Screen>
@@ -28,9 +47,25 @@ export default function MyGames() {
         My Games
       </Text>
       <View className="flex-row gap-1.5 px-5 pb-3.5">
-        <Chip label="Joined" active={myGamesTab === "joined"} onPress={() => setMyGamesTab("joined")} />
-        <Chip label="Hosting" active={myGamesTab === "hosting"} onPress={() => setMyGamesTab("hosting")} />
-        <Chip label="Past" active={myGamesTab === "past"} onPress={() => setMyGamesTab("past")} />
+        <Chip
+          label={joinedCount > 0 ? `Joined ${joinedCount}` : "Joined"}
+          active={myGamesTab === "joined"}
+          onPress={() => setMyGamesTab("joined")}
+        />
+        <View>
+          <Chip
+            label={hostingCount > 0 ? `Hosting ${hostingCount}` : "Hosting"}
+            active={myGamesTab === "hosting"}
+            onPress={() => setMyGamesTab("hosting")}
+          />
+          {hasPending && (
+            <View
+              className="absolute top-0 right-0 w-2 h-2 rounded-full"
+              style={{ backgroundColor: colors.accent }}
+            />
+          )}
+        </View>
+        <Chip label={pastCount > 0 ? `Past ${pastCount}` : "Past"} active={myGamesTab === "past"} onPress={() => setMyGamesTab("past")} />
       </View>
 
       {myGamesTab === "joined" &&
@@ -44,12 +79,21 @@ export default function MyGames() {
             refreshing={joinedQuery.isRefetching}
             onRefresh={() => joinedQuery.refetch()}
             ListEmptyComponent={
-              <EmptyState
-                title="Nothing on your calendar"
-                subtitle="Find a match near you and lock in your spot before it fills up."
-                ctaLabel="Find a game"
-                onCta={() => router.push("/(tabs)/discover")}
-              />
+              joinedQuery.isError ? (
+                <EmptyState
+                  title="Couldn't load your games"
+                  subtitle="Check your connection and try again."
+                  ctaLabel="Retry"
+                  onCta={() => joinedQuery.refetch()}
+                />
+              ) : (
+                <EmptyState
+                  title="Nothing on your calendar"
+                  subtitle="Find a match near you and lock in your spot before it fills up."
+                  ctaLabel="Find a game"
+                  onCta={() => router.push("/(tabs)/discover")}
+                />
+              )
             }
             renderItem={({ item, index }) =>
               item.status === "cancelled" ? (
@@ -72,12 +116,21 @@ export default function MyGames() {
             refreshing={hostingQuery.isRefetching}
             onRefresh={() => hostingQuery.refetch()}
             ListEmptyComponent={
-              <EmptyState
-                title="You haven't called a game yet"
-                subtitle="Pick a court, set the time — SMASHIO fills the rest of the roster."
-                ctaLabel="Host a game"
-                onCta={() => router.push("/wizard")}
-              />
+              hostingQuery.isError ? (
+                <EmptyState
+                  title="Couldn't load your games"
+                  subtitle="Check your connection and try again."
+                  ctaLabel="Retry"
+                  onCta={() => hostingQuery.refetch()}
+                />
+              ) : (
+                <EmptyState
+                  title="You haven't called a game yet"
+                  subtitle="Pick a court, set the time — SMASHIO fills the rest of the roster."
+                  ctaLabel="Host a game"
+                  onCta={() => router.push("/wizard")}
+                />
+              )
             }
             renderItem={({ item }) => {
               const cancelled = item.status === "cancelled";
@@ -145,12 +198,21 @@ export default function MyGames() {
             refreshing={pastQuery.isRefetching}
             onRefresh={() => pastQuery.refetch()}
             ListEmptyComponent={
-              <EmptyState
-                title="Your rally history starts here"
-                subtitle="Play your first match and it'll show up right here — ratings, streaks, all of it."
-                ctaLabel="Find a game"
-                onCta={() => router.push("/(tabs)/discover")}
-              />
+              pastQuery.isError ? (
+                <EmptyState
+                  title="Couldn't load your games"
+                  subtitle="Check your connection and try again."
+                  ctaLabel="Retry"
+                  onCta={() => pastQuery.refetch()}
+                />
+              ) : (
+                <EmptyState
+                  title="Your rally history starts here"
+                  subtitle="Play your first match and it'll show up right here — ratings, streaks, all of it."
+                  ctaLabel="Find a game"
+                  onCta={() => router.push("/(tabs)/discover")}
+                />
+              )
             }
             renderItem={({ item }) => (
               <LinearGradient colors={gradients.card} className="rounded-[18px] p-4 border gap-2.5" style={{ borderColor: colors.cardBorder }}>

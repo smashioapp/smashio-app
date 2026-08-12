@@ -2,10 +2,44 @@ import { useCallback, useState } from "react";
 import { View, Text, Pressable, Linking, Platform } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import * as Notifications from "expo-notifications";
-import { colors } from "../lib/theme";
+import { Ionicons } from "@expo/vector-icons";
+import { colors, TIERS } from "../lib/theme";
 import { Button } from "../components/Button";
 import { Screen } from "../components/Screen";
 import { BackButton } from "../components/BackButton";
+import { useMyAlerts, useDeleteAlert } from "../lib/queries/alerts";
+
+function alertLabel(tierSlugs: string[] | null, radiusM: number): string {
+  const level = !tierSlugs || tierSlugs.length === 0 ? "Any level" : tierSlugs.map((s) => TIERS.find((t) => t.id.toLowerCase() === s)?.id ?? s).join(", ");
+  return `${level} · within ${Math.round(radiusM / 1000)} km`;
+}
+
+function AlertsSection() {
+  const { data: alerts } = useMyAlerts();
+  const deleteAlert = useDeleteAlert();
+
+  if (!alerts || alerts.length === 0) return null;
+
+  return (
+    <View className="rounded-2xl p-4 border gap-3" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
+      <Text className="font-body-bold text-[15.5px]" style={{ color: colors.text }}>
+        Your alerts
+      </Text>
+      <View className="gap-2">
+        {alerts.map((a) => (
+          <View key={a.id} className="flex-row items-center justify-between rounded-xl px-3.5 py-3 border" style={{ borderColor: colors.cardBorder }}>
+            <Text className="text-[13.5px] font-body-semibold flex-1 pr-2" style={{ color: colors.textSecondary }}>
+              {alertLabel(a.tierSlugs, a.radiusM)}
+            </Text>
+            <Pressable onPress={() => deleteAlert.mutate(a.id)} hitSlop={8}>
+              <Ionicons name="trash-outline" size={16} color={colors.textTertiary} />
+            </Pressable>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
 
 export default function NotificationSettings() {
   const [status, setStatus] = useState<Notifications.PermissionStatus | null>(null);
@@ -59,6 +93,8 @@ export default function NotificationSettings() {
             </Text>
           </Pressable>
         )}
+
+        <AlertsSection />
       </View>
     </Screen>
   );

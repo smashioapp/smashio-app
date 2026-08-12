@@ -25,6 +25,10 @@ export type Game = {
   verified: boolean;
   verificationStatus: "none" | "pending" | "verified";
   distance: string;
+  // Raw metres — only nearby_games projects it (games_public rows have no distance concept).
+  // Kept alongside the formatted `distance` string so the fallback ladder can compare against
+  // the current radius filter without re-parsing "3.2 km".
+  distanceM?: number | null;
   venueAddress: string | null;
   venueLat: number | null;
   venueLng: number | null;
@@ -35,6 +39,9 @@ export type Game = {
   organizerReliabilityScore?: number;
   organizerHostedCount?: number;
   skillTierOrdinal?: number | null;
+  // Only populated by useMyJoinedGames — the viewer's own membership row status, so a
+  // requested-but-not-yet-approved game can render "Awaiting host" instead of vanishing.
+  myStatus?: "approved" | "requested";
 };
 
 export type PastPlayer = { id: string; name: string; color: string };

@@ -1,6 +1,7 @@
 import { Pressable, Text } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { colors, gradients } from "../lib/theme";
+import { haptics } from "../lib/haptics";
 
 export function Chip({
   label,
@@ -15,10 +16,16 @@ export function Chip({
 }) {
   const pad = size === "sm" ? "px-3.5 py-2" : "px-4 py-2.5";
   const textSize = size === "sm" ? "text-[13px]" : "text-[14px]";
+  const handlePress = onPress
+    ? () => {
+        haptics.tick();
+        onPress();
+      }
+    : undefined;
 
   if (active) {
     return (
-      <Pressable onPress={onPress}>
+      <Pressable onPress={handlePress}>
         <LinearGradient
           colors={gradients.accent}
           start={{ x: 0, y: 0 }}
@@ -35,7 +42,7 @@ export function Chip({
 
   return (
     <Pressable
-      onPress={onPress}
+      onPress={handlePress}
       className={`rounded-pill ${pad} border`}
       style={{ backgroundColor: colors.surfaceAlt, borderColor: colors.cardBorder }}
     >

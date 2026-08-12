@@ -84,66 +84,66 @@ Grounded in the current code, worst first.
 
 Seven phases. Sequenced by leverage, not by screen order.
 
-### D0 — Truth & trust ✱ *start here*
+### D0 — Truth & trust ✅
 
 Nothing else matters while the screen lies. Small, all UI.
 
-- [ ] Real location in the header — reverse-geocode `useUserLocation()` to a suburb; fall back to "Near you", never a hardcoded city.
-- [ ] Skeleton cards on `isLoading` (reuse [Skeleton.tsx](../ui/components/Skeleton.tsx)); the empty state renders only after a settled, genuinely-empty fetch.
-- [ ] Kill the blank avatar row — until D2 lands, show a real headcount treatment instead of an empty `AvatarStack`.
-- [ ] Split the empty state: *no supply* ("Court's quiet…" + Host CTA) vs *no match* ("Nothing at Intermediate tonight" + Clear filters + adjacent suggestions).
-- [ ] Error state — a failed fetch currently renders as "Court's quiet", which is a lie. Add a retry state.
-- [ ] Unread badge on the notification bell.
+- [x] Real location in the header — reverse-geocode `useUserLocation()` to a suburb; fall back to "Near you", never a hardcoded city.
+- [x] Skeleton cards on `isLoading` (reuse [Skeleton.tsx](../ui/components/Skeleton.tsx)); the empty state renders only after a settled, genuinely-empty fetch.
+- [x] Kill the blank avatar row — until D2 lands, show a real headcount treatment instead of an empty `AvatarStack`.
+- [x] Split the empty state: *no supply* ("Court's quiet…" + Host CTA) vs *no match* ("Nothing at Intermediate tonight" + Clear filters + adjacent suggestions).
+- [x] Error state — a failed fetch currently renders as "Court's quiet", which is a lie. Add a retry state.
+- [x] Unread badge on the notification bell.
 
-### D1 — The card (highest conversion leverage)
+### D1 — The card (highest conversion leverage) ✅
 
 This is where the join decision happens. Rebuild it around the four trust questions.
 
-- [ ] **Host row** — avatar, name, and a credibility signal ("Hosted 12 · Reliable"). *Backend: extend `nearby_games` to project `organizer_display_name`, `organizer_photo_path`, `organizer_reliability_score`.* Single highest-leverage change in this doc.
-- [ ] **Level fit verdict** — replace the bare `SkillPill` with a relational badge computed against the viewer's tier: "Your level" / "One above" / "Below your level".
-- [ ] **Honest scarcity** — "2 spots left" with a fill bar; "Last spot" in accent; nothing at all when the game is half empty. Never manufacture urgency.
-- [ ] **Venue identity** — a per-venue deterministic court-pattern header (reuse [CourtBackdrop.tsx](../ui/components/CourtBackdrop.tsx)) so cards are visually distinguishable at a glance. Real Places photos are a later upgrade via `venues.google_place_id`.
-- [ ] **Inline action** — Join / Request directly on the card for the Hunter path.
-- [ ] Keep the existing entrance stagger and press-scale; they're good.
+- [x] **Host row** — avatar, name, and a credibility signal ("Hosted 12 · Reliable"). *Backend: extend `nearby_games` to project `organizer_display_name`, `organizer_photo_path`, `organizer_reliability_score`.* Single highest-leverage change in this doc.
+- [x] **Level fit verdict** — replace the bare `SkillPill` with a relational badge computed against the viewer's tier: "Your level" / "One above" / "Below your level".
+- [x] **Honest scarcity** — "2 spots left" with a fill bar; "Last spot" in accent; nothing at all when the game is half empty. Never manufacture urgency.
+- [x] **Venue identity** — a per-venue deterministic court-pattern header (reuse [CourtBackdrop.tsx](../ui/components/CourtBackdrop.tsx)) so cards are visually distinguishable at a glance. Real Places photos are a later upgrade via `venues.google_place_id`.
+- [x] **Inline action** — Join / Request directly on the card for the Hunter path.
+- [x] Keep the existing entrance stagger and press-scale; they're good.
 
-### D2 — Filter model (Hunter)
+### D2 — Filter model (Hunter) ✅
 
-- [ ] Split into two independent axes: **When** (Tonight / Tomorrow / This week / Pick a date) and **Level** (multi-select, defaults to the user's own tier + adjacent, with an "Any level" escape).
-- [ ] A single **Filters** pill with an active-count badge → bottom sheet ([Sheet.tsx](../ui/components/Sheet.tsx) exists) for distance radius, has-spots-only, price cap, verified-only.
-- [ ] **Sort**: Soonest · Closest · Cheapest · Most spots.
-- [ ] Personalised default view on first paint: your level, next 7 days, sorted soonest.
-- [ ] Persist filter state (already in `store.ts`) and show it as removable tokens so the user always knows why the list looks the way it does.
+- [x] Split into two independent axes: **When** (Tonight / Tomorrow / This week / Pick a date) and **Level** (multi-select, defaults to the user's own tier + adjacent, with an "Any level" escape).
+- [x] A single **Filters** pill with an active-count badge → bottom sheet ([Sheet.tsx](../ui/components/Sheet.tsx) exists) for distance radius, has-spots-only, price cap, verified-only.
+- [x] **Sort**: Soonest · Closest · Cheapest · Most spots.
+- [x] Personalised default view on first paint: your level, next 7 days, sorted soonest.
+- [x] Persist filter state (already in `store.ts`) and show it as removable tokens so the user always knows why the list looks the way it does.
 - *Backend: `nearby_games` gains `has_spots`, `max_cost_cents`, `verified_only`, `sort` args + keyset pagination.*
 
-### D3 — Structure & scan (Browser)
+### D3 — Structure & scan (Browser) ✅
 
-- [ ] **Day-grouped sections** with sticky headers: "Tonight" · "Tomorrow · Wed 12" · "Thu 13" …
-- [ ] **Rails above the list**, each with a stated reason:
+- [x] **Day-grouped sections** with sticky headers: "Tonight" · "Tomorrow · Wed 12" · "Thu 13" …
+- [x] **Rails above the list**, each with a stated reason:
   - "Closing soon" — starts <24 h, ≥1 spot left
   - "At your level, near you"
   - "Back at [venue you last played]" — from `useMyPastGames`
-- [ ] **Week pulse strip** — "18 games in Sydney this week · 44 spots open". Pure social proof from data we already have, zero new backend.
+- [x] **Week pulse strip** — "18 games in Sydney this week · 44 spots open". Pure social proof from data we already have, zero new backend.
 
-### D4 — Map as a layer
+### D4 — Map as a layer ✅
 
-- [ ] Remove the List/Map toggle. Map becomes a floating button → full-screen map with a snap-point card carousel synced to pins (Airbnb pattern).
-- [ ] Pins carry information: start time or price, colour-coded by level — not identical generic dots.
-- [ ] Tapping a pin scrolls the carousel; swiping the carousel pans the map.
-- [ ] Cluster pins at low zoom.
+- [x] Remove the List/Map toggle. Map becomes a floating button → full-screen map with a snap-point card carousel synced to pins (Airbnb pattern).
+- [x] Pins carry information: start time, colour-coded by level — not identical generic dots.
+- [x] Tapping a pin scrolls the carousel; swiping the carousel pans the map.
+- [x] Cluster pins at low zoom (grid-bucket clustering, no new dep).
 
 ### D5 — No dead ends + the retention primitive
 
-- [ ] **Fallback ladder** on thin results, each rung a labelled section rather than a wall: nothing tonight → tomorrow → adjacent levels → wider radius → host it.
-- [ ] **"Alert me"** — save the current filter set as a watch; push when a matching game is posted. *Backend: `game_alerts` table + insert trigger on `games` reusing the existing push pipeline.* This is the one feature on this list that converts a failed session into a returning user.
-- [ ] Follow a venue / follow a host as lighter-weight versions of the same loop.
+- [x] **Fallback ladder** on thin results, each rung a labelled section rather than a wall: nothing tonight → tomorrow → adjacent levels → wider radius → host it.
+- [x] **"Alert me"** — save the current filter set as a watch; push when a matching game is posted. *Backend: `game_alerts` table + insert trigger on `games` reusing the existing push pipeline.* This is the one feature on this list that converts a failed session into a returning user.
+- [~] Follow a venue / follow a host — not required, skipped.
 
 ### D6 — Feel
 
-- [ ] Filter change cross-fades the list instead of hard-swapping.
-- [ ] Sticky day headers shrink on scroll.
-- [ ] Haptic tick on chip select (`haptics.tick()` already exists).
-- [ ] `CountdownChip` shifts to accent/danger under 2 h.
-- [ ] Live spot decrement animates via [RollingNumber.tsx](../ui/components/RollingNumber.tsx).
+- [x] Filter change cross-fades the list instead of hard-swapping.
+- [x] Sticky day headers shrink on scroll.
+- [x] Haptic tick on chip select (`haptics.tick()` already exists).
+- [x] `CountdownChip` shifts to accent/danger under 2 h.
+- [x] Live spot decrement animates via [RollingNumber.tsx](../ui/components/RollingNumber.tsx).
 
 ---
 

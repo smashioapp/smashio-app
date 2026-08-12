@@ -4,13 +4,13 @@ import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, w
 import { colors } from "../lib/theme";
 import { formatCountdown } from "../lib/format";
 
-const HOUR_MS = 60 * 60 * 1000;
+const URGENT_THRESHOLD_MS = 2 * 60 * 60 * 1000;
 
 // Ticks once a minute — countdown text only needs minute resolution, and starts_at is
 // always >0 mins out by the time a chip renders (formatCountdown hides past-start games).
 export function CountdownChip({ startsAt }: { startsAt: string }) {
   const [label, setLabel] = useState(() => formatCountdown(startsAt));
-  const urgent = new Date(startsAt).getTime() - Date.now() <= HOUR_MS;
+  const urgent = new Date(startsAt).getTime() - Date.now() <= URGENT_THRESHOLD_MS;
 
   useEffect(() => {
     const id = setInterval(() => setLabel(formatCountdown(startsAt)), 60_000);

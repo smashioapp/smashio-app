@@ -11,7 +11,8 @@ type Payload =
   | { type: "join_decision"; game_id: string; profile_id: string; status: "approved" | "rejected" | "removed" }
   | { type: "reminder"; game_id: string }
   | { type: "game_cancelled"; game_id: string; organizer_id: string }
-  | { type: "game_rescheduled"; game_id: string; organizer_id: string };
+  | { type: "game_rescheduled"; game_id: string; organizer_id: string }
+  | { type: "alert_match"; game_id: string; profile_ids: string[] };
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
@@ -126,6 +127,22 @@ Deno.serve(async (req) => {
         recipients,
         "New time for your game",
         `${summary.venue_name} now starts ${shortTime(summary.starts_at)}.`,
+        { screen: "game", game_id: payload.game_id },
+      );
+    }
+  } else if (payload.type === "alert_match") {
+    const [{ data: recipients }, { data: summary }] = await Promise.all([
+      supabase
+        .from("push_tokens")
+        .select("profile_id, expo_token")
+        .in("profile_id", payload.profile_ids),
+      supabase.rpc("push_game_summary", { p_game_id: payload.game_id }).single(),
+    ]);
+    if (recipients?.length && summary) {
+      await sendExpoPush(
+        recipients,
+        "A game just matched your alert",
+        `${summary.sport_name} at ${summary.venue_name}, ${shortTime(summary.starts_at)}`,
         { screen: "game", game_id: payload.game_id },
       );
     }

@@ -64,6 +64,11 @@ jobs:
           security list-keychain -d user -s ci-build.keychain login.keychain
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" ci-build.keychain
 
+          echo "--- find-identity ---"
+          security find-identity -v ci-build.keychain
+          echo "--- cert dates ---"
+          security find-certificate -a -c "Apple Distribution" -p ci-build.keychain | openssl x509 -noout -dates -subject
+
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
 

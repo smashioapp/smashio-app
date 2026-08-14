@@ -60,7 +60,8 @@ jobs:
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
 
-          PROFILE_UUID=$(security cms -D -i profile.mobileprovision | /usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin)
+          openssl smime -inform der -verify -noverify -in profile.mobileprovision -out profile.plist
+          PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" profile.plist)
           echo "PROFILE_UUID=$PROFILE_UUID" >> "$GITHUB_ENV"
 
       - name: Archive

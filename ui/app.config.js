@@ -11,12 +11,14 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.smashio.app",
+      buildNumber: process.env.BUILD_NUMBER ?? "1",
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
       },
     },
     android: {
       package: "com.smashio.app",
+      versionCode: Number(process.env.BUILD_NUMBER ?? 1),
       adaptiveIcon: {
         backgroundColor: "#0A0A0B",
         foregroundImage: "./assets/android-icon-foreground.png",

@@ -18,6 +18,12 @@ jobs:
       EXPO_PUBLIC_SENTRY_DSN: ${{ secrets.EXPO_PUBLIC_SENTRY_DSN }}
       BUILD_NUMBER: ${{ github.run_number }}
       KEYCHAIN_PASSWORD: temporary-ci-keychain-password
+      IOS_DIST_CERT_BASE64: ${{ secrets.IOS_DIST_CERT_BASE64 }}
+      IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+      IOS_CERT_PASSWORD: ${{ secrets.IOS_CERT_PASSWORD }}
+      ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
     steps:
       - uses: actions/checkout@v4
 
@@ -39,13 +45,15 @@ jobs:
 
       - name: Import signing cert + provisioning profile
         run: |
-          echo "${{ secrets.IOS_DIST_CERT_BASE64 }}" | base64 -d > dist-cert.p12
-          echo "${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}" | base64 -d > profile.mobileprovision
+          python3 -c "import base64,os; open('dist-cert.p12','wb').write(base64.b64decode(os.environ['IOS_DIST_CERT_BASE64']))"
+          python3 -c "import base64,os; open('profile.mobileprovision','wb').write(base64.b64decode(os.environ['IOS_PROVISIONING_PROFILE_BASE64']))"
+          echo "dist-cert.p12: $(wc -c < dist-cert.p12) bytes"
+          echo "profile.mobileprovision: $(wc -c < profile.mobileprovision) bytes"
 
           security create-keychain -p "$KEYCHAIN_PASSWORD" ci-build.keychain
           security set-keychain-settings -lut 21600 ci-build.keychain
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" ci-build.keychain
-          security import dist-cert.p12 -k ci-build.keychain -P "${{ secrets.IOS_CERT_PASSWORD }}" -T /usr/bin/codesign
+          security import dist-cert.p12 -k ci-build.keychain -P "$IOS_CERT_PASSWORD" -T /usr/bin/codesign
           security list-keychain -d user -s ci-build.keychain login.keychain
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" ci-build.keychain
 
@@ -108,11 +116,11 @@ jobs:
         working-directory: ui/ios
         run: |
           gem install fastlane -N
-          echo "${{ secrets.ASC_API_KEY_P8 }}" > AuthKey.p8
+          python3 -c "import os; open('AuthKey.p8','w').write(os.environ['ASC_API_KEY_P8'])"
           cat > api_key.json <<EOF
           {
-            "key_id": "${{ secrets.ASC_KEY_ID }}",
-            "issuer_id": "${{ secrets.ASC_ISSUER_ID }}",
+            "key_id": "$ASC_KEY_ID",
+            "issuer_id": "$ASC_ISSUER_ID",
             "key_filepath": "AuthKey.p8",
             "in_house": false
           }

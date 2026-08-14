@@ -143,15 +143,18 @@ jobs:
         working-directory: ui/ios
         run: |
           gem install fastlane -N
-          python3 -c "import os; open('AuthKey.p8','w').write(os.environ['ASC_API_KEY_P8'])"
-          cat > api_key.json <<EOF
-          {
-            "key_id": "$ASC_KEY_ID",
-            "issuer_id": "$ASC_ISSUER_ID",
-            "key_filepath": "AuthKey.p8",
-            "in_house": false
-          }
-          EOF
+
+          # Sanity-check the secret's shape without echoing it.
+          case "$ASC_API_KEY_P8" in
+            *"BEGIN PRIVATE KEY"*) echo "ASC key: PEM header present" ;;
+            *) echo "ASC key: PEM header missing -- check ASC_API_KEY_P8 contents"; exit 1 ;;
+          esac
+
+          # fastlane's Token.from_json_file wants the key inline under "key";
+          # it does not read a "key_filepath" field. Let python do the JSON
+          # escaping so the PEM newlines survive.
+          python3 -c "import json,os; json.dump({'key_id':os.environ['ASC_KEY_ID'],'issuer_id':os.environ['ASC_ISSUER_ID'],'key':os.environ['ASC_API_KEY_P8'],'in_house':False}, open('api_key.json','w'))"
+
           IPA=$(ls build/export/*.ipa | head -1)
           fastlane pilot upload \
             --api_key_path api_key.json \

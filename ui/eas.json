@@ -5,6 +5,7 @@
   },
   "build": {
     "development": {
+      "credentialsSource": "local",
       "developmentClient": true,
       "distribution": "internal",
       "ios": {
@@ -15,6 +16,7 @@
       }
     },
     "preview": {
+      "credentialsSource": "local",
       "distribution": "internal",
       "ios": {
         "resourceClass": "m-medium"
@@ -24,6 +26,7 @@
       }
     },
     "production": {
+      "credentialsSource": "local",
       "autoIncrement": true,
       "env": {
         "SENTRY_DISABLE_AUTO_UPLOAD": "true"

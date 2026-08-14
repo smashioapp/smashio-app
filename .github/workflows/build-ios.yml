@@ -100,3 +100,22 @@ jobs:
         with:
           name: ios-ipa
           path: ui/ios/build/export/*.ipa
+
+      - name: Upload to TestFlight
+        working-directory: ui/ios
+        run: |
+          gem install fastlane -N
+          echo "${{ secrets.ASC_API_KEY_P8 }}" > AuthKey.p8
+          cat > api_key.json <<EOF
+          {
+            "key_id": "${{ secrets.ASC_KEY_ID }}",
+            "issuer_id": "${{ secrets.ASC_ISSUER_ID }}",
+            "key_filepath": "AuthKey.p8",
+            "in_house": false
+          }
+          EOF
+          IPA=$(ls build/export/*.ipa | head -1)
+          fastlane pilot upload \
+            --api_key_path api_key.json \
+            --ipa "$IPA" \
+            --skip_waiting_for_build_processing true

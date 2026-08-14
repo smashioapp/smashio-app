@@ -67,7 +67,7 @@ jobs:
       - name: Archive
         working-directory: ui/ios
         run: |
-          WORKSPACE=$(ls *.xcworkspace | head -1)
+          WORKSPACE=$(ls -d *.xcworkspace | head -1)
           SCHEME=$(xcodebuild -workspace "$WORKSPACE" -list -json | node -e "console.log(JSON.parse(require('fs').readFileSync(0)).workspace.schemes[0])")
           echo "SCHEME=$SCHEME" >> "$GITHUB_ENV"
           xcodebuild archive \

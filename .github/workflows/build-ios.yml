@@ -72,7 +72,15 @@ jobs:
         working-directory: ui/ios
         run: |
           WORKSPACE=$(ls -d *.xcworkspace | head -1)
-          SCHEME=$(xcodebuild -workspace "$WORKSPACE" -list -json | node -e "console.log(JSON.parse(require('fs').readFileSync(0)).workspace.schemes[0])")
+          PROJECT_NAME=$(basename "$(ls -d *.xcodeproj | head -1)" .xcodeproj)
+          echo "Workspace: $WORKSPACE, project: $PROJECT_NAME"
+          xcodebuild -workspace "$WORKSPACE" -list -json > schemes.json
+          cat schemes.json
+          SCHEME=$(node -e "
+            const s = JSON.parse(require('fs').readFileSync('schemes.json')).workspace.schemes;
+            console.log(s.includes('$PROJECT_NAME') ? '$PROJECT_NAME' : s.find(x => !x.startsWith('Pods-')) || s[0]);
+          ")
+          echo "Selected scheme: $SCHEME"
           echo "SCHEME=$SCHEME" >> "$GITHUB_ENV"
           xcodebuild archive \
             -workspace "$WORKSPACE" \

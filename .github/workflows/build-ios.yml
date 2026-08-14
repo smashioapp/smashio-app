@@ -8,6 +8,7 @@ on:
 jobs:
   build:
     runs-on: macos-latest
+    timeout-minutes: 45
     defaults:
       run:
         working-directory: ui
@@ -60,7 +61,6 @@ jobs:
           security set-keychain-settings -lut 21600 ci-build.keychain
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" ci-build.keychain
           security import AppleWWDRCAG3.cer -k ci-build.keychain -T /usr/bin/codesign
-          security add-trusted-cert -d -r trustRoot -k ci-build.keychain AppleWWDRCAG3.cer
           security import dist-cert.p12 -k ci-build.keychain -P "$IOS_CERT_PASSWORD" -T /usr/bin/codesign
           security list-keychain -d user -s ci-build.keychain login.keychain
           security default-keychain -s ci-build.keychain

@@ -9,7 +9,6 @@ import { AvatarStack } from "./Avatar";
 import { formatCountdown } from "../lib/format";
 import { openDirections } from "../lib/directions";
 import { addGameToCalendar } from "../lib/calendar";
-import { perPlayerCost } from "../lib/mockData";
 import { haptics } from "../lib/haptics";
 import type { Game, Player } from "../lib/mockData";
 import type { MyRole } from "./UpcomingGameCard";
@@ -60,7 +59,7 @@ export function NextUpHero({
   }, [live, urgent]);
   const dotStyle = useAnimatedStyle(() => ({ opacity: 0.6 + pulse.value * 0.4, transform: [{ scale: 1 + pulse.value * 0.5 }] }));
 
-  const perPlayer = perPlayerCost(game.cost, game.maxPlayers);
+  const perPlayer = game.cost;
 
   return (
     <Animated.View entering={FadeInDown.duration(320)} className="px-5 pb-3">

@@ -10,7 +10,7 @@ export const NAV = {
   ITEM_WIDTH: 56,
   ITEM_HEIGHT: 52,
   ICON: 24,
-  RAIL_HEIGHT: 48,
+  RAIL_HEIGHT: 56,
   RAIL_GAP: 12,
   CONTENT_GAP: 34,
 } as const;

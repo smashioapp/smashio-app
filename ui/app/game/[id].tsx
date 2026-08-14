@@ -3,7 +3,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, gradients, initial } from "../../lib/theme";
-import { perPlayerCost, spotsLeft, type Game } from "../../lib/mockData";
+import { spotsLeft, type Game } from "../../lib/mockData";
 import { openDirections } from "../../lib/directions";
 import { addGameToCalendar } from "../../lib/calendar";
 import { useGameDetail } from "../../lib/queries/games";
@@ -59,7 +59,7 @@ export default function GameDetails() {
     );
   }
 
-  const perPlayer = perPlayerCost(game.cost, game.maxPlayers);
+  const perPlayer = game.cost;
   const joined = rosterQuery.data ?? [];
   const membership = membershipQuery.data;
   const isOrganizer = membership?.isOrganizer ?? false;
@@ -212,23 +212,23 @@ export default function GameDetails() {
           </View>
 
           <Text className="font-body-extrabold text-[13px] uppercase tracking-wide mt-5.5 mb-2.5" style={{ color: colors.textTertiary }}>
-            Cost split
+            Cost
           </Text>
           <View className="rounded-2xl p-4 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
             <View className="flex-row justify-between mb-2">
               <Text className="text-[14.5px]" style={{ color: colors.textSecondary }}>
-                Total court cost
+                {game.courtsBooked} {game.courtsBooked === 1 ? "court" : "courts"} · {game.durationHours}h booking
               </Text>
               <Text className="text-[14.5px] font-body-bold" style={{ color: colors.text }}>
-                ${game.cost}
+                ${perPlayer} / player
               </Text>
             </View>
             <View className="flex-row justify-between mb-2.5">
               <Text className="text-[14.5px]" style={{ color: colors.textSecondary }}>
-                Split {game.maxPlayers} ways · even
+                If full · {game.maxPlayers} players
               </Text>
               <Text className="text-[14.5px] font-body-bold" style={{ color: colors.text }}>
-                ${perPlayer}
+                ${perPlayer * game.maxPlayers}
               </Text>
             </View>
             <View className="rounded-xl p-3 flex-row justify-between items-center" style={{ backgroundColor: "rgba(214,255,63,0.1)" }}>

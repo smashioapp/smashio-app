@@ -4,7 +4,8 @@ import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, TIERS, type TierId } from "../../../lib/theme";
 import { formatDate, formatTimeRange } from "../../../lib/format";
-import { GAME_DURATION_MS, TIME_OPTIONS, dateOptions, isSlotBookable, slotAt } from "../../../lib/schedule";
+import { MAX_DURATION_HOURS, MIN_DURATION_HOURS, TIME_OPTIONS, dateOptions, durationMs, isSlotBookable, slotAt } from "../../../lib/schedule";
+import { MAX_COST_PER_PLAYER_PER_HOUR, MAX_COURTS_BOOKED, MAX_PLAYERS, MIN_COURTS_BOOKED, MIN_PLAYERS } from "../../../lib/store";
 import { useCancelGame, useGameDetail, useUpdateGame } from "../../../lib/queries/games";
 import { useGameRoster } from "../../../lib/queries/gamePlayers";
 import { useSkillTiers } from "../../../lib/queries/sports";
@@ -28,7 +29,9 @@ export default function EditGame() {
   const [startsAt, setStartsAt] = useState<Date | null>(null);
   const [skill, setSkill] = useState<TierId>("Intermediate");
   const [maxPlayers, setMaxPlayers] = useState(8);
-  const [cost, setCost] = useState(64);
+  const [courtsBooked, setCourtsBooked] = useState(1);
+  const [durationHours, setDurationHours] = useState(2);
+  const [cost, setCost] = useState(8);
 
   // Seed the form from the loaded game exactly once — later refetches must not stomp edits
   // the organiser has already made.
@@ -37,13 +40,16 @@ export default function EditGame() {
     setStartsAt(new Date(game.startsAt));
     setSkill(game.skill);
     setMaxPlayers(game.maxPlayers);
+    setCourtsBooked(game.courtsBooked);
+    setDurationHours(game.durationHours);
     setCost(game.cost);
   }, [game, startsAt]);
 
   // max_players can't drop below the roster — the DB rejects it, so don't let the stepper
   // walk into an error in the first place.
   const approvedCount = rosterQuery.data?.length ?? 0;
-  const minPlayers = Math.max(4, approvedCount);
+  const minPlayers = Math.max(MIN_PLAYERS, approvedCount);
+  const maxCost = durationHours * MAX_COST_PER_PLAYER_PER_HOUR;
   const days = useMemo(() => dateOptions(), []);
 
   if (gameQuery.isLoading || !startsAt) {
@@ -62,8 +68,7 @@ export default function EditGame() {
     );
   }
 
-  const endsAt = new Date(startsAt.getTime() + GAME_DURATION_MS);
-  const perPlayer = (cost / maxPlayers).toFixed(0);
+  const endsAt = new Date(startsAt.getTime() + durationMs(durationHours));
   const rescheduled = startsAt.toISOString() !== game.startsAt;
   // The picker only offers 4 days; a game further out keeps its original day as a selection
   // that simply isn't in the list, which is fine — it only matters that we don't save a
@@ -81,7 +86,7 @@ export default function EditGame() {
       return;
     }
     updateGame.mutate(
-      { startsAt, skillTierId: tier.id, maxPlayers, costTotalCents: Math.round(cost * 100) },
+      { startsAt, skillTierId: tier.id, maxPlayers, courtsBooked, durationHours, costPerPlayerCents: Math.round(cost * 100) },
       {
         onSuccess: () => {
           haptics.success();
@@ -204,7 +209,7 @@ export default function EditGame() {
           <Text className="font-display text-[28px]" style={{ color: colors.accent }}>
             {maxPlayers}
           </Text>
-          <Stepper icon="add" disabled={maxPlayers >= 20} onPress={() => setMaxPlayers(Math.min(20, maxPlayers + 2))} />
+          <Stepper icon="add" disabled={maxPlayers >= MAX_PLAYERS} onPress={() => setMaxPlayers(Math.min(MAX_PLAYERS, maxPlayers + 2))} />
         </View>
         <Text className="text-[13px] mb-5" style={{ color: colors.textMuted }}>
           {approvedCount > 0
@@ -212,28 +217,71 @@ export default function EditGame() {
             : "No one's joined yet, so you can still change this freely."}
         </Text>
 
-        <Label>Total court cost</Label>
+        <Label>Courts booked</Label>
+        <View
+          className="flex-row items-center justify-center gap-6 rounded-2xl p-4.5 mb-5 border"
+          style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}
+        >
+          <Stepper icon="remove" disabled={courtsBooked <= MIN_COURTS_BOOKED} onPress={() => setCourtsBooked(Math.max(MIN_COURTS_BOOKED, courtsBooked - 1))} />
+          <Text className="font-display text-[28px]" style={{ color: colors.accent }}>
+            {courtsBooked}
+          </Text>
+          <Stepper icon="add" disabled={courtsBooked >= MAX_COURTS_BOOKED} onPress={() => setCourtsBooked(Math.min(MAX_COURTS_BOOKED, courtsBooked + 1))} />
+        </View>
+
+        <Label>Duration (hours)</Label>
+        <View
+          className="flex-row items-center justify-center gap-6 rounded-2xl p-4.5 mb-5 border"
+          style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}
+        >
+          <Stepper
+            icon="remove"
+            disabled={durationHours <= MIN_DURATION_HOURS}
+            onPress={() => {
+              const next = Math.max(MIN_DURATION_HOURS, durationHours - 1);
+              setDurationHours(next);
+              setCost((c) => Math.min(c, next * MAX_COST_PER_PLAYER_PER_HOUR));
+            }}
+          />
+          <Text className="font-display text-[28px]" style={{ color: colors.accent }}>
+            {durationHours}
+          </Text>
+          <Stepper
+            icon="add"
+            disabled={durationHours >= MAX_DURATION_HOURS}
+            onPress={() => {
+              const next = Math.min(MAX_DURATION_HOURS, durationHours + 1);
+              setDurationHours(next);
+              setCost((c) => Math.min(c, next * MAX_COST_PER_PLAYER_PER_HOUR));
+            }}
+          />
+        </View>
+
+        <Label>Price per player</Label>
         <View
           className="flex-row items-center justify-center gap-6 rounded-2xl p-5 mb-3 border"
           style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}
         >
-          <Stepper icon="remove" disabled={cost <= 8} onPress={() => setCost(Math.max(8, cost - 4))} />
+          <Stepper icon="remove" disabled={cost <= 1} onPress={() => setCost(Math.max(1, cost - 1))} />
           <Text className="font-display text-[30px]" style={{ color: colors.accent }}>
             ${cost}
           </Text>
-          <Stepper icon="add" onPress={() => setCost(cost + 4)} />
+          <Stepper icon="add" disabled={cost >= maxCost} onPress={() => setCost(Math.min(maxCost, cost + 1))} />
         </View>
         <View
-          className="rounded-2xl p-4 flex-row justify-between items-center mb-5 border"
+          className="rounded-2xl p-4 flex-row justify-between items-center mb-2 border"
           style={{ backgroundColor: "rgba(214,255,63,0.1)", borderColor: "rgba(214,255,63,0.25)" }}
         >
           <Text className="text-[14.5px] font-body-bold" style={{ color: colors.accent }}>
-            Even split · {maxPlayers} players
+            If full · {maxPlayers} players
           </Text>
           <Text className="font-display-bold text-[20px]" style={{ color: colors.accent }}>
-            ${perPlayer}
+            ${cost * maxPlayers}
           </Text>
         </View>
+        <Text className="text-[13px] mb-5" style={{ color: colors.textMuted }}>
+          Capped at ${MAX_COST_PER_PLAYER_PER_HOUR}/hour · ${maxCost} max for this {durationHours}h booking.
+        </Text>
 
         {rescheduled && (
           <View

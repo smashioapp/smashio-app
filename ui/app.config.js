@@ -1,6 +1,6 @@
 module.exports = {
   expo: {
-    name: "SMASHIO",
+    name: "Smashio",
     slug: "smashio",
     scheme: "smashio",
     version: "1.0.0",
@@ -16,7 +16,7 @@ module.exports = {
       },
     },
     android: {
-      package: "com.ajayaradhya.smashio",
+      package: "com.smashio.app",
       adaptiveIcon: {
         backgroundColor: "#0A0A0B",
         foregroundImage: "./assets/android-icon-foreground.png",
@@ -51,7 +51,7 @@ module.exports = {
       [
         "expo-image-picker",
         {
-          photosPermission: "SMASHIO needs access to your photos to set a profile picture.",
+          photosPermission: "Smashio needs access to your photos to set a profile picture.",
         },
       ],
       "@sentry/react-native",
@@ -59,7 +59,7 @@ module.exports = {
       [
         "expo-location",
         {
-          locationWhenInUsePermission: "SMASHIO uses your location to show nearby games on the map.",
+          locationWhenInUsePermission: "Smashio uses your location to show nearby games on the map.",
         },
       ],
       [
@@ -81,7 +81,7 @@ module.exports = {
       [
         "expo-calendar",
         {
-          calendarPermission: "SMASHIO adds your games to your calendar when you ask it to.",
+          calendarPermission: "Smashio adds your games to your calendar when you ask it to.",
         },
       ],
     ],

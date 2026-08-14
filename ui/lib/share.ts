@@ -20,7 +20,7 @@ export async function shareGame(game: Game) {
 
 export async function shareReferral() {
   const url = Linking.createURL("onboarding");
-  const text = "Come play badminton with me on SMASHIO — join here:";
+  const text = "Come play badminton with me on Smashio — join here:";
   try {
     await Share.share(
       Platform.OS === "ios" ? { message: text, url } : { message: `${text} ${url}` }

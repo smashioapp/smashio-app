@@ -5,7 +5,7 @@ import Animated, { useAnimatedStyle, useSharedValue, withSequence, withTiming } 
 import { Ionicons } from "@expo/vector-icons";
 import { colors, tierColor } from "../lib/theme";
 import { formatTimeShort, dayLabel } from "../lib/format";
-import { perPlayerCost, spotsLeft } from "../lib/mockData";
+import { spotsLeft } from "../lib/mockData";
 import { haptics } from "../lib/haptics";
 import type { Game } from "../lib/mockData";
 
@@ -79,7 +79,7 @@ function clusterVenues(venues: VenueGroup[], latitudeDelta: number): Cluster[] {
 
 function gameLabel(game: Game): string {
   const isToday = dayLabel(game.startsAt, new Date(), { todayLabel: "Today" }) === "Today";
-  return isToday ? formatTimeShort(game.startsAt) : `$${perPlayerCost(game.cost, game.maxPlayers)}`;
+  return isToday ? formatTimeShort(game.startsAt) : `$${game.cost}`;
 }
 
 function startsWithinMs(game: Game, windowMs: number): boolean {

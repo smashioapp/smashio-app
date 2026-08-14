@@ -303,10 +303,10 @@ function MapToggle({ visible, isMap, count, onToggle }: { visible: boolean; isMa
       onPress={onToggle}
       disabled={!visible}
       className="flex-row items-center gap-1.5 rounded-pill px-4 py-3 border"
-      style={{ backgroundColor: colors.text, borderColor: colors.text, opacity: visible ? 1 : 0.35 }}
+      style={{ backgroundColor: "rgba(23,23,26,0.9)", borderColor: colors.cardBorder, opacity: visible ? 1 : 0.35 }}
     >
-      <Ionicons name={isMap ? "list" : "map-outline"} size={15} color={colors.base} />
-      <Text className="font-body-extrabold text-[13.5px]" style={{ color: colors.base }}>
+      <Ionicons name={isMap ? "list" : "map-outline"} size={15} color={colors.text} />
+      <Text className="font-body-extrabold text-[13.5px]" style={{ color: colors.text }}>
         {isMap ? "List" : count > 0 ? `Map · ${count}` : "Map"}
       </Text>
     </Pressable>
@@ -822,7 +822,7 @@ export default function Discover() {
         // Map is a floating-button layer, not a mode swap (Airbnb pattern) — results stay
         // intact underneath; this overlay covers the screen and a 3-snap sheet keeps the
         // pinned list reachable without leaving the map. The toggle back to list lives in
-        // BottomRail's centre slot below — same control, same spot, label flips (Airbnb).
+        // BottomRail's left slot below — same control, same spot, label flips (Airbnb).
         <Animated.View
           entering={reduceMotion ? undefined : FadeIn.duration(200)}
           exiting={reduceMotion ? undefined : FadeOut.duration(150)}
@@ -888,8 +888,7 @@ export default function Discover() {
       )}
 
       <BottomRail
-        right={!showInitialLoading && <HostFab />}
-        centre={
+        left={
           !showInitialLoading && (
             <MapToggle
               visible={pinnedGames.length > 0}
@@ -899,6 +898,7 @@ export default function Discover() {
             />
           )
         }
+        right={!showInitialLoading && <HostFab />}
       />
     </Screen>
   );

@@ -75,7 +75,7 @@ export function AnimatedSplash({ onFinish }: { onFinish: () => void }) {
       <Animated.Image source={LOGO} resizeMode="contain" style={[{ width: 132, height: 132 }, logoStyle]} />
       <Animated.View style={[{ marginTop: 14 }, wordmarkStyle]}>
         <Text className="font-display text-[22px] tracking-[4px]" style={{ color: colors.text }}>
-          SMASHIO
+          Smashio
         </Text>
       </Animated.View>
     </Animated.View>

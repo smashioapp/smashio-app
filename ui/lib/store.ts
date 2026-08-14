@@ -1,12 +1,23 @@
 import { create } from "zustand";
 import { TierId } from "./theme";
-import { firstBookableSlot, isSlotBookable } from "./schedule";
+import { DEFAULT_DURATION_HOURS, MAX_DURATION_HOURS, MIN_DURATION_HOURS, firstBookableSlot, isSlotBookable } from "./schedule";
+
+// Player-count and per-player-price bounds. Min join threshold is 2 (was 4); max players caps
+// at 16 (host picks any value up to that, not just +/-2 steps). Per-player price is host-set
+// directly — not booking cost / players — capped at $20/hour so it scales with duration.
+export const MIN_PLAYERS = 2;
+export const MAX_PLAYERS = 16;
+export const MIN_COURTS_BOOKED = 1;
+export const MAX_COURTS_BOOKED = 10;
+export const MAX_COST_PER_PLAYER_PER_HOUR = 20;
 
 export type WizardDraft = {
   venueId: string | null;
   startsAt: Date;
   skill: TierId;
   maxPlayers: number;
+  courtsBooked: number;
+  durationHours: number;
   cost: number;
 };
 
@@ -24,7 +35,9 @@ const initialWizard: WizardDraft = {
   startsAt: defaultStartsAt(),
   skill: "Intermediate",
   maxPlayers: 8,
-  cost: 64,
+  courtsBooked: 1,
+  durationHours: DEFAULT_DURATION_HOURS,
+  cost: 8,
 };
 
 // Rebook (my-games-plan.md §M4): carries both the draft fields and the venue *display* fields,
@@ -37,6 +50,8 @@ export type RebookSeed = {
   venueAddress: string;
   skill: TierId;
   maxPlayers: number;
+  courtsBooked: number;
+  durationHours: number;
   cost: number;
   startsAt: Date;
 };
@@ -87,9 +102,15 @@ type AppState = {
   selectWizardTier: (id: TierId) => void;
   incPlayers: () => void;
   decPlayers: () => void;
+  incCourts: () => void;
+  decCourts: () => void;
+  incHours: () => void;
+  decHours: () => void;
   incCost: () => void;
   decCost: () => void;
   setMaxPlayers: (n: number) => void;
+  setCourtsBooked: (n: number) => void;
+  setDurationHours: (n: number) => void;
   setCost: (n: number) => void;
 
   rebookSeed: RebookSeed | null;
@@ -139,11 +160,28 @@ export const useAppStore = create<AppState>((set) => ({
   selectVenue: (id) => set((s) => ({ wizard: { ...s.wizard, venueId: id } })),
   setStartsAt: (d) => set((s) => ({ wizard: { ...s.wizard, startsAt: d } })),
   selectWizardTier: (id) => set((s) => ({ wizard: { ...s.wizard, skill: id } })),
-  incPlayers: () => set((s) => ({ wizard: { ...s.wizard, maxPlayers: Math.min(20, s.wizard.maxPlayers + 2) } })),
-  decPlayers: () => set((s) => ({ wizard: { ...s.wizard, maxPlayers: Math.max(4, s.wizard.maxPlayers - 2) } })),
-  incCost: () => set((s) => ({ wizard: { ...s.wizard, cost: s.wizard.cost + 4 } })),
-  decCost: () => set((s) => ({ wizard: { ...s.wizard, cost: Math.max(8, s.wizard.cost - 4) } })),
+  incPlayers: () => set((s) => ({ wizard: { ...s.wizard, maxPlayers: Math.min(MAX_PLAYERS, s.wizard.maxPlayers + 2) } })),
+  decPlayers: () => set((s) => ({ wizard: { ...s.wizard, maxPlayers: Math.max(MIN_PLAYERS, s.wizard.maxPlayers - 2) } })),
+  incCourts: () => set((s) => ({ wizard: { ...s.wizard, courtsBooked: Math.min(MAX_COURTS_BOOKED, s.wizard.courtsBooked + 1) } })),
+  decCourts: () => set((s) => ({ wizard: { ...s.wizard, courtsBooked: Math.max(MIN_COURTS_BOOKED, s.wizard.courtsBooked - 1) } })),
+  incHours: () =>
+    set((s) => {
+      const durationHours = Math.min(MAX_DURATION_HOURS, s.wizard.durationHours + 1);
+      const cap = durationHours * MAX_COST_PER_PLAYER_PER_HOUR;
+      return { wizard: { ...s.wizard, durationHours, cost: Math.min(s.wizard.cost, cap) } };
+    }),
+  decHours: () =>
+    set((s) => {
+      const durationHours = Math.max(MIN_DURATION_HOURS, s.wizard.durationHours - 1);
+      const cap = durationHours * MAX_COST_PER_PLAYER_PER_HOUR;
+      return { wizard: { ...s.wizard, durationHours, cost: Math.min(s.wizard.cost, cap) } };
+    }),
+  incCost: () =>
+    set((s) => ({ wizard: { ...s.wizard, cost: Math.min(s.wizard.durationHours * MAX_COST_PER_PLAYER_PER_HOUR, s.wizard.cost + 1) } })),
+  decCost: () => set((s) => ({ wizard: { ...s.wizard, cost: Math.max(1, s.wizard.cost - 1) } })),
   setMaxPlayers: (n) => set((s) => ({ wizard: { ...s.wizard, maxPlayers: n } })),
+  setCourtsBooked: (n) => set((s) => ({ wizard: { ...s.wizard, courtsBooked: n } })),
+  setDurationHours: (n) => set((s) => ({ wizard: { ...s.wizard, durationHours: n } })),
   setCost: (n) => set((s) => ({ wizard: { ...s.wizard, cost: n } })),
 
   rebookSeed: null,

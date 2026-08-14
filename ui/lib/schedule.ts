@@ -1,8 +1,13 @@
 import { formatDate } from "./format";
 
-// Every game is a fixed 2h block for MVP — the wizard and the edit screen both offer a single
-// start time and derive ends_at from it.
-export const GAME_DURATION_MS = 2 * 60 * 60 * 1000;
+// Host picks how many hours the court's booked for; ends_at is derived from starts_at + this.
+export const DEFAULT_DURATION_HOURS = 2;
+export const MIN_DURATION_HOURS = 1;
+export const MAX_DURATION_HOURS = 6;
+
+export function durationMs(hours: number): number {
+  return hours * 60 * 60 * 1000;
+}
 
 export const TIME_OPTIONS = [
   { label: "6:00 PM", h: 18, m: 0 },

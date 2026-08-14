@@ -1,4 +1,4 @@
-// Synthesizes SMASHIO's hero-moment sound effects as short WAV files.
+// Synthesizes Smashio's hero-moment sound effects as short WAV files.
 // No downloaded audio, no licensing question — just sine/noise envelopes written to disk.
 // Run: node scripts/synth-sfx.js
 const fs = require("fs");

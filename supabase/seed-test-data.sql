@@ -76,22 +76,22 @@ badminton as (select id from public.sports where slug = 'badminton')
 
 insert into public.games (
   sport_id, venue_id, organizer_id, starts_at, ends_at, court_label, skill_tier_id,
-  max_players, cost_total_cents, status, verification_status
+  max_players, cost_per_player_cents, status, verification_status, courts_booked, duration_hours
 )
 select (select id from badminton), (select id from venue where name = v.venue_name),
   (select id from u where email = v.organizer_email),
   now() + v.starts_in, now() + v.starts_in + v.duration,
   v.court_label, (select id from tier where slug = v.tier_slug),
-  v.max_players, v.cost_cents, 'published', v.verification
+  v.max_players, v.cost_per_player_cents, 'published', v.verification, v.courts_booked, v.duration_hours
 from (values
-  -- organizer_email, venue_name, starts_in, duration, court_label, tier_slug, max_players, cost_cents, verification
-  ('bot1@smashio.dev', 'NBC Homebush', interval '1 day' + interval '18 hours', interval '2 hours', 'Court 5', 'intermediate', 6, 1800, 'verified'),
-  ('bot2@smashio.dev', 'Alpha Badminton Centre', interval '2 days' + interval '19 hours', interval '2 hours', 'Court 12', 'beginner', 8, 0, 'none'),
-  ('bot3@smashio.dev', 'PCYC Auburn', interval '3 days' + interval '17 hours', interval '2 hours', 'Court 2', 'advanced', 4, 1600, 'pending'),
-  ('bot4@smashio.dev', 'Sydney Badminton', interval '3 hours', interval '2 hours', 'Court 1', 'intermediate', 4, 1200, 'none'),
-  ('bot5@smashio.dev', 'Willoughby Leisure Centre', interval '5 days' + interval '10 hours', interval '2 hours', 'Court 3', 'pro', 4, 2000, 'verified'),
-  ('bot1@smashio.dev', 'MUSAC', interval '4 days' + interval '18 hours 30 minutes', interval '2 hours', 'Court 7', 'intermediate', 6, 1500, 'none'),
-  ('bot2@smashio.dev', 'PCYC Marrickville', interval '6 days' + interval '19 hours', interval '2 hours', 'Court 1', 'beginner', 8, 0, 'none'),
-  ('bot3@smashio.dev', 'Australian Badminton Academy - North Parramatta', interval '2 days' + interval '20 hours', interval '2 hours', 'Court 4', 'advanced', 4, 1400, 'pending'),
-  ('bot4@smashio.dev', 'NBC Homebush', interval '7 days' + interval '16 hours', interval '2 hours', 'Court 9', 'intermediate', 6, 1800, 'none')
-) as v(organizer_email, venue_name, starts_in, duration, court_label, tier_slug, max_players, cost_cents, verification);
+  -- organizer_email, venue_name, starts_in, duration, court_label, tier_slug, max_players, cost_per_player_cents, verification, courts_booked, duration_hours
+  ('bot1@smashio.dev', 'NBC Homebush', interval '1 day' + interval '18 hours', interval '2 hours', 'Court 5', 'intermediate', 6, 300, 'verified', 2, 2),
+  ('bot2@smashio.dev', 'Alpha Badminton Centre', interval '2 days' + interval '19 hours', interval '2 hours', 'Court 12', 'beginner', 8, 0, 'none', 2, 2),
+  ('bot3@smashio.dev', 'PCYC Auburn', interval '3 days' + interval '17 hours', interval '2 hours', 'Court 2', 'advanced', 4, 400, 'pending', 1, 2),
+  ('bot4@smashio.dev', 'Sydney Badminton', interval '3 hours', interval '2 hours', 'Court 1', 'intermediate', 4, 300, 'none', 1, 2),
+  ('bot5@smashio.dev', 'Willoughby Leisure Centre', interval '5 days' + interval '10 hours', interval '2 hours', 'Court 3', 'pro', 4, 500, 'verified', 1, 2),
+  ('bot1@smashio.dev', 'MUSAC', interval '4 days' + interval '18 hours 30 minutes', interval '2 hours', 'Court 7', 'intermediate', 6, 250, 'none', 2, 2),
+  ('bot2@smashio.dev', 'PCYC Marrickville', interval '6 days' + interval '19 hours', interval '2 hours', 'Court 1', 'beginner', 8, 0, 'none', 2, 2),
+  ('bot3@smashio.dev', 'Australian Badminton Academy - North Parramatta', interval '2 days' + interval '20 hours', interval '2 hours', 'Court 4', 'advanced', 4, 350, 'pending', 1, 2),
+  ('bot4@smashio.dev', 'NBC Homebush', interval '7 days' + interval '16 hours', interval '2 hours', 'Court 9', 'intermediate', 6, 300, 'none', 2, 2)
+) as v(organizer_email, venue_name, starts_in, duration, court_label, tier_slug, max_players, cost_per_player_cents, verification, courts_booked, duration_hours);

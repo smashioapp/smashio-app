@@ -4,7 +4,7 @@ import { supabase } from "../supabase";
 import type { Database } from "../db.types";
 import type { Game, PastGame } from "../mockData";
 import { formatDate, formatDistance, formatTimeRange } from "../format";
-import { GAME_DURATION_MS } from "../schedule";
+import { durationMs } from "../schedule";
 import { avatarColor } from "../theme";
 
 // Sydney CBD — fallback center when device location is unavailable or denied. Sydney-only for launch.
@@ -33,11 +33,13 @@ function toGame(row: NearbyGameRow): Game {
     // (editing), and detail always comes from games_public.
     skillTierId: "",
     maxPlayers: row.max_players,
+    courtsBooked: row.courts_booked,
+    durationHours: row.duration_hours,
     // Named roster is a separate fetch (useGameRoster), gated by RLS to organizer + approved
     // members — a discover card only ever gets the headcount.
     joined: [],
     joinedCount: row.approved_count ?? 0,
-    cost: row.cost_total_cents / 100,
+    cost: row.cost_per_player_cents / 100,
     verified: row.verification_status === "verified",
     verificationStatus: (row.verification_status as Game["verificationStatus"]) ?? "none",
     distance: formatDistance(row.distance_m),
@@ -70,9 +72,11 @@ function toGameFromPublicRow(row: GamesPublicRow): Game {
     skill: row.skill_tier_label as Game["skill"],
     skillTierId: row.skill_tier_id!,
     maxPlayers: row.max_players!,
+    courtsBooked: row.courts_booked ?? 1,
+    durationHours: row.duration_hours ?? 2,
     joined: [],
     joinedCount: row.approved_count ?? 0,
-    cost: (row.cost_total_cents ?? 0) / 100,
+    cost: (row.cost_per_player_cents ?? 0) / 100,
     verified: row.verification_status === "verified",
     verificationStatus: (row.verification_status as Game["verificationStatus"]) ?? "none",
     distance: "",
@@ -203,14 +207,16 @@ export function useCreateGame() {
       skillTierId: string;
       startsAt: Date;
       maxPlayers: number;
-      costTotalCents: number;
+      courtsBooked: number;
+      durationHours: number;
+      costPerPlayerCents: number;
     }) => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) throw new Error("Not signed in.");
 
-      const endsAt = new Date(input.startsAt.getTime() + GAME_DURATION_MS);
+      const endsAt = new Date(input.startsAt.getTime() + durationMs(input.durationHours));
       const { data, error } = await supabase
         .from("games")
         .insert({
@@ -221,7 +227,9 @@ export function useCreateGame() {
           ends_at: endsAt.toISOString(),
           skill_tier_id: input.skillTierId,
           max_players: input.maxPlayers,
-          cost_total_cents: input.costTotalCents,
+          courts_booked: input.courtsBooked,
+          duration_hours: input.durationHours,
+          cost_per_player_cents: input.costPerPlayerCents,
         })
         .select("id")
         .single();
@@ -246,15 +254,24 @@ function invalidateGameLists(queryClient: ReturnType<typeof useQueryClient>, gam
 export function useUpdateGame(gameId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { startsAt: Date; skillTierId: string; maxPlayers: number; costTotalCents: number }) => {
+    mutationFn: async (input: {
+      startsAt: Date;
+      skillTierId: string;
+      maxPlayers: number;
+      courtsBooked: number;
+      durationHours: number;
+      costPerPlayerCents: number;
+    }) => {
       const { error } = await supabase
         .from("games")
         .update({
           starts_at: input.startsAt.toISOString(),
-          ends_at: new Date(input.startsAt.getTime() + GAME_DURATION_MS).toISOString(),
+          ends_at: new Date(input.startsAt.getTime() + durationMs(input.durationHours)).toISOString(),
           skill_tier_id: input.skillTierId,
           max_players: input.maxPlayers,
-          cost_total_cents: input.costTotalCents,
+          courts_booked: input.courtsBooked,
+          duration_hours: input.durationHours,
+          cost_per_player_cents: input.costPerPlayerCents,
         })
         .eq("id", gameId);
       if (error) throw error;
@@ -412,7 +429,9 @@ export function usePastGameDetail(gameId: string) {
         venueAddress: game.venue_address,
         skill: game.skill_tier_label as PastGame["skill"],
         maxPlayers: game.max_players!,
-        cost: (game.cost_total_cents ?? 0) / 100,
+        courtsBooked: game.courts_booked ?? 1,
+        durationHours: game.duration_hours ?? 2,
+        cost: (game.cost_per_player_cents ?? 0) / 100,
         startsAtIso: game.starts_at!,
       };
     },

@@ -29,7 +29,7 @@ export async function addGameToCalendar(
     return false;
   }
   await Calendar.createEventAsync(calendarId, {
-    title: `SMASHIO · ${game.venue}`,
+    title: `Smashio · ${game.venue}`,
     startDate: new Date(game.startsAt),
     endDate: new Date(game.endsAt),
     location: game.venueAddress ?? game.suburb,

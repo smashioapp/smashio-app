@@ -80,7 +80,7 @@ export default function Login() {
     <Screen>
       <View className="flex-1 px-6 pt-10 gap-4">
         <Text className="font-display text-[26px]" style={{ color: colors.text }}>
-          Sign in to SMASHIO
+          Sign in to Smashio
         </Text>
         <Text className="text-[14.5px] -mt-2 mb-1" style={{ color: colors.textSecondary }}>
           Australia's badminton-only match-up app.

@@ -4,10 +4,10 @@ import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import { useAppStore } from "../lib/store";
+import { MAX_COST_PER_PLAYER_PER_HOUR, MAX_COURTS_BOOKED, MIN_COURTS_BOOKED, useAppStore } from "../lib/store";
 import { colors, gradients, TIERS } from "../lib/theme";
 import { formatDate, formatTimeRange } from "../lib/format";
-import { GAME_DURATION_MS, TIME_OPTIONS, dateOptions, isSlotBookable, slotAt } from "../lib/schedule";
+import { MAX_DURATION_HOURS, MIN_DURATION_HOURS, TIME_OPTIONS, dateOptions, durationMs, isSlotBookable, slotAt } from "../lib/schedule";
 import { useUpsertPlaceVenue } from "../lib/queries/venues";
 import { useSkillTiers, useSports } from "../lib/queries/sports";
 import { useCreateGame, useUploadConfirmation } from "../lib/queries/games";
@@ -143,8 +143,25 @@ function PublishStamp({ active, children }: { active: boolean; children: React.R
 
 export default function Wizard() {
   const [step, setStep] = useState(0);
-  const { wizard, resetWizard, selectVenue, setStartsAt, selectWizardTier, incPlayers, decPlayers, incCost, decCost, setMaxPlayers, setCost } =
-    useAppStore();
+  const {
+    wizard,
+    resetWizard,
+    selectVenue,
+    setStartsAt,
+    selectWizardTier,
+    incPlayers,
+    decPlayers,
+    incCourts,
+    decCourts,
+    incHours,
+    decHours,
+    incCost,
+    decCost,
+    setMaxPlayers,
+    setCourtsBooked,
+    setDurationHours,
+    setCost,
+  } = useAppStore();
 
   const { data: sports = [] } = useSports();
   const { data: tiers = [] } = useSkillTiers(SPORT_SLUG);
@@ -177,6 +194,8 @@ export default function Wizard() {
       setStartsAt(seed.startsAt);
       selectWizardTier(seed.skill);
       setMaxPlayers(seed.maxPlayers);
+      setCourtsBooked(seed.courtsBooked);
+      setDurationHours(seed.durationHours);
       setCost(seed.cost);
       setSelectedVenue({ name: seed.venueName, suburb: seed.venueSuburb, address: seed.venueAddress });
       setVenueQuery(seed.venueName);
@@ -247,12 +266,12 @@ export default function Wizard() {
   };
 
   const venue = selectedVenue;
-  const perPlayer = (wizard.cost / wizard.maxPlayers).toFixed(0);
+  const maxCost = wizard.durationHours * MAX_COST_PER_PLAYER_PER_HOUR;
   // The store's default slot is 7pm today, which is already gone if you open the wizard in the
   // evening — block Continue rather than letting a past-dated game reach the DB.
   const startInPast = !isSlotBookable(wizard.startsAt, wizard.startsAt.getHours(), wizard.startsAt.getMinutes());
   const nextDisabled = (step === 0 && !wizard.venueId) || (step === 1 && startInPast);
-  const endsAt = new Date(wizard.startsAt.getTime() + GAME_DURATION_MS);
+  const endsAt = new Date(wizard.startsAt.getTime() + durationMs(wizard.durationHours));
 
   const goBack = () => {
     if (step !== 0) {
@@ -299,7 +318,9 @@ export default function Wizard() {
         skillTierId: tier.id,
         startsAt: wizard.startsAt,
         maxPlayers: wizard.maxPlayers,
-        costTotalCents: Math.round(wizard.cost * 100),
+        courtsBooked: wizard.courtsBooked,
+        durationHours: wizard.durationHours,
+        costPerPlayerCents: Math.round(wizard.cost * 100),
       });
     } catch (e) {
       haptics.error();
@@ -503,12 +524,30 @@ export default function Wizard() {
               );
             })}
             <Label style={{ marginTop: 8 }}>Max players</Label>
-            <View className="flex-row items-center justify-center gap-6 rounded-2xl p-4.5 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
+            <View className="flex-row items-center justify-center gap-6 rounded-2xl p-4.5 mb-5 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
               <Stepper onPress={decPlayers} icon="remove" />
               <Text className="font-display text-[28px]" style={{ color: colors.accent }}>
                 {wizard.maxPlayers}
               </Text>
               <Stepper onPress={incPlayers} icon="add" />
+            </View>
+
+            <Label>Courts booked</Label>
+            <View className="flex-row items-center justify-center gap-6 rounded-2xl p-4.5 mb-5 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
+              <Stepper onPress={decCourts} icon="remove" disabled={wizard.courtsBooked <= MIN_COURTS_BOOKED} />
+              <Text className="font-display text-[28px]" style={{ color: colors.accent }}>
+                {wizard.courtsBooked}
+              </Text>
+              <Stepper onPress={incCourts} icon="add" disabled={wizard.courtsBooked >= MAX_COURTS_BOOKED} />
+            </View>
+
+            <Label>Duration (hours)</Label>
+            <View className="flex-row items-center justify-center gap-6 rounded-2xl p-4.5 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
+              <Stepper onPress={decHours} icon="remove" disabled={wizard.durationHours <= MIN_DURATION_HOURS} />
+              <Text className="font-display text-[28px]" style={{ color: colors.accent }}>
+                {wizard.durationHours}
+              </Text>
+              <Stepper onPress={incHours} icon="add" disabled={wizard.durationHours >= MAX_DURATION_HOURS} />
             </View>
           </View>
         )}
@@ -516,25 +555,28 @@ export default function Wizard() {
         {step === 3 && (
           <View>
             <StepIcon name="cash" />
-            <StepHeading title="Split the cost" subtitle="Court fees, shared evenly, no awkward math." />
+            <StepHeading title="Price per player" subtitle="Set what each player pays — your call, not an even split." />
             <View className="flex-row items-center justify-center gap-6 rounded-2xl p-5 mb-4 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
-              <Stepper onPress={decCost} icon="remove" />
+              <Stepper onPress={decCost} icon="remove" disabled={wizard.cost <= 1} />
               <Text className="font-display text-[30px]" style={{ color: colors.accent }}>
                 ${wizard.cost}
               </Text>
-              <Stepper onPress={incCost} icon="add" />
+              <Stepper onPress={incCost} icon="add" disabled={wizard.cost >= maxCost} />
             </View>
             <View
               className="rounded-2xl p-4 flex-row justify-between items-center border"
               style={{ backgroundColor: "rgba(214,255,63,0.1)", borderColor: "rgba(214,255,63,0.25)" }}
             >
               <Text className="text-[14.5px] font-body-bold" style={{ color: colors.accent }}>
-                Even split · {wizard.maxPlayers} players
+                If full · {wizard.maxPlayers} players
               </Text>
               <Text className="font-display-bold text-[20px]" style={{ color: colors.accent }}>
-                ${perPlayer}
+                ${wizard.cost * wizard.maxPlayers}
               </Text>
             </View>
+            <Text className="text-[13px] mt-3" style={{ color: colors.textMuted }}>
+              Capped at ${MAX_COST_PER_PLAYER_PER_HOUR}/hour · ${maxCost} max for this {wizard.durationHours}h booking.
+            </Text>
           </View>
         )}
 
@@ -644,9 +686,22 @@ function Label({ children, style }: { children: string; style?: object }) {
   );
 }
 
-function Stepper({ onPress, icon }: { onPress: () => void; icon: keyof typeof Ionicons.glyphMap }) {
+function Stepper({
+  onPress,
+  icon,
+  disabled = false,
+}: {
+  onPress: () => void;
+  icon: keyof typeof Ionicons.glyphMap;
+  disabled?: boolean;
+}) {
   return (
-    <Pressable onPress={onPress} className="w-[38px] h-[38px] rounded-full items-center justify-center" style={{ backgroundColor: colors.surfaceAlt }}>
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      className="w-[38px] h-[38px] rounded-full items-center justify-center"
+      style={{ backgroundColor: colors.surfaceAlt, opacity: disabled ? 0.4 : 1 }}
+    >
       <Ionicons name={icon} size={16} color={colors.text} />
     </Pressable>
   );

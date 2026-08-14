@@ -155,6 +155,8 @@ export default function PostGame() {
         venueAddress: game.venueAddress ?? "",
         skill: game.skill,
         maxPlayers: game.maxPlayers,
+        courtsBooked: game.courtsBooked,
+        durationHours: game.durationHours,
         cost: game.cost,
         startsAt: nextRebookSlot(new Date(game.startsAtIso)),
       });

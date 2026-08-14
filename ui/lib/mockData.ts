@@ -18,10 +18,14 @@ export type Game = {
   skill: TierId;
   skillTierId: string;
   maxPlayers: number;
+  courtsBooked: number;
+  durationHours: number;
   // Named roster — only populated where the viewer is allowed to see it (organizer/approved
   // member); everyone else sees `joinedCount` only. See useGameRoster's RLS-driven privacy.
   joined: Player[];
   joinedCount: number;
+  // Per-player price, set directly by the host — not derived from a total booking cost divided
+  // by maxPlayers (a host with 2 spare slots on a $40 court can still charge $8 each).
   cost: number;
   verified: boolean;
   verificationStatus: "none" | "pending" | "verified";
@@ -63,13 +67,11 @@ export type PastGame = {
   venueAddress: string | null;
   skill: TierId;
   maxPlayers: number;
+  courtsBooked: number;
+  durationHours: number;
   cost: number;
   startsAtIso: string;
 };
-
-export function perPlayerCost(cost: number, maxPlayers: number): number {
-  return Math.round(cost / maxPlayers);
-}
 
 export function spotsLeft(game: Pick<Game, "joinedCount" | "maxPlayers">): number {
   return Math.max(0, game.maxPlayers - game.joinedCount);

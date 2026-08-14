@@ -9,12 +9,18 @@
       "distribution": "internal",
       "ios": {
         "resourceClass": "m-medium"
+      },
+      "android": {
+        "buildType": "apk"
       }
     },
     "preview": {
       "distribution": "internal",
       "ios": {
         "resourceClass": "m-medium"
+      },
+      "android": {
+        "buildType": "apk"
       }
     },
     "production": {
@@ -24,6 +30,9 @@
       },
       "ios": {
         "resourceClass": "m-medium"
+      },
+      "android": {
+        "autoIncrement": true
       }
     }
   },
@@ -32,6 +41,10 @@
       "ios": {
         "appleTeamId": "Y2DMN58XW2",
         "ascAppId": "6799562741"
+      },
+      "android": {
+        "track": "internal",
+        "serviceAccountKeyPath": "./google-service-account.json"
       }
     }
   }

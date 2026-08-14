@@ -1,6 +1,6 @@
 import { View, Text, Pressable } from "react-native";
 import { colors } from "../lib/theme";
-import { Game, spotsLeft, levelFit, perPlayerCost } from "../lib/mockData";
+import { Game, spotsLeft, levelFit } from "../lib/mockData";
 import { SkillPill } from "./SkillPill";
 
 // Compact card for the map's bottom sheet peek row — a lighter footprint than GameCard so
@@ -37,7 +37,7 @@ export function MapCarouselCard({
       </View>
       <View className="flex-row justify-between items-center mt-2">
         <Text className="font-display-bold text-[15px]" style={{ color: colors.accent }}>
-          ${perPlayerCost(game.cost, game.maxPlayers)}
+          ${game.cost}
           <Text className="font-body-semibold text-[12px]" style={{ color: colors.textTertiary }}>
             {" "}
             / player

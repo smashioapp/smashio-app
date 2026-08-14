@@ -9,7 +9,7 @@ import { Avatar } from "./Avatar";
 import { CountdownChip } from "./CountdownChip";
 import { RollingNumber } from "./RollingNumber";
 import { VenueCourtHeader } from "./VenueCourtHeader";
-import { Game, perPlayerCost, spotsLeft, levelFit } from "../lib/mockData";
+import { Game, spotsLeft, levelFit } from "../lib/mockData";
 import { haptics } from "../lib/haptics";
 import { SPRING } from "../lib/motion";
 import { supabase } from "../lib/supabase";
@@ -180,7 +180,7 @@ export function GameCard({
             style={{ borderColor: "rgba(255,255,255,0.06)" }}
           >
             <Text className="font-display-bold text-[17px]" style={{ color: colors.accent }}>
-              ${perPlayerCost(game.cost, game.maxPlayers)} <Text className="font-body-semibold text-[13px]" style={{ color: colors.textTertiary }}>/ player</Text>
+              ${game.cost} <Text className="font-body-semibold text-[13px]" style={{ color: colors.textTertiary }}>/ player</Text>
             </Text>
             {showJoinAction ? (
               <Pressable

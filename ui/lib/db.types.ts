@@ -187,9 +187,11 @@ export type Database = {
       }
       games: {
         Row: {
-          cost_total_cents: number
+          cost_per_player_cents: number
           court_label: string | null
+          courts_booked: number
           created_at: string
+          duration_hours: number
           ends_at: string
           id: string
           max_players: number
@@ -203,9 +205,11 @@ export type Database = {
           verification_status: string
         }
         Insert: {
-          cost_total_cents?: number
+          cost_per_player_cents?: number
           court_label?: string | null
+          courts_booked?: number
           created_at?: string
+          duration_hours?: number
           ends_at: string
           id?: string
           max_players: number
@@ -219,9 +223,11 @@ export type Database = {
           verification_status?: string
         }
         Update: {
-          cost_total_cents?: number
+          cost_per_player_cents?: number
           court_label?: string | null
+          courts_booked?: number
           created_at?: string
+          duration_hours?: number
           ends_at?: string
           id?: string
           max_players?: number
@@ -606,9 +612,11 @@ export type Database = {
       games_public: {
         Row: {
           approved_count: number | null
-          cost_total_cents: number | null
+          cost_per_player_cents: number | null
           court_label: string | null
+          courts_booked: number | null
           created_at: string | null
+          duration_hours: number | null
           ends_at: string | null
           id: string | null
           max_players: number | null
@@ -695,9 +703,11 @@ export type Database = {
         }
         Returns: {
           approved_count: number
-          cost_total_cents: number
+          cost_per_player_cents: number
           court_label: string
+          courts_booked: number
           distance_m: number
+          duration_hours: number
           ends_at: string
           id: string
           max_players: number

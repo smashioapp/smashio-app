@@ -54,7 +54,7 @@ jobs:
           echo "dist-cert.p12: $(wc -c < dist-cert.p12) bytes"
           echo "profile.mobileprovision: $(wc -c < profile.mobileprovision) bytes"
 
-          curl -sSL -o AppleWWDRCAG3.cer https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer
+          curl -sSL --connect-timeout 10 --max-time 30 --retry 3 -o AppleWWDRCAG3.cer https://www.apple.com/certificateauthority/AppleWWDRCAG3.cer
 
           security create-keychain -p "$KEYCHAIN_PASSWORD" ci-build.keychain
           security set-keychain-settings -lut 21600 ci-build.keychain

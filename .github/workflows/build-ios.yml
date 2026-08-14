@@ -2,13 +2,6 @@ name: Build iOS
 
 on:
   workflow_dispatch:
-    inputs:
-      profile:
-        description: "eas.json build profile"
-        required: true
-        default: preview
-        type: choice
-        options: [development, preview, production]
 
 jobs:
   build:
@@ -17,7 +10,11 @@ jobs:
       run:
         working-directory: ui
     env:
-      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+      EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
+      EXPO_PUBLIC_SENTRY_DSN: ${{ secrets.EXPO_PUBLIC_SENTRY_DSN }}
+      KEYCHAIN_PASSWORD: temporary-ci-keychain-password
     steps:
       - uses: actions/checkout@v4
 
@@ -30,36 +27,76 @@ jobs:
       - name: Install deps
         run: npm ci
 
-      - name: Install EAS CLI
-        run: npm install -g eas-cli
+      - name: Prebuild native ios project
+        run: npx expo prebuild --platform ios --no-install
 
-      - name: Decode signing credentials + write credentials.json
+      - name: Install CocoaPods
+        working-directory: ui/ios
+        run: pod install
+
+      - name: Import signing cert + provisioning profile
         run: |
           echo "${{ secrets.IOS_DIST_CERT_BASE64 }}" | base64 -d > dist-cert.p12
           echo "${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}" | base64 -d > profile.mobileprovision
-          cat > credentials.json <<EOF
-          {
-            "ios": {
-              "provisioningProfilePath": "profile.mobileprovision",
-              "distributionCertificate": {
-                "path": "dist-cert.p12",
-                "password": "${{ secrets.IOS_CERT_PASSWORD }}"
-              }
-            }
-          }
-          EOF
 
-      - name: Local EAS build (no cloud quota)
-        env:
-          EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
+          security create-keychain -p "$KEYCHAIN_PASSWORD" ci-build.keychain
+          security set-keychain-settings -lut 21600 ci-build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" ci-build.keychain
+          security import dist-cert.p12 -k ci-build.keychain -P "${{ secrets.IOS_CERT_PASSWORD }}" -T /usr/bin/codesign
+          security list-keychain -d user -s ci-build.keychain login.keychain
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" ci-build.keychain
+
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+
+          PROFILE_UUID=$(security cms -D -i profile.mobileprovision | /usr/libexec/PlistBuddy -c "Print UUID" /dev/stdin)
+          echo "PROFILE_UUID=$PROFILE_UUID" >> "$GITHUB_ENV"
+
+      - name: Archive
+        working-directory: ui/ios
         run: |
-          eas build --local \
-            --platform ios \
-            --profile ${{ github.event.inputs.profile }} \
-            --non-interactive \
-            --output ./build-ios.ipa
+          WORKSPACE=$(ls *.xcworkspace | head -1)
+          SCHEME=$(xcodebuild -workspace "$WORKSPACE" -list -json | node -e "console.log(JSON.parse(require('fs').readFileSync(0)).workspace.schemes[0])")
+          echo "SCHEME=$SCHEME" >> "$GITHUB_ENV"
+          xcodebuild archive \
+            -workspace "$WORKSPACE" \
+            -scheme "$SCHEME" \
+            -configuration Release \
+            -archivePath build/App.xcarchive \
+            -destination "generic/platform=iOS" \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            DEVELOPMENT_TEAM="Y2DMN58XW2" \
+            PROVISIONING_PROFILE="$PROFILE_UUID"
+
+      - name: Export ipa
+        working-directory: ui/ios
+        run: |
+          cat > exportOptions.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store</string>
+            <key>teamID</key>
+            <string>Y2DMN58XW2</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>com.smashio.app</key>
+              <string>$PROFILE_UUID</string>
+            </dict>
+          </dict>
+          </plist>
+          EOF
+          xcodebuild -exportArchive \
+            -archivePath build/App.xcarchive \
+            -exportPath build/export \
+            -exportOptionsPlist exportOptions.plist
 
       - uses: actions/upload-artifact@v4
         with:
-          name: ios-build
-          path: ui/build-ios.ipa
+          name: ios-ipa
+          path: ui/ios/build/export/*.ipa

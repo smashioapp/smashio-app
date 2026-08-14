@@ -3,12 +3,12 @@ name: Build Android
 on:
   workflow_dispatch:
     inputs:
-      profile:
-        description: "eas.json build profile"
+      buildType:
+        description: "apk (sideload/internal) or aab (Play Store)"
         required: true
-        default: preview
+        default: apk
         type: choice
-        options: [development, preview, production]
+        options: [apk, aab]
 
 jobs:
   build:
@@ -17,7 +17,10 @@ jobs:
       run:
         working-directory: ui
     env:
-      EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+      EXPO_PUBLIC_SUPABASE_URL: ${{ secrets.EXPO_PUBLIC_SUPABASE_URL }}
+      EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
+      EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
+      EXPO_PUBLIC_SENTRY_DSN: ${{ secrets.EXPO_PUBLIC_SENTRY_DSN }}
     steps:
       - uses: actions/checkout@v4
 
@@ -35,36 +38,31 @@ jobs:
       - name: Install deps
         run: npm ci
 
-      - name: Install EAS CLI
-        run: npm install -g eas-cli
+      - name: Prebuild native android project
+        run: npx expo prebuild --platform android --no-install
 
-      - name: Decode keystore + write credentials.json
-        run: |
-          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android-release.jks
-          cat > credentials.json <<EOF
-          {
-            "android": {
-              "keystore": {
-                "keystorePath": "android-release.jks",
-                "keystorePassword": "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}",
-                "keyAlias": "${{ secrets.ANDROID_KEY_ALIAS }}",
-                "keyPassword": "${{ secrets.ANDROID_KEY_PASSWORD }}"
-              }
-            }
-          }
-          EOF
+      - name: Decode keystore
+        run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/release.keystore
 
-      - name: Local EAS build (no cloud quota)
+      - name: Build release
+        working-directory: ui/android
         env:
-          EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
+          MYAPP_UPLOAD_STORE_FILE: release.keystore
+          MYAPP_UPLOAD_STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          MYAPP_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          MYAPP_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          eas build --local \
-            --platform android \
-            --profile ${{ github.event.inputs.profile }} \
-            --non-interactive \
-            --output ./build-android.aab
+          chmod +x gradlew
+          if [ "${{ github.event.inputs.buildType }}" = "aab" ]; then
+            ./gradlew bundleRelease
+          else
+            ./gradlew assembleRelease
+          fi
 
       - uses: actions/upload-artifact@v4
         with:
-          name: android-build
-          path: ui/build-android.aab
+          name: android-${{ github.event.inputs.buildType }}
+          path: |
+            ui/android/app/build/outputs/bundle/release/*.aab
+            ui/android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: ignore

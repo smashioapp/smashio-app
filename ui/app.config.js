@@ -84,6 +84,7 @@ module.exports = {
           calendarPermission: "Smashio adds your games to your calendar when you ask it to.",
         },
       ],
+      "./plugins/withAndroidReleaseSigning",
     ],
   },
 };

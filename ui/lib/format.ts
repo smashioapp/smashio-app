@@ -84,3 +84,19 @@ export function computeWeekStreak(startsAtIsoDates: string[], now: Date = new Da
   }
   return streak;
 }
+
+// Strava-style calendar heatmap, shrunk (profile-plan.md P3) — grid[week][day], oldest week
+// first, Monday-start rows to match computeWeekStreak's own week boundary.
+export function buildWeekHeatmap(dates: string[], weeks: number = 12, now: Date = new Date()): number[][] {
+  const grid: number[][] = Array.from({ length: weeks }, () => Array(7).fill(0));
+  const weekMs = 7 * DAY_MS;
+  const startMonday = mondayOfWeek(now) - (weeks - 1) * weekMs;
+  for (const iso of dates) {
+    const d = new Date(iso);
+    const weekIdx = Math.round((mondayOfWeek(d) - startMonday) / weekMs);
+    if (weekIdx < 0 || weekIdx >= weeks) continue;
+    const dayIdx = (d.getDay() + 6) % 7;
+    grid[weekIdx][dayIdx]++;
+  }
+  return grid;
+}

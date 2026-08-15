@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { AccessibilityInfo, Image, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
+import { savePendingReferral } from "../../lib/referral";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
   Easing,
@@ -33,6 +34,11 @@ export default function Splash() {
   };
   const { height: h } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const { ref } = useLocalSearchParams<{ ref?: string }>();
+
+  useEffect(() => {
+    if (typeof ref === "string" && ref) savePendingReferral(ref);
+  }, [ref]);
 
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
 

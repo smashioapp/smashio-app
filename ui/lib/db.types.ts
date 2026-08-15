@@ -409,6 +409,7 @@ export type Database = {
           home_suburb: string | null
           id: string
           photo_path: string | null
+          referred_by: string | null
           reliability_score: number
         }
         Insert: {
@@ -419,6 +420,7 @@ export type Database = {
           home_suburb?: string | null
           id: string
           photo_path?: string | null
+          referred_by?: string | null
           reliability_score?: number
         }
         Update: {
@@ -429,9 +431,18 @@ export type Database = {
           home_suburb?: string | null
           id?: string
           photo_path?: string | null
+          referred_by?: string | null
           reliability_score?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "profiles_referred_by_fkey"
+            columns: ["referred_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       push_tokens: {
         Row: {
@@ -459,6 +470,59 @@ export type Database = {
           {
             foreignKeyName: "push_tokens_profile_id_fkey"
             columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rating_tags: {
+        Row: {
+          created_at: string
+          game_id: string
+          ratee_id: string
+          rater_id: string
+          tag: string
+        }
+        Insert: {
+          created_at?: string
+          game_id: string
+          ratee_id: string
+          rater_id: string
+          tag: string
+        }
+        Update: {
+          created_at?: string
+          game_id?: string
+          ratee_id?: string
+          rater_id?: string
+          tag?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rating_tags_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rating_tags_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rating_tags_ratee_id_fkey"
+            columns: ["ratee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rating_tags_rater_id_fkey"
+            columns: ["rater_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -730,6 +794,25 @@ export type Database = {
         }[]
       }
       notify_push: { Args: { p_payload: Json }; Returns: undefined }
+      player_card: {
+        Args: { target_id: string }
+        Returns: {
+          badge_counts: Json
+          display_name: string
+          games_hosted: number
+          games_played: number
+          games_together: number
+          home_suburb: string
+          id: string
+          member_since: string
+          photo_path: string
+          rating_avg: number
+          rating_count: number
+          reliability_band: string
+          reliability_score: number
+          sports: Json
+        }[]
+      }
       push_game_summary: {
         Args: { p_game_id: string }
         Returns: {
@@ -750,6 +833,7 @@ export type Database = {
         Args: { p_game_id: string; p_profile_id: string }
         Returns: undefined
       }
+      set_home_point: { Args: { p_lat: number; p_lng: number }; Returns: undefined }
       upsert_places_venue: {
         Args: {
           p_address: string

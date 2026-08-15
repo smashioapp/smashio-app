@@ -87,6 +87,7 @@ module.exports = {
         },
       ],
       "./plugins/withAndroidReleaseSigning",
+      "expo-sharing",
     ],
   },
 };

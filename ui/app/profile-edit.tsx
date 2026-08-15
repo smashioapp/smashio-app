@@ -2,35 +2,48 @@ import { useState } from "react";
 import { View, Text, TextInput, Pressable, Image, Alert, ScrollView } from "react-native";
 import { router } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
+import { useEffect } from "react";
 import { colors, TIERS, TierId } from "../lib/theme";
 import { Button } from "../components/Button";
 import { Screen } from "../components/Screen";
 import { BackButton } from "../components/BackButton";
 import { useSession } from "../lib/session";
-import { useProfile, useProfileSports, useUpdateProfile, useUpsertProfileSport, useUploadAvatar } from "../lib/queries/profile";
+import { useProfile, useProfileSports, useUpdateProfile, useUpsertProfileSport, useUploadAvatar, useSetHomePoint } from "../lib/queries/profile";
 import { useSports, useSkillTiers } from "../lib/queries/sports";
+import { SPORT_SLUG } from "../lib/queries/games";
 import { supabase } from "../lib/supabase";
-
-const SPORT_SLUG = "badminton";
+import { newSessionToken, searchPlaces, getPlaceDetails } from "../lib/places";
 
 export default function ProfileEdit() {
   const { session } = useSession();
   const userId = session?.user.id;
   const { data: profile } = useProfile(userId);
-  const { data: profileSports } = useProfileSports(userId);
+  const { data: profileSports, isSuccess: sportsLoaded } = useProfileSports(userId);
   const { data: sports } = useSports();
   const { data: tiers } = useSkillTiers(SPORT_SLUG);
 
   const [name, setName] = useState(profile?.display_name ?? "");
   const [suburb, setSuburb] = useState(profile?.home_suburb ?? "");
-  const [skill, setSkill] = useState<TierId>((profileSports?.[0]?.skill_tiers?.label as TierId) ?? "Intermediate");
+  const [skill, setSkill] = useState<TierId>("Intermediate");
   const [localPhotoUri, setLocalPhotoUri] = useState<string | null>(null);
   const [nameTouched, setNameTouched] = useState(false);
   const [suburbTouched, setSuburbTouched] = useState(false);
+  const [skillTouched, setSkillTouched] = useState(false);
+
+  // Sync from the query once it resolves instead of seeding the initial state from it — the
+  // profile_sports fetch lands after first render, and without this, saving before it arrives
+  // silently wrote every player back to the default "Intermediate" (profile-plan.md P0).
+  useEffect(() => {
+    if (sportsLoaded && !skillTouched) {
+      const current = profileSports?.[0]?.skill_tiers?.label as TierId | undefined;
+      if (current) setSkill(current);
+    }
+  }, [sportsLoaded, profileSports, skillTouched]);
 
   const updateProfile = useUpdateProfile();
   const uploadAvatar = useUploadAvatar();
   const upsertProfileSport = useUpsertProfileSport();
+  const setHomePoint = useSetHomePoint();
 
   const pickPhoto = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -47,8 +60,21 @@ export default function ProfileEdit() {
     const tierRow = tiers?.find((t) => t.label === skill);
     try {
       if (localPhotoUri) await uploadAvatar.mutateAsync(localPhotoUri);
-      await updateProfile.mutateAsync({ display_name: name.trim(), home_suburb: suburb.trim() || null });
+      const trimmedSuburb = suburb.trim();
+      await updateProfile.mutateAsync({ display_name: name.trim(), home_suburb: trimmedSuburb || null });
       if (badminton && tierRow) await upsertProfileSport.mutateAsync({ sportId: badminton.id, skillTierId: tierRow.id });
+      // Best-effort: a distance fallback for "near me" is a nice-to-have, not worth blocking
+      // save over a flaky geocode (profile-plan.md P5).
+      if (trimmedSuburb && suburbTouched) {
+        try {
+          const token = newSessionToken();
+          const [first] = await searchPlaces(trimmedSuburb, token);
+          if (first) {
+            const details = await getPlaceDetails(first.placeId, token);
+            await setHomePoint.mutateAsync({ lat: details.lat, lng: details.lng });
+          }
+        } catch {}
+      }
     } catch (e) {
       Alert.alert("Couldn't save profile", e instanceof Error ? e.message : "Try again.");
       return;
@@ -124,7 +150,10 @@ export default function ProfileEdit() {
           return (
             <Pressable
               key={t.id}
-              onPress={() => setSkill(t.id)}
+              onPress={() => {
+                setSkillTouched(true);
+                setSkill(t.id);
+              }}
               className="flex-row items-center rounded-2xl px-3.5 py-3.5 border-[1.5px]"
               style={{ backgroundColor: active ? colors.surfaceAlt : colors.surface, borderColor: active ? t.color : "rgba(255,255,255,0.07)" }}
             >
@@ -137,7 +166,7 @@ export default function ProfileEdit() {
         })}
 
         <View className="mt-2">
-          <Button label="Save changes" loading={saving} disabled={!displayName.trim()} onPress={save} />
+          <Button label="Save changes" loading={saving} disabled={!displayName.trim() || !sportsLoaded} onPress={save} />
         </View>
       </ScrollView>
     </Screen>

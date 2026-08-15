@@ -53,12 +53,14 @@ export default function ChatThread() {
           renderItem={({ item: m }) => (
             <View className={`flex-row gap-2 items-end ${m.me ? "flex-row-reverse" : ""}`}>
               {!m.me && (
-                <View
-                  className="w-7 h-7 rounded-full items-center justify-center"
-                  style={{ backgroundColor: m.color ?? colors.textSecondary }}
-                >
-                  <Text style={{ color: colors.base, fontSize: 11, fontWeight: "800" }}>{initial(m.from)}</Text>
-                </View>
+                <Pressable onPress={() => router.push(`/player/${m.senderId}`)}>
+                  <View
+                    className="w-7 h-7 rounded-full items-center justify-center"
+                    style={{ backgroundColor: m.color ?? colors.textSecondary }}
+                  >
+                    <Text style={{ color: colors.base, fontSize: 11, fontWeight: "800" }}>{initial(m.from)}</Text>
+                  </View>
+                </Pressable>
               )}
               <View style={{ maxWidth: 220, alignItems: m.me ? "flex-end" : "flex-start" }}>
                 {!m.me && (

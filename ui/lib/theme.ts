@@ -92,8 +92,20 @@ export function nextGamesPlayedTier(gamesPlayed: number): { id: PlayerTierId; co
   return idx > 0 ? GAMES_PLAYED_TIERS[idx - 1] : null;
 }
 
+// Matches the actual nightly formula (recompute_reliability_scores): -5 per late leave
+// (approved, then left after the game had already started), floored at 0, recalculated every
+// night — it's not a slow climb, a clean night resets you straight back to 100. Keep this copy
+// and the SQL formula in sync; profile-plan.md P2 flagged them as disagreeing before this fix.
 export const RELIABILITY_EXPLAINER =
-  "Reliability tracks how often you show up for games you've joined or approved into. It starts at 100 and drops for no-shows or late cancellations, and recovers slowly the more games you complete without one. It's visible to hosts reviewing join requests.";
+  "Reliability starts at 100 and drops 5 points for each game you leave after it's already started. Recalculated nightly — a clean run of games with no late leaves puts you straight back to 100. It's visible to hosts reviewing join requests.";
+
+// The gauge's "ledger" line (profile-plan.md P2: replace the mystery number with the actual
+// count driving it) — e.g. "100 · no late cancellations in 14 games".
+export function reliabilityLedgerLabel(lateLeaveCount: number, gamesPlayed: number): string {
+  if (gamesPlayed === 0) return "No games completed yet";
+  if (lateLeaveCount === 0) return `No late cancellations in ${gamesPlayed} game${gamesPlayed === 1 ? "" : "s"}`;
+  return `${lateLeaveCount} late cancellation${lateLeaveCount === 1 ? "" : "s"} in ${gamesPlayed} game${gamesPlayed === 1 ? "" : "s"}`;
+}
 
 export function badgeTone(state: "verified" | "pending" | "cancelled") {
   const map = {

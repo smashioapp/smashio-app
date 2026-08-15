@@ -18,8 +18,10 @@ export async function shareGame(game: Game) {
   } catch {}
 }
 
-export async function shareReferral() {
-  const url = Linking.createURL("onboarding");
+// Carries the sharer's id so the link can be credited (profile-plan.md P5) — captured by
+// onboarding/index.tsx and attributed on next sign-in (lib/referral.ts).
+export async function shareReferral(referrerId: string) {
+  const url = Linking.createURL("onboarding", { queryParams: { ref: referrerId } });
   const text = "Come play badminton with me on Smashio — join here:";
   try {
     await Share.share(

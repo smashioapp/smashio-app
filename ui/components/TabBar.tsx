@@ -140,7 +140,9 @@ export function TabBar({ state, navigation }: TabBarProps) {
   const { data: pendingRequests = 0 } = useMyPendingRequestsCount();
   const hasPendingRequests = pendingRequests > 0;
 
-  const dotFor = (name: string) => (name === "my-games" || name === "profile" ? hasPendingRequests : false);
+  // My Games owns this dot — Profile pointed at pending requests but rendered nothing about
+  // them, a dead end for anyone who tapped it (profile-plan.md P0).
+  const dotFor = (name: string) => (name === "my-games" ? hasPendingRequests : false);
   const badgeFor = (name: string) => (name === "chat" ? unreadChatCount : undefined);
 
   const barStyle = useAnimatedStyle(() => ({

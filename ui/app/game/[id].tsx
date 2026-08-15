@@ -23,6 +23,7 @@ import { Button } from "../../components/Button";
 import { HoldButton } from "../../components/HoldButton";
 import { CountdownChip } from "../../components/CountdownChip";
 import { SwipeToDecide } from "../../components/SwipeToDecide";
+import { VettingStrip } from "../../components/VettingStrip";
 import { haptics } from "../../lib/haptics";
 import { shareGame } from "../../lib/share";
 import { GameDetailSkeleton } from "../../components/Skeleton";
@@ -313,8 +314,9 @@ function RosterAvatar({
 
   return (
     <Pressable
+      onPress={() => router.push(`/player/${player.id}`)}
       onLongPress={confirmRemove}
-      disabled={!canRemove || removePlayer.isPending}
+      disabled={removePlayer.isPending}
       className="items-center gap-1.5"
       style={{ width: 52, opacity: removePlayer.isPending ? 0.4 : 1 }}
     >
@@ -375,12 +377,17 @@ function JoinRequests({ gameId, full }: { gameId: string; full: boolean }) {
               className="flex-row items-center gap-3 rounded-xl p-3 border"
               style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}
             >
-              <View className="w-9 h-9 rounded-full items-center justify-center" style={{ backgroundColor: r.color }}>
-                <Text style={{ color: colors.base, fontSize: 12, fontWeight: "800" }}>{initial(r.name)}</Text>
-              </View>
-              <Text className="flex-1 font-body-semibold text-[14.5px]" style={{ color: colors.text }}>
-                {r.name}
-              </Text>
+              <Pressable onPress={() => router.push(`/player/${r.profileId}`)}>
+                <View className="w-9 h-9 rounded-full items-center justify-center" style={{ backgroundColor: r.color }}>
+                  <Text style={{ color: colors.base, fontSize: 12, fontWeight: "800" }}>{initial(r.name)}</Text>
+                </View>
+              </Pressable>
+              <Pressable className="flex-1" onPress={() => router.push(`/player/${r.profileId}`)}>
+                <Text className="font-body-semibold text-[14.5px]" style={{ color: colors.text }}>
+                  {r.name}
+                </Text>
+                <VettingStrip profileId={r.profileId} />
+              </Pressable>
               <Pressable
                 onPress={() => {
                   if (full) {

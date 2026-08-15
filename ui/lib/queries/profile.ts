@@ -3,6 +3,7 @@ import { File } from "expo-file-system";
 import { supabase } from "../supabase";
 import type { TablesUpdate } from "../db.types";
 import { computeWeekStreak } from "../format";
+import { avatarColor } from "../theme";
 
 async function currentUserId() {
   const {
@@ -24,11 +25,14 @@ export function useProfile(userId: string | undefined) {
   });
 }
 
+// "Games played" only counts completed games where you were an approved roster member —
+// hosting alone (never joining your own roster) is a separate honest number, not folded in
+// (profile-plan.md P0: two true counts beat one wrong one).
 export function useProfileStats(profileId: string | undefined) {
   return useQuery({
     queryKey: ["profile_stats", profileId],
     queryFn: async () => {
-      const [organized, joined] = await Promise.all([
+      const [hosted, played] = await Promise.all([
         supabase
           .from("games")
           .select("id", { count: "exact", head: true })
@@ -41,9 +45,9 @@ export function useProfileStats(profileId: string | undefined) {
           .eq("status", "approved")
           .eq("games.status", "completed"),
       ]);
-      if (organized.error) throw organized.error;
-      if (joined.error) throw joined.error;
-      return { gamesPlayed: (organized.count ?? 0) + (joined.count ?? 0) };
+      if (hosted.error) throw hosted.error;
+      if (played.error) throw played.error;
+      return { gamesPlayed: played.count ?? 0, gamesHosted: hosted.count ?? 0 };
     },
     enabled: !!profileId,
   });
@@ -89,6 +93,170 @@ export function useProfileSports(profileId: string | undefined) {
   });
 }
 
+export type PlayerCard = {
+  id: string;
+  displayName: string;
+  photoPath: string | null;
+  homeSuburb: string | null;
+  memberSince: string;
+  gamesPlayed: number;
+  gamesHosted: number;
+  reliabilityScore: number;
+  reliabilityBand: string;
+  ratingAvg: number | null;
+  ratingCount: number;
+  gamesTogether: number | null;
+  badgeCounts: Record<string, number>;
+  sports: { sportSlug: string; tierLabel: string; tierOrdinal: number }[];
+};
+
+// The public player card (profile-plan.md P1) — security-definer RPC, not a view, because
+// game_players (joined-game counts, games-together) is only readable to a game's own
+// organizer/members under RLS. One round trip for any profile id, self included.
+export function usePlayerCard(targetId: string | undefined) {
+  return useQuery({
+    queryKey: ["player_card", targetId],
+    queryFn: async (): Promise<PlayerCard> => {
+      const { data, error } = await supabase.rpc("player_card", { target_id: targetId! }).single();
+      if (error) throw error;
+      return {
+        id: data.id,
+        displayName: data.display_name,
+        photoPath: data.photo_path,
+        homeSuburb: data.home_suburb,
+        memberSince: data.member_since,
+        gamesPlayed: data.games_played,
+        gamesHosted: data.games_hosted,
+        reliabilityScore: data.reliability_score,
+        reliabilityBand: data.reliability_band,
+        ratingAvg: data.rating_avg,
+        ratingCount: data.rating_count,
+        gamesTogether: data.games_together,
+        badgeCounts: (data.badge_counts as Record<string, number>) ?? {},
+        sports: ((data.sports as { sport_slug: string; tier_label: string; tier_ordinal: number }[]) ?? []).map((s) => ({
+          sportSlug: s.sport_slug,
+          tierLabel: s.tier_label,
+          tierOrdinal: s.tier_ordinal,
+        })),
+      };
+    },
+    enabled: !!targetId,
+  });
+}
+
+export type ProfileActivity = {
+  thisMonthCount: number;
+  mostPlayedVenue: string | null;
+  mostPlayedWhen: string | null;
+  heatmapDates: string[];
+  distinctVenueCount: number;
+  regulars: { id: string; name: string; color: string; gamesTogether: number }[];
+};
+
+const NIGHT_BUCKETS = [
+  { label: "mornings", from: 0, to: 12 },
+  { label: "afternoons", from: 12, to: 17 },
+  { label: "evenings", from: 17, to: 24 },
+];
+
+// Stat block + regulars + heatmap (profile-plan.md P3) — all derived from game_players/games
+// under existing RLS, no new backend. Regulars requires reading the full roster of every game
+// this profile played in, which RLS allows because the caller is an approved member of each.
+export function useProfileActivity(profileId: string | undefined) {
+  return useQuery({
+    queryKey: ["profile_activity", profileId],
+    queryFn: async (): Promise<ProfileActivity> => {
+      const [organized, joined] = await Promise.all([
+        supabase
+          .from("games")
+          .select("id, starts_at, venue_id, venues(name)")
+          .eq("organizer_id", profileId!)
+          .eq("status", "completed"),
+        supabase
+          .from("game_players")
+          .select("games!inner(id, starts_at, venue_id, status, venues(name))")
+          .eq("profile_id", profileId!)
+          .eq("status", "approved")
+          .eq("games.status", "completed"),
+      ]);
+      if (organized.error) throw organized.error;
+      if (joined.error) throw joined.error;
+
+      type Row = { id: string; starts_at: string; venue_name: string | null };
+      const rows: Row[] = [
+        ...(organized.data ?? []).map((g) => ({ id: g.id, starts_at: g.starts_at, venue_name: (g.venues as { name: string } | null)?.name ?? null })),
+        ...(joined.data ?? []).map((r) => {
+          const g = r.games as unknown as { id: string; starts_at: string; venue_name?: unknown; venues: { name: string } | null };
+          return { id: g.id, starts_at: g.starts_at, venue_name: g.venues?.name ?? null };
+        }),
+      ];
+
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const thisMonthCount = rows.filter((r) => new Date(r.starts_at) >= monthStart).length;
+
+      const venueCounts = new Map<string, number>();
+      const nightCounts = new Map<string, number>();
+      for (const r of rows) {
+        if (r.venue_name) venueCounts.set(r.venue_name, (venueCounts.get(r.venue_name) ?? 0) + 1);
+        const d = new Date(r.starts_at);
+        const day = d.toLocaleDateString("en-AU", { weekday: "long" });
+        const hour = d.getHours();
+        const bucket = NIGHT_BUCKETS.find((b) => hour >= b.from && hour < b.to)?.label ?? "evenings";
+        const key = `${day} ${bucket}`;
+        nightCounts.set(key, (nightCounts.get(key) ?? 0) + 1);
+      }
+      const mostPlayedVenue = [...venueCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+      const mostPlayedWhen = [...nightCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+
+      const heatmapDates = rows.map((r) => r.starts_at);
+
+      let regulars: ProfileActivity["regulars"] = [];
+      const gameIds = rows.map((r) => r.id);
+      if (gameIds.length > 0) {
+        const { data: co, error: coErr } = await supabase
+          .from("game_players")
+          .select("profile_id, profiles(display_name)")
+          .in("game_id", gameIds)
+          .eq("status", "approved")
+          .neq("profile_id", profileId!);
+        if (coErr) throw coErr;
+        const counts = new Map<string, { name: string; n: number }>();
+        for (const row of co ?? []) {
+          const name = (row.profiles as { display_name: string } | null)?.display_name || "Player";
+          const existing = counts.get(row.profile_id);
+          counts.set(row.profile_id, { name, n: (existing?.n ?? 0) + 1 });
+        }
+        regulars = [...counts.entries()]
+          .map(([id, v]) => ({ id, name: v.name, color: avatarColor(id), gamesTogether: v.n }))
+          .sort((a, b) => b.gamesTogether - a.gamesTogether)
+          .slice(0, 5);
+      }
+
+      return { thisMonthCount, mostPlayedVenue, mostPlayedWhen, heatmapDates, distinctVenueCount: venueCounts.size, regulars };
+    },
+    enabled: !!profileId,
+  });
+}
+
+// Drives the reliability gauge's ledger line (profile-plan.md P2) — the exact count the
+// nightly cron's formula runs on, not a summary of it.
+export function useLateLeaveCount(profileId: string | undefined) {
+  return useQuery({
+    queryKey: ["profile_late_leaves", profileId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("game_players")
+        .select("decided_at, games!inner(starts_at)")
+        .eq("profile_id", profileId!)
+        .eq("status", "left");
+      if (error) throw error;
+      return (data ?? []).filter((r) => r.decided_at && r.decided_at > (r.games as unknown as { starts_at: string }).starts_at).length;
+    },
+    enabled: !!profileId,
+  });
+}
+
 // Mutations below resolve the current user id at call time via supabase.auth.getUser()
 // instead of trusting a prop — right after signup the session context can lag a render
 // behind the SDK's own in-memory session, which would otherwise send id=eq.undefined.
@@ -118,6 +286,19 @@ export function useUpsertProfileSport() {
       return id;
     },
     onSuccess: (id) => queryClient.invalidateQueries({ queryKey: ["profile_sports", id] }),
+  });
+}
+
+// profile-plan.md P5 — unlocks a distance fallback when location permission is denied, and
+// a "games near home" default on Discover, once enough profiles carry a home_point.
+export function useSetHomePoint() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ lat, lng }: { lat: number; lng: number }) => {
+      const { error } = await supabase.rpc("set_home_point", { p_lat: lat, p_lng: lng });
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["profile"] }),
   });
 }
 

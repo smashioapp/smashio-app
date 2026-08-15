@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Pressable, View, Text, Alert, LayoutChangeEvent } from "react-native";
+import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, { FadeInUp, useSharedValue, useAnimatedStyle, withSequence, withSpring } from "react-native-reanimated";
 import { colors, gradients, reliabilityLabel } from "../lib/theme";
@@ -125,7 +126,13 @@ export function GameCard({
           )}
 
           {game.organizerName && (
-            <View className="flex-row items-center gap-2">
+            <Pressable
+              className="flex-row items-center gap-2"
+              onPress={(e) => {
+                e.stopPropagation();
+                router.push(`/player/${game.organizerId}`);
+              }}
+            >
               <Avatar name={game.organizerName} color={colors.surfaceAlt} size={24} photoUri={organizerPhotoUrl} />
               <Text className="text-[13px] font-body-semibold flex-1" style={{ color: colors.textSecondary }} numberOfLines={1}>
                 {game.organizerName}
@@ -136,7 +143,7 @@ export function GameCard({
                   <Text style={{ color: colors.textMuted }}> · {reliabilityLabel(game.organizerReliabilityScore)}</Text>
                 )}
               </Text>
-            </View>
+            </Pressable>
           )}
 
           <View className="gap-1.5 mt-0.5">

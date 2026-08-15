@@ -15,7 +15,7 @@ function formatClock(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
-export type ChatMessage = { from: string; me: boolean; color?: string; text: string; time: string };
+export type ChatMessage = { from: string; senderId: string; me: boolean; color?: string; text: string; time: string };
 
 export function useMessages(gameId: string) {
   const queryClient = useQueryClient();
@@ -41,6 +41,7 @@ export function useMessages(gameId: string) {
 
       return (rows ?? []).map((r) => ({
         from: r.sender_id === uid ? "You" : names[r.sender_id] || "Player",
+        senderId: r.sender_id,
         me: r.sender_id === uid,
         color: r.sender_id === uid ? undefined : avatarColor(r.sender_id),
         text: r.body,

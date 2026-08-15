@@ -5,7 +5,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import Animated, { useAnimatedStyle, useSharedValue, withDelay, withSequence, withSpring, withTiming } from "react-native-reanimated";
 import { colors, gradients, initial, reliabilityLabel, gamesPlayedTier } from "../../lib/theme";
 import { usePastGameDetail } from "../../lib/queries/games";
-import { useSubmitRatings } from "../../lib/queries/ratings";
+import { useSubmitRatings, useSubmitRatingTags, RATING_TAGS } from "../../lib/queries/ratings";
 import { useSession } from "../../lib/session";
 import { useProfile, useProfileStats, useProfileStreak } from "../../lib/queries/profile";
 import { useAppStore } from "../../lib/store";
@@ -129,6 +129,17 @@ export default function PostGame() {
   const rate = (playerId: string, n: number) => setRatings((r) => ({ ...r, [playerId]: n }));
   const submitRatings = useSubmitRatings();
 
+  const [tags, setTags] = useState<Record<string, string[]>>({});
+  const toggleTag = (playerId: string, tagId: string) => {
+    haptics.tick();
+    setTags((t) => {
+      const current = t[playerId] ?? [];
+      const next = current.includes(tagId) ? current.filter((x) => x !== tagId) : [...current, tagId];
+      return { ...t, [playerId]: next };
+    });
+  };
+  const submitRatingTags = useSubmitRatingTags();
+
   const { session } = useSession();
   const userId = session?.user.id;
   const { data: profile } = useProfile(userId);
@@ -167,6 +178,7 @@ export default function PostGame() {
   const submit = () => {
     haptics.success();
     submitRatings.mutate({ gameId: id ?? "", stars: ratings });
+    if (Object.values(tags).some((t) => t.length > 0)) submitRatingTags.mutate({ gameId: id ?? "", tags });
     setRevealing(true);
   };
 
@@ -255,18 +267,43 @@ export default function PostGame() {
           </Text>
 
           {game.players.map((p) => (
-            <View
-              key={p.id}
-              className="flex-row items-center gap-3 py-3 border-b"
-              style={{ borderColor: "rgba(255,255,255,0.06)" }}
-            >
-              <View className="w-10 h-10 rounded-full items-center justify-center" style={{ backgroundColor: p.color }}>
-                <Text style={{ color: colors.base, fontWeight: "800" }}>{initial(p.name)}</Text>
+            <View key={p.id} className="py-3 border-b gap-2.5" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+              <View className="flex-row items-center gap-3">
+                <Pressable
+                  className="flex-row items-center gap-3 flex-1"
+                  onPress={() => router.push(`/player/${p.id}`)}
+                >
+                  <View className="w-10 h-10 rounded-full items-center justify-center" style={{ backgroundColor: p.color }}>
+                    <Text style={{ color: colors.base, fontWeight: "800" }}>{initial(p.name)}</Text>
+                  </View>
+                  <Text className="flex-1 font-body-bold text-[15.5px]" style={{ color: colors.text }}>
+                    {p.name}
+                  </Text>
+                </Pressable>
+                <StarRow value={ratings[p.id] ?? 0} onChange={(n) => rate(p.id, n)} />
               </View>
-              <Text className="flex-1 font-body-bold text-[15.5px]" style={{ color: colors.text }}>
-                {p.name}
-              </Text>
-              <StarRow value={ratings[p.id] ?? 0} onChange={(n) => rate(p.id, n)} />
+              {(ratings[p.id] ?? 0) > 0 && (
+                <View className="flex-row flex-wrap gap-1.5 pl-[52px]">
+                  {RATING_TAGS.map((t) => {
+                    const active = (tags[p.id] ?? []).includes(t.id);
+                    return (
+                      <Pressable
+                        key={t.id}
+                        onPress={() => toggleTag(p.id, t.id)}
+                        className="rounded-pill px-2.5 py-1 border"
+                        style={{
+                          backgroundColor: active ? "rgba(214,255,63,0.14)" : colors.surface,
+                          borderColor: active ? colors.accent : colors.cardBorder,
+                        }}
+                      >
+                        <Text className="font-body-bold text-[11.5px]" style={{ color: active ? colors.accent : colors.textTertiary }}>
+                          {t.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              )}
             </View>
           ))}
 

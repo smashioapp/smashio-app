@@ -21,10 +21,6 @@ jobs:
       # upload phase fails the archive. Crash reports stay unsymbolicated until
       # those secrets exist; drop this once they do.
       SENTRY_DISABLE_AUTO_UPLOAD: "true"
-      # Offset past the build numbers the old EAS pipeline already burned in
-      # App Store Connect (it reached 17); Apple requires each upload to be
-      # strictly higher than the last.
-      BUILD_NUMBER: ${{ github.run_number + 1000 }}
       KEYCHAIN_PASSWORD: temporary-ci-keychain-password
       IOS_DIST_CERT_BASE64: ${{ secrets.IOS_DIST_CERT_BASE64 }}
       IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
@@ -34,6 +30,13 @@ jobs:
       ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
     steps:
       - uses: actions/checkout@v4
+
+      # Offset past the build numbers the old EAS pipeline already burned in
+      # App Store Connect (it reached 17); Apple requires each upload to be
+      # strictly higher than the last. Computed in shell because GitHub
+      # Actions expressions have no arithmetic operators.
+      - name: Compute build number
+        run: echo "BUILD_NUMBER=$((GITHUB_RUN_NUMBER + 1000))" >> "$GITHUB_ENV"
 
       - uses: maxim-lobanov/setup-xcode@v1
         with:

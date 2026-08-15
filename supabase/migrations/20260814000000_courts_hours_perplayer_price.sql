@@ -23,9 +23,15 @@ alter table public.games
   drop constraint games_cost_total_cents_check,
   add constraint games_cost_per_player_cents_check check (cost_per_player_cents >= 0 and cost_per_player_cents <= duration_hours * 2000);
 
--- View + RPC both baked in the old total-cost columns; recreate with the renamed/new columns,
--- appended at the end per this migration history's "CREATE OR REPLACE VIEW only appends" convention.
-create or replace view public.games_public
+-- View + RPC both baked in the old total-cost columns; recreate with the renamed/new columns.
+-- CREATE OR REPLACE can't rename an existing output column (the position held
+-- "cost_total_cents" before the ALTER above), so this drops and recreates instead of the usual
+-- "CREATE OR REPLACE VIEW only appends" convention — no other view depends on games_public, only
+-- SQL-language functions (nearby_games and friends), which aren't hard-dependency-tracked and
+-- get dropped/recreated further down this same file anyway.
+drop view if exists public.games_public;
+
+create view public.games_public
 with (security_invoker = true) as
 select
   g.id,

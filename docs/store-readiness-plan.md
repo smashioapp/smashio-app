@@ -6,11 +6,24 @@ Fixed in passing: missing `expo-asset` peer dep (required by `expo-audio` — ap
 
 ## Blockers — must fix before submitting
 
-- [ ] **No Android submit config.** [eas.json](../ui/eas.json) has `submit.production.ios` only. Add `submit.production.android` with a `serviceAccountKeyPath` (Play Console service account JSON) or `eas submit -p android` has nothing to work with.
+- [ ] **No Android release path.** Play Console isn't set up and the `ANDROID_*` signing secrets don't exist, so [build-android.yml](../.github/workflows/build-android.yml) can't get past the keystore step. Needs a Play Console account, an upload keystore, and those secrets. (The old `eas.json` `submit.production.android` gap is moot now that releases go through GitHub Actions — see [Release pipeline](#release-pipeline--updated-2026-08-15).)
 - [ ] **Google Maps API key unrestricted.** Flagged by the code's own comment in [app.config.js:57-58](../ui/app.config.js). Key `AIzaSyCfkTj1lK6qi96EkN_bVwLyA3WXbu4DUBA` is live and open in Google Cloud Console — restrict by Android package name + SHA-1 and iOS bundle ID before shipping, or it's quota-drain/abuse bait.
-- [ ] **Sentry org/project not configured.** `expo-doctor` and the Gradle build both warn: `Missing config for organization, project`. Falls back to env vars at build time, but crash reporting needs verifying end-to-end before launch — otherwise first prod crashes go unseen.
+- [ ] **Sentry is inert — both halves missing.** Two separate gaps, confirmed 2026-08-15. (1) `EXPO_PUBLIC_SENTRY_DSN` does not exist as a GitHub secret, so release builds ship with an empty DSN and report nothing at runtime. (2) No `SENTRY_ORG` / `SENTRY_PROJECT` / `SENTRY_AUTH_TOKEN`, so `sentry-cli`'s debug-symbol upload failed the whole archive until it was disabled via `SENTRY_DISABLE_AUTO_UPLOAD` in both build workflows. Until both are fixed the `@sentry/react-native` plugin is pure build cost, and any crash that does get reported comes back unsymbolicated. Remove the `SENTRY_DISABLE_AUTO_UPLOAD` env var once the upload secrets exist.
 - [ ] **`SYSTEM_ALERT_WINDOW` permission in the generated manifest.** Present in [android/app/src/main/AndroidManifest.xml](../ui/android/app/src/main/AndroidManifest.xml), almost certainly from expo-dev-client (dev-only overlay bubble). Confirm it drops from the release/production build — if it ships, Play Console requires a special-access-permission justification and may flag the app.
-- [ ] **Bundle ID mismatch across platforms.** iOS `com.smashio.app` vs Android `com.ajayaradhya.smashio` ([app.config.js:13,16](../ui/app.config.js)). Not a hard submission blocker (each store only cares about its own value) but inconsistent branding — fix now, changing an Android `applicationId` post-launch means a new listing.
+- [x] ~~**Bundle ID mismatch across platforms.**~~ Resolved — both platforms now use `com.smashio.app` ([app.config.js](../ui/app.config.js) `ios.bundleIdentifier` and `android.package`). Verified 2026-08-15.
+
+## Release pipeline — updated 2026-08-15
+
+**iOS ships from GitHub Actions, not EAS.** [.github/workflows/build-ios.yml](../.github/workflows/build-ios.yml) prebuilds, archives, exports, and uploads to TestFlight via `fastlane pilot`. First green run uploaded build 1019 and it installed on a real device.
+
+Signing is now self-managed, which changes the recovery story:
+
+- The distribution certificate and its private key are **held locally by the user**, outside this repo. EAS previously held the key on Expo's servers, so when the project moved off EAS that key was unrecoverable and a fresh certificate had to be issued.
+- Losing the local key means regenerating certificate *and* provisioning profile from scratch — a profile embeds a specific certificate, so replacing one forces replacing the other.
+- Certificate revocation is invisible to `security find-identity` (macOS soft-fails revocation checks) but hard-fails in `xcodebuild`. To check a certificate directly: `openssl ocsp -issuer <wwdr>.pem -cert <cert>.pem -url http://ocsp.apple.com/ocsp03-wwdrg305 -header "Host=ocsp.apple.com" -noverify`.
+- Build numbers are offset `+1000` from `GITHUB_RUN_NUMBER` in both build workflows. The EAS era reached build 17, and Apple and Play both require each upload to be strictly higher than the last. The offset is computed in a shell step because GitHub Actions expressions have no arithmetic operators.
+
+Android has no Play Console setup and no `ANDROID_*` secrets, so [build-android.yml](../.github/workflows/build-android.yml) cannot succeed yet — it builds artifacts only and has never run in CI.
 
 ## Fixed 2026-08-12 — account deletion
 

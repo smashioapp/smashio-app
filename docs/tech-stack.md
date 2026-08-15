@@ -4,7 +4,7 @@ Decided 2026-08-07. Supersedes "tech stack: not decided" notes elsewhere — upd
 
 ## Mobile app
 
-- **Framework**: React Native + Expo (managed workflow, EAS Build/Submit for store releases)
+- **Framework**: React Native + Expo (managed workflow; `expo prebuild` + GitHub Actions for store releases — see [store-readiness-plan.md](store-readiness-plan.md#release-pipeline--updated-2026-08-15). EAS Build/Submit was the original plan and is no longer used for iOS)
 - **Language**: TypeScript
 - **Navigation**: Expo Router
 - **Styling/UI**: NativeWind (Tailwind for RN) + Reanimated + Moti for motion — dark theme first-class, CRED-style polish target

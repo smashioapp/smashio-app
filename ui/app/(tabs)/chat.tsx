@@ -63,7 +63,7 @@ export default function ChatList() {
               <View className="flex-1">
                 <View className="flex-row justify-between">
                   <Text className="font-body-bold text-[15.5px]" style={{ color: colors.text }}>
-                    {item.venue}
+                    {item.title}
                   </Text>
                   <Text className="text-[12.5px] font-body-bold" style={{ color: colors.textMuted }}>
                     {item.time}

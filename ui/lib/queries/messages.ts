@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../supabase";
 import { avatarColor } from "../theme";
+import { formatDate } from "../format";
 
 async function requireUserId(): Promise<string> {
   const {
@@ -97,7 +98,7 @@ export function useMarkThreadRead(gameId: string) {
   });
 }
 
-export type ChatThread = { id: string; venue: string; time: string; preview: string; unread: boolean };
+export type ChatThread = { id: string; venue: string; title: string; time: string; preview: string; unread: boolean };
 
 export function useChatThreads() {
   return useQuery({
@@ -117,10 +118,17 @@ export function useChatThreads() {
       const gameIds = [...new Set([...(memberships ?? []).map((m) => m.game_id), ...(hosting ?? []).map((h) => h.id)])];
       if (gameIds.length === 0) return [];
 
-      const { data: games, error: gErr } = await supabase.from("games_public").select("id, venue_name").in("id", gameIds);
+      const { data: games, error: gErr } = await supabase
+        .from("games_public")
+        .select("id, venue_name, starts_at")
+        .in("id", gameIds);
       if (gErr) throw gErr;
       const venueById: Record<string, string> = {};
-      for (const g of games ?? []) venueById[g.id!] = g.venue_name!;
+      const startsAtById: Record<string, string> = {};
+      for (const g of games ?? []) {
+        venueById[g.id!] = g.venue_name!;
+        startsAtById[g.id!] = g.starts_at!;
+      }
 
       const { data: messages, error: msgErr } = await supabase
         .from("messages")
@@ -146,9 +154,11 @@ export function useChatThreads() {
         .map((id) => {
           const last = lastByGame.get(id);
           const readAt = readAtByGame[id];
+          const startsAt = startsAtById[id];
           return {
             id,
             venue: venueById[id],
+            title: startsAt ? `${venueById[id]} · ${formatDate(startsAt)}` : venueById[id],
             time: last ? formatClock(last.created_at) : "",
             preview: last ? `${last.sender_id === uid ? "You: " : ""}${last.body}` : "No messages yet",
             unread: !!last && (!readAt || last.created_at > readAt),

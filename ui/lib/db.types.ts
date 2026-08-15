@@ -89,30 +89,33 @@ export type Database = {
       }
       game_confirmations: {
         Row: {
+          claimed_at: string | null
           created_at: string
-          game_id: string
+          game_id: string | null
           id: string
           parsed: Json | null
           review_status: string
-          storage_path: string
+          storage_path: string | null
           uploaded_by: string
         }
         Insert: {
+          claimed_at?: string | null
           created_at?: string
-          game_id: string
+          game_id?: string | null
           id?: string
           parsed?: Json | null
           review_status?: string
-          storage_path: string
+          storage_path?: string | null
           uploaded_by: string
         }
         Update: {
+          claimed_at?: string | null
           created_at?: string
-          game_id?: string
+          game_id?: string | null
           id?: string
           parsed?: Json | null
           review_status?: string
-          storage_path?: string
+          storage_path?: string | null
           uploaded_by?: string
         }
         Relationships: [
@@ -834,6 +837,7 @@ export type Database = {
         Returns: undefined
       }
       set_home_point: { Args: { p_lat: number; p_lng: number }; Returns: undefined }
+      trigger_purge_confirmations: { Args: { p_type: string }; Returns: undefined }
       upsert_places_venue: {
         Args: {
           p_address: string

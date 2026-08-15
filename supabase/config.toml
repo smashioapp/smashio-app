@@ -63,5 +63,10 @@ verify_jwt = true
 # the user id off the verified token and ignores the body, so it can only delete the caller.
 verify_jwt = true
 
+[functions.purge-confirmations]
+# Not a user-facing endpoint — invoked only by pg_net (pg_cron) and authenticated by a shared
+# secret checked in the function body (PURGE_CONFIRMATIONS_KEY), same pattern as push-dispatch.
+verify_jwt = false
+
 [realtime]
 enabled = true

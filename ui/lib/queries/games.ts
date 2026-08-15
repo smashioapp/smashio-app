@@ -6,6 +6,7 @@ import type { Game, PastGame } from "../mockData";
 import { formatDate, formatDistance, formatTimeRange } from "../format";
 import { durationMs } from "../schedule";
 import { avatarColor } from "../theme";
+import { prepareConfirmationImage } from "../imagePrep";
 
 // Sydney CBD — fallback center when device location is unavailable or denied. Sydney-only for launch.
 export const DEFAULT_LAT = -33.8688;
@@ -458,6 +459,84 @@ export function useUploadConfirmation() {
     // Wizard's own success screen tracks verified state locally and doesn't need a refetch —
     // this only matters for the M3 upload-from-hosting-card path, where the card must pick up
     // the new verification_status without the user navigating away and back.
+    onSuccess: (_data, { gameId }) => invalidateGameLists(queryClient, gameId),
+  });
+}
+
+// Host flow plan (docs/host-flow-plan.md). Every field but is_booking_confirmation/confidence
+// is nullable — a partial parse is the normal case, not an error (see the failure ladder).
+export type ParsedBooking = {
+  is_booking_confirmation: boolean;
+  venue_name: string | null;
+  venue_address: string | null;
+  starts_at_local: string | null;
+  ends_at_local: string | null;
+  courts: number | null;
+  court_labels: string[] | null;
+  total_cost_aud: number | null;
+  booking_reference: string | null;
+  confidence: "high" | "medium" | "low";
+};
+
+// supabase-js wraps a non-2xx Edge Function response in FunctionsHttpError with the raw fetch
+// Response on `.context` — the useful message (rate limit text, Claude failure detail) lives in
+// that response body, not on error.message ("Edge Function returned a non-2xx status code").
+async function readFunctionsErrorMessage(error: unknown, fallback: string): Promise<string> {
+  const context = (error as { context?: unknown } | null)?.context;
+  if (!(context instanceof Response)) return fallback;
+  try {
+    const cloned = context.clone();
+    const text = await cloned.text();
+    try {
+      const json = JSON.parse(text);
+      if (typeof json?.error === "string") return json.error;
+    } catch {
+      // not JSON — a plain-text body like "Too Many Requests" is still useful as-is.
+    }
+    return text || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+// Step 0 of the receipt-first flow: upload straight to drafts/{uid}/ (no game yet) and parse.
+// Client-side downscale to ~1600px long edge before upload — parsing costs real money per call.
+export function useParseConfirmation() {
+  return useMutation({
+    mutationFn: async ({ localUri, width, height }: { localUri: string; width: number; height: number }) => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not signed in.");
+
+      const preparedUri = await prepareConfirmationImage(localUri, width, height);
+      const bytes = await new File(preparedUri).arrayBuffer();
+      const path = `drafts/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+      const { error: uploadError } = await supabase.storage
+        .from("confirmations")
+        .upload(path, bytes, { contentType: "image/jpeg", upsert: true });
+      if (uploadError) throw uploadError;
+
+      const { data, error } = await supabase.functions.invoke("ai-proxy", {
+        body: { mode: "parse", storage_path: path },
+      });
+      if (error) throw new Error(await readFunctionsErrorMessage(error, "Couldn't read that photo."));
+      return data as { confirmation_id: string; parsed: ParsedBooking };
+    },
+  });
+}
+
+// Publish-time: claims a parsed draft onto the game that was just created from it. Server-side
+// only decides whether this flips games.verification_status — the client just reports the result.
+export function useAttachConfirmation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ confirmationId, gameId }: { confirmationId: string; gameId: string }) => {
+      const { error } = await supabase.functions.invoke("ai-proxy", {
+        body: { mode: "attach", confirmation_id: confirmationId, game_id: gameId },
+      });
+      if (error) throw new Error(await readFunctionsErrorMessage(error, "Couldn't attach your booking confirmation."));
+    },
     onSuccess: (_data, { gameId }) => invalidateGameLists(queryClient, gameId),
   });
 }

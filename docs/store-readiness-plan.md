@@ -55,6 +55,14 @@ Found while testing, unrelated and unfixed: **`service_role` has no PostgREST ta
 - [ ] Play Console **Data Safety** form — declare what's collected (location, email, photos) and why.
 - [ ] App Store Connect **App Privacy** nutrition label — same data categories, Apple's format.
 - [ ] Privacy policy + support URLs for both listings (not in-app config, pure store metadata).
+- [ ] **New with host-flow-plan.md (2026-08-15): booking-confirmation photos are now sent to a
+      third-party model provider (Anthropic) for parsing, and stored for up to 7 days after the
+      game completes** (`purge-confirmations` retention purge — see host-flow-plan.md
+      §Backend changes). Neither the privacy policy nor the store data-safety forms have been
+      updated to say so. Photos can carry the host's full name, email, sometimes card last-4,
+      and a home address, so this needs new privacy-policy copy plus new Data Safety /
+      App Privacy answers (third-party processing, retention window) before the next submission —
+      flagged in host-flow-plan.md, not yet written.
 
 ## Next session — pick up here
 

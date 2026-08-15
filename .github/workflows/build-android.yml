@@ -26,6 +26,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Without this app.config.js falls back to versionCode 1 on every build,
+      # so sideloaded APKs are indistinguishable and Play would reject the
+      # second upload. Offset by 1000 to match build-ios.yml and to clear any
+      # versionCode the old EAS pipeline may have shipped. Computed in shell
+      # because GitHub Actions expressions have no arithmetic operators.
+      - name: Compute build number
+        run: echo "BUILD_NUMBER=$((GITHUB_RUN_NUMBER + 1000))" >> "$GITHUB_ENV"
+
       - uses: actions/setup-node@v4
         with:
           node-version: 20

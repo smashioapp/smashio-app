@@ -15,10 +15,14 @@
 //                                                    parse as 'parse' mode, just written straight
 //                                                    onto the game instead of landing as a draft.
 //
-// Model provider: Gemini (2.5 Flash), not Anthropic — host-flow-plan.md originally specced
-// Claude Haiku, but this project has no funded Anthropic Console account and Gemini's free tier
-// (Google AI Studio) covers this workload at zero cost. Swap noted here since it's a deviation
-// from the written plan; the request/response contract to the client is unchanged either way.
+// Model provider: Gemini (flash), not Anthropic — host-flow-plan.md originally specced Claude
+// Haiku, but this project has no funded Anthropic Console account and Gemini's free tier (Google
+// AI Studio) covers this workload at zero cost. Swap noted here since it's a deviation from the
+// written plan; the request/response contract to the client is unchanged either way.
+//
+// Uses the "gemini-flash-latest" alias, not a pinned version — pinned versions (e.g.
+// gemini-2.5-flash) get retired from the API and start 404ing with no warning; the alias tracks
+// whatever current flash model Google has live.
 //
 // AGENTS.md rule: the client never calls the LLM directly, only through this function. Auth is
 // the caller's JWT (verify_jwt on, see config.toml); the function does its own ownership checks
@@ -30,7 +34,7 @@ const RATE_LIMIT_PER_MINUTE = 5;
 // 5/min limit alone doesn't bound a determined caller's daily usage, so add a coarser daily cap.
 const DAILY_PARSE_LIMIT = 20;
 
-const GEMINI_MODEL = "gemini-2.5-flash";
+const GEMINI_MODEL = "gemini-flash-latest";
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;

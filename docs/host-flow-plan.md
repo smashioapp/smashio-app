@@ -105,8 +105,15 @@ Every field nullable except `is_booking_confirmation` and `confidence`. A partia
 **normal** case, not an error — fill what came back, ask the rest as ordinary questions.
 
 Prompt must pin: Australian date order (DD/MM), venue-local time, and today's date passed in as
-context so "Thu 21st" resolves. Model: Haiku tier — bulk extraction, cheap, fast; confirm the
-current id against the `claude-api` skill at implementation time.
+context so "Thu 21st" resolves.
+
+**Implemented 2026-08-15 on Gemini (2.5 Flash / `gemini-flash-latest`), not Claude Haiku as
+originally specced above.** No funded Anthropic Console account for this project; Gemini's free
+tier (Google AI Studio) covers this workload at zero cost via `GEMINI_API_KEY`. Same tool-call
+shape (`record_booking`, forced function call), same untrusted-input framing, same
+`is_booking_confirmation`/`confidence` gate — only the wire format differs (OpenAPI-style schema,
+`functionDeclarations` instead of `tools`). See `supabase/functions/ai-proxy/index.ts` for the
+actual request/response shape if re-porting to Claude later.
 
 **The image is untrusted input.** Text inside a receipt is data, never instruction. Structured
 output already bounds the blast radius to bad field values, and the host reviews every one

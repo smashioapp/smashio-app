@@ -18,6 +18,18 @@ alter table public.games
   drop constraint games_max_players_check,
   add constraint games_max_players_check check (max_players >= 2 and max_players <= 16);
 
+-- Existing rows predate this rename: the column held the whole booking's total price (split
+-- app-side by max_players), not a per-player price. Backfill to the new meaning before adding
+-- the per-player cap below, or any real row priced above the cap fails the ALTER outright.
+-- session_replication_role bypasses enforce_game_edit_rules (20260810000000_game_management.sql)
+-- for this data-only backfill — that trigger blocks app-level edits to cancelled games, which
+-- doesn't apply to a one-time migration touching every row regardless of status.
+set local session_replication_role = replica;
+update public.games
+set cost_per_player_cents = greatest(0, least(duration_hours * 2000, round(cost_per_player_cents::numeric / greatest(max_players, 1))))
+where cost_per_player_cents > duration_hours * 2000;
+set local session_replication_role = default;
+
 -- Per-player price is host-set directly (not booking cost / players); capped at $20/hour/player.
 alter table public.games
   drop constraint games_cost_total_cents_check,

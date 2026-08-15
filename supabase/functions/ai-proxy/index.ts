@@ -2,7 +2,7 @@
 //
 //   { mode: 'parse', storage_path }              — no game_id yet. storage_path must be under
 //                                                    drafts/{caller_uid}/. Downloads the image,
-//                                                    calls Claude, inserts game_confirmations
+//                                                    calls Gemini, inserts game_confirmations
 //                                                    with game_id = null. Returns { confirmation_id, parsed }.
 //   { mode: 'attach', confirmation_id, game_id }  — claims a draft onto a just-created game.
 //                                                    Verifies the caller owns both sides, sets
@@ -11,9 +11,14 @@
 //                                                    parsed as a real booking confirmation.
 //   { game_id, storage_path }                     — legacy shape (no `mode`). Still works
 //                                                    unchanged for the hosting-card upload path
-//                                                    (useUploadConfirmation) — same real Claude
+//                                                    (useUploadConfirmation) — same real Gemini
 //                                                    parse as 'parse' mode, just written straight
 //                                                    onto the game instead of landing as a draft.
+//
+// Model provider: Gemini (2.5 Flash), not Anthropic — host-flow-plan.md originally specced
+// Claude Haiku, but this project has no funded Anthropic Console account and Gemini's free tier
+// (Google AI Studio) covers this workload at zero cost. Swap noted here since it's a deviation
+// from the written plan; the request/response contract to the client is unchanged either way.
 //
 // AGENTS.md rule: the client never calls the LLM directly, only through this function. Auth is
 // the caller's JWT (verify_jwt on, see config.toml); the function does its own ownership checks
@@ -21,12 +26,12 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const RATE_LIMIT_PER_MINUTE = 5;
-// Parsing now costs real money per call (Claude vision, Haiku tier) — the old 5/min limit alone
-// doesn't bound a determined caller's daily spend, so add a coarser daily ceiling per user.
+// Parsing costs real money per call in general (even on a free tier, quota is finite) — the old
+// 5/min limit alone doesn't bound a determined caller's daily usage, so add a coarser daily cap.
 const DAILY_PARSE_LIMIT = 20;
 
-const ANTHROPIC_MODEL = "claude-haiku-4-5";
-const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+const GEMINI_MODEL = "gemini-2.5-flash";
+const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -45,43 +50,47 @@ type ParsedBooking = {
   confidence: "high" | "medium" | "low";
 };
 
+// Gemini's function-declaration schema is OpenAPI-style: uppercase primitive type names, and
+// "nullable: true" instead of Anthropic/JSON-Schema's ["string", "null"] union form.
 const RECORD_BOOKING_TOOL = {
   name: "record_booking",
   description:
     "Record what was read from a photo of a court booking confirmation (or note that the photo isn't one).",
-  input_schema: {
-    type: "object",
+  parameters: {
+    type: "OBJECT",
     properties: {
       is_booking_confirmation: {
-        type: "boolean",
+        type: "BOOLEAN",
         description: "True only if this image is a genuine court/venue booking confirmation (email, receipt, or screenshot of one).",
       },
-      venue_name: { type: ["string", "null"], description: "The venue or sports centre name, as printed." },
-      venue_address: { type: ["string", "null"], description: "Street address or suburb, as printed." },
+      venue_name: { type: "STRING", nullable: true, description: "The venue or sports centre name, as printed." },
+      venue_address: { type: "STRING", nullable: true, description: "Street address or suburb, as printed." },
       starts_at_local: {
-        type: ["string", "null"],
+        type: "STRING",
+        nullable: true,
         description: "Booking start, venue-local time, no timezone suffix. Format: YYYY-MM-DDTHH:mm.",
       },
       ends_at_local: {
-        type: ["string", "null"],
+        type: "STRING",
+        nullable: true,
         description: "Booking end, venue-local time, no timezone suffix. Format: YYYY-MM-DDTHH:mm.",
       },
-      courts: { type: ["integer", "null"], description: "Number of courts booked." },
+      courts: { type: "INTEGER", nullable: true, description: "Number of courts booked." },
       court_labels: {
-        type: ["array", "null"],
-        items: { type: "string" },
+        type: "ARRAY",
+        nullable: true,
+        items: { type: "STRING" },
         description: "Court labels/numbers as printed, e.g. [\"Court 3\", \"Court 4\"].",
       },
-      total_cost_aud: { type: ["number", "null"], description: "Total amount paid, in AUD, as a plain number." },
-      booking_reference: { type: ["string", "null"], description: "Booking/order/confirmation reference code." },
+      total_cost_aud: { type: "NUMBER", nullable: true, description: "Total amount paid, in AUD, as a plain number." },
+      booking_reference: { type: "STRING", nullable: true, description: "Booking/order/confirmation reference code." },
       confidence: {
-        type: "string",
+        type: "STRING",
         enum: ["high", "medium", "low"],
         description: "Overall confidence in the extracted fields.",
       },
     },
     required: ["is_booking_confirmation", "confidence"],
-    additionalProperties: false,
   },
 };
 
@@ -102,8 +111,8 @@ function systemPrompt(todayIso: string): string {
   ].join("\n");
 }
 
-async function parseWithClaude(imageBytes: Uint8Array, mediaType: string): Promise<ParsedBooking> {
-  if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not configured");
+async function parseWithGemini(imageBytes: Uint8Array, mediaType: string): Promise<ParsedBooking> {
+  if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY not configured");
   let binary = "";
   for (let i = 0; i < imageBytes.length; i += 0x8000) {
     binary += String.fromCharCode(...imageBytes.subarray(i, i + 0x8000));
@@ -111,42 +120,45 @@ async function parseWithClaude(imageBytes: Uint8Array, mediaType: string): Promi
   const base64 = btoa(binary);
   const todayIso = new Date().toISOString().slice(0, 10);
 
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-api-key": ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
+      "x-goog-api-key": GEMINI_API_KEY,
     },
     body: JSON.stringify({
-      model: ANTHROPIC_MODEL,
-      max_tokens: 1024,
-      system: systemPrompt(todayIso),
-      tools: [RECORD_BOOKING_TOOL],
-      tool_choice: { type: "tool", name: "record_booking" },
-      messages: [
+      system_instruction: { parts: [{ text: systemPrompt(todayIso) }] },
+      contents: [
         {
           role: "user",
-          content: [
-            { type: "image", source: { type: "base64", media_type: mediaType, data: base64 } },
-            { type: "text", text: "Extract the booking details from this photo via record_booking." },
+          parts: [
+            { inline_data: { mime_type: mediaType, data: base64 } },
+            { text: "Extract the booking details from this photo via record_booking." },
           ],
         },
       ],
+      tools: [{ functionDeclarations: [RECORD_BOOKING_TOOL] }],
+      toolConfig: { functionCallingConfig: { mode: "ANY", allowedFunctionNames: ["record_booking"] } },
     }),
   });
 
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(`Claude request failed (${res.status}): ${text.slice(0, 300)}`);
+    throw new Error(`Gemini request failed (${res.status}): ${text.slice(0, 300)}`);
   }
   const json = await res.json();
-  if (json.stop_reason === "refusal") {
-    throw new Error("Claude declined to process this image");
+  if (json.promptFeedback?.blockReason) {
+    throw new Error(`Gemini declined to process this image (${json.promptFeedback.blockReason})`);
   }
-  const toolUse = (json.content ?? []).find((b: { type: string }) => b.type === "tool_use");
-  if (!toolUse) throw new Error("Claude did not return a record_booking call");
-  return toolUse.input as ParsedBooking;
+  const candidate = json.candidates?.[0];
+  if (!candidate) throw new Error("Gemini returned no candidates");
+  if (candidate.finishReason && candidate.finishReason !== "STOP") {
+    throw new Error(`Gemini declined to process this image (${candidate.finishReason})`);
+  }
+  const parts = candidate.content?.parts ?? [];
+  const fnPart = parts.find((p: { functionCall?: unknown }) => p.functionCall);
+  if (!fnPart) throw new Error("Gemini did not return a record_booking call");
+  return fnPart.functionCall.args as ParsedBooking;
 }
 
 function reviewStatusFor(parsed: ParsedBooking): "verified" | "rejected" {
@@ -253,7 +265,7 @@ Deno.serve(async (req) => {
     return json(updated);
   }
 
-  // --- parse / legacy: download the image, call Claude, insert the row. ---
+  // --- parse / legacy: download the image, call Gemini, insert the row. ---
   const storagePath = body.storage_path;
   if (!storagePath) return json({ error: "storage_path is required" }, 400);
 
@@ -261,7 +273,7 @@ Deno.serve(async (req) => {
   if (isDraft) {
     // Draft uploads must live under the caller's own drafts/{uid}/ prefix — same boundary the
     // storage policy enforces, checked again here so a forged path can't make this function
-    // download and burn a Claude call on someone else's file.
+    // download and burn a Gemini call on someone else's file.
     const expectedPrefix = `drafts/${user.id}/`;
     if (!storagePath.startsWith(expectedPrefix)) return new Response("Forbidden", { status: 403 });
   } else {
@@ -284,7 +296,7 @@ Deno.serve(async (req) => {
   let parsed: ParsedBooking;
   try {
     const { bytes, mediaType } = await downloadImage(storagePath);
-    parsed = await parseWithClaude(bytes, mediaType);
+    parsed = await parseWithGemini(bytes, mediaType);
   } catch (e) {
     return json({ error: e instanceof Error ? e.message : "Couldn't read that image" }, 502);
   }

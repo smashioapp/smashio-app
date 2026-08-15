@@ -175,6 +175,25 @@ export default function GameDetails() {
             <Ionicons name="chevron-forward" size={15} color={colors.textMuted} />
           </Pressable>
 
+          {game.venueId && (
+            <Pressable
+              onPress={() => {
+                haptics.tap();
+                router.push(`/venue/${game.venueId}`);
+              }}
+              className="flex-row items-center gap-3 rounded-2xl px-3.5 py-3 mt-2 border"
+              style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}
+            >
+              <View className="w-9 h-9 rounded-full items-center justify-center" style={{ backgroundColor: "rgba(214,255,63,0.12)" }}>
+                <Ionicons name="information-circle-outline" size={16} color={colors.accent} />
+              </View>
+              <Text className="flex-1 font-body-semibold text-[14.5px]" style={{ color: colors.text }}>
+                View venue
+              </Text>
+              <Ionicons name="chevron-forward" size={15} color={colors.textMuted} />
+            </Pressable>
+          )}
+
           <View className="flex-row gap-2 mt-2.5">
             <View className="flex-1 rounded-xl px-3.5 py-2.5 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
               <Text className="text-[14.5px] font-body-semibold" style={{ color: colors.text }}>

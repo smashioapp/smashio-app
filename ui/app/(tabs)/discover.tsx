@@ -24,7 +24,7 @@ import { Screen } from "../../components/Screen";
 import { Chip } from "../../components/Chip";
 import { GameCard } from "../../components/GameCard";
 import { EmptyState } from "../../components/EmptyState";
-import { GameMap, GameMapHandle, venueKeyOf, venueKeyOfCoords } from "../../components/GameMap";
+import { GameMap, GameMapHandle, venueKeyOf, venueKeyOfCoords, NoGameVenue } from "../../components/GameMap";
 import { MapSheet, MapSheetHandle, sheetSnapHeights } from "../../components/MapSheet";
 import { RefreshableList } from "../../components/RefreshableList";
 import { GameCardSkeletonList } from "../../components/Skeleton";
@@ -430,12 +430,28 @@ export default function Discover() {
     const gameVenueKeys = new Set(mapPinnedGames.map(venueKeyOf));
     return (venuesNearQuery.data ?? [])
       .filter((v) => v.lat != null && v.lng != null && !gameVenueKeys.has(venueKeyOfCoords(v.name, v.lat, v.lng)))
-      .map((v) => ({ id: v.id, name: v.name, lat: v.lat, lng: v.lng }));
+      .map((v) => ({
+        id: v.id,
+        name: v.name,
+        lat: v.lat,
+        lng: v.lng,
+        hasProfile: v.has_profile,
+        bookability: v.bookability,
+        dedicated: v.dedicated,
+        courtsBadminton: v.courts_badminton,
+      }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [venuesNearQuery.data, mapQuery.data]);
 
-  const handleSelectNoGameVenue = (venue: { id: string; name: string; lat: number; lng: number }) => {
+  // Directory venues (has_profile) open the facility screen; club_only/members_only never gets
+  // the "host a game here" funnel (§4.2's bookability guard), same as unknown/no-profile venues
+  // still fall back to it since we simply don't know yet whether they're bookable.
+  const handleSelectNoGameVenue = (venue: NoGameVenue) => {
     haptics.tap();
+    if (venue.hasProfile) {
+      router.push(`/venue/${venue.id}`);
+      return;
+    }
     const full = venuesNearQuery.data?.find((v) => v.id === venue.id);
     useAppStore.getState().setHostHereSeed({
       venueId: venue.id,

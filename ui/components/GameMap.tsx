@@ -14,7 +14,16 @@ import type { Game } from "../lib/mockData";
 // view construction (AIRGoogleMapManager.mm:51) and it can't change after mount.
 const GOOGLE_MAP_ID = "65180cd85350fca689a8eb06";
 
-export type NoGameVenue = { id: string; name: string; lat: number; lng: number };
+export type NoGameVenue = {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  hasProfile?: boolean;
+  bookability?: string | null;
+  dedicated?: boolean | null;
+  courtsBadminton?: number | null;
+};
 
 export type GameMapProps = {
   games: Game[];
@@ -210,6 +219,11 @@ function ClusterBubble({ cluster, onPress }: { cluster: Cluster; onPress: () => 
 
 function NoGameVenuePin({ venue, onPress }: { venue: NoGameVenue; onPress: () => void }) {
   const tracks = useTracksViewChanges([], 60);
+  // Directory venues (has_profile) get a solid, more opaque pin so they read as "a real place
+  // with facility data", not just a faint host-here dot. club_only/members_only still gets the
+  // directory-pin treatment (it's a known, real venue) but never the "host here" affordance —
+  // that's enforced by the tap handler in discover.tsx, not here.
+  const isDirectory = venue.hasProfile === true;
   return (
     <Marker
       coordinate={{ latitude: venue.lat, longitude: venue.lng }}
@@ -217,13 +231,22 @@ function NoGameVenuePin({ venue, onPress }: { venue: NoGameVenue; onPress: () =>
         haptics.tap();
         onPress();
       }}
-      opacity={0.4}
+      opacity={isDirectory ? 0.85 : 0.4}
       tracksViewChanges={tracks}
     >
-      <View
-        className="rounded-full items-center justify-center border"
-        style={{ width: 10, height: 10, backgroundColor: "transparent", borderColor: colors.textMuted, borderWidth: 1.5 }}
-      />
+      {isDirectory ? (
+        <View
+          className="rounded-full items-center justify-center border"
+          style={{ width: 16, height: 16, backgroundColor: colors.accent, borderColor: colors.base, borderWidth: 1.5 }}
+        >
+          <Ionicons name={venue.dedicated ? "medal" : "location"} size={9} color={colors.base} />
+        </View>
+      ) : (
+        <View
+          className="rounded-full items-center justify-center border"
+          style={{ width: 10, height: 10, backgroundColor: "transparent", borderColor: colors.textMuted, borderWidth: 1.5 }}
+        />
+      )}
     </Marker>
   );
 }

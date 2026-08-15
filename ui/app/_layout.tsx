@@ -71,6 +71,7 @@ export default function RootLayout() {
               <Stack.Screen name="onboarding" />
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="game/[id]" options={{ presentation: "card" }} />
+              <Stack.Screen name="venue/[id]" options={{ presentation: "card" }} />
               <Stack.Screen name="game/edit/[id]" options={{ presentation: "modal" }} />
               <Stack.Screen name="chat/[id]" options={{ presentation: "card" }} />
               <Stack.Screen name="post-game/[id]" options={{ presentation: "card" }} />

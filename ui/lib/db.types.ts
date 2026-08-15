@@ -39,6 +39,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      amenity_types: {
+        Row: {
+          category: string
+          icon: string
+          label: string
+          ordinal: number
+          slug: string
+        }
+        Insert: {
+          category: string
+          icon: string
+          label: string
+          ordinal: number
+          slug: string
+        }
+        Update: {
+          category?: string
+          icon?: string
+          label?: string
+          ordinal?: number
+          slug?: string
+        }
+        Relationships: []
+      }
       chat_prefs: {
         Row: {
           game_id: string
@@ -705,6 +729,256 @@ export type Database = {
         }
         Relationships: []
       }
+      venue_amenities: {
+        Row: {
+          amenity_slug: string
+          availability: string
+          note: string | null
+          venue_id: string
+        }
+        Insert: {
+          amenity_slug: string
+          availability: string
+          note?: string | null
+          venue_id: string
+        }
+        Update: {
+          amenity_slug?: string
+          availability?: string
+          note?: string | null
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_amenities_amenity_slug_fkey"
+            columns: ["amenity_slug"]
+            isOneToOne: false
+            referencedRelation: "amenity_types"
+            referencedColumns: ["slug"]
+          },
+          {
+            foreignKeyName: "venue_amenities_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      venue_corrections: {
+        Row: {
+          created_at: string
+          field: string
+          id: string
+          note: string | null
+          reporter_id: string
+          status: string
+          suggested_value: string | null
+          venue_id: string
+        }
+        Insert: {
+          created_at?: string
+          field: string
+          id?: string
+          note?: string | null
+          reporter_id: string
+          status?: string
+          suggested_value?: string | null
+          venue_id: string
+        }
+        Update: {
+          created_at?: string
+          field?: string
+          id?: string
+          note?: string | null
+          reporter_id?: string
+          status?: string
+          suggested_value?: string | null
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_corrections_reporter_id_fkey"
+            columns: ["reporter_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_corrections_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      venue_photos: {
+        Row: {
+          created_at: string
+          credit: string | null
+          id: string
+          ordinal: number
+          status: string
+          storage_path: string
+          uploader_id: string | null
+          venue_id: string
+        }
+        Insert: {
+          created_at?: string
+          credit?: string | null
+          id?: string
+          ordinal?: number
+          status?: string
+          storage_path: string
+          uploader_id?: string | null
+          venue_id: string
+        }
+        Update: {
+          created_at?: string
+          credit?: string | null
+          id?: string
+          ordinal?: number
+          status?: string
+          storage_path?: string
+          uploader_id?: string | null
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_photos_uploader_id_fkey"
+            columns: ["uploader_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "venue_photos_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      venue_pricing_bands: {
+        Row: {
+          cents: number
+          days: number[]
+          ends_time: string | null
+          id: string
+          label: string
+          notes: string | null
+          starts_time: string | null
+          unit: string
+          venue_id: string
+        }
+        Insert: {
+          cents: number
+          days: number[]
+          ends_time?: string | null
+          id?: string
+          label: string
+          notes?: string | null
+          starts_time?: string | null
+          unit: string
+          venue_id: string
+        }
+        Update: {
+          cents?: number
+          days?: number[]
+          ends_time?: string | null
+          id?: string
+          label?: string
+          notes?: string | null
+          starts_time?: string | null
+          unit?: string
+          venue_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_pricing_bands_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      venue_profiles: {
+        Row: {
+          access_notes: string | null
+          bookability: string
+          booking_platform: string | null
+          booking_url: string | null
+          club_contact: string | null
+          confidence: string
+          courts_badminton: number | null
+          courts_total: number | null
+          data_source: string
+          dedicated: boolean
+          opening_hours: Json | null
+          phone: string | null
+          source_url: string | null
+          summary: string | null
+          surface: string | null
+          updated_at: string
+          venue_id: string
+          verified_at: string | null
+          website_url: string | null
+        }
+        Insert: {
+          access_notes?: string | null
+          bookability?: string
+          booking_platform?: string | null
+          booking_url?: string | null
+          club_contact?: string | null
+          confidence?: string
+          courts_badminton?: number | null
+          courts_total?: number | null
+          data_source: string
+          dedicated?: boolean
+          opening_hours?: Json | null
+          phone?: string | null
+          source_url?: string | null
+          summary?: string | null
+          surface?: string | null
+          updated_at?: string
+          venue_id: string
+          verified_at?: string | null
+          website_url?: string | null
+        }
+        Update: {
+          access_notes?: string | null
+          bookability?: string
+          booking_platform?: string | null
+          booking_url?: string | null
+          club_contact?: string | null
+          confidence?: string
+          courts_badminton?: number | null
+          courts_total?: number | null
+          data_source?: string
+          dedicated?: boolean
+          opening_hours?: Json | null
+          phone?: string | null
+          source_url?: string | null
+          summary?: string | null
+          surface?: string | null
+          updated_at?: string
+          venue_id?: string
+          verified_at?: string | null
+          website_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "venue_profiles_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: true
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       venues: {
         Row: {
           address: string | null
@@ -713,6 +987,8 @@ export type Database = {
           id: string
           location: unknown
           name: string
+          region: string | null
+          slug: string | null
           source: string
           state: string
           suburb: string
@@ -724,6 +1000,8 @@ export type Database = {
           id?: string
           location: unknown
           name: string
+          region?: string | null
+          slug?: string | null
           source?: string
           state: string
           suburb: string
@@ -735,6 +1013,8 @@ export type Database = {
           id?: string
           location?: unknown
           name?: string
+          region?: string | null
+          slug?: string | null
           source?: string
           state?: string
           suburb?: string
@@ -816,19 +1096,22 @@ export type Database = {
       }
       chat_push_recipients: {
         Args: { p_message_id: string }
-        Returns: { expo_token: string; profile_id: string }[]
+        Returns: {
+          expo_token: string
+          profile_id: string
+        }[]
       }
       chat_threads: {
         Args: never
         Returns: {
-          chat_closed_at: string | null
+          chat_closed_at: string
           game_id: string
           game_status: string
-          last_message_at: string | null
-          last_message_body: string | null
-          last_message_kind: string | null
-          last_message_sender_is_me: boolean | null
-          last_message_sender_name: string | null
+          last_message_at: string
+          last_message_body: string
+          last_message_kind: string
+          last_message_sender_is_me: boolean
+          last_message_sender_name: string
           starts_at: string
           unread_count: number
           venue_name: string
@@ -941,13 +1224,31 @@ export type Database = {
         Args: { p_game_id: string; p_profile_id: string }
         Returns: undefined
       }
-      set_chat_mode: { Args: { p_game_id: string; p_mode: string }; Returns: undefined }
-      set_home_point: { Args: { p_lat: number; p_lng: number }; Returns: undefined }
+      report_venue_correction: {
+        Args: {
+          p_field: string
+          p_note?: string
+          p_suggested_value?: string
+          p_venue_id: string
+        }
+        Returns: string
+      }
+      set_chat_mode: {
+        Args: { p_game_id: string; p_mode: string }
+        Returns: undefined
+      }
+      set_home_point: {
+        Args: { p_lat: number; p_lng: number }
+        Returns: undefined
+      }
       set_player_chat_mute: {
         Args: { p_game_id: string; p_muted: boolean; p_profile_id: string }
         Returns: undefined
       }
-      trigger_purge_confirmations: { Args: { p_type: string }; Returns: undefined }
+      trigger_purge_confirmations: {
+        Args: { p_type: string }
+        Returns: undefined
+      }
       upsert_places_venue: {
         Args: {
           p_address: string
@@ -960,10 +1261,16 @@ export type Database = {
         }
         Returns: string
       }
+      venue_detail: { Args: { p_venue_id: string }; Returns: Json }
       venues_near: {
         Args: { lat: number; lng: number; radius_m: number }
         Returns: {
           address: string
+          amenity_flags: string[]
+          bookability: string
+          courts_badminton: number
+          dedicated: boolean
+          has_profile: boolean
           id: string
           lat: number
           lng: number

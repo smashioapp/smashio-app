@@ -409,20 +409,16 @@ after the migrations land.
 | Step | Scope | Est. | Status |
 |---|---|---|---|
 | **A0** | Discovery sweep, triage, lead queue, `scripts/venues/*` + `data/venues/*`. No DB change. | 0.5 d | **done 2026-08-15** |
-| **A1** | Migrations: `venues.slug/region`, `venue_profiles` (incl. `bookability`), `amenity_types` + seed, `venue_amenities`, `venue_pricing_bands`, RLS. | 0.5 d | not started |
-| **A2** | `normalize`/`match`/`emit-sql` scripts + generated seed migration + slug backfill on the 8 `seed.sql` rows. **§6 pre-flight is a gate.** | 1 d | blocked on A1 + some of A6 |
-| **A3** | `venue_detail` RPC + `ui/app/venue/[id].tsx` + entry points from map/game/card. | 2 d | blocked on A1 |
-| **A4** | `venues_near` extension, richer map pins, amenity + `bookability` filter, "Courts near me". | 1.5 d | blocked on A1 |
-| **A5** | `venue_photos` bucket + moderation, `venue_corrections` + report UI, freshness/staleness rules. | 1.5 d | blocked on A1 |
-| **A6** | Fill the §3 enrichment checklist for the 88 P1+P2 leads to `medium`+ confidence. Manual. | 3–5 d | **not started — the long pole** |
+| **A1** | Migrations: `venues.slug/region`, `venue_profiles` (incl. `bookability`), `amenity_types` + seed, `venue_amenities`, `venue_pricing_bands`, RLS. | 0.5 d | **done 2026-08-15** |
+| **A2** | `normalize`/`match`/`emit-sql` scripts + generated seed migration + slug backfill on the 8 `seed.sql` rows. **§6 pre-flight is a gate.** | 1 d | **done 2026-08-15** — 12 of the CSV's 15 venues ingested; Alpha's cluster withheld by the matcher and resolved separately in A6 below |
+| **A3** | `venue_detail` RPC + `ui/app/venue/[id].tsx` + entry points from map/game/card. | 2 d | **done 2026-08-15** |
+| **A4** | `venues_near` extension, richer map pins, amenity + `bookability` filter, "Courts near me". | 1.5 d | **done 2026-08-15** — RPC + pin differentiation shipped; the amenity/bookability filter *UI* is deferred (no venue has enough amenity data yet to make a filter meaningful) |
+| **A5** | `venue_photos` bucket + moderation, `venue_corrections` + report UI, freshness/staleness rules. | 1.5 d | **done 2026-08-15** — schema/RPC/storage policies + the venue screen's report affordance shipped; a moderation queue UI for pending photos is not built |
+| **A6** | Fill the §3 enrichment checklist for the 88 P1+P2 leads to `medium`+ confidence. Manual. | 3–5 d | **P1 chains done 2026-08-15** (NBC's 7, Alpha's 3, BadmintonWorx's 2, The Badminton Club's 2 = 14/14, researched via WebSearch/WebFetch against each operator's own site — not phone-verified, so mostly `medium` not `high`). The 51-venue P2 queue and non-chain P1 leads (ATC Badminton, Ace Badminton Sydney, Pro1 Bankstown, Roketto Lidcombe, Yennora, KBC Camellia, APX Thornleigh, A1 Campbelltown, the 9 community halls, …) are still unenriched — **the long pole remains** |
 
-A1 → A3 is the minimum that makes venues feel real, and A1 is the only thing blocking three
-parallel tracks — write it first even if enrichment is the bigger job.
-
-**A6 is the critical path and needs no code.** It can start immediately and run alongside
-everything else; it's data entry against a schema. A2 only needs the venues you've actually
-enriched, so partial A6 unblocks a partial ingest — do the P1 chains first (NBC's 7, Alpha's 3,
-BadmintonWorx's 2, The Badminton Club's 2 = 14 venues from four operator conversations).
+NBC Homebush (stale seed row, has a live published game against it) and the legacy ambiguous
+"Alpha Badminton Centre" seed row are both deliberately untouched — resolving them means
+migrating a real booking's venue reference, which needs a human decision, not an ingest script.
 
 ## 9. Risks
 

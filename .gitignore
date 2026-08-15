@@ -27,3 +27,4 @@ data/venues/places-sweep-pass*.json
 data/venues/leads.json
 data/venues/leads-to-enrich.csv
 data/venues/.geocode-cache.json
+data/venues/.pipeline/

@@ -1,7 +1,9 @@
 import { View, Text, Pressable } from "react-native";
+import { router } from "expo-router";
 import { colors } from "../lib/theme";
 import { Game, spotsLeft, levelFit } from "../lib/mockData";
 import { SkillPill } from "./SkillPill";
+import { haptics } from "../lib/haptics";
 
 // Compact card for the map's bottom sheet peek row — a lighter footprint than GameCard so
 // the map itself stays the star (Airbnb pattern: results and map coexist).
@@ -26,9 +28,23 @@ export function MapCarouselCard({
     >
       <View className="flex-row justify-between items-start">
         <View className="flex-1 pr-2">
-          <Text className="font-display-bold text-[15px]" style={{ color: colors.text }} numberOfLines={1}>
-            {game.venue}
-          </Text>
+          {game.venueId ? (
+            <Pressable
+              hitSlop={4}
+              onPress={() => {
+                haptics.tap();
+                router.push(`/venue/${game.venueId}`);
+              }}
+            >
+              <Text className="font-display-bold text-[15px]" style={{ color: colors.text }} numberOfLines={1}>
+                {game.venue}
+              </Text>
+            </Pressable>
+          ) : (
+            <Text className="font-display-bold text-[15px]" style={{ color: colors.text }} numberOfLines={1}>
+              {game.venue}
+            </Text>
+          )}
           <Text className="text-[12.5px] mt-0.5" style={{ color: colors.textTertiary }} numberOfLines={1}>
             {game.date} · {game.time} · {game.suburb}
           </Text>

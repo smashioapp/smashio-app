@@ -99,9 +99,23 @@ export function GameCard({
 
           <View className="flex-row justify-between items-start">
             <View className="flex-1 pr-2">
-              <Text className="font-display-bold text-[16.5px]" style={{ color: colors.text }}>
-                {game.venue}
-              </Text>
+              {game.venueId ? (
+                <Pressable
+                  hitSlop={4}
+                  onPress={() => {
+                    haptics.tap();
+                    router.push(`/venue/${game.venueId}`);
+                  }}
+                >
+                  <Text className="font-display-bold text-[16.5px]" style={{ color: colors.text }}>
+                    {game.venue}
+                  </Text>
+                </Pressable>
+              ) : (
+                <Text className="font-display-bold text-[16.5px]" style={{ color: colors.text }}>
+                  {game.venue}
+                </Text>
+              )}
               <Text className="text-[13.5px] mt-0.5" style={{ color: colors.textTertiary }}>
                 {game.suburb}
                 {game.distance ? ` · ${game.distance}` : ""}

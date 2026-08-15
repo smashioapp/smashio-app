@@ -33,6 +33,10 @@ async function registerForPush(profileId: string) {
       name: "default",
       importance: Notifications.AndroidImportance.DEFAULT,
     });
+    await Notifications.setNotificationChannelAsync("chat", {
+      name: "Chat messages",
+      importance: Notifications.AndroidImportance.HIGH,
+    });
   }
 
   const projectId = Constants.expoConfig?.extra?.eas?.projectId;

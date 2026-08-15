@@ -39,6 +39,49 @@ export type Database = {
   }
   public: {
     Tables: {
+      chat_prefs: {
+        Row: {
+          game_id: string
+          level: string
+          muted_until: string | null
+          profile_id: string
+        }
+        Insert: {
+          game_id: string
+          level?: string
+          muted_until?: string | null
+          profile_id: string
+        }
+        Update: {
+          game_id?: string
+          level?: string
+          muted_until?: string | null
+          profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_prefs_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_prefs_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_prefs_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       game_alerts: {
         Row: {
           center_lat: number
@@ -144,6 +187,7 @@ export type Database = {
       }
       game_players: {
         Row: {
+          chat_muted_at: string | null
           decided_at: string | null
           game_id: string
           profile_id: string
@@ -151,6 +195,7 @@ export type Database = {
           status: string
         }
         Insert: {
+          chat_muted_at?: string | null
           decided_at?: string | null
           game_id: string
           profile_id: string
@@ -158,6 +203,7 @@ export type Database = {
           status?: string
         }
         Update: {
+          chat_muted_at?: string | null
           decided_at?: string | null
           game_id?: string
           profile_id?: string
@@ -190,6 +236,8 @@ export type Database = {
       }
       games: {
         Row: {
+          chat_closed_at: string | null
+          chat_mode: string
           cost_per_player_cents: number
           court_label: string | null
           courts_booked: number
@@ -208,6 +256,8 @@ export type Database = {
           verification_status: string
         }
         Insert: {
+          chat_closed_at?: string | null
+          chat_mode?: string
           cost_per_player_cents?: number
           court_label?: string | null
           courts_booked?: number
@@ -226,6 +276,8 @@ export type Database = {
           verification_status?: string
         }
         Update: {
+          chat_closed_at?: string | null
+          chat_mode?: string
           cost_per_player_cents?: number
           court_label?: string | null
           courts_booked?: number
@@ -317,27 +369,42 @@ export type Database = {
       messages: {
         Row: {
           body: string
+          client_id: string | null
           created_at: string
           deleted_at: string | null
           game_id: string
           id: string
-          sender_id: string
+          image_path: string | null
+          kind: string
+          mentions: string[]
+          sender_id: string | null
+          system_event: string | null
         }
         Insert: {
-          body: string
+          body?: string
+          client_id?: string | null
           created_at?: string
           deleted_at?: string | null
           game_id: string
           id?: string
-          sender_id: string
+          image_path?: string | null
+          kind?: string
+          mentions?: string[]
+          sender_id?: string | null
+          system_event?: string | null
         }
         Update: {
           body?: string
+          client_id?: string | null
           created_at?: string
           deleted_at?: string | null
           game_id?: string
           id?: string
-          sender_id?: string
+          image_path?: string | null
+          kind?: string
+          mentions?: string[]
+          sender_id?: string | null
+          system_event?: string | null
         }
         Relationships: [
           {
@@ -742,12 +809,39 @@ export type Database = {
     }
     Functions: {
       approved_player_count: { Args: { p_game_id: string }; Returns: number }
+      auto_close_stale_chats: { Args: never; Returns: undefined }
+      can_post_in_chat: {
+        Args: { p_game_id: string; p_profile_id: string }
+        Returns: boolean
+      }
+      chat_push_recipients: {
+        Args: { p_message_id: string }
+        Returns: { expo_token: string; profile_id: string }[]
+      }
+      chat_threads: {
+        Args: never
+        Returns: {
+          chat_closed_at: string | null
+          game_id: string
+          game_status: string
+          last_message_at: string | null
+          last_message_body: string | null
+          last_message_kind: string | null
+          last_message_sender_is_me: boolean | null
+          last_message_sender_name: string | null
+          starts_at: string
+          unread_count: number
+          venue_name: string
+        }[]
+      }
+      close_chat: { Args: { p_game_id: string }; Returns: undefined }
       complete_past_games: { Args: never; Returns: undefined }
       decide_join_request: {
         Args: { approve: boolean; p_game_id: string; p_profile_id: string }
         Returns: undefined
       }
       delete_account: { Args: { p_profile_id: string }; Returns: Json }
+      delete_message: { Args: { p_message_id: string }; Returns: undefined }
       dispatch_game_reminders: { Args: never; Returns: undefined }
       is_approved_player: {
         Args: { p_game_id: string; p_profile_id: string }
@@ -824,6 +918,17 @@ export type Database = {
           venue_name: string
         }[]
       }
+      push_message_summary: {
+        Args: { p_message_id: string }
+        Returns: {
+          body: string
+          chat_mode: string
+          is_host: boolean
+          kind: string
+          sender_name: string
+          venue_name: string
+        }[]
+      }
       push_recipients_for_game: {
         Args: { p_exclude_profile?: string; p_game_id: string }
         Returns: {
@@ -836,7 +941,12 @@ export type Database = {
         Args: { p_game_id: string; p_profile_id: string }
         Returns: undefined
       }
+      set_chat_mode: { Args: { p_game_id: string; p_mode: string }; Returns: undefined }
       set_home_point: { Args: { p_lat: number; p_lng: number }; Returns: undefined }
+      set_player_chat_mute: {
+        Args: { p_game_id: string; p_muted: boolean; p_profile_id: string }
+        Returns: undefined
+      }
       trigger_purge_confirmations: { Args: { p_type: string }; Returns: undefined }
       upsert_places_venue: {
         Args: {

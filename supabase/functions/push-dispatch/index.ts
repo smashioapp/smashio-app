@@ -32,10 +32,11 @@ async function sendExpoPush(
   title: string,
   body: string,
   data: Record<string, unknown>,
+  channelId?: string,
 ) {
   const messages = recipients
     .filter((r) => r.expo_token.startsWith("ExponentPushToken"))
-    .map((r) => ({ to: r.expo_token, title, body, data, sound: "default" }));
+    .map((r) => ({ to: r.expo_token, title, body, data, sound: "default", ...(channelId ? { channelId } : {}) }));
 
   if (messages.length === 0) return;
 
@@ -61,19 +62,16 @@ Deno.serve(async (req) => {
 
   if (payload.type === "message") {
     const [{ data: recipients }, { data: summary }] = await Promise.all([
-      supabase.rpc("push_recipients_for_game", {
-        p_game_id: payload.game_id,
-        p_exclude_profile: payload.sender_id,
-      }),
-      supabase.rpc("push_game_summary", { p_game_id: payload.game_id }).single(),
+      supabase.rpc("chat_push_recipients", { p_message_id: payload.message_id }),
+      supabase.rpc("push_message_summary", { p_message_id: payload.message_id }).single(),
     ]);
     if (recipients?.length && summary) {
-      await sendExpoPush(
-        recipients,
-        `New message · ${summary.venue_name}`,
-        "Someone posted in your game chat.",
-        { screen: "chat", game_id: payload.game_id },
-      );
+      const announce = summary.chat_mode === "announce";
+      const title = `${announce ? "📣 " : ""}${summary.sender_name} · ${summary.venue_name}`;
+      const body = summary.kind === "image"
+        ? summary.body ? `📷 Photo · ${summary.body}` : "📷 Photo"
+        : summary.body.slice(0, 140);
+      await sendExpoPush(recipients, title, body, { screen: "chat", game_id: payload.game_id }, "chat");
     }
   } else if (payload.type === "join_decision") {
     const { data: recipient } = await supabase

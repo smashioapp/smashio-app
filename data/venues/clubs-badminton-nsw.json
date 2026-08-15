@@ -1,0 +1,52 @@
+{
+  "_source": "https://www.badmintonnsw.org.au/affiliated-clubs/",
+  "_retrieved": "2026-08-15",
+  "_note": "venues-plan.md §3 axis 2/3. Badminton NSW's own affiliated-club directory. Its value is the HALLS: school gyms, RSL youth centres and community halls that the Places sweep cannot find because they are not badminton businesses. Badminton NSW itself warns the listings may be obsolete, so every venue here is a LEAD at confidence 'low' until confirmed against the operator (§3 verification rule). Sessions listed are club-run socials, not open court hire — a different product, and a recruiting list for social-plan.md §8.",
+  "_sydney_filter": "Non-Sydney clubs excluded from venues[] but kept in excluded_regional[] so the sweep is auditable.",
+
+  "venues_new_vs_places_sweep": [
+    { "name": "Victor Badminton Centre", "suburb": "Silverwater", "clubs": ["ACE Badminton"], "note": "Also listed at Botany by Sydney Shuttles — two sites, or a stale listing. Verify both." },
+    { "name": "Victor Badminton Centre", "suburb": "Botany", "clubs": ["Sydney Shuttles Badminton Club"], "note": "Possible confusion with BadmintonWorx Botany. Verify." },
+    { "name": "Morris Iemma Indoor Sports Centre", "suburb": "Riverwood", "clubs": ["Aussie Sydney Badminton Club"] },
+    { "name": "Taren Point Youth and Badminton Centre", "suburb": "Taren Point", "clubs": ["Aussie Sydney Badminton Club", "Badminton Magic", "Taren Point Saturday Morning BC"], "note": "Places found 'Taren Point Youth Centre' — same site, confirm naming." },
+    { "name": "Ryde Aquatic Leisure Centre", "suburb": "Ryde", "clubs": ["Australian Badminton Academy"] },
+    { "name": "North Ryde RSL Youth Centre", "suburb": "North Ryde", "clubs": ["ACE Badminton"] },
+    { "name": "Hills Start Sports Education Centre", "suburb": "Bella Vista", "clubs": ["Hills Start"], "note": "Daily 15:00-22:00 — reads like a bookable venue, not just a club slot." },
+    { "name": "KBC NSW Hornsby", "suburb": "Hornsby", "clubs": ["KBC NSW"], "note": "Places found 'Phoenix Badminton' at Hornsby and 'KBC Badminton Pty Ltd' at Camellia. Three-way check." },
+    { "name": "Curl Curl Sports Centre", "suburb": "North Curl Curl", "clubs": ["Curl Curl Badminton Players Club"], "note": "Places found 'Curl Curl Youth and Community Centre' — likely same." },
+    { "name": "Avalon Recreation Centre", "suburb": "Avalon Beach", "clubs": ["Avalon Badminton Club"] },
+    { "name": "Macquarie Fields Leisure Centre", "suburb": "Macquarie Fields", "clubs": ["Macarthur Badminton Club"], "note": "Places found 'Macquarie Fields Fitness & Indoor Sports Centre'." },
+    { "name": "The Brickpit Stadium", "suburb": "Thornleigh", "clubs": ["Dash Badminton"], "note": "Places found 'Thornleigh Brickpit Basketball Sports Stadium' + 'DASH Badminton' + 'APX Badminton Courts' all at Thornleigh. Untangle." },
+    { "name": "PCYC Northern Beaches", "suburb": "Dee Why", "clubs": [], "note": "From web search, not the club list. 40 Kingsway, Dee Why NSW 2099." },
+    { "name": "Macquarie University Sport & Aquatic Centre (MUSAC)", "suburb": "North Ryde", "clubs": [], "note": "In our own seed.sql; the Places sweep missed it and the club list does not name it. Verify it still offers badminton." }
+  ],
+
+  "school_and_community_halls": [
+    { "name": "Muirfield High School", "suburb": "North Rocks", "clubs": ["Epping BC", "Friendly BC", "North Western BC", "Shuttlebugs"], "note": "Four clubs — the densest hall in Sydney and invisible to every commercial directory." },
+    { "name": "Epping Boys High School", "suburb": "Eastwood", "clubs": ["Australian Badminton Academy", "World Chinese Badminton Federation Aus"] },
+    { "name": "Hurstville Boys High School", "suburb": "Hurstville", "clubs": ["Badminton Magic", "Sydney Badminton"] },
+    { "name": "Dulwich Hill High School Hall", "suburb": "Dulwich Hill", "clubs": ["Dulwich Hill BC", "Zealcon BC"] },
+    { "name": "Baulkham Hills High School Gymnasium", "suburb": "Baulkham Hills", "clubs": ["KBC NSW", "Shuttlebugs"] },
+    { "name": "Castle Hill High School", "suburb": "Castle Hill", "clubs": ["Hills Highlights Badminton"] },
+    { "name": "Erskine Park High School", "suburb": "Erskine Park", "clubs": ["Erskine Park BC"] },
+    { "name": "Glenbrook Public School", "suburb": "Glenbrook", "clubs": ["Shuttle Shufflers"] },
+    { "name": "UNSW Gymnasium", "suburb": "Kensington", "clubs": ["UNSW Badminton Club"], "note": "Distinct from the UNSW Fitness & Aquatic Centre in the source CSV — the club plays above the Unigym." }
+  ],
+
+  "_halls_caveat": "School halls are club-hired, not casually bookable. They should be modelled as venues (games happen there) but with booking_url null and an access_note saying 'club sessions only — contact the club'. Do not present them as court hire.",
+
+  "clubs_with_no_venue_listed": [
+    "Australia Badminton Sydney Association", "BISA United", "Castle Hill RSL Badminton Club", "Golden Girls",
+    "Inner-West Badminton Club", "Maxima", "Northern Beaches Badminton Club (Cromer)", "Old Monks Minto",
+    "Omega Sports Club (Riverstone)", "Raket Badminton Academy", "Smash Monster", "Smashing Baddies",
+    "Sutherland Shire Thai Badminton Club", "The International French School Badminton Club of Sydney",
+    "The Ponds Badminton Club", "Wahroonga Badminton Club", "WentiBoyz Badminton Club"
+  ],
+
+  "excluded_regional": [
+    "Badminton Central Coast (West Gosford)", "Blue Mountains Badminton (Katoomba)", "Bulli Badminton Group (Bulli)",
+    "Coffs Harbour Badminton Association", "Hunter Badminton (Wickham)", "Illawarra Badminton Association (Gwynneville)",
+    "Orange Badminton Club", "Shoalhaven Badminton Club (Bomaderry)", "South Coast Shuttlers (Wollongong)",
+    "UNE Badminton Club (Armidale)"
+  ]
+}

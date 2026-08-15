@@ -19,3 +19,11 @@ ui/*.log
 # emulator screenshots
 _emu_*.png
 *.log
+
+# Raw Places sweep output — Google Maps Platform terms allow caching place_id indefinitely but
+# other Places content only briefly, so these working files stay local and get regenerated
+# (docs/venues-plan.md §2). The triaged lead list and findings are committed; these are not.
+data/venues/places-sweep-pass*.json
+data/venues/leads.json
+data/venues/leads-to-enrich.csv
+data/venues/.geocode-cache.json

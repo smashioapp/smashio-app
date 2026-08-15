@@ -15,6 +15,10 @@ module.exports = {
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
       },
+      // Universal Links: tapping https://smashio.com.au/game/<id> opens the app directly
+      // instead of the dead-end smashio:// custom scheme when it's not installed.
+      // AASA file lives at website/.well-known/apple-app-site-association.
+      associatedDomains: ["applinks:smashio.com.au"],
     },
     android: {
       package: "com.smashio.app",

@@ -191,6 +191,7 @@ eas submit --profile production --platform ios
 - [docs/my-games-plan.md](docs/my-games-plan.md) — My Games rebuild: single agenda, day-of hero, host console (shipped)
 - [docs/nav-plan.md](docs/nav-plan.md) — bottom nav bar redesign: labels, safe-area, action rail, motion (shipped)
 - [docs/map-plan.md](docs/map-plan.md) — Discover map rebuild: Google Maps + brand style, venue clustering, bottom sheet (shipped)
+- [docs/chat-plan.md](docs/chat-plan.md) — game chat rebuild: pinned event badge, host controls/broadcast mode, per-thread notifications, system timeline (proposed)
 - [docs/store-readiness-plan.md](docs/store-readiness-plan.md) — App Store/Play Store submission audit — remaining blockers before first submission
 
 ## Scope discipline

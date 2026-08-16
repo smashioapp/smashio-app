@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { View, Text, Pressable, ScrollView, Dimensions, FlatList, BackHandler, NativeSyntheticEvent, NativeScrollEvent } from "react-native";
+import { View, Text, Pressable, ScrollView, TextInput, Dimensions, FlatList, BackHandler, NativeSyntheticEvent, NativeScrollEvent } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useFocusEffect } from "expo-router";
@@ -402,6 +402,7 @@ export default function Discover() {
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [headerCompact, setHeaderCompact] = useState(false);
+  const [headerHeight, setHeaderHeight] = useState(0);
   const tabBarSpace = useTabBarSpace();
   const reduceMotion = useReduceMotion();
   const insets = useSafeAreaInsets();
@@ -409,13 +410,16 @@ export default function Discover() {
   const mapSheetRef = useRef<MapSheetHandle>(null);
   const listRef = useRef<FlatList<any>>(null);
   const scrollHide = useRef(makeScrollHideHandler()).current;
-  const carouselRef = useRef<FlatList<Game>>(null);
+  const carouselRef = useRef<FlatList<Game[]>>(null);
   const carouselScrollIsProgrammatic = useRef(false);
 
   // "Search this area" (map-plan.md §P3) frames a viewport the user panned to, independent of
   // the device-location + radius filter that drives the list. Null = map follows the filters
   // like everything else.
   const [mapAreaOverride, setMapAreaOverride] = useState<{ lat: number; lng: number; radiusKm: number } | null>(null);
+  // Client-side name/suburb filter over the pins already fetched (docs/v2-design-plan.md §4.2) —
+  // no geocoded search in this pass, see backlog B8.
+  const [mapSearch, setMapSearch] = useState("");
   // Clears geometry above the floating tab bar (lib/nav.ts) — the sheet must never sit under
   // the centre host FAB the bar itself renders.
   const mapSheetBottomSpace = tabBarBottom(insets.bottom) + NAV.BAR_HEIGHT + NAV.RAIL_GAP;
@@ -437,10 +441,14 @@ export default function Discover() {
     return () => sub.remove();
   }, [discoverView]);
 
-  // A "search this area" override is a temporary exploration of the map, not a filter change —
-  // closing the map (either control) drops it so reopening starts back at the real filters.
+  // A "search this area" override (and the map's own name/suburb search box) are temporary
+  // exploration of the map, not a filter change — closing the map (either control) drops both
+  // so reopening starts back at the real filters.
   useEffect(() => {
-    if (discoverView !== "map") setMapAreaOverride(null);
+    if (discoverView !== "map") {
+      setMapAreaOverride(null);
+      setMapSearch("");
+    }
   }, [discoverView]);
 
   useFocusEffect(
@@ -483,15 +491,37 @@ export default function Discover() {
     mapCenter,
     { enabled: discoverView === "map" }
   );
-  const mapPinnedGames = (mapQuery.data ?? []).filter((g) => g.venueLat != null && g.venueLng != null);
+  const mapPinnedGamesAll = (mapQuery.data ?? []).filter((g) => g.venueLat != null && g.venueLng != null);
+
+  // Client-side name/suburb filter over the pins already fetched (docs/v2-design-plan.md §4.2,
+  // backlog B8 — no geocoded search yet). Only narrows what's shown, never re-fetches.
+  const mapPinnedGames = useMemo(() => {
+    const q = mapSearch.trim().toLowerCase();
+    if (!q) return mapPinnedGamesAll;
+    return mapPinnedGamesAll.filter((g) => g.venue.toLowerCase().includes(q) || g.suburb.toLowerCase().includes(q));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapPinnedGamesAll, mapSearch]);
+
+  // Venue-anchored carousel groups (§4.2) — one card per venue, court rows for each game there.
+  const mapVenueGroups = useMemo(() => {
+    const map = new Map<string, Game[]>();
+    for (const g of mapPinnedGames) {
+      const key = venueKeyOf(g);
+      const list = map.get(key);
+      if (list) list.push(g);
+      else map.set(key, [g]);
+    }
+    return Array.from(map.values());
+  }, [mapPinnedGames]);
 
   // Dim "no games here yet" pins (map-plan.md §5.10) — venues near the map viewport that have
-  // none of the games already fetched above. Diffed client-side since venues aren't sport-scoped
-  // and games don't carry a stable venue id (venueKeyOf's name+coordinate key is what nearby_games
-  // already uses for venue identity — see its comment in GameMap.tsx).
+  // none of the games already fetched above. Diffed against the unfiltered pin set so the
+  // map search box never mislabels a real game venue as empty. Diffed client-side since venues
+  // aren't sport-scoped and games don't carry a stable venue id (venueKeyOf's name+coordinate
+  // key is what nearby_games already uses for venue identity — see its comment in GameMap.tsx).
   const venuesNearQuery = useVenuesForMap(mapCenter, mapRadiusKm, { enabled: discoverView === "map" });
   const noGameVenues = useMemo(() => {
-    const gameVenueKeys = new Set(mapPinnedGames.map(venueKeyOf));
+    const gameVenueKeys = new Set(mapPinnedGamesAll.map(venueKeyOf));
     return (venuesNearQuery.data ?? [])
       .filter((v) => v.lat != null && v.lng != null && !gameVenueKeys.has(venueKeyOfCoords(v.name, v.lat, v.lng)))
       .map((v) => ({
@@ -608,7 +638,7 @@ export default function Discover() {
     // Dragging never hides pins (map-plan.md §P4): a pin tap drops the sheet back to peek so
     // the map around the newly selected pin is visible, even if the sheet was at half/full.
     mapSheetRef.current?.snapTo("peek");
-    const idx = mapPinnedGames.findIndex((g) => g.id === id);
+    const idx = mapVenueGroups.findIndex((grp) => grp.some((g) => g.id === id));
     if (idx >= 0) {
       carouselScrollIsProgrammatic.current = true;
       carouselRef.current?.scrollToOffset({ offset: idx * CAROUSEL_STEP, animated: true });
@@ -620,7 +650,7 @@ export default function Discover() {
       return;
     }
     const idx = Math.round(e.nativeEvent.contentOffset.x / CAROUSEL_STEP);
-    const g = mapPinnedGames[idx];
+    const g = mapVenueGroups[idx]?.[0];
     if (g && g.venueLat != null && g.venueLng != null) {
       setSelectedGameId(g.id);
       mapRef.current?.focusOn(g.venueLat, g.venueLng);
@@ -684,7 +714,11 @@ export default function Discover() {
 
   return (
     <Screen>
-      <View className="pt-3 pb-2.5 flex-row justify-between items-start" style={{ paddingHorizontal: LAYOUT.SCREEN_PAD }}>
+      <View
+        onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
+        className="pt-3 pb-2.5 flex-row justify-between items-start"
+        style={{ paddingHorizontal: LAYOUT.SCREEN_PAD }}
+      >
         <View>
           <Text className="font-display text-[30px]" style={{ color: colors.text }}>
             Discover
@@ -832,8 +866,8 @@ export default function Discover() {
         <Animated.View
           entering={reduceMotion ? undefined : FadeIn.duration(200)}
           exiting={reduceMotion ? undefined : FadeOut.duration(150)}
-          className="absolute inset-0"
-          style={{ backgroundColor: colors.base }}
+          className="absolute left-0 right-0 bottom-0"
+          style={{ top: headerHeight, backgroundColor: colors.base }}
         >
           <GameMap
             ref={mapRef}
@@ -848,10 +882,52 @@ export default function Discover() {
             onSelectNoGameVenue={handleSelectNoGameVenue}
           />
 
+          {/* Floating search + Tonight chip (docs/v2-design-plan.md §4.2) — glass-backed, sits
+              where the list's filter chip row would be. Search is a client-side name/suburb
+              filter over the pins already fetched (backlog B8: no geocoded search yet). */}
+          <View pointerEvents="box-none" className="absolute left-0 right-0" style={{ top: 12, paddingHorizontal: LAYOUT.SCREEN_PAD, gap: 8 }}>
+            <View className="flex-row items-center gap-2.5">
+              <View
+                className="flex-1 flex-row items-center gap-2 rounded-pill px-4"
+                style={{ height: 44, backgroundColor: "rgba(23,23,26,0.9)", borderWidth: 1, borderColor: colors.cardBorder }}
+              >
+                <Ionicons name="search" size={15} color={colors.textTertiary} />
+                <TextInput
+                  value={mapSearch}
+                  onChangeText={setMapSearch}
+                  placeholder="Search venues, suburbs…"
+                  placeholderTextColor={colors.textTertiary}
+                  className="flex-1 font-body-semibold text-[13.5px]"
+                  style={{ color: colors.text }}
+                />
+                {mapSearch.length > 0 && (
+                  <Pressable onPress={() => setMapSearch("")} hitSlop={8}>
+                    <Ionicons name="close-circle" size={16} color={colors.textTertiary} />
+                  </Pressable>
+                )}
+              </View>
+              <Pressable
+                onPress={() => setFiltersOpen(true)}
+                className="items-center justify-center rounded-full border"
+                style={{ width: 44, height: 44, backgroundColor: "rgba(23,23,26,0.9)", borderColor: colors.cardBorder }}
+              >
+                <Ionicons name="options-outline" size={17} color={colors.textDim} />
+              </Pressable>
+            </View>
+            <View className="flex-row">
+              <Chip
+                label="Tonight"
+                active={whenFilter === "tonight"}
+                onPress={() => setWhenFilter(whenFilter === "tonight" ? "all" : "tonight")}
+                size="sm"
+              />
+            </View>
+          </View>
+
           <MapSheet
             ref={mapSheetRef}
             pinnedGames={mapPinnedGames}
-            viewerTierOrdinal={viewerTierOrdinal}
+            venueGroups={mapVenueGroups}
             bottomSpace={mapSheetBottomSpace}
             onCardPress={(id) => router.push(`/game/${id}`)}
             onCarouselSettle={handleCarouselSettle}

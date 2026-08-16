@@ -32,11 +32,11 @@ export type MapSheetHandle = {
 
 type MapSheetProps = {
   pinnedGames: Game[];
-  viewerTierOrdinal: number | null;
+  venueGroups: Game[][];
   bottomSpace: number;
   onCardPress: (id: string) => void;
   onCarouselSettle: (e: NativeSyntheticEvent<NativeScrollEvent>) => void;
-  carouselRef: React.RefObject<FlatList<Game> | null>;
+  carouselRef: React.RefObject<FlatList<Game[]> | null>;
   onSnapChange: (snap: SheetSnap, heightPx: number) => void;
   emptyState: React.ReactNode;
   carouselStep: number;
@@ -51,7 +51,7 @@ type MapSheetProps = {
 export const MapSheet = forwardRef<MapSheetHandle, MapSheetProps>(function MapSheet(
   {
     pinnedGames,
-    viewerTierOrdinal,
+    venueGroups,
     bottomSpace,
     onCardPress,
     onCarouselSettle,
@@ -126,17 +126,15 @@ export const MapSheet = forwardRef<MapSheetHandle, MapSheetProps>(function MapSh
           <>
             <FlatList
               ref={carouselRef}
-              data={pinnedGames}
-              keyExtractor={(g) => g.id}
+              data={venueGroups}
+              keyExtractor={(grp) => grp[0].id}
               horizontal
               showsHorizontalScrollIndicator={false}
               snapToInterval={carouselStep}
               decelerationRate="fast"
               contentContainerStyle={{ gap: carouselGap, paddingHorizontal: 20, paddingTop: 10 }}
               onMomentumScrollEnd={onCarouselSettle}
-              renderItem={({ item }) => (
-                <MapCarouselCard game={item} viewerTierOrdinal={viewerTierOrdinal} cardWidth={cardWidth} onPress={() => onCardPress(item.id)} />
-              )}
+              renderItem={({ item }) => <MapCarouselCard venueGames={item} cardWidth={cardWidth} onSelectGame={onCardPress} />}
             />
             {snap !== "peek" && (
               <FlatList

@@ -10,7 +10,7 @@ Status: **approved 2026-08-16**, implementing straight onto `main` in incrementa
 | P1 primitives (Hero, ListRow, RailCard, StatTile, SegmentedToggle, TierRing, GameCard variants) | ✅ done | `7de7a75` |
 | P2 bottom nav, centre host FAB | ✅ done | `9fd6daa` |
 | P3 Discover list | ✅ done | `65d9f11` |
-| P4 Discover map layer | 🔲 not started | — |
+| P4 Discover map layer | ✅ done | `<pending>` |
 | P5 Game Detail | 🔲 not started | — |
 | P6 My Games agenda + past screen | 🔲 not started | — |
 | P7 Chat thread | 🔲 not started | — |
@@ -20,6 +20,10 @@ Status: **approved 2026-08-16**, implementing straight onto `main` in incrementa
 `BottomRail`/`HostFab` (deleted in P3, replaced by the header `SegmentedToggle` and the TabBar
 centre button). `app/(tabs)/my-games.tsx` still renders the old pair — that double-host-button
 state resolves once P6 rewrites that screen per §3.3.
+
+**P4 fix:** moving the List | Map switch into the header (P3) meant the map's old
+`absolute inset-0` overlay would cover the header and make the switch unreachable — the map
+overlay now measures the header's height (`onLayout`) and starts below it instead.
 
 `SegmentedToggle.tsx`, `StatTile.tsx` and `TierRing.tsx` exist but have **zero call sites yet** —
 they're wired up starting in P3 (SegmentedToggle), P5 (StatTile), P8 (TierRing).

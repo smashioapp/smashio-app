@@ -1,68 +1,58 @@
 import { View, Text, Pressable } from "react-native";
-import { router } from "expo-router";
-import { colors } from "../lib/theme";
-import { Game, spotsLeft, levelFit } from "../lib/mockData";
-import { SkillPill } from "./SkillPill";
+import { colors, tierColor } from "../lib/theme";
+import { formatTimeShort } from "../lib/format";
+import { Game, spotsLeft } from "../lib/mockData";
 import { haptics } from "../lib/haptics";
 
-// Compact card for the map's bottom sheet peek row — a lighter footprint than GameCard so
-// the map itself stays the star (Airbnb pattern: results and map coexist).
+// Venue-anchored map sheet card (docs/v2-design-plan.md §4.2) — the peek carousel groups by
+// venue, not by game: one card is "Riverside Badminton Centre · 1.8km" with a court row per
+// game there, instead of one card per game repeating the venue name.
 export function MapCarouselCard({
-  game,
-  viewerTierOrdinal,
+  venueGames,
   cardWidth,
-  onPress,
+  onSelectGame,
 }: {
-  game: Game;
-  viewerTierOrdinal: number | null;
+  venueGames: Game[];
   cardWidth: number;
-  onPress: () => void;
+  onSelectGame: (gameId: string) => void;
 }) {
-  const open = spotsLeft(game);
-  const full = open === 0;
+  const first = venueGames[0];
   return (
-    <Pressable
-      onPress={onPress}
+    <View
       className="rounded-2xl p-3.5 border"
-      style={{ width: cardWidth, backgroundColor: colors.card, borderColor: colors.cardBorder }}
+      style={{ width: cardWidth, backgroundColor: colors.card, borderColor: colors.cardBorder, gap: 10 }}
     >
-      <View className="flex-row justify-between items-start">
-        <View className="flex-1 pr-2">
-          {game.venueId ? (
+      <Text numberOfLines={1} className="font-display-bold text-[15px]" style={{ color: colors.text }}>
+        {[first.venue, first.distance].filter(Boolean).join(" · ")}
+      </Text>
+      <View style={{ gap: 8 }}>
+        {venueGames.map((g) => {
+          const open = spotsLeft(g);
+          return (
             <Pressable
-              hitSlop={4}
+              key={g.id}
               onPress={() => {
-                haptics.tap();
-                router.push(`/venue/${game.venueId}`);
+                haptics.tick();
+                onSelectGame(g.id);
               }}
+              className="flex-row items-center gap-2"
             >
-              <Text className="font-display-bold text-[15px]" style={{ color: colors.text }} numberOfLines={1}>
-                {game.venue}
+              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: tierColor(g.skill) }} />
+              <View className="flex-1 min-w-0">
+                <Text numberOfLines={1} className="font-body-semibold text-[13px]" style={{ color: colors.text }}>
+                  {[g.courts, formatTimeShort(g.startsAt)].filter(Boolean).join(" · ")}
+                </Text>
+                <Text numberOfLines={1} className="text-[11.5px] mt-0.5" style={{ color: colors.textSecondary }}>
+                  {g.skill} · {open === 0 ? "Full" : `${g.joinedCount}/${g.maxPlayers} joined`}
+                </Text>
+              </View>
+              <Text className="font-display-bold text-[12.5px]" style={{ color: colors.textDim }}>
+                ${g.cost}/pl
               </Text>
             </Pressable>
-          ) : (
-            <Text className="font-display-bold text-[15px]" style={{ color: colors.text }} numberOfLines={1}>
-              {game.venue}
-            </Text>
-          )}
-          <Text className="text-[12.5px] mt-0.5" style={{ color: colors.textTertiary }} numberOfLines={1}>
-            {game.date} · {game.time} · {game.suburb}
-          </Text>
-        </View>
-        <SkillPill skill={game.skill} fit={levelFit(viewerTierOrdinal, game.skillTierOrdinal)} />
+          );
+        })}
       </View>
-      <View className="flex-row justify-between items-center mt-2">
-        <Text className="font-display-bold text-[15px]" style={{ color: colors.accent }}>
-          ${game.cost}
-          <Text className="font-body-semibold text-[12px]" style={{ color: colors.textTertiary }}>
-            {" "}
-            / player
-          </Text>
-        </Text>
-        <Text className="text-[12.5px] font-body-bold" style={{ color: full ? colors.danger : colors.textMuted }}>
-          {full ? "Full" : `${open} spot${open === 1 ? "" : "s"} left`}
-        </Text>
-      </View>
-    </Pressable>
+    </View>
   );
 }

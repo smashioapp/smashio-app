@@ -32,15 +32,21 @@ import { ChatDetailsSheet } from "../../components/ChatDetailsSheet";
 import { ChatLightbox } from "../../components/ChatLightbox";
 
 const NEAR_BOTTOM_THRESHOLD = 120;
-const HEADER_COLLAPSE_THRESHOLD = 40;
 
 function memberName(members: ChatMember[], id: string | null): string {
   return members.find((m) => m.id === id)?.name ?? "Player";
 }
 
+// Solid lime with dark text for mine, quiet card+border for others (docs/v2-design-plan.md
+// §4.5) — was a translucent lime tint on both, which read as one soft blur instead of "mine
+// vs. theirs". Mentions need their own contrast per background: lime-on-lime is unreadable.
 function renderBodyWithMentions(body: string, members: ChatMember[], mine: boolean) {
+  const bodyColor = mine ? colors.base : colors.text;
+  const mentionStyle = mine
+    ? { fontWeight: "800" as const, textDecorationLine: "underline" as const }
+    : { color: colors.accent, fontWeight: "800" as const };
   const names = members.map((m) => m.name).filter(Boolean).sort((a, b) => b.length - a.length);
-  if (names.length === 0) return <Text style={{ color: mine ? "#EFFFC0" : colors.text }}>{body}</Text>;
+  if (names.length === 0) return <Text style={{ color: bodyColor }}>{body}</Text>;
   const escaped = names.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
   const pattern = new RegExp(`@(${escaped.join("|")})\\b`, "g");
   const parts: { text: string; mention: boolean }[] = [];
@@ -53,9 +59,9 @@ function renderBodyWithMentions(body: string, members: ChatMember[], mine: boole
   }
   if (lastIndex < body.length) parts.push({ text: body.slice(lastIndex), mention: false });
   return (
-    <Text style={{ color: mine ? "#EFFFC0" : colors.text }}>
+    <Text style={{ color: bodyColor }}>
       {parts.map((p, i) => (
-        <Text key={i} style={p.mention ? { color: colors.accent, fontWeight: "800" } : undefined}>
+        <Text key={i} style={p.mention ? mentionStyle : undefined}>
           {p.text}
         </Text>
       ))}
@@ -113,7 +119,6 @@ export default function ChatThread() {
 
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [lightboxUri, setLightboxUri] = useState<string | null>(null);
-  const [collapsed, setCollapsed] = useState(false);
   const [newCount, setNewCount] = useState(0);
 
   const listRef = useRef<FlatList<TimelineEntry>>(null);
@@ -156,7 +161,6 @@ export default function ChatThread() {
   const onScroll = (offsetY: number) => {
     nearBottomRef.current = offsetY <= NEAR_BOTTOM_THRESHOLD;
     if (nearBottomRef.current) setNewCount(0);
-    setCollapsed(offsetY > HEADER_COLLAPSE_THRESHOLD);
   };
 
   const scrollToBottom = () => {
@@ -192,19 +196,23 @@ export default function ChatThread() {
   return (
     <Screen>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
-        <View className="flex-row items-center justify-between px-5 pt-1.5 pb-3 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-          <View className="flex-row items-center gap-3">
+        {/* One slim sticky bar (docs/v2-design-plan.md §4.5) — replaces the old stacked pair
+            (a plain nav header plus ChatEventHeader as a separate card below it). */}
+        {game ? (
+          <ChatEventHeader
+            game={game}
+            onPress={() => router.push(`/game/${gameId}`)}
+            onBack={() => router.back()}
+            onDetails={() => setDetailsOpen(true)}
+          />
+        ) : (
+          <View className="flex-row items-center gap-3 px-4 border-b" style={{ paddingVertical: 10, borderColor: "rgba(255,255,255,0.06)" }}>
             <BackButton onPress={() => router.back()} />
-            <Text className="font-body-bold text-[16.5px]" style={{ color: colors.text }}>
-              {game?.venue ?? "Chat"}
+            <Text className="font-body-bold text-[14.5px]" style={{ color: colors.text }}>
+              Chat
             </Text>
           </View>
-          <Pressable onPress={() => setDetailsOpen(true)} className="w-9 h-9 items-center justify-center" hitSlop={8}>
-            <Ionicons name="ellipsis-horizontal" size={20} color={colors.textSecondary} />
-          </Pressable>
-        </View>
-
-        {game && <ChatEventHeader game={game} collapsed={collapsed} onPress={() => router.push(`/game/${gameId}`)} />}
+        )}
 
         <View style={{ flex: 1 }}>
           <FlatList
@@ -236,6 +244,21 @@ export default function ChatThread() {
               const member = members.find((x) => x.id === m.senderId);
               const isPending = m.status === "pending";
               const isFailed = m.status === "failed";
+              // Host broadcast (docs/v2-design-plan.md §4.5) — a host message in an announce-mode
+              // thread, not a distinct message kind: the thread's own chatMode is what makes it
+              // one, so it's derived here rather than stored per-message.
+              const isBroadcast = announce && !!member?.isHost;
+
+              const bubbleStyle = m.kind !== "image" && {
+                backgroundColor: m.me ? colors.accent : colors.card,
+                borderWidth: m.me ? 0 : 1,
+                borderColor: colors.cardBorder,
+                borderLeftWidth: isBroadcast ? 3 : m.me ? 0 : 1,
+                borderLeftColor: isBroadcast ? colors.accent : colors.cardBorder,
+                borderRadius: 16,
+                borderBottomRightRadius: m.me ? 4 : 16,
+                borderBottomLeftRadius: m.me ? 16 : 4,
+              };
 
               return (
                 <Pressable
@@ -255,19 +278,19 @@ export default function ChatThread() {
                     </View>
                   )}
                   <View style={{ maxWidth: 240, alignItems: m.me ? "flex-end" : "flex-start" }}>
-                    {!m.me && item.groupStart && (
+                    {item.groupStart && (!m.me || isBroadcast) && (
                       <View className="flex-row items-center gap-1.5 mb-0.5">
-                        <Pressable onPress={() => m.senderId && router.push(`/player/${m.senderId}`)}>
-                          <Text className="text-[12px] font-body-bold" style={{ color: colors.textMuted }}>
-                            {member?.name ?? "Player"}
-                          </Text>
-                        </Pressable>
-                        {member?.isHost && (
-                          <View className="rounded-pill px-1.5" style={{ backgroundColor: "rgba(214,255,63,0.16)" }}>
-                            <Text className="text-[9px] font-body-extrabold" style={{ color: colors.accent }}>
-                              HOST
+                        {!m.me && (
+                          <Pressable onPress={() => m.senderId && router.push(`/player/${m.senderId}`)}>
+                            <Text className="text-[12px] font-body-bold" style={{ color: colors.textMuted }}>
+                              {member?.name ?? "Player"}
                             </Text>
-                          </View>
+                          </Pressable>
+                        )}
+                        {isBroadcast && (
+                          <Text className="text-[10px] font-body-extrabold uppercase tracking-wide" style={{ color: colors.accent }}>
+                            Host broadcast
+                          </Text>
                         )}
                       </View>
                     )}
@@ -278,22 +301,14 @@ export default function ChatThread() {
                         {!!m.body && (
                           <View
                             className="px-3 py-2"
-                            style={{ backgroundColor: m.me ? "rgba(214,255,63,0.16)" : colors.surfaceAlt, borderRadius: 14 }}
+                            style={{ backgroundColor: m.me ? colors.accent : colors.card, borderWidth: m.me ? 0 : 1, borderColor: colors.cardBorder, borderRadius: 14 }}
                           >
                             {renderBodyWithMentions(m.body, members, m.me)}
                           </View>
                         )}
                       </View>
                     ) : (
-                      <View
-                        className="px-3.5 py-2.5"
-                        style={{
-                          backgroundColor: m.me ? "rgba(214,255,63,0.16)" : colors.surfaceAlt,
-                          borderRadius: 16,
-                          borderBottomRightRadius: m.me ? 3 : 16,
-                          borderBottomLeftRadius: m.me ? 16 : 3,
-                        }}
-                      >
+                      <View className="px-3.5 py-2.5" style={bubbleStyle || undefined}>
                         {renderBodyWithMentions(m.body, members, m.me)}
                       </View>
                     )}

@@ -1,57 +1,61 @@
-import { useEffect } from "react";
 import { View, Text, Pressable } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import Animated, { useAnimatedStyle, useSharedValue, withTiming } from "react-native-reanimated";
-import { colors } from "../lib/theme";
-import { timing } from "../lib/motion";
-import { CountdownChip } from "./CountdownChip";
+import { colors, tierColor } from "../lib/theme";
+import { formatCountdown } from "../lib/format";
+import { BackButton } from "./BackButton";
 import type { Game } from "../lib/mockData";
 
-// Pinned above the thread — the facts every "what time again? which court?" message is
-// really asking for. Collapses to one line past ~40px of scroll, but never leaves
-// (chat-plan.md constraint 1).
-export function ChatEventHeader({ game, collapsed, onPress }: { game: Game; collapsed: boolean; onPress: () => void }) {
-  const progress = useSharedValue(collapsed ? 1 : 0);
-  useEffect(() => {
-    progress.value = withTiming(collapsed ? 1 : 0, timing(180));
-  }, [collapsed]);
-
+// The merged sticky bar (docs/v2-design-plan.md §4.5) — one slim row replaces the old stacked
+// pair (a plain nav header plus this component as a separate collapsing card below it). Always
+// dense; there's no expanded state left to collapse out of.
+export function ChatEventHeader({
+  game,
+  onPress,
+  onBack,
+  onDetails,
+}: {
+  game: Game;
+  onPress: () => void;
+  onBack: () => void;
+  onDetails: () => void;
+}) {
   const cancelled = game.status === "cancelled";
-  const accent = cancelled ? colors.danger : colors.accent;
-
-  const containerStyle = useAnimatedStyle(() => ({
-    paddingTop: 12 - progress.value * 4,
-    paddingBottom: 12 - progress.value * 6,
-  }));
-  const detailStyle = useAnimatedStyle(() => ({
-    opacity: 1 - progress.value,
-    height: 18 * (1 - progress.value),
-  }));
+  const dotColor = cancelled ? colors.danger : tierColor(game.skill);
+  // formatCountdown only speaks once a game is inside 24h (chat-plan.md's own threshold) — a
+  // thread for something further out falls back to the plain date/time instead of going blank,
+  // and drops the urgency dot/colour since there's no urgency to signal yet.
+  const countingDown = !cancelled && formatCountdown(game.startsAt) != null;
+  const subtitle = cancelled ? "Cancelled" : formatCountdown(game.startsAt) ?? `${game.date} · ${game.time}`;
+  const subtitleColor = cancelled ? colors.danger : countingDown ? colors.intermediate : colors.textTertiary;
 
   return (
-    <Pressable onPress={onPress}>
-      <Animated.View
-        className="px-5 flex-row items-center justify-between border-b"
-        style={[
-          { borderColor: "rgba(255,255,255,0.06)", borderLeftWidth: 3, borderLeftColor: accent, backgroundColor: colors.surface },
-          containerStyle,
-        ]}
-      >
-        <View className="flex-1 pr-2">
-          <Text numberOfLines={1} className="font-body-bold text-[14px]" style={{ color: cancelled ? colors.danger : colors.text }}>
-            {cancelled ? "Cancelled" : `${game.date} · ${game.time}${game.courts ? ` · ${game.courts}` : ""}`}
+    <View
+      className="flex-row items-center gap-2.5 px-4 border-b"
+      style={{ paddingVertical: 10, borderColor: "rgba(255,255,255,0.06)", backgroundColor: colors.surface, borderLeftWidth: 3, borderLeftColor: dotColor }}
+    >
+      <BackButton onPress={onBack} />
+
+      <Pressable onPress={onPress} className="flex-1 min-w-0">
+        <Text numberOfLines={1} className="font-body-bold text-[14.5px]" style={{ color: colors.text }}>
+          {[game.venue, game.courts].filter(Boolean).join(" — ")}
+        </Text>
+        <View className="flex-row items-center gap-1.5 mt-0.5">
+          {countingDown && <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.intermediate }} />}
+          <Text numberOfLines={1} className="text-[12px] font-body-semibold" style={{ color: subtitleColor }}>
+            {subtitle}
           </Text>
-          <Animated.View style={detailStyle}>
-            <Text numberOfLines={1} className="text-[12.5px] mt-0.5" style={{ color: colors.textTertiary }}>
-              {game.joinedCount}/{game.maxPlayers} players · ${game.cost.toFixed(0)} each
-            </Text>
-          </Animated.View>
         </View>
-        <View className="flex-row items-center gap-2">
-          {!cancelled && <CountdownChip startsAt={game.startsAt} />}
-          <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
-        </View>
-      </Animated.View>
-    </Pressable>
+      </Pressable>
+
+      <View className="rounded-pill px-2.5 py-1" style={{ backgroundColor: colors.surfaceAlt }}>
+        <Text className="font-body-bold text-[12px]" style={{ color: colors.textDim }}>
+          {game.joinedCount}/{game.maxPlayers}
+        </Text>
+      </View>
+
+      <Pressable onPress={onDetails} className="w-8 h-8 items-center justify-center" hitSlop={8}>
+        <Ionicons name="ellipsis-horizontal" size={19} color={colors.textSecondary} />
+      </Pressable>
+    </View>
   );
 }

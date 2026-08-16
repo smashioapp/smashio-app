@@ -145,7 +145,7 @@ export const MapSheet = forwardRef<MapSheetHandle, MapSheetProps>(function MapSh
                 keyExtractor={(g) => g.id}
                 contentContainerStyle={{ padding: 20, paddingTop: 14, gap: 12 }}
                 renderItem={({ item, index }) => (
-                  <GameCard game={item} index={index} onPress={() => onCardPress(item.id)} viewerTierOrdinal={viewerTierOrdinal} showJoinAction />
+                  <GameCard game={item} onPress={() => onCardPress(item.id)} />
                 )}
               />
             )}

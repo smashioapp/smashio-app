@@ -1,254 +1,133 @@
-import { useEffect, useRef, useState } from "react";
-import { Pressable, View, Text, Alert, LayoutChangeEvent } from "react-native";
-import { router } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
-import Animated, { FadeInUp, useSharedValue, useAnimatedStyle, withSequence, withSpring } from "react-native-reanimated";
-import { colors, gradients, reliabilityLabel } from "../lib/theme";
-import { Badge } from "./Badge";
-import { SkillPill } from "./SkillPill";
-import { Avatar } from "./Avatar";
+import { View, Text, Pressable } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { colors, tierColor } from "../lib/theme";
+import { AvatarStack } from "./Avatar";
 import { CountdownChip } from "./CountdownChip";
-import { RollingNumber } from "./RollingNumber";
-import { VenueCourtHeader } from "./VenueCourtHeader";
-import { Game, spotsLeft, levelFit } from "../lib/mockData";
+import { Hero } from "./Hero";
+import { ListRow } from "./ListRow";
+import { RailCard } from "./RailCard";
+import { formatTimeShort } from "../lib/format";
+import { Game, spotsLeft } from "../lib/mockData";
 import { haptics } from "../lib/haptics";
-import { SPRING } from "../lib/motion";
-import { supabase } from "../lib/supabase";
-import { useRequestToJoin, useLeaveGame } from "../lib/queries/gamePlayers";
 
+/**
+ * The v2 density system (docs/v2-design-plan.md §3.3, rule 2). One game, three weights:
+ *
+ *  - `featured` — the single card a screen is built around. Never render two.
+ *  - `standard` — a single-line list row. This is what a list is made of now.
+ *  - `rail`     — a 132px scroll chip for a named shelf.
+ *
+ * v1 had one card and repeated it, which is exactly why nothing on Discover won the eye.
+ */
 export function GameCard({
   game,
+  variant = "standard",
+  kicker,
+  ctaLabel,
   onPress,
-  index = 0,
-  viewerTierOrdinal = null,
-  showJoinAction = false,
 }: {
   game: Game;
+  variant?: "featured" | "standard" | "rail";
+  /** Featured only — the reason this game earned the anchor ("BEST MATCH FOR YOU"). */
+  kicker?: string;
+  ctaLabel?: string;
   onPress: () => void;
-  index?: number;
-  viewerTierOrdinal?: number | null;
-  showJoinAction?: boolean;
 }) {
-  const scale = useSharedValue(1);
-  const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-  const [cardWidth, setCardWidth] = useState(0);
+  if (variant === "rail") return <RailCard game={game} onPress={onPress} />;
+  if (variant === "featured") return <FeaturedGameCard game={game} kicker={kicker} ctaLabel={ctaLabel} onPress={onPress} />;
+  return <GameRow game={game} onPress={onPress} />;
+}
 
-  const joinedScale = useSharedValue(1);
-  const prevJoined = useRef(game.joinedCount);
-  useEffect(() => {
-    if (prevJoined.current !== game.joinedCount) {
-      joinedScale.value = withSequence(withSpring(1.3, SPRING.pop), withSpring(1, SPRING.settle));
-      prevJoined.current = game.joinedCount;
-    }
-  }, [game.joinedCount]);
-  const joinedStyle = useAnimatedStyle(() => ({ transform: [{ scale: joinedScale.value }] }));
-
+// Standard weight. Everything v1 crammed onto a card — court graphic, organizer line, scarcity
+// bar, verified badge, inline join button — is gone from this row on purpose (backlog B3-B6):
+// a list is for scanning, and the decision surface is the detail screen.
+export function GameRow({ game, onPress, divider = true }: { game: Game; onPress: () => void; divider?: boolean }) {
   const open = spotsLeft(game);
-  const full = open === 0;
-  const lastSpot = open === 1;
-  // Manufacturing urgency on a game that's barely started filling would be dishonest — only
-  // surface the count once the game is at least half full.
-  const showScarcity = full || open <= game.maxPlayers / 2;
-  const fillFraction = Math.min(1, game.joinedCount / game.maxPlayers);
+  return (
+    <ListRow
+      dotColor={tierColor(game.skill)}
+      title={`${game.venue} — ${formatTimeShort(game.startsAt)}`}
+      subtitle={[game.skill, game.distance, game.verified ? "Verified" : null, open === 0 ? "Full" : null]
+        .filter(Boolean)
+        .join(" · ")}
+      leading={game.joined.length > 0 ? <AvatarStack people={game.joined} max={2} /> : undefined}
+      trailing={`$${game.cost}`}
+      divider={divider}
+      onPress={onPress}
+    />
+  );
+}
 
-  const fit = levelFit(viewerTierOrdinal, game.skillTierOrdinal);
-
-  const organizerPhotoUrl = game.organizerPhotoPath
-    ? supabase.storage.from("avatars").getPublicUrl(game.organizerPhotoPath).data.publicUrl
-    : null;
-
-  const requestToJoin = useRequestToJoin(game.id);
-  const leaveGame = useLeaveGame(game.id);
-  const handleWithdraw = () => {
-    haptics.tick();
-    leaveGame.mutate();
-  };
-  const handleRequestJoin = () => {
-    haptics.tick();
-    requestToJoin.mutate(undefined, {
-      onError: (e) => {
-        const message = e instanceof Error ? e.message : "";
-        if (message.includes("duplicate key")) {
-          Alert.alert("Already requested", "You've already asked to join this game.");
-        } else {
-          Alert.alert("Couldn't send request", "Please try again.");
-        }
-      },
-    });
-  };
+// Featured weight — the anchor. Lime lives here and nowhere else on the screen (rule 5).
+function FeaturedGameCard({
+  game,
+  kicker,
+  ctaLabel = "View game",
+  onPress,
+}: {
+  game: Game;
+  kicker?: string;
+  ctaLabel?: string;
+  onPress: () => void;
+}) {
+  const open = spotsLeft(game);
 
   return (
-    <Animated.View entering={FadeInUp.delay(index * 60).duration(320)} style={animatedStyle}>
+    <Hero tone="accent">
+      <View className="flex-row items-center justify-between">
+        <CountdownChip startsAt={game.startsAt} />
+        {game.verified && (
+          <View className="rounded-pill" style={{ backgroundColor: "rgba(53,214,166,0.15)", paddingHorizontal: 10, paddingVertical: 5 }}>
+            <Text className="font-body-extrabold text-[11px] uppercase" style={{ color: colors.intermediate, letterSpacing: 0.4 }}>
+              Verified venue
+            </Text>
+          </View>
+        )}
+      </View>
+
+      {!!kicker && (
+        <Text className="font-body-bold text-[11.5px] uppercase mt-3.5" style={{ color: colors.textSecondary, letterSpacing: 0.6 }}>
+          {kicker}
+        </Text>
+      )}
+      <Text numberOfLines={1} className="font-display-bold text-[21px] mt-1" style={{ color: colors.text }}>
+        {game.venue}
+      </Text>
+      <Text numberOfLines={1} className="text-[13px] mt-0.5" style={{ color: colors.textDim }}>
+        {[game.suburb, game.distance, game.courts].filter(Boolean).join(" · ")}
+      </Text>
+
+      <View className="flex-row items-center justify-between mt-4">
+        {game.joined.length > 0 ? <AvatarStack people={game.joined} max={4} /> : <View />}
+        <View className="items-end">
+          <Text className="font-display-bold text-[22px]" style={{ color: colors.text }}>
+            ${game.cost}
+            <Text className="font-body text-[12px]" style={{ color: colors.textTertiary }}>
+              /player
+            </Text>
+          </Text>
+          <Text className="text-[11.5px]" style={{ color: colors.textSecondary }}>
+            {game.joinedCount}/{game.maxPlayers} joined · {game.skill}
+          </Text>
+        </View>
+      </View>
+
       <Pressable
-        onPress={onPress}
-        onPressIn={() => {
-          haptics.tick();
-          scale.value = withSpring(0.97, { damping: 18, stiffness: 300 });
+        onPress={() => {
+          haptics.tap();
+          onPress();
         }}
-        onPressOut={() => (scale.value = withSpring(1, { damping: 18, stiffness: 300 }))}
+        className="flex-row items-center justify-center gap-1.5 rounded-pill mt-4"
+        style={{ height: 48, backgroundColor: open === 0 ? colors.surfaceAlt : colors.accent }}
       >
-        <LinearGradient
-          colors={gradients.card}
-          start={{ x: 0.2, y: 0 }}
-          end={{ x: 0.8, y: 1 }}
-          className="rounded-[18px] p-4 border gap-2.5"
-          style={{ borderColor: colors.cardBorder }}
-          onLayout={(e: LayoutChangeEvent) => setCardWidth(e.nativeEvent.layout.width)}
+        <Text
+          className="font-body-extrabold text-[14.5px] uppercase"
+          style={{ color: open === 0 ? colors.textMuted : colors.base, letterSpacing: 0.3 }}
         >
-          {cardWidth > 0 && <VenueCourtHeader venueKey={game.venue + game.suburb} width={cardWidth - 32} />}
-
-          <View className="flex-row justify-between items-start">
-            <View className="flex-1 pr-2">
-              {game.venueId ? (
-                <Pressable
-                  hitSlop={4}
-                  onPress={() => {
-                    haptics.tap();
-                    router.push(`/venue/${game.venueId}`);
-                  }}
-                >
-                  <Text className="font-display-bold text-[16.5px]" style={{ color: colors.text }}>
-                    {game.venue}
-                  </Text>
-                </Pressable>
-              ) : (
-                <Text className="font-display-bold text-[16.5px]" style={{ color: colors.text }}>
-                  {game.venue}
-                </Text>
-              )}
-              <Text className="text-[13.5px] mt-0.5" style={{ color: colors.textTertiary }}>
-                {game.suburb}
-                {game.distance ? ` · ${game.distance}` : ""}
-              </Text>
-            </View>
-            {game.verificationStatus !== "none" && (
-              <Badge state={game.verified ? "verified" : "pending"} label={game.verified ? "Verified" : "Pending"} />
-            )}
-          </View>
-
-          <View className="flex-row items-center justify-between">
-            <Text className="text-[14px] font-body-semibold" style={{ color: colors.textDim }}>
-              {game.date} · {game.time}
-            </Text>
-            <CountdownChip startsAt={game.startsAt} />
-          </View>
-
-          {game.myStatus === "requested" && (
-            <Text className="text-[12.5px] font-body-bold" style={{ color: colors.accent }}>
-              Awaiting host approval
-            </Text>
-          )}
-
-          {game.organizerName && (
-            <Pressable
-              className="flex-row items-center gap-2"
-              onPress={(e) => {
-                e.stopPropagation();
-                router.push(`/player/${game.organizerId}`);
-              }}
-            >
-              <Avatar name={game.organizerName} color={colors.surfaceAlt} size={24} photoUri={organizerPhotoUrl} />
-              <Text className="text-[13px] font-body-semibold flex-1" style={{ color: colors.textSecondary }} numberOfLines={1}>
-                {game.organizerName}
-                {game.organizerHostedCount != null && game.organizerHostedCount > 0 && (
-                  <Text style={{ color: colors.textMuted }}> · Hosted {game.organizerHostedCount}</Text>
-                )}
-                {game.organizerReliabilityScore != null && (
-                  <Text style={{ color: colors.textMuted }}> · {reliabilityLabel(game.organizerReliabilityScore)}</Text>
-                )}
-              </Text>
-            </Pressable>
-          )}
-
-          <View className="gap-1.5 mt-0.5">
-            <View className="flex-row items-center justify-between">
-              <SkillPill skill={game.skill} fit={fit} />
-              {showScarcity && (
-                <Animated.View style={joinedStyle} className="flex-row items-center">
-                  {full || lastSpot ? (
-                    <Text className="text-[13px] font-body-bold" style={{ color: full ? colors.danger : colors.accent }}>
-                      {full ? "Full" : "Last spot"}
-                    </Text>
-                  ) : (
-                    <>
-                      <RollingNumber
-                        from={game.maxPlayers - prevJoined.current}
-                        to={open}
-                        className="text-[13px] font-body-bold"
-                        style={{ color: colors.textMuted }}
-                      />
-                      <Text className="text-[13px] font-body-bold" style={{ color: colors.textMuted }}>
-                        {" "}
-                        spots left
-                      </Text>
-                    </>
-                  )}
-                </Animated.View>
-              )}
-            </View>
-            {showScarcity && !full && (
-              <View className="h-1 rounded-pill overflow-hidden" style={{ backgroundColor: "rgba(255,255,255,0.08)" }}>
-                <View
-                  className="h-1 rounded-pill"
-                  style={{ width: `${fillFraction * 100}%`, backgroundColor: lastSpot ? colors.accent : colors.textMuted }}
-                />
-              </View>
-            )}
-          </View>
-
-          <View
-            className="flex-row justify-between items-center pt-1.5 mt-0.5 border-t"
-            style={{ borderColor: "rgba(255,255,255,0.06)" }}
-          >
-            <Text className="font-display-bold text-[17px]" style={{ color: colors.accent }}>
-              ${game.cost} <Text className="font-body-semibold text-[13px]" style={{ color: colors.textTertiary }}>/ player</Text>
-            </Text>
-            {showJoinAction ? (
-              <Pressable
-                disabled={full || requestToJoin.isPending}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  handleRequestJoin();
-                }}
-                className="rounded-pill px-3.5 py-2"
-                style={{ backgroundColor: full ? colors.surfaceAlt : colors.accent, opacity: requestToJoin.isPending ? 0.6 : 1 }}
-              >
-                <Text className="font-body-extrabold text-[12.5px]" style={{ color: full ? colors.textMuted : colors.base }}>
-                  {full ? "Full" : requestToJoin.isSuccess ? "Requested" : "Request to join"}
-                </Text>
-              </Pressable>
-            ) : game.myStatus === "requested" ? (
-              <Pressable
-                disabled={leaveGame.isPending}
-                onPress={(e) => {
-                  e.stopPropagation();
-                  handleWithdraw();
-                }}
-                className="rounded-pill px-3.5 py-2 border-[1.5px]"
-                style={{ borderColor: "rgba(255,255,255,0.15)", opacity: leaveGame.isPending ? 0.6 : 1 }}
-              >
-                <Text className="font-body-bold text-[12.5px]" style={{ color: colors.textDim }}>
-                  {leaveGame.isPending ? "Withdrawing…" : "Withdraw request"}
-                </Text>
-              </Pressable>
-            ) : (
-              !showScarcity && (
-                <View className="flex-row items-center">
-                  <RollingNumber
-                    from={prevJoined.current}
-                    to={game.joinedCount}
-                    className="text-[13px] font-body-bold"
-                    style={{ color: colors.textMuted }}
-                  />
-                  <Text className="text-[13px] font-body-bold" style={{ color: colors.textMuted }}>
-                    /{game.maxPlayers} joined
-                  </Text>
-                </View>
-              )
-            )}
-          </View>
-        </LinearGradient>
+          {open === 0 ? "Game full" : ctaLabel}
+        </Text>
+        {open > 0 && <Ionicons name="arrow-forward" size={15} color={colors.base} />}
       </Pressable>
-    </Animated.View>
+    </Hero>
   );
 }

@@ -30,7 +30,7 @@ import { EmptyState } from "../../components/EmptyState";
 import { GameCardSkeletonList } from "../../components/Skeleton";
 import { RefreshableList } from "../../components/RefreshableList";
 import { DayHeader } from "../../components/DayHeader";
-import { Rail } from "../../components/Rail";
+import { Rail } from "../../components/RailCard";
 import { UpcomingGameCard } from "../../components/UpcomingGameCard";
 import { NextUpHero } from "../../components/NextUpHero";
 import type { MyRole } from "../../components/UpcomingGameCard";
@@ -347,7 +347,7 @@ export default function MyGames() {
                       </Text>
                     </Pressable>
                   </View>
-                  <Rail title="Happening near you this week" games={nearbyWeekQuery.data ?? []} viewerTierOrdinal={null} />
+                  <Rail title="Happening near you this week" games={nearbyWeekQuery.data ?? []} />
                 </View>
               )
             }

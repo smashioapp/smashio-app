@@ -27,6 +27,7 @@ export const colors = {
 export const LAYOUT = {
   SCREEN_PAD: 24,
   RADIUS: { hero: 26, card: 18, rail: 16, sheet: 28, tile: 16 },
+  HAIRLINE: colors.cardBorder,
 } as const;
 
 // The one lime-bordered "anchor" treatment (rule 1: one hero per screen). `live` swaps to the

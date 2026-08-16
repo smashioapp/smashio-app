@@ -29,7 +29,7 @@ import { MapSheet, MapSheetHandle, sheetSnapHeights } from "../../components/Map
 import { RefreshableList } from "../../components/RefreshableList";
 import { GameCardSkeletonList } from "../../components/Skeleton";
 import { Sheet } from "../../components/Sheet";
-import { Rail } from "../../components/Rail";
+import { Rail } from "../../components/RailCard";
 import { DayHeader } from "../../components/DayHeader";
 import { Game, spotsLeft, levelFit } from "../../lib/mockData";
 
@@ -795,17 +795,11 @@ export default function Discover() {
               scrollEventThrottle={32}
               renderItem={({ item }: { item: DiscoverRow }) => {
                 if (item.kind === "pulse") return <WeekPulseStrip text={item.text} />;
-                if (item.kind === "rail") return <Rail title={item.title} games={item.games} viewerTierOrdinal={viewerTierOrdinal} />;
+                if (item.kind === "rail") return <Rail title={item.title} games={item.games} />;
                 if (item.kind === "day") return <DayHeader label={item.label} compact={headerCompact} />;
                 return (
                   <View className="px-5 pb-3">
-                    <GameCard
-                      game={item.game}
-                      index={item.index}
-                      onPress={() => router.push(`/game/${item.game.id}`)}
-                      viewerTierOrdinal={viewerTierOrdinal}
-                      showJoinAction
-                    />
+                    <GameCard game={item.game} onPress={() => router.push(`/game/${item.game.id}`)} />
                   </View>
                 );
               }}
@@ -821,13 +815,7 @@ export default function Discover() {
               onScroll={(e: NativeSyntheticEvent<NativeScrollEvent>) => scrollHide(e.nativeEvent.contentOffset.y)}
               scrollEventThrottle={32}
               renderItem={({ item, index }: { item: Game; index: number }) => (
-                <GameCard
-                  game={item}
-                  index={index}
-                  onPress={() => router.push(`/game/${item.id}`)}
-                  viewerTierOrdinal={viewerTierOrdinal}
-                  showJoinAction
-                />
+                <GameCard game={item} onPress={() => router.push(`/game/${item.id}`)} />
               )}
             />
           )}

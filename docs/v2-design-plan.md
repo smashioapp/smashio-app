@@ -12,14 +12,12 @@ Status: **approved 2026-08-16**, implementing straight onto `main` in incrementa
 | P3 Discover list | ✅ done | `65d9f11` |
 | P4 Discover map layer | ✅ done | `d6b09d7` |
 | P5 Game Detail | ✅ done | `a439ffc` |
-| P6 My Games agenda + past screen | 🔲 not started | — |
+| P6 My Games agenda + past screen | ✅ done | `<pending>` |
 | P7 Chat thread | 🔲 not started | — |
 | P8 Profile + stats screen | 🔲 not started | — |
 
-**Known loose end from P2 — half resolved by P3:** `app/(tabs)/discover.tsx` no longer renders
-`BottomRail`/`HostFab` (deleted in P3, replaced by the header `SegmentedToggle` and the TabBar
-centre button). `app/(tabs)/my-games.tsx` still renders the old pair — that double-host-button
-state resolves once P6 rewrites that screen per §3.3.
+**Known loose end from P2 — resolved.** `BottomRail`/`HostFab` were deleted in P6 (Discover
+stopped rendering them in P3); `useTabBarSpace` lost its `withRail` argument per §5.
 
 **P4 fix:** moving the List | Map switch into the header (P3) meant the map's old
 `absolute inset-0` overlay would cover the header and make the switch unreachable — the map

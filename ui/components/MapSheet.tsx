@@ -17,7 +17,7 @@ export type SheetSnap = "peek" | "half" | "full";
 // 3 fixed heights (map-plan.md §5.8/P4) — "full" deliberately stops short of the screen so a
 // slice of map (and its pins) is always visible; there's no "closed" snap, only these three.
 // Measured from the sheet's own bottom edge, which itself sits `bottomSpace` above the real
-// screen bottom (clearing the still-visible MapToggle/HostFab rail) — see MapSheetProps.bottomSpace.
+// screen bottom (clearing the floating tab bar) — see MapSheetProps.bottomSpace.
 export function sheetSnapHeights() {
   return {
     peek: 168,

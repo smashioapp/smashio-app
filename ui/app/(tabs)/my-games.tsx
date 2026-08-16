@@ -6,39 +6,32 @@ import { LinearGradient } from "expo-linear-gradient";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
 import { useAppStore } from "../../lib/store";
-import { colors, gradients } from "../../lib/theme";
+import { colors, gradients, LAYOUT, tierColor } from "../../lib/theme";
 import { useTabBarSpace } from "../../lib/nav";
 import { makeScrollHideHandler, registerScrollToTop, unregisterScrollToTop } from "../../lib/navScroll";
-import { BottomRail } from "../../components/BottomRail";
-import { HostFab } from "../../components/HostFab";
 import { useMyHostingGames, useMyJoinedGames, useMyPastGames, useDiscoverGames } from "../../lib/queries/games";
-import { useMyPendingRequestsCount, useMyGamesRoster, useMyHostedPendingRequests } from "../../lib/queries/gamePlayers";
-import { useMyRatedGameIds } from "../../lib/queries/ratings";
+import { useMyGamesRoster } from "../../lib/queries/gamePlayers";
 import { useCreateAlert } from "../../lib/queries/alerts";
 import { useChatThreads } from "../../lib/queries/messages";
-import { useProfileStreak } from "../../lib/queries/profile";
-import { useSession } from "../../lib/session";
 import { useUserLocation } from "../../lib/location";
-import { dayLabel, monthLabel } from "../../lib/format";
+import { dayLabel, formatTimeShort } from "../../lib/format";
 import { nextRebookSlot } from "../../lib/schedule";
 import { haptics } from "../../lib/haptics";
 import { Screen } from "../../components/Screen";
-import { Chip } from "../../components/Chip";
 import { Badge } from "../../components/Badge";
-import { Button } from "../../components/Button";
 import { EmptyState } from "../../components/EmptyState";
 import { GameCardSkeletonList } from "../../components/Skeleton";
 import { RefreshableList } from "../../components/RefreshableList";
 import { DayHeader } from "../../components/DayHeader";
+import { ListRow } from "../../components/ListRow";
 import { Rail } from "../../components/RailCard";
-import { UpcomingGameCard } from "../../components/UpcomingGameCard";
 import { NextUpHero } from "../../components/NextUpHero";
 import type { MyRole } from "../../components/UpcomingGameCard";
 import type { Game } from "../../lib/mockData";
 
 type AlertRowState = "idle" | "saving" | "saved";
 
-type PastRow = { kind: "month"; id: string; label: string } | { kind: "game"; id: string; game: Game };
+const ROLE_LABEL: Record<MyRole, string> = { hosting: "Hosting", playing: "Playing", requested: "Requested" };
 
 const HERO_WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -57,8 +50,7 @@ type UpcomingRow = { kind: "day"; id: string; label: string } | { kind: "game"; 
 // The single agenda (M1): Joined and Hosting are the same calendar, role is an annotation on
 // the card, not a tab you have to know to check. See my-games-plan.md §4.
 export default function MyGames() {
-  const { myGamesTab, setMyGamesTab } = useAppStore();
-  const tabBarSpace = useTabBarSpace(true);
+  const tabBarSpace = useTabBarSpace();
   const listRef = useRef<FlatList<any>>(null);
   const scrollHide = useRef(makeScrollHideHandler()).current;
 
@@ -69,7 +61,6 @@ export default function MyGames() {
   const joinedQuery = useMyJoinedGames();
   const hostingQuery = useMyHostingGames();
   const pastQuery = useMyPastGames();
-  const pendingCountQuery = useMyPendingRequestsCount();
   const chatThreadsQuery = useChatThreads();
   const queryClient = useQueryClient();
 
@@ -101,8 +92,6 @@ export default function MyGames() {
 
   const gameIds = useMemo(() => upcoming.map((g) => g.id), [upcoming]);
   const rosterQuery = useMyGamesRoster(gameIds);
-  const hostingIds = useMemo(() => upcoming.filter((g) => g.role === "hosting").map((g) => g.id), [upcoming]);
-  const pendingRequestsQuery = useMyHostedPendingRequests(hostingIds);
   const unreadGameIds = useMemo(
     () => new Set((chatThreadsQuery.data ?? []).filter((t) => t.unread).map((t) => t.id)),
     [chatThreadsQuery.data]
@@ -129,58 +118,33 @@ export default function MyGames() {
   }, [restUpcoming]);
   const stickyHeaderIndices = useMemo(() => upcomingRows.flatMap((r, i) => (r.kind === "day" ? [i] : [])), [upcomingRows]);
 
-  const upcomingCount = upcoming.length;
   const pastCount = pastQuery.data?.length ?? 0;
-  const hasPending = (pendingCountQuery.data ?? 0) > 0;
 
-  // Past as identity, not archive (my-games-plan.md §M4): games played, streak, most-played
-  // venue, and regulars are all derivable from data we already fetch elsewhere on this screen.
-  const { session } = useSession();
-  const userId = session?.user.id;
-  const streakQuery = useProfileStreak(userId);
-  const pastGames = pastQuery.data ?? [];
-  const pastGameIds = useMemo(() => pastGames.map((g) => g.id), [pastGames]);
-  const pastRosterQuery = useMyGamesRoster(pastGameIds);
-  const ratedGameIdsQuery = useMyRatedGameIds(pastGameIds);
-
-  const historyStats = useMemo(() => {
-    if (pastGames.length === 0) return null;
-    const venueCounts = new Map<string, number>();
-    for (const g of pastGames) venueCounts.set(g.venue, (venueCounts.get(g.venue) ?? 0) + 1);
-    const topVenue = [...venueCounts.entries()].sort((a, b) => b[1] - a[1])[0];
-
-    const teammateCounts = new Map<string, { name: string; count: number }>();
-    for (const players of pastRosterQuery.data?.values() ?? []) {
-      for (const p of players) {
-        if (p.id === userId) continue;
-        const entry = teammateCounts.get(p.id) ?? { name: p.name, count: 0 };
-        entry.count += 1;
-        teammateCounts.set(p.id, entry);
-      }
-    }
-    const topRegular = [...teammateCounts.values()].sort((a, b) => b.count - a.count)[0];
-
-    return {
-      venue: topVenue ? { name: topVenue[0], count: topVenue[1] } : null,
-      regular: topRegular && topRegular.count >= 2 ? topRegular : null,
-    };
-  }, [pastGames, pastRosterQuery.data, userId]);
-
-  const pastRows: PastRow[] = useMemo(() => {
-    const rows: PastRow[] = [];
+  // `Hosting N ›` chip (docs/v2-design-plan.md §4.4) filters the agenda to hosted games only —
+  // the hero respects it too, so toggling it never leaves a non-hosted hero contradicting the filter.
+  const [hostingOnly, setHostingOnly] = useState(false);
+  const hostingCount = useMemo(() => upcoming.filter((g) => g.role === "hosting").length, [upcoming]);
+  const heroVisible = !!heroGame && (!hostingOnly || heroGame.role === "hosting");
+  const agendaGames = useMemo(
+    () => (hostingOnly ? restUpcoming.filter((g) => g.role === "hosting") : restUpcoming),
+    [restUpcoming, hostingOnly]
+  );
+  const agendaRows: UpcomingRow[] = useMemo(() => {
+    const rows: UpcomingRow[] = [];
     let lastLabel: string | null = null;
-    for (const game of pastGames) {
-      const label = monthLabel(game.startsAt);
+    for (const game of agendaGames) {
+      const label = dayLabel(game.startsAt, new Date(), { todayLabel: "Today" });
       if (label !== lastLabel) {
-        rows.push({ kind: "month", id: `month-${label}`, label });
+        rows.push({ kind: "day", id: `day-${label}`, label });
         lastLabel = label;
       }
       rows.push({ kind: "game", id: game.id, game });
     }
     return rows;
-  }, [pastGames]);
+  }, [agendaGames]);
+  const agendaStickyHeaderIndices = useMemo(() => agendaRows.flatMap((r, i) => (r.kind === "day" ? [i] : [])), [agendaRows]);
 
-  // Rebook (my-games-plan.md §M4): seeds the wizard draft from the past game instead of the
+  // Rebook (my-games-plan.md §M4): seeds the wizard draft from a past game instead of the
   // empty-draft "just opens the host flow" it used to be. No venueId (older row, before it was
   // projected) means the wizard opens clean rather than half-filled.
   const handleRebook = (game: Game) => {
@@ -202,8 +166,9 @@ export default function MyGames() {
   };
 
   // "Rebook your regular slot" (my-games-plan.md §M5) — the venue+weekday pairing you've played
-  // most, sourced from whichever past game matches it (newest first, since useMyPastGames is
-  // ordered that way) so the rebook carries real skill/maxPlayers/cost, not a guess.
+  // most, sourced from whichever past game matches it. Needs the raw past games, not just the
+  // count, so it fetches its own slice via the same cached query the past route also reads.
+  const pastGames = pastQuery.data ?? [];
   const regularSlotGame = useMemo(() => {
     if (pastGames.length === 0) return null;
     const slotKey = (g: Game) => `${g.venue}__${new Date(g.startsAt).getDay()}`;
@@ -213,7 +178,7 @@ export default function MyGames() {
     return pastGames.find((g) => slotKey(g) === topKey) ?? null;
   }, [pastGames]);
 
-  const showUpcomingDeadEnd = myGamesTab === "upcoming" && !isLoading && !isError && upcoming.length === 0;
+  const showUpcomingDeadEnd = !isLoading && !isError && upcoming.length === 0;
   const userLocation = useUserLocation();
   const nearbyWeekQuery = useDiscoverGames({ when: "week" }, userLocation, { enabled: showUpcomingDeadEnd });
 
@@ -235,43 +200,45 @@ export default function MyGames() {
 
   return (
     <Screen>
-      <Text className="font-display text-[26px] px-5 pt-3 pb-2.5" style={{ color: colors.text }}>
-        My Games
-      </Text>
-      <View className="flex-row gap-1.5 px-5 pb-3.5">
-        <View>
-          <Chip
-            label={upcomingCount > 0 ? `Upcoming ${upcomingCount}` : "Upcoming"}
-            active={myGamesTab === "upcoming"}
-            onPress={() => setMyGamesTab("upcoming")}
-          />
-          {hasPending && (
-            <View className="absolute top-0 right-0 w-2 h-2 rounded-full" style={{ backgroundColor: colors.accent }} />
-          )}
-        </View>
-        <Chip label={pastCount > 0 ? `Past ${pastCount}` : "Past"} active={myGamesTab === "past"} onPress={() => setMyGamesTab("past")} />
+      <View className="flex-row items-center justify-between" style={{ paddingHorizontal: LAYOUT.SCREEN_PAD, paddingTop: 12, paddingBottom: 10 }}>
+        <Text className="font-display text-[30px]" style={{ color: colors.text }}>
+          My Games
+        </Text>
+        {hostingCount > 0 && (
+          <Pressable
+            onPress={() => {
+              haptics.tick();
+              setHostingOnly((v) => !v);
+            }}
+            className="rounded-pill px-3.5 py-2"
+            style={{ backgroundColor: hostingOnly ? colors.accent : "rgba(214,255,63,0.12)" }}
+          >
+            <Text className="font-body-extrabold text-[12.5px]" style={{ color: hostingOnly ? colors.base : colors.accent }}>
+              Hosting {hostingCount} ›
+            </Text>
+          </Pressable>
+        )}
       </View>
 
-      <Animated.View key={myGamesTab} entering={FadeIn.duration(180)} exiting={FadeOut.duration(120)} style={{ flex: 1 }}>
-      {myGamesTab === "upcoming" && !isLoading && !isError && heroGame && (
-        <NextUpHero
-          game={heroGame}
-          role={heroGame.role}
-          roster={rosterQuery.data?.get(heroGame.id) ?? []}
-          unread={unreadGameIds.has(heroGame.id)}
-          onPress={() => router.push(`/game/${heroGame.id}`)}
-        />
-      )}
+      <Animated.View entering={FadeIn.duration(180)} exiting={FadeOut.duration(120)} style={{ flex: 1 }}>
+        {!isLoading && !isError && heroVisible && heroGame && (
+          <NextUpHero
+            game={heroGame}
+            role={heroGame.role}
+            roster={rosterQuery.data?.get(heroGame.id) ?? []}
+            unread={unreadGameIds.has(heroGame.id)}
+            onPress={() => router.push(`/game/${heroGame.id}`)}
+          />
+        )}
 
-      {myGamesTab === "upcoming" &&
-        (isLoading ? (
+        {isLoading ? (
           <GameCardSkeletonList />
         ) : (
           <RefreshableList
             ref={listRef}
-            data={upcomingRows}
+            data={agendaRows}
             keyExtractor={(r: UpcomingRow) => r.id}
-            stickyHeaderIndices={stickyHeaderIndices}
+            stickyHeaderIndices={agendaStickyHeaderIndices}
             contentContainerStyle={{ paddingTop: 4, paddingBottom: tabBarSpace }}
             refreshing={joinedQuery.isRefetching || hostingQuery.isRefetching}
             onRefresh={() => {
@@ -297,13 +264,17 @@ export default function MyGames() {
                 <View>
                   <View className="px-5">
                     <EmptyState
-                      title="Nothing on your calendar"
-                      subtitle="Find a match near you and lock in your spot before it fills up."
-                      ctaLabel="Find a game"
-                      onCta={() => router.push("/(tabs)/discover")}
+                      title={hostingOnly ? "You're not hosting anything upcoming" : "Nothing on your calendar"}
+                      subtitle={
+                        hostingOnly
+                          ? "Host a game to see it here."
+                          : "Find a match near you and lock in your spot before it fills up."
+                      }
+                      ctaLabel={hostingOnly ? "Host a game" : "Find a game"}
+                      onCta={() => router.push(hostingOnly ? "/wizard" : "/(tabs)/discover")}
                     />
                   </View>
-                  {regularSlotGame && (
+                  {!hostingOnly && regularSlotGame && (
                     <View className="px-5 pt-1 pb-2">
                       <Pressable
                         onPress={() => handleRebook(regularSlotGame)}
@@ -323,201 +294,76 @@ export default function MyGames() {
                       </Pressable>
                     </View>
                   )}
-                  <View className="px-5 pb-2">
-                    <Pressable
-                      onPress={handleSetAlert}
-                      disabled={alertState !== "idle"}
-                      className="flex-row items-center justify-center gap-2 rounded-xl px-4 py-3.5 border"
-                      style={{
-                        borderColor: alertState === "saved" ? "rgba(53,214,166,0.3)" : colors.cardBorder,
-                        backgroundColor: alertState === "saved" ? "rgba(53,214,166,0.08)" : colors.surfaceAlt,
-                        opacity: alertState === "saving" ? 0.6 : 1,
-                      }}
-                    >
-                      <Ionicons
-                        name={alertState === "saved" ? "checkmark-circle" : "notifications-outline"}
-                        size={16}
-                        color={alertState === "saved" ? colors.intermediate : colors.textSecondary}
-                      />
-                      <Text
-                        className="font-body-bold text-[14px]"
-                        style={{ color: alertState === "saved" ? colors.intermediate : colors.textSecondary }}
+                  {!hostingOnly && (
+                    <View className="px-5 pb-2">
+                      <Pressable
+                        onPress={handleSetAlert}
+                        disabled={alertState !== "idle"}
+                        className="flex-row items-center justify-center gap-2 rounded-xl px-4 py-3.5 border"
+                        style={{
+                          borderColor: alertState === "saved" ? "rgba(53,214,166,0.3)" : colors.cardBorder,
+                          backgroundColor: alertState === "saved" ? "rgba(53,214,166,0.08)" : colors.surfaceAlt,
+                          opacity: alertState === "saving" ? 0.6 : 1,
+                        }}
                       >
-                        {alertState === "saved" ? "Alert set — we'll ping you" : alertState === "saving" ? "Saving…" : "Alert me when a game opens up"}
-                      </Text>
-                    </Pressable>
-                  </View>
-                  <Rail title="Happening near you this week" games={nearbyWeekQuery.data ?? []} />
+                        <Ionicons
+                          name={alertState === "saved" ? "checkmark-circle" : "notifications-outline"}
+                          size={16}
+                          color={alertState === "saved" ? colors.intermediate : colors.textSecondary}
+                        />
+                        <Text
+                          className="font-body-bold text-[14px]"
+                          style={{ color: alertState === "saved" ? colors.intermediate : colors.textSecondary }}
+                        >
+                          {alertState === "saved" ? "Alert set — we'll ping you" : alertState === "saving" ? "Saving…" : "Alert me when a game opens up"}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  )}
+                  {!hostingOnly && <Rail title="Happening near you this week" games={nearbyWeekQuery.data ?? []} />}
                 </View>
               )
+            }
+            ListFooterComponent={
+              !isLoading && !isError ? (
+                <Pressable
+                  onPress={() => router.push("/my-games/past")}
+                  className="flex-row items-center justify-between rounded-2xl px-4 py-3.5 mx-5 mt-1 border"
+                  style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}
+                >
+                  <Text className="font-body-bold text-[14px]" style={{ color: colors.text }}>
+                    {pastCount} past {pastCount === 1 ? "game" : "games"}
+                  </Text>
+                  <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
+                </Pressable>
+              ) : null
             }
             renderItem={({ item }: { item: UpcomingRow }) => {
               if (item.kind === "day") return <DayHeader label={item.label} compact={false} />;
               const { game } = item;
-              return (
-                <View className="px-5 pb-3">
-                  {game.status === "cancelled" ? (
-                    <CancelledCard game={game} role={game.role} />
-                  ) : (
-                    <UpcomingGameCard
-                      game={game}
-                      role={game.role}
-                      roster={rosterQuery.data?.get(game.id) ?? []}
-                      pendingRequests={pendingRequestsQuery.data?.get(game.id) ?? []}
-                      unread={unreadGameIds.has(game.id)}
-                      onPress={() => router.push(`/game/${game.id}`)}
-                    />
-                  )}
-                </View>
-              );
-            }}
-          />
-        ))}
-
-      {myGamesTab === "past" &&
-        (pastQuery.isLoading ? (
-          <GameCardSkeletonList />
-        ) : (
-          <RefreshableList
-            ref={listRef}
-            data={pastRows}
-            keyExtractor={(r: PastRow) => r.id}
-            contentContainerStyle={{ paddingTop: 4, paddingBottom: tabBarSpace }}
-            refreshing={pastQuery.isRefetching}
-            onRefresh={() => pastQuery.refetch()}
-            onScroll={(e: NativeSyntheticEvent<NativeScrollEvent>) => scrollHide(e.nativeEvent.contentOffset.y)}
-            scrollEventThrottle={32}
-            ListHeaderComponent={
-              historyStats ? <PastHistoryHeader gamesPlayed={pastCount} stats={historyStats} streak={streakQuery.data ?? 0} /> : null
-            }
-            ListEmptyComponent={
-              pastQuery.isError ? (
-                <View className="px-5">
-                  <EmptyState
-                    title="Couldn't load your games"
-                    subtitle="Check your connection and try again."
-                    ctaLabel="Retry"
-                    onCta={() => pastQuery.refetch()}
-                  />
-                </View>
-              ) : (
-                <View className="px-5">
-                  <EmptyState
-                    title="Your rally history starts here"
-                    subtitle="Play your first match and it'll show up right here — ratings, streaks, all of it."
-                    ctaLabel="Find a game"
-                    onCta={() => router.push("/(tabs)/discover")}
-                  />
-                </View>
-              )
-            }
-            renderItem={({ item }: { item: PastRow }) => {
-              if (item.kind === "month") {
+              if (game.status === "cancelled") {
                 return (
-                  <Text
-                    className="font-body-extrabold text-[12.5px] uppercase tracking-wide px-5 pt-2 pb-2.5"
-                    style={{ color: colors.textTertiary }}
-                  >
-                    {item.label}
-                  </Text>
+                  <View className="px-5 pb-3">
+                    <CancelledCard game={game} role={game.role} />
+                  </View>
                 );
               }
-              const game = item.game;
-              const teammates = (pastRosterQuery.data?.get(game.id) ?? []).filter((p) => p.id !== userId);
-              const rated = ratedGameIdsQuery.data?.has(game.id) ?? false;
               return (
-                <View className="px-5 pb-3">
-                  <LinearGradient colors={gradients.card} className="rounded-[18px] p-4 border gap-2.5" style={{ borderColor: colors.cardBorder }}>
-                    <Text className="font-display-bold text-[16.5px]" style={{ color: colors.text }}>
-                      {game.venue}
-                    </Text>
-                    <Text className="text-[14px]" style={{ color: colors.textTertiary }}>
-                      {game.date} · {game.time}
-                    </Text>
-                    <View className="flex-row gap-2">
-                      {rated ? (
-                        <View className="rounded-pill px-4 py-2 border-[1.5px] flex-row items-center gap-1.5" style={{ borderColor: "rgba(255,255,255,0.1)" }}>
-                          <Ionicons name="checkmark-circle" size={14} color={colors.intermediate} />
-                          <Text className="font-body-bold text-[13.5px]" style={{ color: colors.textDim }}>
-                            Rated
-                          </Text>
-                        </View>
-                      ) : (
-                        <Button
-                          label={teammates.length > 0 ? `Rate ${teammates.length} ${teammates.length === 1 ? "player" : "players"}` : "Rate players"}
-                          size="sm"
-                          fullWidth={false}
-                          onPress={() => router.push(`/post-game/${game.id}`)}
-                        />
-                      )}
-                      <Pressable
-                        onPress={() => handleRebook(game)}
-                        className="rounded-pill px-4 py-2 border-[1.5px] items-center justify-center"
-                        style={{ borderColor: "rgba(255,255,255,0.15)" }}
-                      >
-                        <Text className="font-body-bold text-[14px]" style={{ color: colors.text }}>
-                          Rebook
-                        </Text>
-                      </Pressable>
-                    </View>
-                  </LinearGradient>
+                <View style={{ paddingHorizontal: LAYOUT.SCREEN_PAD }}>
+                  <ListRow
+                    dotColor={tierColor(game.skill)}
+                    title={`${game.venue} — ${formatTimeShort(game.startsAt)}`}
+                    subtitle={`${game.skill} · ${ROLE_LABEL[game.role]}`}
+                    accessory="chevron"
+                    onPress={() => router.push(`/game/${game.id}`)}
+                  />
                 </View>
               );
             }}
           />
-        ))}
+        )}
       </Animated.View>
-
-      <BottomRail right={<HostFab />} />
     </Screen>
-  );
-}
-
-// History as identity, not receipt list (my-games-plan.md §M4) — games played, streak,
-// most-played venue, and the person you keep ending up on court with.
-function PastHistoryHeader({
-  gamesPlayed,
-  stats,
-  streak,
-}: {
-  gamesPlayed: number;
-  stats: { venue: { name: string; count: number } | null; regular: { name: string; count: number } | null };
-  streak: number;
-}) {
-  return (
-    <View className="px-5 pb-4">
-      <LinearGradient colors={gradients.card} className="rounded-[18px] p-4 border gap-3" style={{ borderColor: colors.cardBorder }}>
-        <View className="flex-row items-center justify-between">
-          <Text className="font-display-bold text-[19px]" style={{ color: colors.text }}>
-            {gamesPlayed} {gamesPlayed === 1 ? "game" : "games"} played
-          </Text>
-          {streak >= 2 && (
-            <View className="flex-row items-center gap-1.5">
-              <Text style={{ fontSize: 16 }}>🔥</Text>
-              <Text className="font-body-bold text-[13.5px]" style={{ color: colors.accent }}>
-                {streak} week streak
-              </Text>
-            </View>
-          )}
-        </View>
-        {stats.venue && (
-          <View className="flex-row items-center gap-2">
-            <Ionicons name="location" size={14} color={colors.textTertiary} />
-            <Text className="text-[13.5px] font-body-semibold" style={{ color: colors.textSecondary }}>
-              Most played at <Text style={{ color: colors.text }}>{stats.venue.name}</Text> · {stats.venue.count}×
-            </Text>
-          </View>
-        )}
-        {stats.regular && (
-          <View className="flex-row items-center gap-2">
-            <Ionicons name="people" size={14} color={colors.textTertiary} />
-            <Text className="text-[13.5px] font-body-semibold" style={{ color: colors.textSecondary }}>
-              You've played with <Text style={{ color: colors.text }}>{stats.regular.name}</Text> {stats.regular.count}×
-            </Text>
-          </View>
-        )}
-      </LinearGradient>
-    </View>
   );
 }
 

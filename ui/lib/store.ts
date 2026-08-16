@@ -92,9 +92,6 @@ type AppState = {
   setSortBy: (v: SortOption) => void;
   clearDiscoverFilters: () => void;
 
-  myGamesTab: "upcoming" | "past";
-  setMyGamesTab: (v: "upcoming" | "past") => void;
-
   wizard: WizardDraft;
   resetWizard: () => void;
   selectVenue: (id: string) => void;
@@ -151,9 +148,6 @@ export const useAppStore = create<AppState>((set) => ({
       maxCostPerPlayerCents: null,
       sortBy: "soonest",
     }),
-
-  myGamesTab: "upcoming",
-  setMyGamesTab: (v) => set({ myGamesTab: v }),
 
   wizard: initialWizard,
   resetWizard: () => set({ wizard: { ...initialWizard, startsAt: defaultStartsAt() } }),

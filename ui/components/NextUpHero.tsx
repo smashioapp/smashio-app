@@ -8,7 +8,6 @@ import { colors, gradients } from "../lib/theme";
 import { AvatarStack } from "./Avatar";
 import { formatCountdown } from "../lib/format";
 import { openDirections } from "../lib/directions";
-import { addGameToCalendar } from "../lib/calendar";
 import { haptics } from "../lib/haptics";
 import type { Game, Player } from "../lib/mockData";
 import type { MyRole } from "./UpcomingGameCard";
@@ -110,17 +109,12 @@ export function NextUpHero({
             </Text>
           </View>
 
+          {/* Two buttons (docs/v2-design-plan.md §4.4) — Directions neutral, Open chat lime.
+              Calendar was a third button here; it's dropped (backlog B11), the silent
+              add-on-join still runs from Game Detail's hold-to-join. */}
           <View className="flex-row items-center gap-2 pt-1 mt-0.5 border-t" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
             <HeroAction icon="navigate" label="Directions" onPress={() => openDirections(game)} />
-            <HeroAction icon="chatbubble" label="Chat" unread={unread} onPress={() => router.push(`/chat/${game.id}`)} />
-            <HeroAction
-              icon="calendar-outline"
-              label="Calendar"
-              onPress={() => {
-                haptics.tick();
-                addGameToCalendar(game);
-              }}
-            />
+            <HeroAction icon="chatbubble" label="Open chat" unread={unread} accent onPress={() => router.push(`/chat/${game.id}`)} />
           </View>
         </LinearGradient>
       </Pressable>
@@ -132,13 +126,17 @@ function HeroAction({
   icon,
   label,
   unread = false,
+  accent = false,
   onPress,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   unread?: boolean;
+  /** Lime fill — rule 5 (lime once per screen): the hero's own CTA, not the neutral action beside it. */
+  accent?: boolean;
   onPress: () => void;
 }) {
+  const iconColor = accent ? colors.base : colors.text;
   return (
     <Pressable
       onPress={(e) => {
@@ -146,18 +144,18 @@ function HeroAction({
         onPress();
       }}
       className="flex-1 flex-row items-center justify-center gap-1.5 rounded-pill py-2.5"
-      style={{ backgroundColor: colors.surfaceAlt }}
+      style={{ backgroundColor: accent ? colors.accent : colors.surfaceAlt }}
     >
       <View>
-        <Ionicons name={icon} size={14} color={colors.text} />
+        <Ionicons name={icon} size={14} color={iconColor} />
         {unread && (
           <View
             className="absolute rounded-full"
-            style={{ width: 6, height: 6, top: -2, right: -2, backgroundColor: colors.accent }}
+            style={{ width: 6, height: 6, top: -2, right: -2, backgroundColor: accent ? colors.base : colors.accent }}
           />
         )}
       </View>
-      <Text className="text-[12.5px] font-body-bold" style={{ color: colors.text }}>
+      <Text className="text-[12.5px] font-body-bold" style={{ color: accent ? colors.base : colors.text }}>
         {label}
       </Text>
     </Pressable>

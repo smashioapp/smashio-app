@@ -23,10 +23,10 @@ export function tabBarBottom(insetBottom: number): number {
   return Math.max(insetBottom, NAV.MIN_BOTTOM_INSET);
 }
 
-// Exact clearance a scrollable screen needs so its last row never sits under the floating bar
-// (and, on Discover/My Games, the action rail floating above it too).
-export function useTabBarSpace(withRail = false): number {
+// Exact clearance a scrollable screen needs so its last row never sits under the floating bar.
+// Used to take a `withRail` flag for the old BottomRail floating above it — that's gone (v2 §5),
+// so every screen just clears the bar itself now.
+export function useTabBarSpace(): number {
   const insets = useSafeAreaInsets();
-  const base = tabBarBottom(insets.bottom) + NAV.BAR_HEIGHT + NAV.CONTENT_GAP;
-  return withRail ? base + NAV.RAIL_HEIGHT + NAV.RAIL_GAP : base;
+  return tabBarBottom(insets.bottom) + NAV.BAR_HEIGHT + NAV.CONTENT_GAP;
 }

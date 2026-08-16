@@ -1,10 +1,10 @@
 import { makeMutable, withTiming } from "react-native-reanimated";
 import { timing } from "./motion";
 
-// 0 = bar/rail fully expanded, 1 = minimised to a slim pill. TabBar and HostFab both read this;
-// screens write to it from their own onScroll. A module-level shared value (not a hook/context)
-// is the only way to share one Reanimated value across the bar and every tab screen, since the
-// bar lives outside each screen's React subtree.
+// 0 = bar fully expanded, 1 = minimised to a slim pill. TabBar reads this; screens write to it
+// from their own onScroll. A module-level shared value (not a hook/context) is the only way to
+// share one Reanimated value across the bar and every tab screen, since the bar lives outside
+// each screen's React subtree.
 export const navMinimize = makeMutable(0);
 
 const HIDE_THRESHOLD = 12;

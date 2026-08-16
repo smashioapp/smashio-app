@@ -15,11 +15,11 @@ import { SessionProvider } from "../lib/session";
 import { usePushRegistration } from "../lib/notifications";
 import { AnimatedSplash } from "../components/AnimatedSplash";
 import {
-  useFonts as useBricolageFonts,
-  BricolageGrotesque_500Medium,
-  BricolageGrotesque_700Bold,
-  BricolageGrotesque_800ExtraBold,
-} from "@expo-google-fonts/bricolage-grotesque";
+  useFonts as useSpaceGroteskFonts,
+  SpaceGrotesk_500Medium,
+  SpaceGrotesk_600SemiBold,
+  SpaceGrotesk_700Bold,
+} from "@expo-google-fonts/space-grotesk";
 import {
   useFonts as useManropeFonts,
   Manrope_500Medium,
@@ -36,10 +36,12 @@ cssInterop(LinearGradient, { className: "style" });
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
-  const [bricolageLoaded] = useBricolageFonts({
-    BricolageGrotesque_500Medium,
-    BricolageGrotesque_700Bold,
-    BricolageGrotesque_800ExtraBold,
+  // v2 display face (docs/v2-design-plan.md §3.2) — Space Grotesk replaces Bricolage Grotesque
+  // for headlines and every number that carries weight (price, countdown, reliability, spots).
+  const [spaceGroteskLoaded] = useSpaceGroteskFonts({
+    SpaceGrotesk_500Medium,
+    SpaceGrotesk_600SemiBold,
+    SpaceGrotesk_700Bold,
   });
   const [manropeLoaded] = useManropeFonts({
     Manrope_500Medium,
@@ -48,7 +50,7 @@ export default function RootLayout() {
     Manrope_800ExtraBold,
   });
 
-  const fontsLoaded = bricolageLoaded && manropeLoaded;
+  const fontsLoaded = spaceGroteskLoaded && manropeLoaded;
   const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {

@@ -27,9 +27,13 @@ module.exports = {
         danger: "#FF6767",
       },
       fontFamily: {
-        display: ["BricolageGrotesque_800ExtraBold"],
-        "display-bold": ["BricolageGrotesque_700Bold"],
-        "display-medium": ["BricolageGrotesque_500Medium"],
+        // v2 (docs/v2-design-plan.md §3.2): aliases keep their names so no call site churns,
+        // but they now resolve to Space Grotesk. It tops out at 700 — the old 800 display
+        // weight is gone, and size + colour carry that hierarchy instead.
+        display: ["SpaceGrotesk_700Bold"],
+        "display-bold": ["SpaceGrotesk_700Bold"],
+        "display-semibold": ["SpaceGrotesk_600SemiBold"],
+        "display-medium": ["SpaceGrotesk_500Medium"],
         body: ["Manrope_500Medium"],
         "body-semibold": ["Manrope_600SemiBold"],
         "body-bold": ["Manrope_700Bold"],

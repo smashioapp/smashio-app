@@ -22,6 +22,23 @@ export const colors = {
   danger: "#FF6767",
 };
 
+// v2 layout tokens (docs/v2-design-plan.md §3.1). Screens hand-rolled these numbers before;
+// the 2026 redesign frames are drawn on a 24px gutter, not the 20px the app shipped with.
+export const LAYOUT = {
+  SCREEN_PAD: 24,
+  RADIUS: { hero: 26, card: 18, rail: 16, sheet: 28, tile: 16 },
+} as const;
+
+// The one lime-bordered "anchor" treatment (rule 1: one hero per screen). `live` swaps to the
+// intermediate green so a game that's already on reads differently from one you can still join.
+export const HERO_TONE = {
+  accent: { bg: ["#1C1F10", colors.card] as const, border: "rgba(214,255,63,0.4)", fg: colors.accent },
+  live: { bg: ["#101C14", colors.card] as const, border: "rgba(53,214,166,0.4)", fg: colors.intermediate },
+  urgent: { bg: ["#1F1113", colors.card] as const, border: "rgba(255,103,103,0.4)", fg: colors.danger },
+} as const;
+
+export type HeroTone = keyof typeof HERO_TONE;
+
 export const gradients = {
   accent: [colors.accentSoft, colors.accent2] as const,
   accentDiagonal: [colors.accentSoft, colors.accent3] as const,

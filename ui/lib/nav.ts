@@ -13,6 +13,10 @@ export const NAV = {
   RAIL_HEIGHT: 56,
   RAIL_GAP: 12,
   CONTENT_GAP: 34,
+  // v2 (docs/v2-design-plan.md §5) — the centre host button in TabBar. It's a 52px circle that
+  // overhangs the bar's top edge by 30px, same silhouette as the design's tab-fab.
+  FAB_SIZE: 52,
+  FAB_RISE: 30,
 } as const;
 
 export function tabBarBottom(insetBottom: number): number {

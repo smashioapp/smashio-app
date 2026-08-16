@@ -1,6 +1,7 @@
 # SMASHIO v2 design plan — "2026 redesign"
 
-Status: **approved 2026-08-16**, implementing straight onto `main` in incremental commits.
+Status: **all 9 phases (P0–P8) complete**, implemented straight onto `main` in incremental
+commits. See §10 for the final end-to-end verification pass.
 
 ## Progress (updated 2026-08-16)
 
@@ -14,7 +15,7 @@ Status: **approved 2026-08-16**, implementing straight onto `main` in incrementa
 | P5 Game Detail | ✅ done | `a439ffc` |
 | P6 My Games agenda + past screen | ✅ done | `a874e1f` |
 | P7 Chat thread | ✅ done | `c5482db` |
-| P8 Profile + stats screen | ✅ done | `<pending>` |
+| P8 Profile + stats screen | ✅ done | `cbd3f95` |
 
 **Known loose end from P2 — resolved.** `BottomRail`/`HostFab` were deleted in P6 (Discover
 stopped rendering them in P3); `useTabBarSpace` lost its `withRail` argument per §5.

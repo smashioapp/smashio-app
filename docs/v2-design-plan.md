@@ -14,7 +14,7 @@ Status: **approved 2026-08-16**, implementing straight onto `main` in incrementa
 | P5 Game Detail | ✅ done | `a439ffc` |
 | P6 My Games agenda + past screen | ✅ done | `a874e1f` |
 | P7 Chat thread | ✅ done | `c5482db` |
-| P8 Profile + stats screen | 🔲 not started | — |
+| P8 Profile + stats screen | ✅ done | `<pending>` |
 
 **Known loose end from P2 — resolved.** `BottomRail`/`HostFab` were deleted in P6 (Discover
 stopped rendering them in P3); `useTabBarSpace` lost its `withRail` argument per §5.
@@ -23,8 +23,7 @@ stopped rendering them in P3); `useTabBarSpace` lost its `withRail` argument per
 `absolute inset-0` overlay would cover the header and make the switch unreachable — the map
 overlay now measures the header's height (`onLayout`) and starts below it instead.
 
-`SegmentedToggle.tsx` and `StatTile.tsx` are now wired up (P3, P5 respectively). `TierRing.tsx`
-still has zero call sites — that's P8.
+`SegmentedToggle.tsx`, `StatTile.tsx` and `TierRing.tsx` are all wired up now (P3, P5, P8).
 
 Source: `SMASHIO 2026 Redesign.html` in the claude.ai/design project
 `23bc2cae-5ee1-4648-a0f1-15a9412f2b1b` (imported via the `claude_design` MCP). Six boards:

@@ -11,7 +11,7 @@ Status: **approved 2026-08-16**, implementing straight onto `main` in incrementa
 | P2 bottom nav, centre host FAB | ✅ done | `9fd6daa` |
 | P3 Discover list | ✅ done | `65d9f11` |
 | P4 Discover map layer | ✅ done | `d6b09d7` |
-| P5 Game Detail | 🔲 not started | — |
+| P5 Game Detail | ✅ done | `<pending>` |
 | P6 My Games agenda + past screen | 🔲 not started | — |
 | P7 Chat thread | 🔲 not started | — |
 | P8 Profile + stats screen | 🔲 not started | — |
@@ -25,8 +25,8 @@ state resolves once P6 rewrites that screen per §3.3.
 `absolute inset-0` overlay would cover the header and make the switch unreachable — the map
 overlay now measures the header's height (`onLayout`) and starts below it instead.
 
-`SegmentedToggle.tsx`, `StatTile.tsx` and `TierRing.tsx` exist but have **zero call sites yet** —
-they're wired up starting in P3 (SegmentedToggle), P5 (StatTile), P8 (TierRing).
+`SegmentedToggle.tsx` and `StatTile.tsx` are now wired up (P3, P5 respectively). `TierRing.tsx`
+still has zero call sites — that's P8.
 
 Source: `SMASHIO 2026 Redesign.html` in the claude.ai/design project
 `23bc2cae-5ee1-4648-a0f1-15a9412f2b1b` (imported via the `claude_design` MCP). Six boards:

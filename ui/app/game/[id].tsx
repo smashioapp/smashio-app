@@ -1,12 +1,14 @@
-import { View, Text, Pressable, ScrollView, Alert } from "react-native";
+import { View, Text, Pressable, ScrollView, Alert, useWindowDimensions } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, gradients, initial } from "../../lib/theme";
+import { colors, LAYOUT, initial, reliabilityLabel } from "../../lib/theme";
 import { spotsLeft, type Game } from "../../lib/mockData";
 import { openDirections } from "../../lib/directions";
 import { addGameToCalendar } from "../../lib/calendar";
 import { useGameDetail } from "../../lib/queries/games";
+import { usePlayerCard } from "../../lib/queries/profile";
+import { supabase } from "../../lib/supabase";
 import {
   useDecideJoinRequest,
   useGameRoster,
@@ -17,16 +19,26 @@ import {
   useRequestToJoin,
 } from "../../lib/queries/gamePlayers";
 import { Badge } from "../../components/Badge";
-import { SkillPill } from "../../components/SkillPill";
 import { BackButton } from "../../components/BackButton";
 import { Button } from "../../components/Button";
 import { HoldButton } from "../../components/HoldButton";
 import { CountdownChip } from "../../components/CountdownChip";
+import { CourtBackdrop } from "../../components/CourtBackdrop";
+import { StatTile, StatTileRow } from "../../components/StatTile";
+import { ListRow } from "../../components/ListRow";
+import { AvatarStack } from "../../components/Avatar";
 import { SwipeToDecide } from "../../components/SwipeToDecide";
 import { VettingStrip } from "../../components/VettingStrip";
 import { haptics } from "../../lib/haptics";
 import { shareGame } from "../../lib/share";
+import { useReduceMotion } from "../../lib/motion";
 import { GameDetailSkeleton } from "../../components/Skeleton";
+
+const HERO_HEIGHT = 300;
+
+function avatarUrl(photoPath: string | null | undefined): string | null {
+  return photoPath ? supabase.storage.from("avatars").getPublicUrl(photoPath).data.publicUrl : null;
+}
 
 export default function GameDetails() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -38,6 +50,9 @@ export default function GameDetails() {
   const rosterQuery = useGameRoster(gameId);
   const requestToJoin = useRequestToJoin(gameId);
   const leaveGame = useLeaveGame(gameId);
+  const organizerCard = usePlayerCard(game?.organizerId);
+  const reduceMotion = useReduceMotion();
+  const { width: windowWidth } = useWindowDimensions();
 
   if (gameQuery.isLoading) {
     return (
@@ -82,11 +97,21 @@ export default function GameDetails() {
     ]);
   };
 
+  const heroSubtitle = [game.courts, game.date === "Today" ? `${game.date}, ${game.time}` : `${game.date} · ${game.time}`]
+    .filter(Boolean)
+    .join(" · ");
+  const organizer = organizerCard.data;
+
   return (
     <View className="flex-1" style={{ backgroundColor: colors.base }}>
       <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
-        <LinearGradient colors={["#1F1F24", "#141416"]} style={{ height: 150, paddingTop: 56 }}>
-          <View className="px-4 flex-row justify-between items-center">
+        {/* Anchor (docs/v2-design-plan.md §4.3): the one hero on this screen. */}
+        <View style={{ height: HERO_HEIGHT, backgroundColor: colors.surface, overflow: "hidden" }}>
+          <View pointerEvents="none" style={{ position: "absolute", inset: 0 }}>
+            <CourtBackdrop reduceMotion={!!reduceMotion} size={{ width: windowWidth, height: HERO_HEIGHT }} />
+          </View>
+
+          <View className="px-4 flex-row justify-between items-center" style={{ paddingTop: 56 }}>
             <BackButton dark onPress={() => router.back()} />
             <View className="flex-row items-center gap-2">
               {isOrganizer && !cancelled && (
@@ -95,13 +120,10 @@ export default function GameDetails() {
                     haptics.tap();
                     router.push(`/game/edit/${game.id}`);
                   }}
-                  className="flex-row items-center gap-1.5 h-9 px-3.5 rounded-pill"
-                  style={{ backgroundColor: "rgba(255,255,255,0.1)" }}
+                  className="w-9 h-9 rounded-full items-center justify-center"
+                  style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
                 >
-                  <Ionicons name="create-outline" size={15} color={colors.text} />
-                  <Text className="font-body-bold text-[14px]" style={{ color: colors.text }}>
-                    Edit
-                  </Text>
+                  <Ionicons name="create-outline" size={16} color="#fff" />
                 </Pressable>
               )}
               <Pressable
@@ -110,15 +132,30 @@ export default function GameDetails() {
                   shareGame(game);
                 }}
                 className="w-9 h-9 rounded-full items-center justify-center"
-                style={{ backgroundColor: "rgba(255,255,255,0.1)" }}
+                style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
               >
-                <Ionicons name="share-outline" size={17} color={colors.text} />
+                <Ionicons name="share-outline" size={16} color="#fff" />
               </Pressable>
             </View>
           </View>
-        </LinearGradient>
 
-        <View className="px-5 pt-4.5">
+          <View className="px-5" style={{ position: "absolute", left: 0, right: 0, bottom: 20 }}>
+            <View className="flex-row items-center justify-between mb-2">
+              {cancelled ? <Badge state="cancelled" label="Cancelled" /> : <CountdownChip startsAt={game.startsAt} />}
+              {!cancelled && game.verificationStatus !== "none" && (
+                <Badge state={game.verified ? "verified" : "pending"} label={game.verified ? "Verified" : "Pending"} />
+              )}
+            </View>
+            <Text numberOfLines={1} className="font-display text-[27px]" style={{ color: colors.text }}>
+              {game.venue}
+            </Text>
+            <Text numberOfLines={1} className="text-[14px] mt-0.5" style={{ color: colors.textDim }}>
+              {heroSubtitle}
+            </Text>
+          </View>
+        </View>
+
+        <View className="px-5 pt-4">
           {cancelled && (
             <View
               className="flex-row items-start gap-2.5 rounded-2xl p-3.5 mb-4 border"
@@ -133,98 +170,67 @@ export default function GameDetails() {
             </View>
           )}
 
-          <View className="flex-row justify-between items-start">
-            <Text className="font-display text-[22.5px] flex-1 pr-3" style={{ color: colors.text }}>
-              {game.venue}
-            </Text>
-            {cancelled ? (
-              <Badge state="cancelled" label="Cancelled" />
-            ) : (
-              game.verificationStatus !== "none" && (
-                <Badge state={game.verified ? "verified" : "pending"} label={game.verified ? "Verified" : "Pending"} />
-              )
-            )}
-          </View>
-          <View className="flex-row items-center justify-between mt-1">
-            <Text className="text-[14.5px]" style={{ color: colors.textTertiary }}>
-              {game.suburb}
-              {game.courts ? ` · ${game.courts}` : ""}
-            </Text>
-            {!cancelled && <CountdownChip startsAt={game.startsAt} />}
-          </View>
-
-          <Pressable
-            onPress={() => {
-              haptics.tap();
-              openDirections(game);
-            }}
-            className="flex-row items-center gap-3 rounded-2xl px-3.5 py-3 mt-3.5 border"
-            style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}
-          >
-            <View className="w-9 h-9 rounded-full items-center justify-center" style={{ backgroundColor: "rgba(214,255,63,0.12)" }}>
-              <Ionicons name="navigate" size={16} color={colors.accent} />
-            </View>
-            <View className="flex-1">
-              <Text className="font-body-semibold text-[14.5px]" style={{ color: colors.text }} numberOfLines={2}>
-                {game.venueAddress ?? game.suburb}
-              </Text>
-              <Text className="text-[13px] mt-0.5" style={{ color: colors.textTertiary }}>
-                Tap for directions
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={15} color={colors.textMuted} />
-          </Pressable>
-
-          {game.venueId && (
-            <Pressable
-              onPress={() => {
-                haptics.tap();
-                router.push(`/venue/${game.venueId}`);
-              }}
-              className="flex-row items-center gap-3 rounded-2xl px-3.5 py-3 mt-2 border"
-              style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}
-            >
-              <View className="w-9 h-9 rounded-full items-center justify-center" style={{ backgroundColor: "rgba(214,255,63,0.12)" }}>
-                <Ionicons name="information-circle-outline" size={16} color={colors.accent} />
-              </View>
-              <Text className="flex-1 font-body-semibold text-[14.5px]" style={{ color: colors.text }}>
-                View venue
-              </Text>
-              <Ionicons name="chevron-forward" size={15} color={colors.textMuted} />
-            </Pressable>
-          )}
-
-          <View className="flex-row gap-2 mt-2.5">
-            <View className="flex-1 rounded-xl px-3.5 py-2.5 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
-              <Text className="text-[14.5px] font-body-semibold" style={{ color: colors.text }}>
-                {game.date}
-              </Text>
-            </View>
-            <View className="flex-1 rounded-xl px-3.5 py-2.5 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
-              <Text className="text-[14.5px] font-body-semibold" style={{ color: colors.text }}>
-                {game.time}
-              </Text>
-            </View>
-            <View className="flex-1 items-center justify-center">
-              <SkillPill skill={game.skill} />
-            </View>
-          </View>
-
-          <View className="flex-row items-center justify-between mt-5.5 mb-2.5">
-            <Text className="font-body-extrabold text-[13px] uppercase tracking-wide" style={{ color: colors.textTertiary }}>
-              Players joined ({game.joinedCount}/{game.maxPlayers})
-            </Text>
+          <View className="flex-row items-center justify-between mb-4">
+            {joined.length > 0 ? <AvatarStack people={joined} max={5} /> : <View />}
             {!cancelled && (
-              <View
-                className="rounded-pill px-2.5 py-1"
-                style={{ backgroundColor: full ? "rgba(255,103,103,0.12)" : "rgba(214,255,63,0.12)" }}
-              >
-                <Text className="font-body-extrabold text-[11.5px] uppercase" style={{ color: full ? colors.danger : colors.accent }}>
-                  {full ? "Full" : `${open} ${open === 1 ? "spot" : "spots"} left`}
-                </Text>
-              </View>
+              <Text className="font-body-bold text-[13px]" style={{ color: full ? colors.danger : colors.textSecondary }}>
+                {full ? "Full" : `${open} ${open === 1 ? "spot" : "spots"} left`} · {game.joinedCount}/{game.maxPlayers} joined
+              </Text>
             )}
           </View>
+
+          <StatTileRow>
+            <StatTile value={`$${perPlayer}`} label="per player" tone={colors.accent} />
+            <StatTile value={full ? "Full" : `${open}`} label="spots left" tone={full ? colors.danger : undefined} />
+            <StatTile value={game.skill} label="skill level" small />
+          </StatTileRow>
+
+          <View className="mt-5">
+            {organizer && (
+              <View className="flex-row items-center gap-2.5" style={{ paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: LAYOUT.HAIRLINE }}>
+                <View className="w-9 h-9 rounded-full items-center justify-center overflow-hidden" style={{ backgroundColor: colors.surfaceAlt }}>
+                  <Text style={{ color: colors.text, fontSize: 12, fontWeight: "800" }}>{initial(organizer.displayName)}</Text>
+                </View>
+                <View className="flex-1 min-w-0">
+                  <Text numberOfLines={1} className="font-body-semibold text-[13.5px]" style={{ color: colors.text }}>
+                    {organizer.displayName} · Host
+                  </Text>
+                  <Text numberOfLines={1} className="text-[11.5px] mt-0.5" style={{ color: colors.textSecondary }}>
+                    Reliability {organizer.reliabilityScore} · {reliabilityLabel(organizer.reliabilityScore)}
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={() => {
+                    haptics.tap();
+                    router.push(`/chat/${game.id}`);
+                  }}
+                  className="rounded-pill px-3 py-1.5 border"
+                  style={{ borderColor: colors.cardBorder }}
+                >
+                  <Text className="font-body-bold text-[12px]" style={{ color: colors.textDim }}>
+                    Message
+                  </Text>
+                </Pressable>
+              </View>
+            )}
+
+            <ListRow
+              title="View venue & get directions"
+              accessory="chevron"
+              onPress={() => {
+                if (game.venueId) router.push(`/venue/${game.venueId}`);
+                else openDirections(game);
+              }}
+            />
+            <ListRow title="Open chat" accessory="chevron" onPress={() => router.push(`/chat/${game.id}`)} />
+            <ListRow title="Share game link" accessory="chevron" divider={false} onPress={() => shareGame(game)} />
+          </View>
+
+          {isOrganizer && !cancelled && <JoinRequests gameId={gameId} full={full} />}
+
+          <Text className="font-body-extrabold text-[13px] uppercase tracking-wide mt-5.5 mb-2.5" style={{ color: colors.textTertiary }}>
+            Players joined ({game.joinedCount}/{game.maxPlayers})
+          </Text>
           <View className="flex-row flex-wrap gap-2.5">
             {joined.map((p) => (
               <RosterAvatar key={p.id} gameId={gameId} player={p} canRemove={isOrganizer && !cancelled} />
@@ -260,44 +266,35 @@ export default function GameDetails() {
               </Text>
             </View>
           </View>
-
-          {isOrganizer && !cancelled && <JoinRequests gameId={gameId} full={full} />}
         </View>
       </ScrollView>
 
-      <View className="px-5 pb-8 pt-3.5 flex-row gap-2.5" style={{ backgroundColor: colors.base }}>
-        <Pressable
-          onPress={() => router.replace(`/chat/${game.id}`)}
-          className="w-14 rounded-pill items-center justify-center border-[1.5px]"
-          style={{ borderColor: "rgba(255,255,255,0.15)" }}
-        >
-          <Ionicons name="chatbubble-ellipses-outline" size={19} color={colors.text} />
-        </Pressable>
-        <View className="flex-1">
-          {cancelled ? (
-            <Button label="Game cancelled" variant="secondary" disabled />
-          ) : isOrganizer ? (
-            <Button label="Manage this game" variant="secondary" onPress={() => router.push(`/game/edit/${game.id}`)} />
-          ) : membership?.status === "approved" ? (
-            <Button label="Leave game" variant="secondary" loading={leaveGame.isPending} onPress={confirmLeave} />
-          ) : membership?.status === "requested" ? (
-            <Button label="Request sent" variant="secondary" disabled />
-          ) : full ? (
-            <Button label="Game full" variant="secondary" disabled />
-          ) : (
-            <HoldButton
-              label={`Hold to join · $${perPlayer}`}
-              completeLabel="Request sent"
-              sfx="chime"
-              onComplete={() => {
-                requestToJoin.mutate(undefined, {
-                  onSuccess: () => addGameToCalendar(game, { silent: true }).catch(() => {}),
-                  onError: () => Alert.alert("Couldn't send request", "Please try again."),
-                });
-              }}
-            />
-          )}
-        </View>
+      {/* Fixed bottom pill (docs/v2-design-plan.md §4.3) — full-width now that chat is a
+          ListRow above; the old floating chat button next to it is gone. */}
+      <View className="px-5 pb-8 pt-3.5" style={{ backgroundColor: colors.base }}>
+        {cancelled ? (
+          <Button label="Game cancelled" variant="secondary" disabled />
+        ) : isOrganizer ? (
+          <Button label="Manage this game" variant="secondary" onPress={() => router.push(`/game/edit/${game.id}`)} />
+        ) : membership?.status === "approved" ? (
+          <Button label="Leave game" variant="secondary" loading={leaveGame.isPending} onPress={confirmLeave} />
+        ) : membership?.status === "requested" ? (
+          <Button label="Request sent" variant="secondary" disabled />
+        ) : full ? (
+          <Button label="Game full" variant="secondary" disabled />
+        ) : (
+          <HoldButton
+            label={`Hold to join · $${perPlayer}`}
+            completeLabel="Request sent"
+            sfx="chime"
+            onComplete={() => {
+              requestToJoin.mutate(undefined, {
+                onSuccess: () => addGameToCalendar(game, { silent: true }).catch(() => {}),
+                onError: () => Alert.alert("Couldn't send request", "Please try again."),
+              });
+            }}
+          />
+        )}
       </View>
     </View>
   );

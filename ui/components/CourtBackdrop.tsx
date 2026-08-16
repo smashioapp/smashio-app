@@ -15,9 +15,14 @@ const LANES = 5;
 /**
  * Ambient backdrop: two soft radial blooms breathing behind a badminton court
  * drawn in one-point perspective, its lines fading out toward the horizon.
+ *
+ * `size` confines it to a fixed box (Game Detail's 300px hero, docs/v2-design-plan.md §4.3)
+ * instead of the full window — onboarding's full-bleed use is the default.
  */
-export function CourtBackdrop({ reduceMotion = false }: { reduceMotion?: boolean }) {
-  const { width: w, height: h } = useWindowDimensions();
+export function CourtBackdrop({ reduceMotion = false, size }: { reduceMotion?: boolean; size?: { width: number; height: number } }) {
+  const windowSize = useWindowDimensions();
+  const w = size?.width ?? windowSize.width;
+  const h = size?.height ?? windowSize.height;
 
   const breathe = useSharedValue(reduceMotion ? 1 : 0);
   const courtIn = useSharedValue(reduceMotion ? 1 : 0);
@@ -62,6 +67,9 @@ export function CourtBackdrop({ reduceMotion = false }: { reduceMotion?: boolean
     const y = horizonY + (h - horizonY) * Math.pow(t, 2.1);
     return { y, opacity: 0.06 + t * 0.16 };
   });
+
+  // Guards the NaN <line> attrs a 0×0 measurement produces for one frame before layout settles.
+  if (w === 0 || h === 0) return null;
 
   return (
     <>

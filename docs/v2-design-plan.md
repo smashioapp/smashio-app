@@ -9,7 +9,7 @@ Status: **approved 2026-08-16**, implementing straight onto `main` in incrementa
 | P0 tokens + Space Grotesk | ✅ done | `141a439` |
 | P1 primitives (Hero, ListRow, RailCard, StatTile, SegmentedToggle, TierRing, GameCard variants) | ✅ done | `7de7a75` |
 | P2 bottom nav, centre host FAB | ✅ done | `9fd6daa` |
-| P3 Discover list | ✅ done | `<pending>` |
+| P3 Discover list | ✅ done | `65d9f11` |
 | P4 Discover map layer | 🔲 not started | — |
 | P5 Game Detail | 🔲 not started | — |
 | P6 My Games agenda + past screen | 🔲 not started | — |

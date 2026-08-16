@@ -6,13 +6,11 @@ import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as Notifications from "expo-notifications";
 import { useAppStore, WhenFilter, SortOption, DISCOVER_RADIUS_OPTIONS_KM, DEFAULT_DISCOVER_RADIUS_KM, PRICE_CAP_OPTIONS_CENTS } from "../../lib/store";
-import { colors, TIERS } from "../../lib/theme";
+import { colors, LAYOUT, TIERS } from "../../lib/theme";
 import { NAV, tabBarBottom, useTabBarSpace } from "../../lib/nav";
 import { useReduceMotion } from "../../lib/motion";
 import { makeScrollHideHandler, registerScrollToTop, unregisterScrollToTop } from "../../lib/navScroll";
-import { BottomRail } from "../../components/BottomRail";
-import { HostFab } from "../../components/HostFab";
-import { useDiscoverGames, useWeekPulseGames, useMyPastGames } from "../../lib/queries/games";
+import { useDiscoverGames, useMyPastGames } from "../../lib/queries/games";
 import { useVenuesForMap } from "../../lib/queries/venues";
 import { useCreateAlert } from "../../lib/queries/alerts";
 import { useProfileSports } from "../../lib/queries/profile";
@@ -31,6 +29,7 @@ import { GameCardSkeletonList } from "../../components/Skeleton";
 import { Sheet } from "../../components/Sheet";
 import { Rail } from "../../components/RailCard";
 import { DayHeader } from "../../components/DayHeader";
+import { SegmentedToggle } from "../../components/SegmentedToggle";
 import { Game, spotsLeft, levelFit } from "../../lib/mockData";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
@@ -39,14 +38,12 @@ const CAROUSEL_CARD_WIDTH = SCREEN_WIDTH - 88;
 const CAROUSEL_STEP = CAROUSEL_CARD_WIDTH + CAROUSEL_GAP;
 
 type DiscoverRow =
-  | { kind: "pulse"; id: string; text: string }
   | { kind: "rail"; id: string; title: string; games: Game[] }
   | { kind: "day"; id: string; label: string }
   | { kind: "game"; id: string; game: Game; index: number };
 
-function buildDiscoverRows(games: Game[], rails: { title: string; games: Game[] }[], pulseText: string | null): DiscoverRow[] {
+function buildDiscoverRows(games: Game[], rails: { title: string; games: Game[] }[]): DiscoverRow[] {
   const rows: DiscoverRow[] = [];
-  if (pulseText) rows.push({ kind: "pulse", id: "pulse", text: pulseText });
   rails.forEach((r, i) => {
     if (r.games.length > 0) rows.push({ kind: "rail", id: `rail-${i}`, title: r.title, games: r.games });
   });
@@ -60,17 +57,6 @@ function buildDiscoverRows(games: Game[], rails: { title: string; games: Game[] 
     rows.push({ kind: "game", id: g.id, game: g, index });
   });
   return rows;
-}
-
-function WeekPulseStrip({ text }: { text: string }) {
-  return (
-    <View className="flex-row items-center gap-1.5 mx-5 mb-3 px-3.5 py-2.5 rounded-xl border" style={{ borderColor: colors.cardBorder, backgroundColor: colors.surfaceAlt }}>
-      <Ionicons name="pulse-outline" size={13} color={colors.accent} />
-      <Text className="text-[12.5px] font-body-semibold flex-1" style={{ color: colors.textSecondary }}>
-        {text}
-      </Text>
-    </View>
-  );
 }
 
 const WHEN_FILTERS: { key: WhenFilter; label: string }[] = [
@@ -93,8 +79,21 @@ function priceCapLabel(cents: number): string {
   return `Under $${cents / 100}`;
 }
 
-function FiltersSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+function FiltersSheet({
+  visible,
+  onClose,
+  markLevelTouched,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  markLevelTouched: () => void;
+}) {
   const {
+    whenFilter,
+    setWhenFilter,
+    levelFilters,
+    toggleLevelFilter,
+    setLevelFilters,
     sortBy,
     setSortBy,
     discoverRadiusKm,
@@ -111,6 +110,46 @@ function FiltersSheet({ visible, onClose }: { visible: boolean; onClose: () => v
   return (
     <Sheet visible={visible} onClose={onClose} title="Filters & sort">
       <View className="gap-4 mt-1">
+        <View className="gap-2">
+          <Text className="text-[12.5px] font-body-bold" style={{ color: colors.textTertiary }}>
+            WHEN
+          </Text>
+          <View className="flex-row flex-wrap gap-2">
+            {WHEN_FILTERS.map((f) => (
+              <Chip key={f.key} label={f.label} active={whenFilter === f.key} onPress={() => setWhenFilter(f.key)} size="sm" />
+            ))}
+          </View>
+        </View>
+
+        <View className="gap-2">
+          <Text className="text-[12.5px] font-body-bold" style={{ color: colors.textTertiary }}>
+            LEVEL
+          </Text>
+          <View className="flex-row flex-wrap gap-2">
+            <Chip
+              label="Any level"
+              active={levelFilters.length === 0}
+              onPress={() => {
+                markLevelTouched();
+                setLevelFilters([]);
+              }}
+              size="sm"
+            />
+            {LEVEL_FILTERS.map((l) => (
+              <Chip
+                key={l.slug}
+                label={l.label}
+                active={levelFilters.includes(l.slug)}
+                onPress={() => {
+                  markLevelTouched();
+                  toggleLevelFilter(l.slug);
+                }}
+                size="sm"
+              />
+            ))}
+          </View>
+        </View>
+
         <View className="gap-2">
           <Text className="text-[12.5px] font-body-bold" style={{ color: colors.textTertiary }}>
             SORT BY
@@ -163,7 +202,10 @@ function FiltersSheet({ visible, onClose }: { visible: boolean; onClose: () => v
 
         <View className="flex-row gap-2.5 mt-1">
           <Pressable
-            onPress={clearDiscoverFilters}
+            onPress={() => {
+              markLevelTouched();
+              clearDiscoverFilters();
+            }}
             className="flex-1 rounded-pill py-3 items-center border"
             style={{ borderColor: colors.cardBorder }}
           >
@@ -295,21 +337,41 @@ function NotificationBell() {
   );
 }
 
-// Persistent toggle (Airbnb pattern): same slot, same size, icon + label swap instead of an
-// open/dismiss pair — kept enabled-but-disabled at zero pins so its position never moves.
-function MapToggle({ visible, isMap, count, onToggle }: { visible: boolean; isMap: boolean; count: number; onToggle: () => void }) {
+// v2 single filter row (docs/v2-design-plan.md §4.1) — collapses the old two chip rows +
+// Filters button + removable-token row into one line. Every chip opens the same FiltersSheet;
+// its label always reflects the live value so there's nothing to remove separately (backlog B2).
+function FilterChipsRow({
+  whenLabel,
+  whenActive,
+  levelLabel,
+  levelActive,
+  radiusLabel,
+  radiusActive,
+  moreCount,
+  onPress,
+}: {
+  whenLabel: string;
+  whenActive: boolean;
+  levelLabel: string;
+  levelActive: boolean;
+  radiusLabel: string;
+  radiusActive: boolean;
+  moreCount: number;
+  onPress: () => void;
+}) {
   return (
-    <Pressable
-      onPress={onToggle}
-      disabled={!visible}
-      className="flex-row items-center gap-1.5 rounded-pill px-4 py-3 border"
-      style={{ backgroundColor: "rgba(23,23,26,0.9)", borderColor: colors.cardBorder, opacity: visible ? 1 : 0.35 }}
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={{ flexGrow: 0 }}
+      contentContainerStyle={{ gap: 8, paddingHorizontal: LAYOUT.SCREEN_PAD, paddingBottom: 12, alignItems: "center" }}
     >
-      <Ionicons name={isMap ? "list" : "map-outline"} size={15} color={colors.text} />
-      <Text className="font-body-extrabold text-[13.5px]" style={{ color: colors.text }}>
-        {isMap ? "List" : count > 0 ? `Map · ${count}` : "Map"}
-      </Text>
-    </Pressable>
+      <Chip label="Badminton" active size="sm" />
+      <Chip label={whenLabel} active={whenActive} onPress={onPress} size="sm" />
+      <Chip label={levelLabel} active={levelActive} onPress={onPress} size="sm" />
+      <Chip label={radiusLabel} active={radiusActive} onPress={onPress} size="sm" />
+      <Chip label={moreCount > 0 ? `Filters · ${moreCount}` : "Filters"} active={moreCount > 0} onPress={onPress} size="sm" />
+    </ScrollView>
   );
 }
 
@@ -340,7 +402,7 @@ export default function Discover() {
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [headerCompact, setHeaderCompact] = useState(false);
-  const tabBarSpace = useTabBarSpace(true);
+  const tabBarSpace = useTabBarSpace();
   const reduceMotion = useReduceMotion();
   const insets = useSafeAreaInsets();
   const mapRef = useRef<GameMapHandle>(null);
@@ -354,9 +416,9 @@ export default function Discover() {
   // the device-location + radius filter that drives the list. Null = map follows the filters
   // like everything else.
   const [mapAreaOverride, setMapAreaOverride] = useState<{ lat: number; lng: number; radiusKm: number } | null>(null);
-  // Clears geometry above the tab bar's floating action rail (BottomRail's own bottom math,
-  // see lib/nav.ts) — the sheet must never sit under the still-visible MapToggle/HostFab.
-  const mapSheetBottomSpace = tabBarBottom(insets.bottom) + NAV.BAR_HEIGHT + NAV.RAIL_GAP + NAV.RAIL_HEIGHT + NAV.RAIL_GAP;
+  // Clears geometry above the floating tab bar (lib/nav.ts) — the sheet must never sit under
+  // the centre host FAB the bar itself renders.
+  const mapSheetBottomSpace = tabBarBottom(insets.bottom) + NAV.BAR_HEIGHT + NAV.RAIL_GAP;
   const [sheetHeight, setSheetHeight] = useState(() => sheetSnapHeights().peek + mapSheetBottomSpace);
 
   useEffect(() => {
@@ -395,6 +457,9 @@ export default function Discover() {
   // the level filter themselves, otherwise every screen focus would stomp their choice back to
   // "just my tier".
   const levelTouched = useRef(false);
+  const markLevelTouched = useCallback(() => {
+    levelTouched.current = true;
+  }, []);
   useEffect(() => {
     if (!levelTouched.current && viewerTier?.slug && levelFilters.length === 0) {
       toggleLevelFilter(viewerTier.slug);
@@ -407,7 +472,6 @@ export default function Discover() {
     userLocation
   );
   const games = discoverQuery.data ?? [];
-  const pinnedGames = games.filter((g) => g.venueLat != null && g.venueLng != null);
 
   // Same queryKey as discoverQuery when there's no area override, so react-query dedupes them
   // into one fetch — a "search this area" pan only costs an extra request once it actually
@@ -571,21 +635,9 @@ export default function Discover() {
     .filter(Boolean)
     .join(" · ");
 
-  const filterTokens = [
-    sortBy !== "soonest" ? { label: SORT_OPTIONS.find((s) => s.key === sortBy)!.label, onRemove: () => setSortBy("soonest") } : null,
-    discoverRadiusKm !== DEFAULT_DISCOVER_RADIUS_KM
-      ? { label: `${discoverRadiusKm} km`, onRemove: () => setDiscoverRadiusKm(DEFAULT_DISCOVER_RADIUS_KM) }
-      : null,
-    maxCostPerPlayerCents != null
-      ? { label: priceCapLabel(maxCostPerPlayerCents), onRemove: () => setMaxCostPerPlayerCents(null) }
-      : null,
-    hasSpotsOnly ? { label: "Has spots", onRemove: () => setHasSpotsOnly(false) } : null,
-    verifiedOnly ? { label: "Verified", onRemove: () => setVerifiedOnly(false) } : null,
-  ].filter((t): t is { label: string; onRemove: () => void } => t != null);
-
-  // Rails, the pulse strip, and day-grouped sections only make sense when the list is in its
-  // natural chronological order — a custom sort (cheapest, most spots…) falls back to a plain
-  // flat list further down instead of fighting the shelves for a sense of order.
+  // Rails and day-grouped sections only make sense when the list is in its natural
+  // chronological order — a custom sort (cheapest, most spots…) falls back to a plain flat
+  // list further down instead of fighting the shelves for a sense of order.
   const chronological = sortBy === "soonest";
   const viewerTierOrdinal = viewerTier?.ordinal ?? null;
 
@@ -593,15 +645,19 @@ export default function Discover() {
   // (D6) instead of a hard swap — React remounts the subtree, playing exit/enter on each change.
   const filterSignature = `${whenFilter}|${levelFilters.join(",")}|${sortBy}|${discoverRadiusKm}|${hasSpotsOnly}|${verifiedOnly}|${maxCostPerPlayerCents}`;
 
-  const pulseQuery = useWeekPulseGames(userLocation);
   const pastGamesQuery = useMyPastGames();
 
-  const pulseText = useMemo(() => {
-    const pulseGames = pulseQuery.data;
-    if (!pulseGames || pulseGames.length === 0) return null;
-    const openSpots = pulseGames.reduce((sum, g) => sum + spotsLeft(g), 0);
-    return `${pulseGames.length} game${pulseGames.length === 1 ? "" : "s"} nearby this week · ${openSpots} spot${openSpots === 1 ? "" : "s"} open`;
-  }, [pulseQuery.data]);
+  // Best-match hero selection (docs/v2-design-plan.md §4.1) — honest, not fabricated: the
+  // first game in the current sorted set that (a) still has spots, (b) starts within 24h, and
+  // (c) is an exact level match for the viewer's tier. Falls back to (a)+(b) alone, then to no
+  // hero at all. Same "excluded from the list below it" pattern as My Games' NextUpHero.
+  const heroGame = useMemo(() => {
+    if (!chronological) return null;
+    const now = Date.now();
+    const soon = games.filter((g) => spotsLeft(g) > 0 && new Date(g.startsAt).getTime() - now < 24 * 60 * 60 * 1000);
+    const match = viewerTierOrdinal != null ? soon.find((g) => levelFit(viewerTierOrdinal, g.skillTierOrdinal) === "match") : undefined;
+    return match ?? soon[0] ?? null;
+  }, [chronological, games, viewerTierOrdinal]);
 
   const rails = useMemo(() => {
     if (!chronological) return [];
@@ -621,112 +677,53 @@ export default function Discover() {
   }, [chronological, games, viewerTierOrdinal, pastGamesQuery.data]);
 
   const discoverRows = useMemo(
-    () => (chronological ? buildDiscoverRows(games, rails, pulseText) : []),
-    [chronological, games, rails, pulseText]
+    () => (chronological ? buildDiscoverRows(heroGame ? games.filter((g) => g.id !== heroGame.id) : games, rails) : []),
+    [chronological, games, rails, heroGame]
   );
   const stickyHeaderIndices = useMemo(() => discoverRows.flatMap((r, i) => (r.kind === "day" ? [i] : [])), [discoverRows]);
 
   return (
     <Screen>
-      <View className="px-5 pt-3 pb-2.5 flex-row justify-between items-start">
+      <View className="pt-3 pb-2.5 flex-row justify-between items-start" style={{ paddingHorizontal: LAYOUT.SCREEN_PAD }}>
         <View>
-          <View className="flex-row items-center gap-1">
-            <Ionicons name="location-outline" size={12} color={colors.textTertiary} />
-            <Text className="text-[13px] font-body-bold" style={{ color: colors.textTertiary }}>
-              {locationLabel}
-            </Text>
-          </View>
-          <Text className="font-display text-[26px] mt-0.5" style={{ color: colors.text }}>
+          <Text className="font-display text-[30px]" style={{ color: colors.text }}>
             Discover
           </Text>
-        </View>
-        <NotificationBell />
-      </View>
-
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={{ flexGrow: 0 }}
-        contentContainerStyle={{ gap: 8, paddingHorizontal: 20, paddingVertical: 4, alignItems: "center" }}
-      >
-        {WHEN_FILTERS.map((f) => (
-          <Chip key={f.key} label={f.label} active={whenFilter === f.key} onPress={() => setWhenFilter(f.key)} size="sm" />
-        ))}
-      </ScrollView>
-
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={{ flexGrow: 0 }}
-        contentContainerStyle={{ gap: 8, paddingHorizontal: 20, paddingVertical: 4, alignItems: "center" }}
-      >
-        <Chip
-          label="Any level"
-          active={levelFilters.length === 0}
-          onPress={() => {
-            levelTouched.current = true;
-            setLevelFilters([]);
-          }}
-          size="sm"
-        />
-        {LEVEL_FILTERS.map((l) => (
-          <Chip
-            key={l.slug}
-            label={l.label}
-            active={levelFilters.includes(l.slug)}
-            onPress={() => {
-              levelTouched.current = true;
-              toggleLevelFilter(l.slug);
-            }}
-            size="sm"
-          />
-        ))}
-      </ScrollView>
-
-      <View className="flex-row justify-end items-center px-5 pb-2.5 pt-1">
-        <Pressable
-          onPress={() => setFiltersOpen(true)}
-          className="flex-row items-center gap-1.5 rounded-pill px-3.5 py-2.5 border"
-          style={{ backgroundColor: colors.surfaceAlt, borderColor: colors.cardBorder }}
-        >
-          <Ionicons name="options-outline" size={14} color={colors.textDim} />
-          <Text className="font-body-semibold text-[13px]" style={{ color: colors.textDim }}>
-            Filters
+          <Text className="text-[12.5px] font-body-bold mt-0.5 uppercase" style={{ color: colors.textSecondary, letterSpacing: 0.6 }}>
+            {locationLabel.toUpperCase()} · {discoverRadiusKm}KM RADIUS
           </Text>
-          {advancedFilterCount > 0 && (
-            <View className="rounded-full items-center justify-center" style={{ width: 16, height: 16, backgroundColor: colors.accent }}>
-              <Text className="font-body-extrabold text-[10px]" style={{ color: colors.base }}>
-                {advancedFilterCount}
-              </Text>
-            </View>
-          )}
-        </Pressable>
+        </View>
+        <View className="flex-row items-center gap-2">
+          <NotificationBell />
+          <SegmentedToggle
+            options={[
+              { key: "list", label: "List" },
+              { key: "map", label: "Map" },
+            ]}
+            value={discoverView}
+            onChange={setDiscoverView}
+          />
+        </View>
       </View>
 
-      {filterTokens.length > 0 && (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={{ flexGrow: 0 }}
-          contentContainerStyle={{ gap: 8, paddingHorizontal: 20, paddingBottom: 10 }}
-        >
-          {filterTokens.map((t) => (
-            <Pressable
-              key={t.label}
-              onPress={t.onRemove}
-              className="flex-row items-center gap-1 rounded-pill px-3 py-1.5 border"
-              style={{ backgroundColor: "rgba(214,255,63,0.08)", borderColor: "rgba(214,255,63,0.25)" }}
-            >
-              <Text className="font-body-bold text-[12px]" style={{ color: colors.accent }}>
-                {t.label}
-              </Text>
-              <Ionicons name="close" size={12} color={colors.accent} />
-            </Pressable>
-          ))}
-        </ScrollView>
-      )}
+      <FilterChipsRow
+        whenLabel={WHEN_FILTERS.find((w) => w.key === whenFilter)?.label ?? "Any time"}
+        whenActive={whenFilter !== "all"}
+        levelLabel={
+          levelFilters.length === 1
+            ? LEVEL_FILTERS.find((l) => l.slug === levelFilters[0])?.label ?? "Any level"
+            : levelFilters.length > 1
+            ? `${levelFilters.length} levels`
+            : "Any level"
+        }
+        levelActive={levelFilters.length > 0}
+        radiusLabel={`${discoverRadiusKm}km`}
+        radiusActive={discoverRadiusKm !== DEFAULT_DISCOVER_RADIUS_KM}
+        moreCount={[sortBy !== "soonest", maxCostPerPlayerCents != null, hasSpotsOnly, verifiedOnly].filter(Boolean).length}
+        onPress={() => setFiltersOpen(true)}
+      />
 
-      <FiltersSheet visible={filtersOpen} onClose={() => setFiltersOpen(false)} />
+      <FiltersSheet visible={filtersOpen} onClose={() => setFiltersOpen(false)} markLevelTouched={markLevelTouched} />
 
       {showInitialLoading ? (
         <GameCardSkeletonList />
@@ -783,7 +780,14 @@ export default function Discover() {
               ref={listRef}
               data={discoverRows}
               keyExtractor={(r: DiscoverRow) => r.id}
-              stickyHeaderIndices={stickyHeaderIndices}
+              stickyHeaderIndices={stickyHeaderIndices.map((i) => i + (heroGame ? 1 : 0))}
+              ListHeaderComponent={
+                heroGame ? (
+                  <View className="pb-4">
+                    <GameCard game={heroGame} variant="featured" kicker="BEST MATCH FOR YOU" onPress={() => router.push(`/game/${heroGame.id}`)} />
+                  </View>
+                ) : null
+              }
               contentContainerStyle={{ paddingTop: 4, paddingBottom: tabBarSpace }}
               refreshing={discoverQuery.isRefetching}
               onRefresh={() => discoverQuery.refetch()}
@@ -794,7 +798,6 @@ export default function Discover() {
               }}
               scrollEventThrottle={32}
               renderItem={({ item }: { item: DiscoverRow }) => {
-                if (item.kind === "pulse") return <WeekPulseStrip text={item.text} />;
                 if (item.kind === "rail") return <Rail title={item.title} games={item.games} />;
                 if (item.kind === "day") return <DayHeader label={item.label} compact={headerCompact} />;
                 return (
@@ -823,10 +826,9 @@ export default function Discover() {
       )}
 
       {discoverView === "map" && (
-        // Map is a floating-button layer, not a mode swap (Airbnb pattern) — results stay
-        // intact underneath; this overlay covers the screen and a 3-snap sheet keeps the
-        // pinned list reachable without leaving the map. The toggle back to list lives in
-        // BottomRail's left slot below — same control, same spot, label flips (Airbnb).
+        // Map is a mode, not a route (docs/v2-design-plan.md §2 rule 4) — results stay intact
+        // underneath; this overlay covers the screen and a 3-snap sheet keeps the pinned list
+        // reachable without leaving the map. The List | Map switch lives in the header now.
         <Animated.View
           entering={reduceMotion ? undefined : FadeIn.duration(200)}
           exiting={reduceMotion ? undefined : FadeOut.duration(150)}
@@ -890,20 +892,6 @@ export default function Discover() {
           />
         </Animated.View>
       )}
-
-      <BottomRail
-        left={
-          !showInitialLoading && (
-            <MapToggle
-              visible={pinnedGames.length > 0}
-              isMap={discoverView === "map"}
-              count={pinnedGames.length}
-              onToggle={() => setDiscoverView(discoverView === "map" ? "list" : "map")}
-            />
-          )
-        }
-        right={!showInitialLoading && <HostFab />}
-      />
     </Screen>
   );
 }

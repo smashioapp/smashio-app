@@ -9,19 +9,17 @@ Status: **approved 2026-08-16**, implementing straight onto `main` in incrementa
 | P0 tokens + Space Grotesk | ✅ done | `141a439` |
 | P1 primitives (Hero, ListRow, RailCard, StatTile, SegmentedToggle, TierRing, GameCard variants) | ✅ done | `7de7a75` |
 | P2 bottom nav, centre host FAB | ✅ done | `9fd6daa` |
-| P3 Discover list | 🔲 not started | — |
+| P3 Discover list | ✅ done | `<pending>` |
 | P4 Discover map layer | 🔲 not started | — |
 | P5 Game Detail | 🔲 not started | — |
 | P6 My Games agenda + past screen | 🔲 not started | — |
 | P7 Chat thread | 🔲 not started | — |
 | P8 Profile + stats screen | 🔲 not started | — |
 
-**Known loose end from P2:** `app/(tabs)/discover.tsx` and `app/(tabs)/my-games.tsx` still
-render the old `BottomRail` + `HostFab` (floating pill) *in addition to* the new TabBar centre
-button — this is a redundant double-host-button state that only resolves once P3/P4 (Discover)
-and P6 (My Games) rewrite those screens and delete the `BottomRail`/`HostFab` calls per §3.3.
-It typechecks fine but has **not been visually verified in a running app** — do that before or
-during P3.
+**Known loose end from P2 — half resolved by P3:** `app/(tabs)/discover.tsx` no longer renders
+`BottomRail`/`HostFab` (deleted in P3, replaced by the header `SegmentedToggle` and the TabBar
+centre button). `app/(tabs)/my-games.tsx` still renders the old pair — that double-host-button
+state resolves once P6 rewrites that screen per §3.3.
 
 `SegmentedToggle.tsx`, `StatTile.tsx` and `TierRing.tsx` exist but have **zero call sites yet** —
 they're wired up starting in P3 (SegmentedToggle), P5 (StatTile), P8 (TierRing).

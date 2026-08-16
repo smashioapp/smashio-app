@@ -121,6 +121,74 @@ export function useVenuePhotoUrls(paths: string[]) {
   });
 }
 
+export type VenueDirectoryRow = {
+  id: string;
+  name: string;
+  suburb: string;
+  state: string;
+  lat: number;
+  lng: number;
+  courts_badminton: number | null;
+  dedicated: boolean | null;
+  surface: string | null;
+  bookability: "public" | "club_only" | "members_only" | "unknown";
+  confidence: "high" | "medium" | "low";
+  verified_at: string | null;
+  has_profile: boolean;
+  photo_path: string | null;
+  cheapest_cents: number | null;
+  cheapest_unit: string | null;
+  total_count: number;
+};
+
+export type VenueDirectoryFilters = {
+  search?: string;
+  minCourts?: number;
+  dedicated?: boolean;
+  bookableNow?: boolean;
+  amenitySlug?: string;
+};
+
+// Venue Screen Redesign panel 6 ("Courts near me") — state-bound directory list, independent
+// of the Discover map's viewport-bound venues_near. Every seeded venue is NSW, so this is
+// effectively "Sydney" today without depending on the unpopulated venues.region column.
+export function useVenuesDirectory(filters: VenueDirectoryFilters) {
+  return useQuery({
+    queryKey: ["venuesDirectory", filters],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("venues_directory", {
+        p_state: "NSW",
+        p_search: filters.search || undefined,
+        p_min_courts: filters.minCourts ?? undefined,
+        p_dedicated: filters.dedicated ?? undefined,
+        p_bookable_now: filters.bookableNow ?? undefined,
+        p_amenity_slug: filters.amenitySlug ?? undefined,
+        p_limit: 100,
+        p_offset: 0,
+      });
+      if (error) throw error;
+      return (data ?? []) as VenueDirectoryRow[];
+    },
+    staleTime: 15 * 60 * 1000,
+  });
+}
+
+// Confidence system (design/23bc2cae "How trust reads at a glance"): verified (checked <=180d),
+// community (player-submitted, medium confidence), stale (verified >180d ago — price should be
+// hidden, not shown-and-doubted), or none (no profile / no signal yet).
+export type ConfidenceState = "verified" | "community" | "stale" | "none";
+
+export function confidenceState(profile: { confidence: string; verified_at: string | null } | null | undefined): ConfidenceState {
+  if (!profile) return "none";
+  if (profile.verified_at) {
+    const ageDays = (Date.now() - new Date(profile.verified_at).getTime()) / 86_400_000;
+    if (ageDays > 180) return "stale";
+    if (profile.confidence === "high") return "verified";
+  }
+  if (profile.confidence === "medium" || profile.confidence === "low") return "community";
+  return "none";
+}
+
 export function useReportCorrection() {
   return useMutation({
     mutationFn: async (input: { venueId: string; field: string; suggestedValue?: string; note?: string }) => {

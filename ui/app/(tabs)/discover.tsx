@@ -728,6 +728,13 @@ export default function Discover() {
           </Text>
         </View>
         <View className="flex-row items-center gap-2">
+          <Pressable
+            onPress={() => router.push("/venues")}
+            className="w-9 h-9 rounded-full items-center justify-center border"
+            style={{ backgroundColor: colors.surfaceAlt, borderColor: colors.cardBorder }}
+          >
+            <Ionicons name="business-outline" size={16} color={colors.textDim} />
+          </Pressable>
           <NotificationBell />
           <SegmentedToggle
             options={[

@@ -1262,6 +1262,36 @@ export type Database = {
         Returns: string
       }
       venue_detail: { Args: { p_venue_id: string }; Returns: Json }
+      venues_directory: {
+        Args: {
+          p_amenity_slug?: string
+          p_bookable_now?: boolean
+          p_dedicated?: boolean
+          p_limit?: number
+          p_min_courts?: number
+          p_offset?: number
+          p_search?: string
+          p_state?: string
+        }
+        Returns: {
+          bookability: string
+          cheapest_cents: number
+          cheapest_unit: string
+          confidence: string
+          courts_badminton: number
+          dedicated: boolean
+          has_profile: boolean
+          id: string
+          lat: number
+          lng: number
+          name: string
+          photo_path: string
+          state: string
+          suburb: string
+          total_count: number
+          verified_at: string
+        }[]
+      }
       venues_near: {
         Args: { lat: number; lng: number; radius_m: number }
         Returns: {

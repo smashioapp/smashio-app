@@ -224,6 +224,9 @@ function NoGameVenuePin({ venue, onPress }: { venue: NoGameVenue; onPress: () =>
   // directory-pin treatment (it's a known, real venue) but never the "host here" affordance —
   // that's enforced by the tap handler in discover.tsx, not here.
   const isDirectory = venue.hasProfile === true;
+  // Restricted pins get the same "can't book this" language as cards/badges (confidence
+  // system, design/23bc2cae panel 5): dashed border instead of a solid fill.
+  const restricted = venue.bookability === "club_only" || venue.bookability === "members_only";
   return (
     <Marker
       coordinate={{ latitude: venue.lat, longitude: venue.lng }}
@@ -236,10 +239,18 @@ function NoGameVenuePin({ venue, onPress }: { venue: NoGameVenue; onPress: () =>
     >
       {isDirectory ? (
         <View
-          className="rounded-full items-center justify-center border"
-          style={{ width: 16, height: 16, backgroundColor: colors.accent, borderColor: colors.base, borderWidth: 1.5 }}
+          className="rounded-full items-center justify-center"
+          style={
+            restricted
+              ? { width: 16, height: 16, backgroundColor: colors.surfaceAlt, borderColor: colors.textMuted, borderWidth: 1.5, borderStyle: "dashed" }
+              : { width: 16, height: 16, backgroundColor: colors.accent, borderColor: colors.base, borderWidth: 1.5 }
+          }
         >
-          <Ionicons name={venue.dedicated ? "medal" : "location"} size={9} color={colors.base} />
+          <Ionicons
+            name={restricted ? "lock-closed" : venue.dedicated ? "medal" : "location"}
+            size={9}
+            color={restricted ? colors.textMuted : colors.base}
+          />
         </View>
       ) : (
         <View

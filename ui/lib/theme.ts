@@ -133,3 +133,16 @@ export function badgeTone(state: "verified" | "pending" | "cancelled") {
   };
   return map[state];
 }
+
+// Venue confidence system (design/23bc2cae): three fixed signal colors so trust reads at a
+// glance everywhere it appears — badges, amenity rows, pricing rows, map pins, cards. Reuses
+// the existing skill-tier hues (they already match the design's hex values exactly) rather than
+// introducing a parallel palette.
+export const CONFIDENCE_TONE = {
+  verified: { bg: "rgba(53,214,166,0.13)", fg: colors.intermediate, icon: "checkmark-circle" as const, label: "Verified" },
+  community: { bg: "rgba(111,203,255,0.13)", fg: colors.beginner, icon: "people-circle-outline" as const, label: "Community" },
+  stale: { bg: "rgba(255,182,72,0.13)", fg: colors.advanced, icon: "time-outline" as const, label: "May be out of date" },
+  none: { bg: colors.surfaceAlt, fg: colors.textMuted, icon: "help-circle-outline" as const, label: "Unconfirmed" },
+} as const;
+
+export const RESTRICTED_TONE = { bg: colors.surfaceAlt, fg: colors.textDim };

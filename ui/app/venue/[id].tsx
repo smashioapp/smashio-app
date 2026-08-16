@@ -2,13 +2,14 @@ import { useState } from "react";
 import { View, Text, Pressable, ScrollView, Alert, Linking, Image, useWindowDimensions } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { colors } from "../../lib/theme";
+import { colors, CONFIDENCE_TONE, RESTRICTED_TONE } from "../../lib/theme";
 import { openDirections } from "../../lib/directions";
-import { useVenueDetail, useVenuePhotoUrls, useReportCorrection, VenueAmenity } from "../../lib/queries/venues";
+import { useVenueDetail, useVenuePhotoUrls, useReportCorrection, VenueAmenity, confidenceState } from "../../lib/queries/venues";
 import { VenueCourtHeader } from "../../components/VenueCourtHeader";
 import { BackButton } from "../../components/BackButton";
 import { Button } from "../../components/Button";
 import { GameDetailSkeleton } from "../../components/Skeleton";
+import { HatchPattern } from "../../components/HatchPattern";
 import { haptics } from "../../lib/haptics";
 import { formatTimeShort } from "../../lib/format";
 import { useAppStore } from "../../lib/store";
@@ -71,6 +72,10 @@ export default function VenueScreen() {
 
   const profile = venue.profile;
   const bookable = profile?.bookability === "public";
+  const restricted = profile?.bookability === "club_only" || profile?.bookability === "members_only";
+  const confidence = confidenceState(profile);
+  const confidenceTone = CONFIDENCE_TONE[confidence];
+  const priceHidden = confidence === "stale";
   const amenitiesByCategory = (venue.amenities ?? []).reduce<Record<string, VenueAmenity[]>>((acc, a) => {
     (acc[a.category] ??= []).push(a);
     return acc;
@@ -118,9 +123,25 @@ export default function VenueScreen() {
           ) : (
             <VenueCourtHeader venueKey={venue.id} width={width} />
           )}
+          {restricted && <HatchPattern id="vd-header" opacity={0.1} />}
           <View className="absolute px-4" style={{ top: 56 }}>
             <BackButton dark onPress={() => router.back()} />
           </View>
+          {confidence !== "none" && (
+            <View
+              className="absolute bottom-3 left-4 flex-row items-center gap-1.5 rounded-pill px-3 py-1.5"
+              style={{ backgroundColor: "rgba(0,0,0,0.55)" }}
+            >
+              <Ionicons name={confidenceTone.icon} size={12} color={confidenceTone.fg} />
+              <Text className="text-[11px] font-body-bold" style={{ color: confidenceTone.fg }}>
+                {confidence === "verified" && profile?.verified_at
+                  ? `Verified ${new Date(profile.verified_at).toLocaleDateString()}`
+                  : confidence === "stale" && profile?.verified_at
+                    ? `Checked ${new Date(profile.verified_at).toLocaleDateString()}`
+                    : confidenceTone.label}
+              </Text>
+            </View>
+          )}
         </View>
 
         <View className="px-5 pt-4">
@@ -131,6 +152,15 @@ export default function VenueScreen() {
             {venue.suburb}, {venue.state}
             {profile?.dedicated ? " · Dedicated badminton venue" : ""}
           </Text>
+
+          {bookable && (
+            <View className="flex-row items-center gap-1.5 rounded-pill px-3 py-1.5 mt-3 self-start" style={{ backgroundColor: CONFIDENCE_TONE.verified.bg }}>
+              <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.intermediate }} />
+              <Text className="text-[11.5px] font-body-bold" style={{ color: colors.intermediate }}>
+                Publicly bookable
+              </Text>
+            </View>
+          )}
 
           {profile && profile.bookability !== "public" && (
             <View
@@ -189,33 +219,52 @@ export default function VenueScreen() {
           {venue.pricing_bands.length > 0 && (
             <>
               <SectionLabel>Pricing</SectionLabel>
-              <View className="rounded-2xl border overflow-hidden" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
-                {venue.pricing_bands.map((band, i) => (
-                  <View
-                    key={band.id}
-                    className="flex-row items-center justify-between px-4 py-3"
-                    style={i > 0 ? { borderTopWidth: 1, borderTopColor: colors.cardBorder } : undefined}
-                  >
-                    <View className="flex-1 pr-3">
-                      <Text className="text-[14px] font-body-semibold" style={{ color: colors.text }}>
-                        {band.label}
-                      </Text>
-                      <Text className="text-[12.5px] mt-0.5" style={{ color: colors.textMuted }}>
-                        {band.days.map((d) => DAY_LABELS[d - 1]).join(", ")}
-                        {band.starts_time && band.ends_time ? ` · ${band.starts_time.slice(0, 5)}–${band.ends_time.slice(0, 5)}` : ""}
-                      </Text>
-                    </View>
-                    <Text className="font-body-bold text-[14.5px]" style={{ color: colors.text }}>
-                      {formatMoney(band.cents)}
-                      <Text style={{ color: colors.textMuted }}>{unitLabel(band.unit)}</Text>
+              {priceHidden ? (
+                <View
+                  className="rounded-2xl p-4 border"
+                  style={{ backgroundColor: colors.card, borderColor: "rgba(255,182,72,0.25)" }}
+                >
+                  <View className="flex-row items-center gap-1.5 self-start rounded-pill px-2.5 py-1" style={{ backgroundColor: CONFIDENCE_TONE.stale.bg }}>
+                    <Ionicons name="time-outline" size={11} color={colors.advanced} />
+                    <Text className="text-[10.5px] font-body-bold" style={{ color: colors.advanced }}>
+                      Checked {profile?.verified_at ? new Date(profile.verified_at).toLocaleDateString() : "a while ago"}
                     </Text>
                   </View>
-                ))}
-              </View>
-              {profile?.verified_at && (
-                <Text className="text-[11.5px] mt-2" style={{ color: colors.textMuted }}>
-                  As at {new Date(profile.verified_at).toLocaleDateString()}. Prices may change — check with the venue.
-                </Text>
+                  <Text className="text-[12.5px] mt-2 italic" style={{ color: colors.textSecondary }}>
+                    Price hidden — may be out of date. Check with the venue before you head out.
+                  </Text>
+                </View>
+              ) : (
+                <>
+                  <View className="rounded-2xl border overflow-hidden" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
+                    {venue.pricing_bands.map((band, i) => (
+                      <View
+                        key={band.id}
+                        className="flex-row items-center justify-between px-4 py-3"
+                        style={i > 0 ? { borderTopWidth: 1, borderTopColor: colors.cardBorder } : undefined}
+                      >
+                        <View className="flex-1 pr-3">
+                          <Text className="text-[14px] font-body-semibold" style={{ color: colors.text }}>
+                            {band.label}
+                          </Text>
+                          <Text className="text-[12.5px] mt-0.5" style={{ color: colors.textMuted }}>
+                            {band.days.map((d) => DAY_LABELS[d - 1]).join(", ")}
+                            {band.starts_time && band.ends_time ? ` · ${band.starts_time.slice(0, 5)}–${band.ends_time.slice(0, 5)}` : ""}
+                          </Text>
+                        </View>
+                        <Text className="font-body-bold text-[14.5px]" style={{ color: colors.text }}>
+                          {formatMoney(band.cents)}
+                          <Text style={{ color: colors.textMuted }}>{unitLabel(band.unit)}</Text>
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                  {profile?.verified_at && (
+                    <Text className="text-[11.5px] mt-2" style={{ color: colors.textMuted }}>
+                      As at {new Date(profile.verified_at).toLocaleDateString()}. Prices may change — check with the venue.
+                    </Text>
+                  )}
+                </>
               )}
             </>
           )}
@@ -228,12 +277,12 @@ export default function VenueScreen() {
                   <Text className="text-[12px] font-body-bold uppercase tracking-wide mb-1.5" style={{ color: colors.textMuted }}>
                     {AMENITY_CATEGORY_LABELS[category] ?? category}
                   </Text>
-                  <View className="flex-row flex-wrap gap-2">
-                    {amenities
-                      .filter((a) => a.availability !== "unknown")
-                      .map((a) => (
-                        <AmenityChip key={a.slug} amenity={a} />
-                      ))}
+                  <View className="flex-row flex-wrap">
+                    {amenities.map((a) => (
+                      <View key={a.slug} style={{ width: "50%" }}>
+                        <AmenityRow amenity={a} />
+                      </View>
+                    ))}
                   </View>
                 </View>
               ))}
@@ -318,21 +367,35 @@ function InfoChip({ label }: { label: string }) {
   );
 }
 
-function AmenityChip({ amenity }: { amenity: VenueAmenity }) {
-  const muted = amenity.availability === "paid" || amenity.availability === "nearby";
-  const struck = amenity.availability === "no";
+// Five-state amenity treatment (design/23bc2cae panel 2) — fill + border style + glyph + label
+// weight pair per state, never a single cue alone, so state reads without color vision either.
+const AMENITY_ICON_STYLE: Record<
+  VenueAmenity["availability"],
+  { bg: string; border: string; borderStyle: "solid" | "dashed" | "dotted"; fg: string; glyph: keyof typeof Ionicons.glyphMap; note: string }
+> = {
+  yes: { bg: colors.intermediate, border: colors.intermediate, borderStyle: "solid", fg: colors.base, glyph: "checkmark", note: "Yes" },
+  paid: { bg: "transparent", border: colors.beginner, borderStyle: "solid", fg: colors.beginner, glyph: "cash-outline", note: "Paid" },
+  nearby: { bg: "transparent", border: colors.textTertiary, borderStyle: "dashed", fg: colors.textTertiary, glyph: "arrow-redo-outline", note: "Nearby" },
+  no: { bg: "transparent", border: colors.surfaceAlt, borderStyle: "solid", fg: colors.textMuted, glyph: "remove", note: "No" },
+  unknown: { bg: "transparent", border: colors.textMuted, borderStyle: "dotted", fg: colors.textMuted, glyph: "help", note: "Not confirmed" },
+};
+
+function AmenityRow({ amenity }: { amenity: VenueAmenity }) {
+  const s = AMENITY_ICON_STYLE[amenity.availability];
+  const dim = amenity.availability === "unknown";
   return (
-    <View
-      className="flex-row items-center gap-1.5 rounded-pill px-3 py-1.5 border"
-      style={{ backgroundColor: colors.surfaceAlt, borderColor: colors.cardBorder, opacity: struck ? 0.45 : muted ? 0.7 : 1 }}
-    >
-      <Ionicons name={amenity.icon as keyof typeof Ionicons.glyphMap} size={13} color={struck ? colors.textMuted : colors.accent} />
-      <Text
-        className={`text-[12.5px] ${struck ? "" : "font-body-semibold"}`}
-        style={{ color: struck ? colors.textMuted : colors.textDim, textDecorationLine: struck ? "line-through" : "none" }}
+    <View className="flex-row items-center gap-2.5 py-1.5" style={{ opacity: dim ? 0.55 : 1 }}>
+      <View
+        className="items-center justify-center rounded-full"
+        style={{ width: 22, height: 22, backgroundColor: s.bg, borderWidth: 1.5, borderColor: s.border, borderStyle: s.borderStyle }}
       >
+        <Ionicons name={s.glyph} size={11} color={s.fg} />
+      </View>
+      <Text numberOfLines={1} className="flex-1 text-[12.5px] font-body-semibold" style={{ color: colors.textDim }}>
         {amenity.label}
-        {amenity.availability === "paid" ? " (paid)" : amenity.availability === "nearby" ? " (nearby)" : ""}
+      </Text>
+      <Text className="text-[10.5px]" style={{ color: colors.textTertiary, fontStyle: dim ? "italic" : "normal" }}>
+        {amenity.note ?? s.note}
       </Text>
     </View>
   );

@@ -13,7 +13,7 @@ Status: **approved 2026-08-16**, implementing straight onto `main` in incrementa
 | P4 Discover map layer | ✅ done | `d6b09d7` |
 | P5 Game Detail | ✅ done | `a439ffc` |
 | P6 My Games agenda + past screen | ✅ done | `a874e1f` |
-| P7 Chat thread | ✅ done | `<pending>` |
+| P7 Chat thread | ✅ done | `c5482db` |
 | P8 Profile + stats screen | 🔲 not started | — |
 
 **Known loose end from P2 — resolved.** `BottomRail`/`HostFab` were deleted in P6 (Discover

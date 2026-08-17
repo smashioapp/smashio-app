@@ -3,7 +3,6 @@ import { View } from "react-native";
 import Animated, {
   Easing,
   runOnJS,
-  type SharedValue,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -21,89 +20,83 @@ const LOGO = require("../assets/splash-icon.png");
 // handoff — the shuttle simply starts moving.
 const SIZE = 180;
 
-// One vertical loop, traversed once: (0,0) -> right -> over the top -> left -> back to (0,0).
-// Peak is -1.8 * R * 0.9 up and +/- 1.15 * R across, which stays on screen on the narrowest phone.
-const R = 112;
-const TAU = Math.PI * 2;
-
-// Motion echoes: the same pose function sampled at a lag, which reads as motion blur without
-// needing a blur pass or an SVG trail. Later ghosts lag further and sit fainter.
-const GHOSTS = [0.05, 0.1, 0.155, 0.215];
-
-function clamp(v: number, lo: number, hi: number) {
-  "worklet";
-  return Math.min(Math.max(v, lo), hi);
-}
-
-// The flight path. p in [0,1] walks the whole loop; rotation closes at exactly -360deg so the
-// shuttle lands upright with no correction, and scale dips at the apex to sell depth.
-function pose(p: number) {
-  "worklet";
-  const th = clamp(p, 0, 1) * TAU;
-  return {
-    x: Math.sin(th) * R * 1.15,
-    y: -(1 - Math.cos(th)) * R * 0.9,
-    rot: -th * (180 / Math.PI),
-    scale: 1 - 0.4 * Math.sin(th / 2),
-  };
-}
+// A shuttlecock rotates about its cork, not its bounding box: the weight is all in the base and
+// the feathers are drag. Offset from the image centre to the cork in the artwork, so the flip
+// pivots where the mass actually is.
+const PIVOT_X = -18;
+const PIVOT_Y = 29;
 
 export function AnimatedSplash({ onFinish }: { onFinish: () => void }) {
-  const progress = useSharedValue(0);
-  const squash = useSharedValue(0);
+  // One continuous 0 -> 1 turnover: feathers over the top, cork swinging down to lead.
+  const turn = useSharedValue(0);
+  const lift = useSharedValue(0);
   const wobble = useSharedValue(0);
   const bloom = useSharedValue(0);
   const overlayOpacity = useSharedValue(1);
 
   useEffect(() => {
-    // 1. Load — the shuttle compresses against an unseen racket face before it leaves.
-    squash.value = withSequence(
-      withTiming(1, { duration: 110, easing: Easing.out(Easing.quad) }),
-      withTiming(0, { duration: 90, easing: Easing.in(Easing.quad) })
+    // Hold on the native splash pose first, so the handoff reads as one image, then invert:
+    // feathers go over the top and the shuttle is briefly upside down, cork high.
+    turn.value = withDelay(
+      100,
+      withSequence(
+        withTiming(0.5, { duration: 260, easing: Easing.out(Easing.cubic) }),
+        // The turnover proper. A shuttlecock has far more drag than any other projectile, so the
+        // cork whips back under and the last few degrees crawl — that curve is the whole motion.
+        withTiming(1, { duration: 380, easing: Easing.bezier(0.12, 0.85, 0.16, 1) })
+      )
     );
 
-    // 2. Flight — fast off the face, then the tail flattens hard. A shuttlecock has far more drag
-    // than any other projectile, so the deceleration curve is the signature of the motion.
-    progress.value = withDelay(140, withTiming(1, { duration: 640, easing: Easing.bezier(0.16, 0.85, 0.2, 1) }));
+    // Small rise and fall through the flip: enough to read as airborne, not as a jump.
+    lift.value = withDelay(
+      100,
+      withSequence(
+        withTiming(1, { duration: 260, easing: Easing.out(Easing.cubic) }),
+        withTiming(0, { duration: 380, easing: Easing.bezier(0.12, 0.85, 0.16, 1) })
+      )
+    );
 
-    // 3. Turnover — the shuttle self-rights and rocks off the last of its spin.
+    // Landing: rocks off the last of the spin.
     wobble.value = withDelay(
-      760,
+      740,
       withSequence(
         withTiming(1, { duration: 1 }, (finished) => {
           if (finished) runOnJS(haptics.tap)();
         }),
-        withSpring(0, { damping: 6, stiffness: 150, mass: 0.6 })
+        withSpring(0, { damping: 7, stiffness: 170, mass: 0.6 })
       )
     );
 
     bloom.value = withDelay(
-      760,
+      740,
       withSequence(
-        withTiming(1, { duration: 160, easing: Easing.out(Easing.quad) }),
-        withTiming(0, { duration: 420, easing: Easing.in(Easing.quad) })
+        withTiming(1, { duration: 150, easing: Easing.out(Easing.quad) }),
+        withTiming(0, { duration: 380, easing: Easing.in(Easing.quad) })
       )
     );
 
     overlayOpacity.value = withDelay(
-      1120,
-      withTiming(0, { duration: 300 }, (finished) => {
+      1000,
+      withTiming(0, { duration: 280 }, (finished) => {
         if (finished) runOnJS(onFinish)();
       })
     );
   }, []);
 
   const logoStyle = useAnimatedStyle(() => {
-    const p = pose(progress.value);
-    const s = squash.value;
+    const t = turn.value;
+    const l = lift.value;
     const w = wobble.value;
     return {
       transform: [
-        { translateX: p.x },
-        { translateY: p.y },
-        { rotate: `${p.rot + w * 14}deg` },
-        { scaleX: p.scale * (1 + s * 0.12 + w * 0.08) },
-        { scaleY: p.scale * (1 - s * 0.14 + w * 0.08) },
+        { translateY: -34 * l },
+        // Pivot about the cork: shift the pivot to the origin, rotate, shift back.
+        { translateX: PIVOT_X },
+        { translateY: PIVOT_Y },
+        { rotate: `${t * 360 + w * 11}deg` },
+        { translateX: -PIVOT_X },
+        { translateY: -PIVOT_Y },
+        { scale: 1 - 0.1 * l + w * 0.06 },
       ],
     };
   });
@@ -140,50 +133,11 @@ export function AnimatedSplash({ onFinish }: { onFinish: () => void }) {
         <View style={{ position: "absolute", left: -66, top: -66, width: 132, height: 132, borderRadius: 66, backgroundColor: "rgba(214,255,63,0.09)" }} />
       </Animated.View>
 
-      {GHOSTS.map((lag, i) => (
-        <Ghost key={lag} lag={lag} rank={i} progress={progress} />
-      ))}
-
       <Animated.Image
         source={LOGO}
         resizeMode="contain"
         style={[{ position: "absolute", width: SIZE, height: SIZE }, logoStyle]}
       />
     </Animated.View>
-  );
-}
-
-function Ghost({
-  lag,
-  rank,
-  progress,
-}: {
-  lag: number;
-  rank: number;
-  progress: SharedValue<number>;
-}) {
-  const style = useAnimatedStyle(() => {
-    const t = progress.value;
-    const p = pose(t - lag);
-    // Ramp in so the echoes don't pile up on the logo at rest, and out so nothing survives
-    // the landing — the shuttle has to arrive alone.
-    const alpha = 0.24 * (1 - rank / (GHOSTS.length + 1)) * clamp(t * 5, 0, 1) * (1 - clamp(t, 0, 1));
-    return {
-      opacity: alpha,
-      transform: [
-        { translateX: p.x },
-        { translateY: p.y },
-        { rotate: `${p.rot}deg` },
-        { scale: p.scale },
-      ],
-    };
-  });
-
-  return (
-    <Animated.Image
-      source={LOGO}
-      resizeMode="contain"
-      style={[{ position: "absolute", width: SIZE, height: SIZE }, style]}
-    />
   );
 }

@@ -67,7 +67,7 @@ export function NextUpHero({
           colors={gradients.card}
           start={{ x: 0.15, y: 0 }}
           end={{ x: 0.85, y: 1 }}
-          className="rounded-[22px] p-4.5 border-[1.5px] gap-3"
+          className="rounded-[22px] px-4.5 pt-4 pb-4.5 border-[1.5px] gap-3.5"
           style={{
             borderColor: live ? "rgba(139,255,158,0.35)" : urgent ? "rgba(255,103,103,0.35)" : "rgba(214,255,63,0.3)",
           }}
@@ -86,7 +86,7 @@ export function NextUpHero({
             </View>
           </View>
 
-          <Text className="font-display text-[22px]" style={{ color: accentColor }}>
+          <Text className="font-display text-[22px] leading-[30px]" style={{ color: accentColor }}>
             {headline}
           </Text>
 

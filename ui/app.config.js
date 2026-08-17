@@ -92,6 +92,8 @@ module.exports = {
       ],
       "./plugins/withAndroidReleaseSigning",
       "expo-sharing",
+      "@react-native-community/datetimepicker",
+      "expo-document-picker",
     ],
   },
 };

@@ -1,19 +1,26 @@
 import { useEffect, useRef, useState } from "react";
-import { View, Text, Pressable, ScrollView, Alert, Image, TextInput, ActivityIndicator } from "react-native";
+import { View, Text, Pressable, ScrollView, Alert, Image, TextInput, ActivityIndicator, PanResponder } from "react-native";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
+import * as DocumentPicker from "expo-document-picker";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { MAX_COST_PER_PLAYER_PER_HOUR, MAX_COURTS_BOOKED, MIN_COURTS_BOOKED, useAppStore } from "../lib/store";
 import { colors, gradients, TIERS } from "../lib/theme";
 import { formatDate, formatTimeRange, formatTimeShort } from "../lib/format";
-import { MAX_DURATION_HOURS, MIN_DURATION_HOURS, TIME_OPTIONS, dateOptions, durationMs, isSlotBookable, slotAt } from "../lib/schedule";
-import { useUpsertPlaceVenue } from "../lib/queries/venues";
+import { MAX_DURATION_HOURS, MIN_DURATION_HOURS, durationMs, isSlotBookable, slotAt } from "../lib/schedule";
+import { useUpsertPlaceVenue, useVenuesDirectory, confidenceState, type VenueDirectoryRow } from "../lib/queries/venues";
 import { useSkillTiers, useSports } from "../lib/queries/sports";
-import { useAttachConfirmation, useCreateGame, useParseConfirmation, useUploadConfirmation, type ParsedBooking } from "../lib/queries/games";
+import {
+  useAttachConfirmation,
+  useCreateGame,
+  useParseConfirmation,
+  useUploadConfirmationFiles,
+  type ParsedBooking,
+  type ConfirmationFile,
+} from "../lib/queries/games";
 import { newSessionToken, searchPlaces, getPlaceDetails, type PlacePrediction } from "../lib/places";
-import { useVenues } from "../lib/queries/venues";
-import { Chip } from "../components/Chip";
 import { StepProgress } from "../components/StepProgress";
 import { Burst } from "../components/Burst";
 import { haptics } from "../lib/haptics";
@@ -170,8 +177,6 @@ export default function Wizard() {
     decCourts,
     incHours,
     decHours,
-    incCost,
-    decCost,
     setMaxPlayers,
     setCourtsBooked,
     setDurationHours,
@@ -180,14 +185,17 @@ export default function Wizard() {
 
   const { data: sports = [] } = useSports();
   const { data: tiers = [] } = useSkillTiers(SPORT_SLUG);
-  const { data: popularVenues = [] } = useVenues();
   const createGame = useCreateGame();
-  const uploadConfirmation = useUploadConfirmation();
+  const uploadConfirmationFiles = useUploadConfirmationFiles();
   const parseConfirmation = useParseConfirmation();
   const attachConfirmation = useAttachConfirmation();
   const upsertPlaceVenue = useUpsertPlaceVenue();
 
   const [confirmationUri, setConfirmationUri] = useState<string | null>(null);
+  // Change 3 (host-a-match redesign): the manual "upload" step takes several files (photos or a
+  // PDF), not one — this is separate from confirmationUri, which is the single entry-screen
+  // photo that feeds the receipt-parse path.
+  const [confirmationFiles, setConfirmationFiles] = useState<(ConfirmationFile & { name: string })[]>([]);
   const [createdGameId, setCreatedGameId] = useState<string | null>(null);
   const [verified, setVerified] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -211,6 +219,11 @@ export default function Wizard() {
   const [venueResolving, setVenueResolving] = useState(false);
   const [selectedVenue, setSelectedVenue] = useState<{ name: string; suburb: string; address: string } | null>(null);
   const sessionTokenRef = useRef(newSessionToken());
+
+  // Change 4: Smashio venues and raw new addresses render as two equally-weighted sections —
+  // this covers both the empty-query "popular near you" shortcut and matched search results.
+  const [debouncedVenueQuery, setDebouncedVenueQuery] = useState("");
+  const { data: smashioVenues = [] } = useVenuesDirectory({ search: debouncedVenueQuery || undefined });
 
   useEffect(() => {
     // Rebook (my-games-plan.md §M4) seeds the draft before navigating here — consume it once
@@ -248,6 +261,7 @@ export default function Wizard() {
       setEntryMode(null);
     }
     setConfirmationUri(null);
+    setConfirmationFiles([]);
     setCreatedGameId(null);
     setVerified(false);
     setParsing(false);
@@ -279,6 +293,14 @@ export default function Wizard() {
         setVenueSearching(false);
       }
     }, 350);
+    return () => clearTimeout(handle);
+  }, [venueQuery, selectedVenue]);
+
+  // Debounced separately from the Places call above so every keystroke doesn't fire a
+  // venues_directory RPC — same 350ms cadence, cleared on selection like the Places debounce.
+  useEffect(() => {
+    if (selectedVenue) return;
+    const handle = setTimeout(() => setDebouncedVenueQuery(venueQuery.trim()), 350);
     return () => clearTimeout(handle);
   }, [venueQuery, selectedVenue]);
 
@@ -497,15 +519,28 @@ export default function Wizard() {
     }
   };
 
-  const pickConfirmationManual = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      Alert.alert("Permission needed", "Allow photo access to upload your booking confirmation.");
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.8 });
-    if (!result.canceled) setConfirmationUri(result.assets[0].uri);
+  const MAX_CONFIRMATION_FILES = 5;
+
+  // Change 3: multi-file (images + PDF) via a single unified picker, up to 5 files, thumbnail
+  // grid with per-file remove. Fully optional (change 5) — publish never blocks on this.
+  const pickConfirmationFiles = async () => {
+    const room = MAX_CONFIRMATION_FILES - confirmationFiles.length;
+    if (room <= 0) return;
+    const result = await DocumentPicker.getDocumentAsync({
+      type: ["image/*", "application/pdf"],
+      multiple: true,
+      copyToCacheDirectory: true,
+    });
+    if (result.canceled) return;
+    const picked = result.assets.slice(0, room).map((a) => ({
+      localUri: a.uri,
+      mimeType: a.mimeType ?? (a.name.toLowerCase().endsWith(".pdf") ? "application/pdf" : "image/jpeg"),
+      name: a.name,
+    }));
+    setConfirmationFiles((prev) => [...prev, ...picked]);
   };
+
+  const removeConfirmationFile = (index: number) => setConfirmationFiles((prev) => prev.filter((_, i) => i !== index));
 
   const publish = async () => {
     if (createdGameId) {
@@ -551,9 +586,9 @@ export default function Wizard() {
           "Your booking confirmation couldn't be attached, so the match isn't verified yet. You can try again from the match page."
         );
       }
-    } else if (confirmationUri) {
+    } else if (confirmationFiles.length > 0) {
       try {
-        await uploadConfirmation.mutateAsync({ gameId: id, localUri: confirmationUri });
+        await uploadConfirmationFiles.mutateAsync({ gameId: id, files: confirmationFiles });
         setVerified(true);
       } catch (e) {
         haptics.error();
@@ -581,19 +616,20 @@ export default function Wizard() {
 
   const nextLabel = step === successStepIndex ? "Let's go!" : step === publishStepIndex ? "Publish match" : "Continue";
 
-  // A parsed datetime is a first-class value (host-flow-plan.md §Date/time fidelity) — injected
-  // into both option lists as an extra chip alongside the standard ones, never snapped onto the
-  // nearest existing one. Only offered when it's actually still bookable; a past parsed slot is
-  // surfaced via the "already passed" copy below instead of being selectable.
+  // A parsed datetime is a first-class value (host-flow-plan.md §Date/time fidelity) — only
+  // offered when it's actually still bookable; a past parsed slot is surfaced via the "already
+  // passed" copy below instead of being selectable.
   const parsedSlotBookable = parsedSlot != null && isSlotBookable(parsedSlot, parsedSlot.getHours(), parsedSlot.getMinutes());
-  const parsedDateExtra =
-    parsedSlot && parsedSlotBookable && !dateOptions().some((d) => d.date.toDateString() === parsedSlot.toDateString())
-      ? { label: formatDate(parsedSlot.toISOString()), date: new Date(parsedSlot.getFullYear(), parsedSlot.getMonth(), parsedSlot.getDate()) }
-      : null;
-  const parsedTimeExtra =
-    parsedSlot && parsedSlotBookable && !TIME_OPTIONS.some((t) => t.h === parsedSlot.getHours() && t.m === parsedSlot.getMinutes())
-      ? { label: formatTimeShort(parsedSlot.toISOString()), h: parsedSlot.getHours(), m: parsedSlot.getMinutes() }
-      : null;
+
+  // Change 4: "New address" rows are Places predictions that don't already match a Smashio
+  // venue — a loose name check keeps a venue from showing up twice once it's picked or matched.
+  const newAddressResults = venueResults.filter((p) => !smashioVenues.some((v) => sharesToken(v.name, p.mainText)));
+
+  const venueBadge = (v: VenueDirectoryRow) => {
+    const state = confidenceState(v.has_profile ? { confidence: v.confidence, verified_at: v.verified_at } : null);
+    if (state === "verified") return { label: "✓", color: colors.intermediate, bg: "rgba(53,214,166,.14)" };
+    return { label: "Community", color: colors.beginner, bg: "rgba(111,203,255,.13)" };
+  };
 
   const renderVenuePicker = () => (
     <View>
@@ -618,58 +654,83 @@ export default function Wizard() {
         )}
       </View>
 
-      {!selectedVenue &&
-        venueResults.map((p) => (
-          <Pressable
-            key={p.placeId}
-            onPress={() => pickVenue(p)}
-            className="flex-row items-center gap-3 rounded-2xl px-3.5 py-3.5 mb-2 border-[1.5px]"
-            style={{ backgroundColor: colors.card, borderColor: "rgba(255,255,255,0.07)" }}
-          >
-            <View className="w-1 self-stretch rounded" style={{ backgroundColor: colors.beginner }} />
-            <View className="flex-1">
-              <Text className="font-body-bold text-[15.5px]" style={{ color: colors.text }}>
-                {p.mainText}
-              </Text>
-              <Text className="text-[13.5px] mt-0.5" style={{ color: colors.textSecondary }}>
-                {p.secondaryText}
-              </Text>
-            </View>
-          </Pressable>
-        ))}
-
-      {!selectedVenue && !venueSearching && venueQuery.trim().length >= 3 && venueResults.length === 0 && (
+      {!selectedVenue && !venueSearching && venueQuery.trim().length >= 3 && smashioVenues.length === 0 && newAddressResults.length === 0 && (
         <Text className="text-[14.5px] mt-2" style={{ color: colors.textMuted }}>
           No venues found. Try a different search.
         </Text>
       )}
 
-      {!selectedVenue && venueQuery.trim().length === 0 && popularVenues.length > 0 && (
+      {!selectedVenue && smashioVenues.length > 0 && (
         <View className="mt-1">
-          <Label>Popular near you</Label>
-          {popularVenues.map((v) => (
+          <Label>{venueQuery.trim().length === 0 ? "Popular near you" : "Smashio venues"}</Label>
+          {smashioVenues.slice(0, 6).map((v) => {
+            const badge = venueBadge(v);
+            return (
+              <Pressable
+                key={v.id}
+                onPress={() => {
+                  selectVenue(v.id);
+                  setSelectedVenue({ name: v.name, suburb: v.suburb, address: `${v.suburb}, ${v.state}` });
+                  setVenueQuery(v.name);
+                  setVenueResults([]);
+                  markEdited("venue");
+                }}
+                className="flex-row items-center gap-3 rounded-2xl px-3.5 py-3.5 mb-2 border-[1.5px]"
+                style={{ backgroundColor: colors.card, borderColor: "rgba(255,255,255,0.07)" }}
+              >
+                <View className="w-11 h-11 rounded-xl items-center justify-center" style={{ backgroundColor: colors.surfaceAlt }}>
+                  <Ionicons name="business" size={17} color={colors.textMuted} />
+                </View>
+                <View className="flex-1">
+                  <Text className="font-body-bold text-[15.5px]" style={{ color: colors.text }}>
+                    {v.name}
+                  </Text>
+                  <Text className="text-[13.5px] mt-0.5" style={{ color: colors.textSecondary }}>
+                    {v.suburb} · {v.courts_badminton ?? "?"} courts
+                  </Text>
+                </View>
+                <View className="rounded-pill px-2.5 py-1" style={{ backgroundColor: badge.bg }}>
+                  <Text className="font-body-extrabold text-[10.5px]" style={{ color: badge.color }}>
+                    {badge.label}
+                  </Text>
+                </View>
+              </Pressable>
+            );
+          })}
+        </View>
+      )}
+
+      {!selectedVenue && newAddressResults.length > 0 && (
+        <View className="mt-4">
+          <Label>New address</Label>
+          {newAddressResults.map((p) => (
             <Pressable
-              key={v.id}
-              onPress={() => {
-                selectVenue(v.id);
-                setSelectedVenue({ name: v.name, suburb: v.suburb, address: v.address ?? `${v.suburb}, ${v.state}` });
-                setVenueQuery(v.name);
-                markEdited("venue");
-              }}
+              key={p.placeId}
+              onPress={() => pickVenue(p)}
               className="flex-row items-center gap-3 rounded-2xl px-3.5 py-3.5 mb-2 border-[1.5px]"
               style={{ backgroundColor: colors.card, borderColor: "rgba(255,255,255,0.07)" }}
             >
-              <View className="w-1 self-stretch rounded" style={{ backgroundColor: colors.intermediate }} />
+              <View className="w-11 h-11 rounded-xl items-center justify-center border" style={{ backgroundColor: colors.surface, borderColor: colors.cardBorder }}>
+                <Ionicons name="location" size={16} color={colors.textDim} />
+              </View>
               <View className="flex-1">
                 <Text className="font-body-bold text-[15.5px]" style={{ color: colors.text }}>
-                  {v.name}
+                  {p.mainText}
                 </Text>
                 <Text className="text-[13.5px] mt-0.5" style={{ color: colors.textSecondary }}>
-                  {v.suburb}, {v.state}
+                  {p.secondaryText}
+                </Text>
+              </View>
+              <View className="rounded-pill px-2.5 py-1" style={{ backgroundColor: "rgba(214,255,63,.12)" }}>
+                <Text className="font-body-extrabold text-[10.5px]" style={{ color: colors.accent }}>
+                  New
                 </Text>
               </View>
             </Pressable>
           ))}
+          <Text className="text-[11.5px] mt-1" style={{ color: colors.textMuted }}>
+            From Google Places. Either row continues the same way — picking a new address just means you'll confirm a couple of extra details.
+          </Text>
         </View>
       )}
 
@@ -697,59 +758,43 @@ export default function Wizard() {
         </View>
       )}
       <Label>Date</Label>
-      <View className="flex-row flex-wrap gap-2 mb-5">
-        {dateOptions().map(({ label, date }) => {
-          const active = date.toDateString() === wizard.startsAt.toDateString();
-          return (
-            <Chip
-              key={label}
-              label={label}
-              active={active}
-              onPress={() => {
-                setStartsAt(slotAt(date, wizard.startsAt.getHours(), wizard.startsAt.getMinutes()));
-                markEdited("when");
-              }}
-            />
-          );
-        })}
-        {parsedDateExtra && (
-          <Chip
-            label={parsedDateExtra.label}
-            active={parsedDateExtra.date.toDateString() === wizard.startsAt.toDateString()}
-            onPress={() => setStartsAt(slotAt(parsedDateExtra.date, wizard.startsAt.getHours(), wizard.startsAt.getMinutes()))}
-          />
-        )}
+      <View className="rounded-2xl p-2 mb-5 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
+        <DateTimePicker
+          value={wizard.startsAt}
+          mode="date"
+          display="inline"
+          minimumDate={new Date()}
+          themeVariant="dark"
+          accentColor={colors.accent}
+          onChange={(_e, date) => {
+            if (!date) return;
+            setStartsAt(slotAt(date, wizard.startsAt.getHours(), wizard.startsAt.getMinutes()));
+            markEdited("when");
+          }}
+        />
       </View>
-      <Label>Time slot</Label>
-      <View className="flex-row flex-wrap gap-2">
-        {TIME_OPTIONS.map(({ label, h, m }) => {
-          const active = wizard.startsAt.getHours() === h && wizard.startsAt.getMinutes() === m;
-          const bookable = isSlotBookable(wizard.startsAt, h, m);
-          return (
-            <View key={label} style={{ opacity: bookable ? 1 : 0.35 }}>
-              <Chip
-                label={label}
-                active={active && bookable}
-                onPress={() => {
-                  if (!bookable) return;
-                  setStartsAt(slotAt(wizard.startsAt, h, m));
-                  markEdited("when");
-                }}
-              />
-            </View>
-          );
-        })}
-        {parsedTimeExtra && (
-          <Chip
-            label={parsedTimeExtra.label}
-            active={wizard.startsAt.getHours() === parsedTimeExtra.h && wizard.startsAt.getMinutes() === parsedTimeExtra.m}
-            onPress={() => setStartsAt(slotAt(wizard.startsAt, parsedTimeExtra.h, parsedTimeExtra.m))}
-          />
-        )}
+      <Label>Time</Label>
+      <View className="rounded-2xl items-center border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
+        <DateTimePicker
+          value={wizard.startsAt}
+          mode="time"
+          display="spinner"
+          minuteInterval={5}
+          themeVariant="dark"
+          textColor={colors.text}
+          onChange={(_e, date) => {
+            if (!date) return;
+            setStartsAt(slotAt(wizard.startsAt, date.getHours(), date.getMinutes()));
+            markEdited("when");
+          }}
+        />
       </View>
+      <Text className="text-[13px] mt-3.5 text-center" style={{ color: colors.textSecondary }}>
+        {formatDate(wizard.startsAt.toISOString())} · {formatTimeShort(wizard.startsAt.toISOString())}
+      </Text>
       {startInPast && (
-        <Text className="text-[13.5px] mt-3.5" style={{ color: colors.advanced }}>
-          That slot has already passed today. Pick a later time or another day.
+        <Text className="text-[13.5px] mt-2 text-center" style={{ color: colors.advanced }}>
+          That slot has already passed. Pick a later time or another day.
         </Text>
       )}
     </View>
@@ -948,12 +993,42 @@ export default function Wizard() {
                 </Text>
               </View>
             )}
-            <View className="flex-row items-center justify-center gap-6 rounded-2xl p-5 mb-4 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
-              <Stepper onPress={decCost} icon="remove" disabled={wizard.cost <= 1} />
-              <Text className="font-display text-[30px]" style={{ color: colors.accent }}>
-                ${wizard.cost}
+            <View className="items-center mb-5">
+              <View className="flex-row items-baseline">
+                <Text className="font-display text-[30px]" style={{ color: colors.textTertiary }}>
+                  $
+                </Text>
+                <TextInput
+                  value={String(wizard.cost)}
+                  onChangeText={(t) => {
+                    const digits = t.replace(/[^0-9]/g, "");
+                    if (digits === "") {
+                      setCost(1);
+                      return;
+                    }
+                    setCost(Math.min(maxCost, Math.max(1, parseInt(digits, 10))));
+                  }}
+                  keyboardType="number-pad"
+                  maxLength={3}
+                  selectTextOnFocus
+                  className="font-display text-[60px] text-center px-1"
+                  style={{ color: colors.text, borderBottomWidth: 2, borderBottomColor: colors.accent, minWidth: 74 }}
+                />
+              </View>
+              <Text className="text-[13px] mt-1.5" style={{ color: colors.textSecondary }}>
+                per player, per hour
               </Text>
-              <Stepper onPress={incCost} icon="add" disabled={wizard.cost >= maxCost} />
+              <View className="w-full mt-4 px-1">
+                <PriceSlider value={wizard.cost} min={1} max={maxCost} onChange={setCost} />
+                <View className="flex-row justify-between mt-1">
+                  <Text className="text-[11px]" style={{ color: colors.textTertiary }}>
+                    $1
+                  </Text>
+                  <Text className="text-[11px]" style={{ color: colors.textTertiary }}>
+                    ${maxCost} cap
+                  </Text>
+                </View>
+              </View>
             </View>
             <View
               className="rounded-2xl p-4 flex-row justify-between items-center border"
@@ -975,26 +1050,92 @@ export default function Wizard() {
         {!parsing && currentKey === "upload" && (
           <View>
             <StepIcon name="shield-checkmark" />
-            <StepHeading
-              title="Lock it in"
-              subtitle="Upload your booking confirmation and other players see a Verified badge on your game."
-            />
-            <Pressable
-              onPress={pickConfirmationManual}
-              className="rounded-2xl p-6.5 items-center overflow-hidden"
-              style={{
-                borderWidth: 2,
-                borderStyle: "dashed",
-                borderColor: confirmationUri ? colors.intermediate : "rgba(255,255,255,0.2)",
-              }}
-            >
-              {confirmationUri ? (
-                <Image source={{ uri: confirmationUri }} className="w-full h-32 rounded-xl mb-2" resizeMode="cover" />
-              ) : null}
-              <Text className="font-body-bold text-[14.5px]" style={{ color: confirmationUri ? colors.intermediate : colors.textMuted }}>
-                {confirmationUri ? "✓ Selected, uploads when you publish" : "Tap to upload confirmation (photo)"}
+            <View className="mb-4.5">
+              <Text className="font-display text-[22.5px] mb-1" style={{ color: colors.text }}>
+                Add proof of booking
               </Text>
-            </Pressable>
+              <Text className="font-body-bold text-[13px]" style={{ color: colors.intermediate }}>
+                Optional · unlocks a Verified badge
+              </Text>
+            </View>
+
+            <View
+              className="rounded-2xl px-4.5 py-6.5 items-center"
+              style={{ borderWidth: 1.5, borderStyle: "dashed", borderColor: "rgba(255,255,255,0.15)" }}
+            >
+              <View className="w-11 h-11 rounded-xl items-center justify-center border" style={{ backgroundColor: colors.surface, borderColor: colors.cardBorder }}>
+                <Ionicons name="cloud-upload-outline" size={19} color={colors.text} />
+              </View>
+              <Text className="font-body-bold text-[14.5px] mt-3" style={{ color: colors.text }}>
+                Add photos or a PDF
+              </Text>
+              <Text className="text-[11.5px] mt-1" style={{ color: colors.textMuted }}>
+                JPG, PNG or PDF · up to {MAX_CONFIRMATION_FILES} files
+              </Text>
+            </View>
+
+            <View className="flex-row gap-2.5 mt-3.5">
+              <Pressable
+                onPress={pickConfirmationFiles}
+                disabled={confirmationFiles.length >= MAX_CONFIRMATION_FILES}
+                className="flex-1 h-[50px] rounded-pill items-center justify-center border"
+                style={{
+                  backgroundColor: colors.surface,
+                  borderColor: colors.accent,
+                  opacity: confirmationFiles.length >= MAX_CONFIRMATION_FILES ? 0.5 : 1,
+                }}
+              >
+                <Text className="font-body-extrabold text-[13px]" style={{ color: colors.accent }}>
+                  Choose files
+                </Text>
+              </Pressable>
+              <Pressable onPress={goNext} className="flex-1 h-[50px] rounded-pill items-center justify-center border" style={{ backgroundColor: colors.surface, borderColor: colors.cardBorder }}>
+                <Text className="font-body-extrabold text-[13px]" style={{ color: colors.textDim }}>
+                  Skip for now
+                </Text>
+              </Pressable>
+            </View>
+
+            {confirmationFiles.length > 0 && (
+              <View className="mt-6">
+                <Label>{`Attached · ${confirmationFiles.length}`}</Label>
+                <View className="flex-row flex-wrap gap-2.5 mt-2.5">
+                  {confirmationFiles.map((f, i) => (
+                    <View key={`${f.localUri}-${i}`} style={{ width: "31%", aspectRatio: 1 }}>
+                      {f.mimeType === "application/pdf" ? (
+                        <View
+                          className="flex-1 rounded-xl items-center justify-center gap-1 px-1.5 border"
+                          style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}
+                        >
+                          <Text
+                            className="font-body-extrabold text-[10px]"
+                            style={{ color: colors.danger, borderWidth: 1.5, borderColor: colors.danger, borderRadius: 5, paddingHorizontal: 5, paddingVertical: 1 }}
+                          >
+                            PDF
+                          </Text>
+                          <Text numberOfLines={1} className="text-[9px] text-center" style={{ color: colors.textMuted }}>
+                            {f.name}
+                          </Text>
+                        </View>
+                      ) : (
+                        <Image source={{ uri: f.localUri }} className="flex-1 rounded-xl" resizeMode="cover" />
+                      )}
+                      <Pressable
+                        onPress={() => removeConfirmationFile(i)}
+                        className="w-[18px] h-[18px] rounded-full items-center justify-center"
+                        style={{ position: "absolute", top: 5, right: 5, backgroundColor: "rgba(0,0,0,0.6)" }}
+                      >
+                        <Ionicons name="close" size={11} color="#fff" />
+                      </Pressable>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            <Text className="text-[11.5px] mt-4 text-center" style={{ color: colors.textMuted }}>
+              No confirmation? Totally fine — you can still publish, just without the checkmark.
+            </Text>
           </View>
         )}
 
@@ -1098,6 +1239,59 @@ function Stepper({
     >
       <Ionicons name={icon} size={16} color={colors.text} />
     </Pressable>
+  );
+}
+
+// Change 1 (host-a-match redesign): free-drag price slider, no stepper multiples — the thumb
+// tracks raw touch position along the track, clamped to [min,max], one whole dollar per step.
+function PriceSlider({ value, min, max, onChange }: { value: number; min: number; max: number; onChange: (v: number) => void }) {
+  const [width, setWidth] = useState(0);
+  const setFromX = (x: number) => {
+    if (width <= 0) return;
+    const pct = Math.min(1, Math.max(0, x / width));
+    onChange(Math.round(min + pct * (max - min)));
+  };
+  const pan = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderGrant: (e) => setFromX(e.nativeEvent.locationX),
+      onPanResponderMove: (e) => setFromX(e.nativeEvent.locationX),
+    }),
+  ).current;
+  const pct = max > min ? (value - min) / (max - min) : 0;
+  return (
+    <View onLayout={(e) => setWidth(e.nativeEvent.layout.width)} {...pan.panHandlers} style={{ paddingVertical: 14 }}>
+      <View style={{ height: 8, borderRadius: 4, backgroundColor: colors.surfaceAlt }}>
+        <View
+          style={{
+            position: "absolute",
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: `${pct * 100}%`,
+            borderRadius: 4,
+            backgroundColor: colors.accent,
+          }}
+        />
+        <View
+          style={{
+            position: "absolute",
+            left: `${pct * 100}%`,
+            top: "50%",
+            width: 22,
+            height: 22,
+            marginLeft: -11,
+            marginTop: -11,
+            borderRadius: 11,
+            backgroundColor: colors.accent,
+            shadowColor: colors.accent,
+            shadowOpacity: 0.4,
+            shadowRadius: 8,
+          }}
+        />
+      </View>
+    </View>
   );
 }
 

@@ -463,6 +463,37 @@ export function useUploadConfirmation() {
   });
 }
 
+export type ConfirmationFile = { localUri: string; mimeType: string };
+
+// Host a Match redesign change 3: multiple confirmation files (photos + PDF), not just one.
+// Every file uploads to storage for the record, but only the first still gets parsed/verified
+// against — extra files are supporting evidence, not additional signal for the AI proxy.
+export function useUploadConfirmationFiles() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ gameId, files }: { gameId: string; files: ConfirmationFile[] }) => {
+      if (files.length === 0) return;
+      for (let i = 0; i < files.length; i++) {
+        const { localUri, mimeType } = files[i];
+        const ext = mimeType === "application/pdf" ? "pdf" : "jpg";
+        const bytes = await new File(localUri).arrayBuffer();
+        const path = i === 0 ? `${gameId}/confirmation.${ext}` : `${gameId}/confirmation-${i}.${ext}`;
+        const { error: uploadError } = await supabase.storage
+          .from("confirmations")
+          .upload(path, bytes, { contentType: mimeType, upsert: true });
+        if (uploadError) throw uploadError;
+        if (i === 0) {
+          const { error: parseError } = await supabase.functions.invoke("ai-proxy", {
+            body: { game_id: gameId, storage_path: path },
+          });
+          if (parseError) throw parseError;
+        }
+      }
+    },
+    onSuccess: (_data, { gameId }) => invalidateGameLists(queryClient, gameId),
+  });
+}
+
 // Host flow plan (docs/host-flow-plan.md). Every field but is_booking_confirmation/confidence
 // is nullable — a partial parse is the normal case, not an error (see the failure ladder).
 export type ParsedBooking = {

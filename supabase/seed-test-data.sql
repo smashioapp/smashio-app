@@ -12,9 +12,16 @@
 -- Run against the LINKED hosted project after create-test-users.mjs:
 --   npx supabase db query --linked -f supabase/seed-test-data.sql
 --
+-- Upcoming games (f1-f16) span later today through 3 weeks out, every skill tier, free and paid,
+-- verified/pending/unverified, thin/half/full rosters, five live join requests across different
+-- hosts, and one cancelled game — plus a couple of game_alerts watches and some real (non-system)
+-- chat text so the discover, my-games, host-approval and chat screens all have something to bite
+-- into without manually creating games first.
+--
 -- Idempotent + atomic: wrapped in one transaction; re-running first deletes this batch's own
--- games (cascades players/messages/ratings/rating_tags) before re-inserting. Only ever touches
--- rows owned by an @smashio.dev account. Venues come from supabase/seed.sql — nothing to add.
+-- games (cascades players/messages/ratings/rating_tags) and game_alerts before re-inserting.
+-- Only ever touches rows owned by an @smashio.dev account. Venues come from supabase/seed.sql —
+-- nothing to add.
 
 begin;
 
@@ -105,13 +112,27 @@ values
   ('g16', 'bot4@smashio.dev', 'Australian Badminton Academy - North Parramatta', date_trunc('hour', now()) - interval '30 days' + interval '18 hours 30 minutes', interval '2 hours', 'Court 4', 'intermediate', 6, 250, 'completed', 'none', 2, 2),
   ('g17', 'bot5@smashio.dev', 'Willoughby Leisure Centre', date_trunc('hour', now()) - interval '11 days' + interval '20 hours', interval '2 hours', 'Court 3', 'pro', 4, 500, 'completed', 'verified', 1, 2),
   ('g18', 'bot5@smashio.dev', 'Willoughby Leisure Centre', date_trunc('hour', now()) - interval '45 days' + interval '20 hours', interval '2 hours', 'Court 3', 'pro', 4, 500, 'completed', 'verified', 1, 2),
-  -- Upcoming — a live join-request pair on f1 for host-approval testing, approved rosters on
-  -- f4/f5 so My Games "joined" isn't empty either.
+  -- Upcoming — deliberately wide spread: later today, tomorrow, this week, next week, a month
+  -- out; every tier; free and paid; verified/pending/none; some near-empty, some one-spot-left,
+  -- one full (waitlist-adjacent UI), one with a live join-request pair for host-approval
+  -- testing, one cancelled (still visible in "My Games" history), one organized by test@ so
+  -- App Store review has an upcoming host game too.
   ('f1', 'bot5@smashio.dev', 'MUSAC', date_trunc('hour', now()) + interval '1 day' + interval '18 hours', interval '2 hours', 'Court 7', 'pro', 4, 500, 'published', 'verified', 2, 2),
   ('f2', 'bot2@smashio.dev', 'Alpha Badminton Centre', date_trunc('hour', now()) + interval '2 days' + interval '19 hours', interval '2 hours', 'Court 12', 'beginner', 8, 0, 'published', 'none', 2, 2),
   ('f3', 'bot3@smashio.dev', 'PCYC Auburn', date_trunc('hour', now()) + interval '3 days' + interval '17 hours', interval '2 hours', 'Court 2', 'advanced', 4, 400, 'published', 'pending', 1, 2),
   ('f4', 'maitri@smashio.dev', 'Sydney Badminton', date_trunc('hour', now()) + interval '4 days' + interval '10 hours', interval '2 hours', 'Court 3', 'beginner', 8, 0, 'published', 'none', 2, 2),
-  ('f5', 'ajay@smashio.dev', 'NBC Homebush', date_trunc('hour', now()) + interval '6 days' + interval '18 hours 30 minutes', interval '2 hours', 'Court 5', 'intermediate', 6, 300, 'published', 'verified', 2, 2);
+  ('f5', 'ajay@smashio.dev', 'NBC Homebush', date_trunc('hour', now()) + interval '6 days' + interval '18 hours 30 minutes', interval '2 hours', 'Court 5', 'intermediate', 6, 300, 'published', 'verified', 2, 2),
+  ('f6', 'test@smashio.dev', 'PCYC Marrickville', date_trunc('hour', now()) + interval '5 hours', interval '2 hours', 'Court 1', 'intermediate', 4, 250, 'published', 'none', 1, 2),
+  ('f7', 'bot1@smashio.dev', 'NBC Homebush', date_trunc('hour', now()) + interval '1 day' + interval '9 hours', interval '2 hours', 'Court 6', 'intermediate', 6, 300, 'published', 'none', 2, 2),
+  ('f8', 'bot4@smashio.dev', 'Australian Badminton Academy - North Parramatta', date_trunc('hour', now()) + interval '2 days' + interval '18 hours 30 minutes', interval '2 hours', 'Court 4', 'intermediate', 4, 250, 'published', 'verified', 1, 2),
+  ('f9', 'bot3@smashio.dev', 'Willoughby Leisure Centre', date_trunc('hour', now()) + interval '3 days' + interval '20 hours', interval '2 hours', 'Court 2', 'advanced', 4, 400, 'published', 'pending', 1, 2),
+  ('f10', 'ajay@smashio.dev', 'MUSAC', date_trunc('hour', now()) + interval '4 days' + interval '18 hours', interval '2 hours', 'Court 8', 'beginner', 8, 0, 'published', 'none', 2, 2),
+  ('f11', 'maitri@smashio.dev', 'Alpha Badminton Centre', date_trunc('hour', now()) + interval '5 days' + interval '11 hours', interval '2 hours', 'Court 11', 'beginner', 4, 200, 'published', 'none', 1, 2),
+  ('f12', 'bot5@smashio.dev', 'Sydney Badminton', date_trunc('hour', now()) + interval '7 days' + interval '19 hours', interval '2 hours', 'Court 5', 'pro', 4, 500, 'published', 'verified', 1, 2),
+  ('f13', 'bot2@smashio.dev', 'PCYC Auburn', date_trunc('hour', now()) + interval '9 days' + interval '17 hours 30 minutes', interval '2 hours', 'Court 3', 'intermediate', 6, 300, 'published', 'none', 2, 2),
+  ('f14', 'test@smashio.dev', 'NBC Homebush', date_trunc('hour', now()) + interval '13 days' + interval '18 hours', interval '2 hours', 'Court 5', 'intermediate', 6, 300, 'published', 'verified', 2, 2),
+  ('f15', 'bot4@smashio.dev', 'Willoughby Leisure Centre', date_trunc('hour', now()) + interval '21 days' + interval '20 hours', interval '2 hours', 'Court 4', 'advanced', 4, 400, 'published', 'pending', 1, 2),
+  ('f16', 'ajay@smashio.dev', 'PCYC Marrickville', date_trunc('hour', now()) + interval '2 days' + interval '12 hours', interval '2 hours', 'Court 1', 'intermediate', 4, 250, 'cancelled', 'none', 1, 2);
 
 with badminton as (select id from public.sports where slug = 'badminton'),
 tier as (
@@ -156,10 +177,25 @@ insert into tmp_seed_players (game_label, player_email, status) values
   ('g16', 'bot4@smashio.dev', 'approved'), ('g16', 'bot1@smashio.dev', 'approved'), ('g16', 'ajay@smashio.dev', 'approved'),
   ('g17', 'bot5@smashio.dev', 'approved'), ('g17', 'bot3@smashio.dev', 'approved'), ('g17', 'test@smashio.dev', 'approved'),
   ('g18', 'bot5@smashio.dev', 'approved'), ('g18', 'bot3@smashio.dev', 'approved'),
-  -- Upcoming
+  -- Upcoming — f7 is deliberately full (max_players reached) to exercise the "full" UI state;
+  -- f1/f3/f9/f12/f15 each carry a pending join request for host-approval testing at different
+  -- tiers/dates; f10/f13 are left thin (early-stage games); f16 has a roster before cancellation.
   ('f1', 'ajay@smashio.dev', 'requested'), ('f1', 'bot3@smashio.dev', 'requested'),
+  ('f2', 'bot2@smashio.dev', 'approved'), ('f2', 'maitri@smashio.dev', 'approved'), ('f2', 'bot4@smashio.dev', 'approved'), ('f2', 'test@smashio.dev', 'approved'), ('f2', 'bot1@smashio.dev', 'approved'),
+  ('f3', 'bot3@smashio.dev', 'approved'), ('f3', 'bot5@smashio.dev', 'requested'),
   ('f4', 'bot2@smashio.dev', 'approved'),
-  ('f5', 'test@smashio.dev', 'approved'), ('f5', 'bot4@smashio.dev', 'approved');
+  ('f5', 'test@smashio.dev', 'approved'), ('f5', 'bot4@smashio.dev', 'approved'),
+  ('f6', 'test@smashio.dev', 'approved'), ('f6', 'ajay@smashio.dev', 'approved'), ('f6', 'bot1@smashio.dev', 'approved'),
+  ('f7', 'bot1@smashio.dev', 'approved'), ('f7', 'ajay@smashio.dev', 'approved'), ('f7', 'bot4@smashio.dev', 'approved'), ('f7', 'test@smashio.dev', 'approved'), ('f7', 'maitri@smashio.dev', 'approved'), ('f7', 'bot3@smashio.dev', 'approved'),
+  ('f8', 'bot4@smashio.dev', 'approved'), ('f8', 'bot1@smashio.dev', 'approved'), ('f8', 'test@smashio.dev', 'approved'),
+  ('f9', 'bot3@smashio.dev', 'approved'), ('f9', 'bot5@smashio.dev', 'requested'),
+  ('f10', 'ajay@smashio.dev', 'approved'), ('f10', 'maitri@smashio.dev', 'approved'), ('f10', 'bot2@smashio.dev', 'approved'),
+  ('f11', 'maitri@smashio.dev', 'approved'), ('f11', 'bot2@smashio.dev', 'approved'),
+  ('f12', 'bot5@smashio.dev', 'approved'), ('f12', 'bot3@smashio.dev', 'approved'), ('f12', 'ajay@smashio.dev', 'requested'),
+  ('f13', 'bot2@smashio.dev', 'approved'),
+  ('f14', 'test@smashio.dev', 'approved'), ('f14', 'ajay@smashio.dev', 'approved'), ('f14', 'bot4@smashio.dev', 'approved'), ('f14', 'maitri@smashio.dev', 'approved'),
+  ('f15', 'bot4@smashio.dev', 'approved'), ('f15', 'bot3@smashio.dev', 'requested'),
+  ('f16', 'ajay@smashio.dev', 'approved'), ('f16', 'bot1@smashio.dev', 'approved');
 
 insert into public.game_players (game_id, profile_id, status, requested_at, decided_at)
 select
@@ -202,6 +238,51 @@ join public.games gm on gm.id = r.game_id
 where gm.organizer_id in (select id from auth.users where email like '%@smashio.dev')
   and random() < 0.4
 on conflict do nothing;
+
+-- A few real text messages on top of the auto system rows (created/joined), so chat threads for
+-- upcoming games aren't just system noise when testing the chat screen.
+with g as (
+  select gm.id, gm.organizer_id from public.games gm
+  join auth.users u on u.id = gm.organizer_id
+  where u.email = 'bot5@smashio.dev' and gm.starts_at = date_trunc('hour', now()) + interval '1 day' + interval '18 hours'
+)
+insert into public.messages (game_id, sender_id, kind, body, created_at)
+select g.id, u.id, 'text', m.body, now() - m.ago
+from g, auth.users u,
+  (values
+    ('bot5@smashio.dev', 'Court 7 at MUSAC, park in the basement — boom gate code is 4471', interval '5 hours'),
+    ('ajay@smashio.dev', 'in for this, bringing a spare racquet if anyone needs one', interval '3 hours'),
+    ('bot3@smashio.dev', 'can I get a shuttle count, feathers or plastic?', interval '1 hour')
+  ) as m(email, body, ago)
+where u.email = m.email;
+
+with g as (
+  select gm.id from public.games gm
+  join auth.users u on u.id = gm.organizer_id
+  where u.email = 'bot1@smashio.dev' and gm.starts_at = date_trunc('hour', now()) + interval '1 day' + interval '9 hours'
+)
+insert into public.messages (game_id, sender_id, kind, body, created_at)
+select g.id, u.id, 'text', m.body, now() - m.ago
+from g, auth.users u,
+  (values
+    ('bot1@smashio.dev', 'full house this week, good hit-out expected 💪', interval '2 hours'),
+    ('maitri@smashio.dev', 'running 5 min late, hold my court', interval '40 minutes')
+  ) as m(email, body, ago)
+where u.email = m.email;
+
+-- Game alerts (D5 retention primitive) — a couple of standing watches so the "new game near you"
+-- push path has something to fire against when f-series (or a manually created) game lands
+-- inside them. test@ watches any tier near home; ajay@ watches intermediate only, tighter radius.
+delete from public.game_alerts where profile_id in (select id from auth.users where email like '%@smashio.dev');
+
+with badminton as (select id from public.sports where slug = 'badminton')
+insert into public.game_alerts (profile_id, sport_id, tier_slugs, center_lat, center_lng, radius_m)
+select u.id, (select id from badminton), a.tier_slugs, a.lat, a.lng, a.radius_m
+from auth.users u
+join (values
+  ('test@smashio.dev', null::text[], -33.8886, 151.2117, 8000),
+  ('ajay@smashio.dev', array['intermediate'], -33.8978, 151.1795, 5000)
+) as a(email, tier_slugs, lat, lng, radius_m) on a.email = u.email;
 
 -- Reliability is computed, not written — same nightly formula the cron runs
 -- (recompute_reliability_scores, slice 6), forced once here so ajay's late leave on g3

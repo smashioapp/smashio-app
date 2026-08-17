@@ -48,6 +48,8 @@ export function NextUpHero({
   const headline = live ? `On now · ends ${formatClock(game.endsAt)}` : formatCountdown(game.startsAt, now) ?? game.time;
   const accentColor = live ? colors.intermediate : urgent ? colors.danger : colors.accent;
 
+  const pillBg = live ? "rgba(53,214,166,0.15)" : urgent ? "rgba(255,103,103,0.16)" : "rgba(214,255,63,0.14)";
+
   const pulse = useSharedValue(0);
   useEffect(() => {
     if (!live && !urgent) {
@@ -68,9 +70,7 @@ export function NextUpHero({
           start={{ x: 0.15, y: 0 }}
           end={{ x: 0.85, y: 1 }}
           className="rounded-[22px] px-4.5 pt-4 pb-4.5 border-[1.5px] gap-3.5"
-          style={{
-            borderColor: live ? "rgba(139,255,158,0.35)" : urgent ? "rgba(255,103,103,0.35)" : "rgba(214,255,63,0.3)",
-          }}
+          style={{ borderColor: "rgba(214,255,63,0.3)" }}
         >
           <View className="flex-row items-center justify-between">
             <View className="flex-row items-center gap-1.5">
@@ -86,9 +86,11 @@ export function NextUpHero({
             </View>
           </View>
 
-          <Text className="font-display text-[22px] leading-[30px]" style={{ color: accentColor }}>
-            {headline}
-          </Text>
+          <View className="self-start rounded-pill px-2.5 py-1" style={{ backgroundColor: pillBg }}>
+            <Text className="font-body-extrabold text-[13px] uppercase tracking-wide" style={{ color: accentColor }}>
+              {headline}
+            </Text>
+          </View>
 
           <View className="pr-1">
             <Text className="font-display-bold text-[17px]" style={{ color: colors.text }} numberOfLines={1}>

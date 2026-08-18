@@ -29,7 +29,6 @@ const BOUNCE_MS = 620; // rough budget for the spring chain, used to time what f
 
 export default function Splash() {
   const goNext = () => {
-    console.log("PROBE: goNext fired");
     router.push("/onboarding/login");
   };
   const { height: h } = useWindowDimensions();

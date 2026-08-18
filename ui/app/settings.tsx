@@ -127,7 +127,7 @@ export default function Settings() {
           style={{ borderColor: colors.cardBorder }}
         >
           <Pressable
-            onPress={() => Linking.openURL("https://smashio.com.au")}
+            onPress={() => Linking.openURL("https://smashio.com.au/privacy.html")}
             className="flex-row justify-between items-center px-3.5 py-3.5"
           >
             <View className="flex-row items-center gap-2.5">

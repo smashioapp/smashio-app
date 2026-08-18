@@ -3,6 +3,17 @@
 // shared secret (PUSH_DISPATCH_KEY, matches the 'push_dispatch_key' Vault entry the DB reads),
 // checked here since verify_jwt is off for this function (the caller has no Supabase JWT).
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import {
+  alertMatchBody,
+  expoMessages,
+  gameCancelledBody,
+  type GameSummary,
+  gameRescheduledBody,
+  joinDecisionBody,
+  type MessageSummary,
+  messageBody,
+  reminderBody,
+} from "./format.ts";
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 
@@ -19,14 +30,6 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
 );
 
-function shortTime(iso: string) {
-  return new Date(iso).toLocaleString("en-AU", {
-    weekday: "short",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
 async function sendExpoPush(
   recipients: { profile_id: string; expo_token: string }[],
   title: string,
@@ -34,9 +37,7 @@ async function sendExpoPush(
   data: Record<string, unknown>,
   channelId?: string,
 ) {
-  const messages = recipients
-    .filter((r) => r.expo_token.startsWith("ExponentPushToken"))
-    .map((r) => ({ to: r.expo_token, title, body, data, sound: "default", ...(channelId ? { channelId } : {}) }));
+  const messages = expoMessages(recipients, title, body, data, channelId);
 
   if (messages.length === 0) return;
 
@@ -66,11 +67,7 @@ Deno.serve(async (req) => {
       supabase.rpc("push_message_summary", { p_message_id: payload.message_id }).single(),
     ]);
     if (recipients?.length && summary) {
-      const announce = summary.chat_mode === "announce";
-      const title = `${announce ? "📣 " : ""}${summary.sender_name} · ${summary.venue_name}`;
-      const body = summary.kind === "image"
-        ? summary.body ? `📷 Photo · ${summary.body}` : "📷 Photo"
-        : summary.body.slice(0, 140);
+      const { title, body } = messageBody(summary as MessageSummary);
       await sendExpoPush(recipients, title, body, { screen: "chat", game_id: payload.game_id }, "chat");
     }
   } else if (payload.type === "join_decision") {
@@ -82,17 +79,8 @@ Deno.serve(async (req) => {
       .rpc("push_game_summary", { p_game_id: payload.game_id })
       .single();
     if (recipient?.length && summary) {
-      const verb = payload.status === "approved"
-        ? "You're in!"
-        : payload.status === "removed"
-        ? "Removed from a game"
-        : "Request declined";
-      await sendExpoPush(
-        recipient,
-        verb,
-        `${summary.sport_name} at ${summary.venue_name}, ${shortTime(summary.starts_at)}`,
-        { screen: "game", game_id: payload.game_id },
-      );
+      const { title, body } = joinDecisionBody(payload.status, summary as GameSummary);
+      await sendExpoPush(recipient, title, body, { screen: "game", game_id: payload.game_id });
     }
   } else if (payload.type === "game_cancelled") {
     // Organiser excluded — they just cancelled it.
@@ -104,12 +92,8 @@ Deno.serve(async (req) => {
       supabase.rpc("push_game_summary", { p_game_id: payload.game_id }).single(),
     ]);
     if (recipients?.length && summary) {
-      await sendExpoPush(
-        recipients,
-        "Game cancelled",
-        `${summary.venue_name}, ${shortTime(summary.starts_at)} is off. Your spot has been released.`,
-        { screen: "game", game_id: payload.game_id },
-      );
+      const { title, body } = gameCancelledBody(summary as GameSummary);
+      await sendExpoPush(recipients, title, body, { screen: "game", game_id: payload.game_id });
     }
   } else if (payload.type === "game_rescheduled") {
     // Organiser excluded — they just made the change.
@@ -121,12 +105,8 @@ Deno.serve(async (req) => {
       supabase.rpc("push_game_summary", { p_game_id: payload.game_id }).single(),
     ]);
     if (recipients?.length && summary) {
-      await sendExpoPush(
-        recipients,
-        "New time for your game",
-        `${summary.venue_name} now starts ${shortTime(summary.starts_at)}.`,
-        { screen: "game", game_id: payload.game_id },
-      );
+      const { title, body } = gameRescheduledBody(summary as GameSummary);
+      await sendExpoPush(recipients, title, body, { screen: "game", game_id: payload.game_id });
     }
   } else if (payload.type === "alert_match") {
     const [{ data: recipients }, { data: summary }] = await Promise.all([
@@ -137,12 +117,8 @@ Deno.serve(async (req) => {
       supabase.rpc("push_game_summary", { p_game_id: payload.game_id }).single(),
     ]);
     if (recipients?.length && summary) {
-      await sendExpoPush(
-        recipients,
-        "A game just matched your alert",
-        `${summary.sport_name} at ${summary.venue_name}, ${shortTime(summary.starts_at)}`,
-        { screen: "game", game_id: payload.game_id },
-      );
+      const { title, body } = alertMatchBody(summary as GameSummary);
+      await sendExpoPush(recipients, title, body, { screen: "game", game_id: payload.game_id });
     }
   } else if (payload.type === "reminder") {
     const [{ data: recipients }, { data: summary }] = await Promise.all([
@@ -150,12 +126,8 @@ Deno.serve(async (req) => {
       supabase.rpc("push_game_summary", { p_game_id: payload.game_id }).single(),
     ]);
     if (recipients?.length && summary) {
-      await sendExpoPush(
-        recipients,
-        "Game starting soon",
-        `${summary.sport_name} at ${summary.venue_name} at ${shortTime(summary.starts_at)}`,
-        { screen: "game", game_id: payload.game_id },
-      );
+      const { title, body } = reminderBody(summary as GameSummary);
+      await sendExpoPush(recipients, title, body, { screen: "game", game_id: payload.game_id });
     }
   }
 

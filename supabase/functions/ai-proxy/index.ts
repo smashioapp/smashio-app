@@ -41,7 +41,7 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 const serviceClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-type ParsedBooking = {
+export type ParsedBooking = {
   is_booking_confirmation: boolean;
   venue_name: string | null;
   venue_address: string | null;
@@ -165,7 +165,7 @@ async function parseWithGemini(imageBytes: Uint8Array, mediaType: string): Promi
   return fnPart.functionCall.args as ParsedBooking;
 }
 
-function reviewStatusFor(parsed: ParsedBooking): "verified" | "rejected" {
+export function reviewStatusFor(parsed: ParsedBooking): "verified" | "rejected" {
   // Verification decision (host-flow-plan.md §Verification): receipt present = verified. The
   // one gate is is_booking_confirmation — a photo of a wall is not a trust signal. Everything
   // else (low confidence, missing fields, edited-after-prefill drift) is a client-side review
@@ -202,7 +202,10 @@ async function downloadImage(path: string): Promise<{ bytes: Uint8Array; mediaTy
   return { bytes, mediaType };
 }
 
-Deno.serve(async (req) => {
+// Guarded so `deno test` can import this module for its pure helpers (reviewStatusFor etc.)
+// without binding a port — supabase serves this file directly, where import.meta.main is true.
+if (import.meta.main) {
+  Deno.serve(async (req) => {
   const authHeader = req.headers.get("Authorization") ?? "";
   const callerClient = createClient(supabaseUrl, anonKey, {
     global: { headers: { Authorization: authHeader } },
@@ -330,4 +333,5 @@ Deno.serve(async (req) => {
   }
 
   return json({ confirmation_id: confirmation.id, parsed, confirmation });
-});
+  });
+}

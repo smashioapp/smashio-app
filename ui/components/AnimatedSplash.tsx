@@ -35,24 +35,20 @@ export function AnimatedSplash({ onFinish }: { onFinish: () => void }) {
   const overlayOpacity = useSharedValue(1);
 
   useEffect(() => {
-    // Hold on the native splash pose first, so the handoff reads as one image, then invert:
-    // feathers go over the top and the shuttle is briefly upside down, cork high.
+    // Hold on the native splash pose first, so the handoff reads as one image, then one
+    // continuous turnover: feathers go over the top, cork whips back under, and drag makes
+    // the last few degrees crawl. A single curve — no mid-flip seam to snap on.
     turn.value = withDelay(
       100,
-      withSequence(
-        withTiming(0.5, { duration: 260, easing: Easing.out(Easing.cubic) }),
-        // The turnover proper. A shuttlecock has far more drag than any other projectile, so the
-        // cork whips back under and the last few degrees crawl — that curve is the whole motion.
-        withTiming(1, { duration: 380, easing: Easing.bezier(0.12, 0.85, 0.16, 1) })
-      )
+      withTiming(1, { duration: 640, easing: Easing.bezier(0.3, 0.04, 0.16, 1) })
     );
 
     // Small rise and fall through the flip: enough to read as airborne, not as a jump.
     lift.value = withDelay(
       100,
       withSequence(
-        withTiming(1, { duration: 260, easing: Easing.out(Easing.cubic) }),
-        withTiming(0, { duration: 380, easing: Easing.bezier(0.12, 0.85, 0.16, 1) })
+        withTiming(1, { duration: 260, easing: Easing.bezier(0.3, 0.04, 0.4, 1) }),
+        withTiming(0, { duration: 380, easing: Easing.bezier(0.3, 0, 0.16, 1) })
       )
     );
 

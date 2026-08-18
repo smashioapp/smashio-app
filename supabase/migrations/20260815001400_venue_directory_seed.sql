@@ -30,13 +30,16 @@ end $$;
 -- Matched: "BadmintonWorx Botany" -> existing venue "BadmintonWorx - Botany" (47a05773-8cef-4c8e-bb17-bbde0a39ec6e). Not touching
 -- venues.name/address/location/google_place_id — curated data only.
 
+-- This venue_id was matched against the hosted project's venues table. A fresh local reset
+-- never creates a venue with this exact id, so guard the insert on it actually existing —
+-- no-op locally, unchanged on hosted where the row is real.
 insert into public.venue_profiles (
   venue_id, courts_badminton, courts_total, dedicated, surface, bookability,
   booking_platform, booking_url, access_notes, summary, data_source, confidence
-) values (
-  '47a05773-8cef-4c8e-bb17-bbde0a39ec6e', 14, 14, true, 'mat', 'public',
-  'Online (BadmintonWorx Website / App)', null, null, null, 'csv', 'low'
 )
+select '47a05773-8cef-4c8e-bb17-bbde0a39ec6e', 14, 14, true, 'mat', 'public',
+  'Online (BadmintonWorx Website / App)', null, null, null, 'csv', 'low'
+where exists (select 1 from public.venues where id = '47a05773-8cef-4c8e-bb17-bbde0a39ec6e')
 on conflict (venue_id) do update set
   courts_badminton = excluded.courts_badminton,
   courts_total = excluded.courts_total,
@@ -53,15 +56,23 @@ on conflict (venue_id) do update set
 
 delete from public.venue_amenities where venue_id = '47a05773-8cef-4c8e-bb17-bbde0a39ec6e';
 delete from public.venue_pricing_bands where venue_id = '47a05773-8cef-4c8e-bb17-bbde0a39ec6e';
-insert into public.venue_amenities (venue_id, amenity_slug, availability, note) values
-  ('47a05773-8cef-4c8e-bb17-bbde0a39ec6e', 'toilets', 'yes', null),
+insert into public.venue_amenities (venue_id, amenity_slug, availability, note)
+select x.venue_id, x.amenity_slug, x.availability, x.note
+from (values
+  ('47a05773-8cef-4c8e-bb17-bbde0a39ec6e'::uuid, 'toilets', 'yes', null),
   ('47a05773-8cef-4c8e-bb17-bbde0a39ec6e', 'parking', 'yes', 'On-site parking spaces'),
   ('47a05773-8cef-4c8e-bb17-bbde0a39ec6e', 'drinking_water', 'yes', null),
   ('47a05773-8cef-4c8e-bb17-bbde0a39ec6e', 'racquet_hire', 'yes', null),
   ('47a05773-8cef-4c8e-bb17-bbde0a39ec6e', 'shuttle_retail', 'yes', 'Pro Shop sales available'),
-  ('47a05773-8cef-4c8e-bb17-bbde0a39ec6e', 'stringing', 'yes', 'Full Pro-Shop service on site');
-insert into public.venue_pricing_bands (venue_id, label, days, starts_time, ends_time, cents, unit, notes) values
-  ('47a05773-8cef-4c8e-bb17-bbde0a39ec6e', 'Off-peak', array[1,2,3,4,5,6,7], null, null, 4200, 'court_hour', 'Varies by peak/off-peak');
+  ('47a05773-8cef-4c8e-bb17-bbde0a39ec6e', 'stringing', 'yes', 'Full Pro-Shop service on site')
+) as x(venue_id, amenity_slug, availability, note)
+where exists (select 1 from public.venues where id = x.venue_id);
+insert into public.venue_pricing_bands (venue_id, label, days, starts_time, ends_time, cents, unit, notes)
+select x.venue_id, x.label, x.days, x.starts_time, x.ends_time, x.cents, x.unit, x.notes
+from (values
+  ('47a05773-8cef-4c8e-bb17-bbde0a39ec6e'::uuid, 'Off-peak', array[1,2,3,4,5,6,7], null::time, null::time, 4200, 'court_hour', 'Varies by peak/off-peak')
+) as x(venue_id, label, days, starts_time, ends_time, cents, unit, notes)
+where exists (select 1 from public.venues where id = x.venue_id);
 
 -- New venues: each is one statement — a venues insert feeding its profile/amenity/pricing
 -- inserts via CTEs referencing the returned id, so venue + curated data land atomically. Upsert

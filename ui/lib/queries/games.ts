@@ -192,6 +192,7 @@ export function useWeekPulseGames(center: { lat: number; lng: number } = { lat: 
         sport_slug: SPORT_SLUG,
         from_ts: fromTs,
         to_ts: toTs,
+        p_exclude_mine: false,
       });
       if (error) throw error;
       return (data ?? []).map(toGame);

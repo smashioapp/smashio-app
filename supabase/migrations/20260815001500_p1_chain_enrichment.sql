@@ -10,8 +10,11 @@
 
 
 -- Correction: "The Badminton Club Wetherill Park" — courts_total was wrong in the CSV ingest, corrected against the operator's own site.
+-- venue_id matched against the hosted project's venues table — guard on it existing so a
+-- fresh local reset (which never creates this exact id) doesn't fail the FK.
 insert into public.venue_profiles (venue_id, courts_badminton, courts_total, phone, opening_hours, booking_url, data_source, source_url, confidence, verified_at, dedicated, bookability)
-values ('33bfff0a-b8e2-464b-a2d4-1b323670a1b4', 7, 7, '1300 754 078', '{"mon":[["05:00","24:00"]],"tue":[["05:00","24:00"]],"wed":[["05:00","24:00"]],"thu":[["05:00","24:00"]],"fri":[["05:00","24:00"]],"sat":[["05:00","24:00"]],"sun":[["05:00","24:00"]]}'::jsonb, 'https://www.thebadmintonclub.com.au/wetherillpark', 'operator', 'https://www.thebadmintonclub.com.au/', 'high', now(), true, 'public')
+select '33bfff0a-b8e2-464b-a2d4-1b323670a1b4', 7, 7, '1300 754 078', '{"mon":[["05:00","24:00"]],"tue":[["05:00","24:00"]],"wed":[["05:00","24:00"]],"thu":[["05:00","24:00"]],"fri":[["05:00","24:00"]],"sat":[["05:00","24:00"]],"sun":[["05:00","24:00"]]}'::jsonb, 'https://www.thebadmintonclub.com.au/wetherillpark', 'operator', 'https://www.thebadmintonclub.com.au/', 'high', now(), true, 'public'
+where exists (select 1 from public.venues where id = '33bfff0a-b8e2-464b-a2d4-1b323670a1b4')
 on conflict (venue_id) do update set
   courts_badminton = excluded.courts_badminton,
   courts_total = excluded.courts_total,

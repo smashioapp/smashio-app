@@ -143,10 +143,13 @@ export default function ChatThread() {
 
   const isHost = !!game && game.organizerId === uid;
   const meMember = members.find((m) => m.id === uid);
+  const isMember = isHost || !!meMember;
   const closed = !!metaQuery.data?.chatClosedAt;
   const announce = metaQuery.data?.chatMode === "announce";
 
-  const composerState: ComposerState = closed
+  const composerState: ComposerState = membersQuery.isLoading || !isMember
+    ? "locked_not_member"
+    : closed
     ? "locked_closed"
     : isHost
     ? announce

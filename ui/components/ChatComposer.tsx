@@ -5,12 +5,13 @@ import { colors } from "../lib/theme";
 import { Avatar } from "./Avatar";
 import type { ChatMember } from "../lib/queries/messages";
 
-export type ComposerState = "can_post" | "locked_announce" | "locked_muted" | "locked_closed" | "announce_host";
+export type ComposerState = "can_post" | "locked_announce" | "locked_muted" | "locked_closed" | "announce_host" | "locked_not_member";
 
 const LOCKED_COPY: Partial<Record<ComposerState, string>> = {
   locked_announce: "🔒 Only the host can post here",
   locked_muted: "The host has turned off your messages for this game",
   locked_closed: "This chat is closed",
+  locked_not_member: "You're not part of this game",
 };
 
 const MENTION_RE = /(?:^|\s)@([a-zA-Z0-9_]{0,24})$/;

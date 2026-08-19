@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View, Text, Pressable, ScrollView } from "react-native";
+import { View, Text, Pressable, ScrollView, Alert } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, { useAnimatedStyle, useSharedValue, withDelay, withSequence, withSpring, withTiming } from "react-native-reanimated";
@@ -175,11 +175,17 @@ export default function PostGame() {
     router.replace("/wizard");
   };
 
-  const submit = () => {
+  const submit = async () => {
     haptics.success();
-    submitRatings.mutate({ gameId: id ?? "", stars: ratings });
-    if (Object.values(tags).some((t) => t.length > 0)) submitRatingTags.mutate({ gameId: id ?? "", tags });
-    setRevealing(true);
+    try {
+      await submitRatings.mutateAsync({ gameId: id ?? "", stars: ratings });
+      if (Object.values(tags).some((t) => t.length > 0)) {
+        await submitRatingTags.mutateAsync({ gameId: id ?? "", tags });
+      }
+      setRevealing(true);
+    } catch {
+      Alert.alert("Couldn't submit ratings", "Please try again.");
+    }
   };
 
   useEffect(() => {

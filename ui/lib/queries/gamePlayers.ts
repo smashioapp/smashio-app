@@ -172,8 +172,8 @@ export function useRequestToJoin(gameId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => {
-      const uid = await requireUserId();
-      const { error } = await supabase.from("game_players").insert({ game_id: gameId, profile_id: uid, status: "requested" });
+      await requireUserId();
+      const { error } = await supabase.rpc("request_to_join", { p_game_id: gameId });
       if (error) throw error;
     },
     onSuccess: () => invalidateGame(queryClient, gameId),

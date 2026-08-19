@@ -114,7 +114,7 @@ The structural call: **merge Joined and Hosting into a single "Upcoming"**, role
 
 - [x] **Hero card** for the next game inside 24 h: large live countdown, address with one-tap directions, roster faces, chat, and "Bring $8".
 - [x] **Live state** while `now` is between `starts_at` and `ends_at`: "On now · ends 9:00pm" with a pulsing dot. Data we already have and never render.
-- [x] **Add to calendar** (`expo-calendar`) on join and from the card — the highest-utility, lowest-cost retention primitive available to this screen.
+- [x] **Add to calendar** (`expo-calendar`) — the highest-utility, lowest-cost retention primitive available to this screen. Shipped 2026-08-19 as an explicit, account-choosing button (Game Detail row + NextUpHero third button), not the original silent-add-on-join. Silent add was removed: it fired a surprise permission prompt mid-join, wrote to whatever calendar happened to be default rather than one the user picked, and had no dedupe against a second join attempt.
 - [x] Countdown escalates to accent/danger under 2 h, matching Discover's D6 rule.
 
 ### M3 — Host console ✅

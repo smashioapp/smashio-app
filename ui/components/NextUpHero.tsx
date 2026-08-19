@@ -8,6 +8,7 @@ import { AvatarStack } from "./Avatar";
 import { Hero } from "./Hero";
 import { formatCountdown } from "../lib/format";
 import { openDirections } from "../lib/directions";
+import { addGameToCalendar } from "../lib/calendar";
 import type { Game, Player } from "../lib/mockData";
 import type { MyRole } from "./UpcomingGameCard";
 
@@ -103,11 +104,14 @@ export function NextUpHero({
         </Text>
       </View>
 
-      {/* Two buttons (docs/v2-design-plan.md §4.4) — Directions neutral, Open chat lime.
-          Calendar was a third button here; it's dropped (backlog B11), the silent
-          add-on-join still runs from Game Detail's hold-to-join. */}
+      {/* Three buttons (docs/v2-design-plan.md §4.4, B11 shipped) — Directions and Calendar
+          neutral, Open chat lime (rule 5: lime once per screen). Hidden for role === "requested"
+          — matches Game Detail's approved-or-host gate, since a request can still be declined. */}
       <View className="flex-row items-center gap-2 pt-3 mt-3.5 border-t" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
         <HeroAction icon="navigate" label="Directions" onPress={() => openDirections(game)} />
+        {role !== "requested" && (
+          <HeroAction icon="calendar" label="Calendar" onPress={() => addGameToCalendar(game, game.organizerName)} />
+        )}
         <HeroAction icon="chatbubble" label="Open chat" unread={unread} accent onPress={() => router.push(`/chat/${game.id}`)} />
       </View>
     </Hero>

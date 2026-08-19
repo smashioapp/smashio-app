@@ -284,7 +284,7 @@ the "v2 disposition" column says so.
 | B8 | Geocoded suburb/venue search on the map | never existed | **Client-side name filter only** in this pass. |
 | B9 | Full cost breakdown (courts × duration, if-full total, your share) | Game Detail card | Moves behind a tap on the price `StatTile` → sheet. Build in a follow-up; the tile shows the per-player number today. |
 | B10 | Full roster grid with names + long-press remove | Game Detail | Moves behind a tap on the avatar stack → roster sheet. Follow-up; removal stays reachable from the host console in the meantime. |
-| B11 | Add-to-calendar action | NextUpHero third button; silent on join | Silent-on-join keeps working. The explicit button is dropped from the 2-button hero → moves to Game Detail's row list in a follow-up. |
+| B11 | Add-to-calendar action | NextUpHero third button; silent on join | **Shipped 2026-08-19.** Hero is a 3-button row again (Directions, Calendar, Open chat); explicit account-choosing button also lives on Game Detail's row list. Silent-on-join removed — see my-games-plan.md §M2. |
 | B12 | Host controls on the My Games card (cancel game, upload confirmation, approve/decline, share) | `UpcomingGameCard` | Consolidated into Game Detail's **Host console**. The agenda row is single-line. |
 | B13 | `Upcoming | Past` chip tabs | My Games | Replaced by the agenda + `12 past games ›` route. |
 | B14 | Profile stats block (distribution, peer skill, streak, activity tiles, heatmap, regulars, achievements, completeness, share card) | Profile | Moved wholesale to `/profile-stats`. |

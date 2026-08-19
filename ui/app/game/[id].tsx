@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { View, Text, Pressable, ScrollView, Alert, useWindowDimensions } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
@@ -5,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { colors, LAYOUT, initial, reliabilityLabel } from "../../lib/theme";
 import { spotsLeft, type Game } from "../../lib/mockData";
 import { openDirections } from "../../lib/directions";
-import { addGameToCalendar } from "../../lib/calendar";
+import { addGameToCalendar, hasCalendarEvent } from "../../lib/calendar";
 import { useGameDetail } from "../../lib/queries/games";
 import { usePlayerCard } from "../../lib/queries/profile";
 import { supabase } from "../../lib/supabase";
@@ -53,6 +54,12 @@ export default function GameDetails() {
   const organizerCard = usePlayerCard(game?.organizerId);
   const reduceMotion = useReduceMotion();
   const { width: windowWidth } = useWindowDimensions();
+  const [onCalendar, setOnCalendar] = useState(false);
+
+  useEffect(() => {
+    if (!gameId) return;
+    hasCalendarEvent(gameId).then(setOnCalendar);
+  }, [gameId]);
 
   if (gameQuery.isLoading) {
     return (
@@ -223,6 +230,16 @@ export default function GameDetails() {
               }}
             />
             <ListRow title="Open chat" accessory="chevron" onPress={() => router.push(`/chat/${game.id}`)} />
+            {(isOrganizer || membership?.status === "approved") && (
+              <ListRow
+                title={onCalendar ? "On your calendar · Change" : "Add to calendar"}
+                accessory="chevron"
+                onPress={() => {
+                  haptics.tap();
+                  addGameToCalendar(game, organizer?.displayName).then(() => hasCalendarEvent(gameId).then(setOnCalendar));
+                }}
+              />
+            )}
             <ListRow title="Share game link" accessory="chevron" divider={false} onPress={() => shareGame(game)} />
           </View>
 
@@ -289,7 +306,6 @@ export default function GameDetails() {
             sfx="chime"
             onComplete={() => {
               requestToJoin.mutate(undefined, {
-                onSuccess: () => addGameToCalendar(game, { silent: true }).catch(() => {}),
                 onError: () => Alert.alert("Couldn't send request", "Please try again."),
               });
             }}

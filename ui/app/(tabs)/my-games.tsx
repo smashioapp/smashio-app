@@ -222,13 +222,15 @@ export default function MyGames() {
 
       <Animated.View entering={FadeIn.duration(180)} exiting={FadeOut.duration(120)} style={{ flex: 1 }}>
         {!isLoading && !isError && heroVisible && heroGame && (
-          <NextUpHero
-            game={heroGame}
-            role={heroGame.role}
-            roster={rosterQuery.data?.get(heroGame.id) ?? []}
-            unread={unreadGameIds.has(heroGame.id)}
-            onPress={() => router.push(`/game/${heroGame.id}`)}
-          />
+          <View className="pb-3">
+            <NextUpHero
+              game={heroGame}
+              role={heroGame.role}
+              roster={rosterQuery.data?.get(heroGame.id) ?? []}
+              unread={unreadGameIds.has(heroGame.id)}
+              onPress={() => router.push(`/game/${heroGame.id}`)}
+            />
+          </View>
         )}
 
         {isLoading ? (

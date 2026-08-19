@@ -1,14 +1,13 @@
 import { useEffect, useState } from "react";
 import { Pressable, View, Text } from "react-native";
 import { router } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
-import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from "react-native-reanimated";
+import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, gradients } from "../lib/theme";
+import { colors } from "../lib/theme";
 import { AvatarStack } from "./Avatar";
+import { Hero } from "./Hero";
 import { formatCountdown } from "../lib/format";
 import { openDirections } from "../lib/directions";
-import { haptics } from "../lib/haptics";
 import type { Game, Player } from "../lib/mockData";
 import type { MyRole } from "./UpcomingGameCard";
 
@@ -47,6 +46,7 @@ export function NextUpHero({
   const urgent = !live && startMs - nowMs <= URGENT_MS;
   const headline = live ? `On now · ends ${formatClock(game.endsAt)}` : formatCountdown(game.startsAt, now) ?? game.time;
   const accentColor = live ? colors.intermediate : urgent ? colors.danger : colors.accent;
+  const tone = live ? "live" : urgent ? "urgent" : "accent";
 
   const pillBg = live ? "rgba(53,214,166,0.15)" : urgent ? "rgba(255,103,103,0.16)" : "rgba(214,255,63,0.14)";
 
@@ -63,64 +63,54 @@ export function NextUpHero({
   const perPlayer = game.cost;
 
   return (
-    <Animated.View entering={FadeInDown.duration(320)} className="px-5 pb-3">
-      <Pressable onPress={onPress}>
-        <LinearGradient
-          colors={gradients.card}
-          start={{ x: 0.15, y: 0 }}
-          end={{ x: 0.85, y: 1 }}
-          className="rounded-[22px] px-4.5 pt-4 pb-4.5 border-[1.5px] gap-3.5"
-          style={{ borderColor: "rgba(214,255,63,0.3)" }}
-        >
-          <View className="flex-row items-center justify-between">
-            <View className="flex-row items-center gap-1.5">
-              {(live || urgent) && <Animated.View className="w-2 h-2 rounded-full" style={[{ backgroundColor: accentColor }, dotStyle]} />}
-              <Text className="font-body-extrabold text-[11px] uppercase tracking-wide" style={{ color: colors.textTertiary }}>
-                {live ? "Happening now" : "Next up"}
-              </Text>
-            </View>
-            <View className="rounded-pill px-2 py-0.5" style={{ backgroundColor: "rgba(214,255,63,0.12)" }}>
-              <Text className="text-[11px] font-body-extrabold" style={{ color: colors.accent }}>
-                {ROLE_LABEL[role]}
-              </Text>
-            </View>
-          </View>
+    <Hero tone={tone} onPress={onPress}>
+      <View className="flex-row items-center justify-between">
+        <View className="flex-row items-center gap-1.5">
+          {(live || urgent) && <Animated.View className="w-2 h-2 rounded-full" style={[{ backgroundColor: accentColor }, dotStyle]} />}
+          <Text className="font-body-extrabold text-[11px] uppercase tracking-wide" style={{ color: colors.textTertiary }}>
+            {live ? "Happening now" : "Next up"}
+          </Text>
+        </View>
+        <View className="rounded-pill px-2 py-0.5" style={{ backgroundColor: "rgba(214,255,63,0.12)" }}>
+          <Text className="text-[11px] font-body-extrabold" style={{ color: colors.accent }}>
+            {ROLE_LABEL[role]}
+          </Text>
+        </View>
+      </View>
 
-          <View className="self-start rounded-pill px-2.5 py-1" style={{ backgroundColor: pillBg }}>
-            <Text className="font-body-extrabold text-[13px] uppercase tracking-wide" style={{ color: accentColor }}>
-              {headline}
-            </Text>
-          </View>
+      <View className="self-start rounded-pill px-2.5 py-1 mt-3.5" style={{ backgroundColor: pillBg }}>
+        <Text className="font-body-extrabold text-[13px] uppercase tracking-wide" style={{ color: accentColor }}>
+          {headline}
+        </Text>
+      </View>
 
-          <View className="pr-1">
-            <Text className="font-display-bold text-[17px]" style={{ color: colors.text }} numberOfLines={1}>
-              {game.venue}
-            </Text>
-            <View className="flex-row items-center gap-1 mt-0.5">
-              <Ionicons name="location-outline" size={12} color={colors.textTertiary} />
-              <Text className="text-[13.5px] flex-1" style={{ color: colors.textTertiary }} numberOfLines={1}>
-                {game.venueAddress ?? game.suburb}
-              </Text>
-            </View>
-          </View>
+      <View className="pr-1 mt-3">
+        <Text className="font-display-bold text-[17px]" style={{ color: colors.text }} numberOfLines={1}>
+          {game.venue}
+        </Text>
+        <View className="flex-row items-center gap-1 mt-0.5">
+          <Ionicons name="location-outline" size={12} color={colors.textTertiary} />
+          <Text className="text-[13.5px] flex-1" style={{ color: colors.textTertiary }} numberOfLines={1}>
+            {game.venueAddress ?? game.suburb}
+          </Text>
+        </View>
+      </View>
 
-          <View className="flex-row items-center justify-between">
-            {roster.length > 0 ? <AvatarStack people={roster} max={5} /> : <View />}
-            <Text className="text-[13px] font-body-bold" style={{ color: colors.textMuted }}>
-              Bring ${perPlayer}
-            </Text>
-          </View>
+      <View className="flex-row items-center justify-between mt-4">
+        {roster.length > 0 ? <AvatarStack people={roster} max={5} /> : <View />}
+        <Text className="text-[13px] font-body-bold" style={{ color: colors.textMuted }}>
+          Bring ${perPlayer}
+        </Text>
+      </View>
 
-          {/* Two buttons (docs/v2-design-plan.md §4.4) — Directions neutral, Open chat lime.
-              Calendar was a third button here; it's dropped (backlog B11), the silent
-              add-on-join still runs from Game Detail's hold-to-join. */}
-          <View className="flex-row items-center gap-2 pt-1 mt-0.5 border-t" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
-            <HeroAction icon="navigate" label="Directions" onPress={() => openDirections(game)} />
-            <HeroAction icon="chatbubble" label="Open chat" unread={unread} accent onPress={() => router.push(`/chat/${game.id}`)} />
-          </View>
-        </LinearGradient>
-      </Pressable>
-    </Animated.View>
+      {/* Two buttons (docs/v2-design-plan.md §4.4) — Directions neutral, Open chat lime.
+          Calendar was a third button here; it's dropped (backlog B11), the silent
+          add-on-join still runs from Game Detail's hold-to-join. */}
+      <View className="flex-row items-center gap-2 pt-3 mt-3.5 border-t" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
+        <HeroAction icon="navigate" label="Directions" onPress={() => openDirections(game)} />
+        <HeroAction icon="chatbubble" label="Open chat" unread={unread} accent onPress={() => router.push(`/chat/${game.id}`)} />
+      </View>
+    </Hero>
   );
 }
 

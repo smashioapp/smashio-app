@@ -1,0 +1,38 @@
+appId: com.smashio.app
+---
+# Exercises the real typed sign-in form (login.yaml uses the __DEV__ auto-login
+# shortcut instead — this is the flow that actually covers form input + auth).
+# Assumes the seeded test account: test@smashio.dev / Test1234!
+#
+# Dismisses the dev-only "Open debugger to view warnings" banner (fired by
+# Reanimated's reduced-motion warning) — it can appear a beat after each screen
+# mounts, so the dismiss tap is unconditional + optional rather than gated on a
+# visibility check that can race it.
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Get Started"
+    timeout: 45000
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    point: "97%,92%"
+    optional: true
+- tapOn: "Get Started"
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    point: "97%,92%"
+    optional: true
+- extendedWaitUntil:
+    visible: "Sign in to Smashio"
+    timeout: 15000
+- tapOn: "you@example.com"
+- inputText: "test@smashio.dev"
+- tapOn: "At least 6 characters"
+- inputText: "Test1234!"
+- hideKeyboard
+- tapOn: "Continue"
+- extendedWaitUntil:
+    visible: "Discover|My Games"
+    timeout: 45000

@@ -1,0 +1,11 @@
+appId: com.smashio.app
+---
+# Reusable: gets a fresh app launch to the Discover tab, logged in.
+# lib/session.tsx auto signs-in with EXPO_PUBLIC_E2E_EMAIL/PASSWORD on __DEV__ launch
+# (scripts/e2e.sh exports the seeded test account) — no typing here. For the real
+# typed sign-in form flow, see login-form.yaml.
+- launchApp:
+    clearState: true
+- extendedWaitUntil:
+    visible: "Discover|My Games"
+    timeout: 45000

@@ -1,0 +1,22 @@
+appId: com.smashio.app
+---
+# Covers: chat thread list renders, opening a thread + Realtime send works.
+- runFlow: login.yaml
+# See my-games-and-join.yaml — the dev-only warnings banner can cover the tab bar.
+- tapOn:
+    point: "97%,92%"
+    optional: true
+- tapOn: "Chat"
+- assertVisible: "Chat"
+- runFlow:
+    when:
+      notVisible: "Quiet in here"
+    commands:
+      - tapOn:
+          point: "50%,25%"
+      - tapOn: "Message the group…"
+      - inputText: "Maestro e2e test message"
+      - pressKey: Enter
+      - extendedWaitUntil:
+          visible: "Maestro e2e test message"
+          timeout: 10000

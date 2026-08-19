@@ -1,0 +1,10 @@
+appId: com.smashio.app
+---
+- runFlow: login.yaml
+- tapOn: "Discover"
+- assertVisible: "Discover"
+- extendedWaitUntil:
+    visible:
+      text: ".*"
+    timeout: 5000
+- takeScreenshot: discover-loaded

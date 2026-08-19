@@ -44,6 +44,32 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       }
 
       const { data } = await supabase.auth.getSession();
+      if (!data.session && __DEV__ && process.env.EXPO_PUBLIC_E2E_EMAIL) {
+        // Maestro flows skip the login form entirely — typing on the emulator can take
+        // 10s/char (Maestro #2718 on API 36+ animation-idle wait). __DEV__ guard keeps
+        // this out of release builds. supabase-js's fetch has no built-in timeout, and a
+        // fresh emulator's network can take a few seconds to come up after boot — without
+        // a race this can hang forever, and index.tsx renders null while isLoading is
+        // true, so the app never gets past a black screen. Fall through to the normal
+        // (logged-out) path on failure or timeout instead of blocking on it.
+        try {
+          const signInResult = await Promise.race([
+            supabase.auth.signInWithPassword({
+              email: process.env.EXPO_PUBLIC_E2E_EMAIL,
+              password: process.env.EXPO_PUBLIC_E2E_PASSWORD!,
+            }),
+            new Promise<never>((_, reject) => setTimeout(() => reject(new Error("E2E auto-login timed out")), 15000)),
+          ]);
+          if (signInResult.data.session) {
+            setSession(signInResult.data.session);
+            setIsLoading(false);
+            return;
+          }
+          if (signInResult.error) console.warn("[e2e] auto-login failed:", signInResult.error.message);
+        } catch (err) {
+          console.warn("[e2e] auto-login errored:", err);
+        }
+      }
       setSession(data.session);
       setIsLoading(false);
     }

@@ -1,0 +1,10 @@
+appId: com.smashio.app
+---
+# Covers: settings -> log out returns to the sign-in screen (no stuck session).
+- runFlow: login.yaml
+- tapOn: "Profile"
+- tapOn: "Settings"
+- tapOn: "Log out"
+- extendedWaitUntil:
+    visible: "Sign in to Smashio"
+    timeout: 10000

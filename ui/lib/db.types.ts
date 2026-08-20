@@ -514,6 +514,83 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          actor_id: string | null
+          body: string | null
+          collapse_key: string | null
+          created_at: string
+          game_id: string | null
+          id: string
+          params: Json
+          priority: string
+          profile_id: string
+          read_at: string | null
+          sent_at: string | null
+          title: string | null
+          type: string
+        }
+        Insert: {
+          actor_id?: string | null
+          body?: string | null
+          collapse_key?: string | null
+          created_at?: string
+          game_id?: string | null
+          id?: string
+          params?: Json
+          priority?: string
+          profile_id: string
+          read_at?: string | null
+          sent_at?: string | null
+          title?: string | null
+          type: string
+        }
+        Update: {
+          actor_id?: string | null
+          body?: string | null
+          collapse_key?: string | null
+          created_at?: string
+          game_id?: string | null
+          id?: string
+          params?: Json
+          priority?: string
+          profile_id?: string
+          read_at?: string | null
+          sent_at?: string | null
+          title?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_actor_id_fkey"
+            columns: ["actor_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profile_sports: {
         Row: {
           profile_id: string
@@ -1179,7 +1256,6 @@ export type Database = {
       chat_push_recipients: {
         Args: { p_message_id: string }
         Returns: {
-          expo_token: string
           profile_id: string
         }[]
       }
@@ -1213,7 +1289,20 @@ export type Database = {
       }
       delete_push_token: { Args: { p_expo_token: string }; Returns: undefined }
       dispatch_game_reminders: { Args: never; Returns: undefined }
+      dispatch_notification_retries: { Args: never; Returns: undefined }
       dispatch_post_game_prompts: { Args: never; Returns: undefined }
+      enqueue_notifications: {
+        Args: {
+          p_actor_id: string
+          p_collapse_key?: string
+          p_game_id: string
+          p_params?: Json
+          p_priority?: string
+          p_recipient_ids: string[]
+          p_type: string
+        }
+        Returns: undefined
+      }
       filter_quiet_recipients: {
         Args: { p_profile_ids: string[] }
         Returns: string[]
@@ -1286,6 +1375,10 @@ export type Database = {
         Args: { p_pref_key: string; p_profile_id: string }
         Returns: boolean
       }
+      notification_unread_count: {
+        Args: { p_profile_id: string }
+        Returns: number
+      }
       notify_push: { Args: { p_payload: Json }; Returns: undefined }
       player_card: {
         Args: { target_id: string }
@@ -1350,7 +1443,6 @@ export type Database = {
       push_post_game_recipients: {
         Args: { p_game_id: string }
         Returns: {
-          expo_token: string
           profile_id: string
         }[]
       }
@@ -1362,14 +1454,12 @@ export type Database = {
           p_pref_key?: string
         }
         Returns: {
-          expo_token: string
           profile_id: string
         }[]
       }
       push_recipients_for_host: {
         Args: { p_game_id: string; p_pref_key?: string }
         Returns: {
-          expo_token: string
           profile_id: string
         }[]
       }
@@ -1465,6 +1555,7 @@ export type Database = {
           lat: number
           lng: number
           name: string
+          opening_hours: Json
           state: string
           suburb: string
         }[]

@@ -23,6 +23,7 @@ export type NoGameVenue = {
   bookability?: string | null;
   dedicated?: boolean | null;
   courtsBadminton?: number | null;
+  openingHours?: Record<string, [string, string][]> | null;
 };
 
 export type GameMapProps = {
@@ -204,17 +205,20 @@ function VenuePin({ venue, active, onPress }: { venue: VenueGroup; active: boole
   );
 }
 
+// Cluster copy names the noun (§4.3) — "12 games" reads as a fact, a bare "12" reads as a
+// badge count with no referent. Bubble widens for the two-digit-plus-label case rather than
+// truncating; there's no ambiguity about what's being counted at any cluster size we hit.
 function ClusterBubble({ cluster, onPress }: { cluster: Cluster; onPress: () => void }) {
   const count = cluster.venues.reduce((s, v) => s + v.games.length, 0);
   const tracks = useTracksViewChanges([count], 60);
   return (
     <Marker coordinate={{ latitude: cluster.lat, longitude: cluster.lng }} onPress={onPress} tracksViewChanges={tracks}>
       <View
-        className="rounded-full items-center justify-center border"
-        style={{ width: 32, height: 32, backgroundColor: colors.accent, borderColor: colors.base, borderWidth: 2 }}
+        className="rounded-full items-center justify-center border px-2"
+        style={{ minWidth: 32, height: 32, backgroundColor: colors.accent, borderColor: colors.base, borderWidth: 2 }}
       >
         <Text className="font-body-extrabold text-[12.5px]" style={{ color: colors.base }}>
-          {count}
+          {count} {count === 1 ? "game" : "games"}
         </Text>
       </View>
     </Marker>
@@ -264,6 +268,24 @@ function NoGameVenuePin({ venue, onPress, showLabel }: { venue: NoGameVenue; onP
 // 0.006 is roughly city-block scale on a phone screen, empirically where "which court is that"
 // becomes a real question.
 const LABEL_ZOOM_DELTA = 0.006;
+
+// Progressive disclosure of court pins by zoom (§4.3). Above COURT_HIDE_DELTA (roughly z<11,
+// most of a metro area in frame) individual court dots are noise — Airbnb's finding that
+// showing every listing makes browsing harder, not easier. Between that and LABEL_ZOOM_DELTA
+// (roughly z11-13) courts are capped to the nearest COURT_CAP, ranked dedicated-badminton
+// venues first then distance. At LABEL_ZOOM_DELTA and below, every court in viewport renders
+// (existing behaviour, unchanged).
+const COURT_HIDE_DELTA = 0.05;
+const COURT_CAP = 15;
+
+function rankedCourts(venues: NoGameVenue[], center: { lat: number; lng: number }): NoGameVenue[] {
+  return [...venues].sort((a, b) => {
+    if (!!a.dedicated !== !!b.dedicated) return a.dedicated ? -1 : 1;
+    const da = (a.lat - center.lat) ** 2 + (a.lng - center.lng) ** 2;
+    const db = (b.lat - center.lat) ** 2 + (b.lng - center.lng) ** 2;
+    return da - db;
+  });
+}
 
 // "Yours" pin (D7) — the game pill's shape so it still reads as "a game", plus an accent ring
 // and a "You" label prefix so it's unmistakably not one you could join. Never clusters, never
@@ -343,6 +365,13 @@ export const GameMap = forwardRef<GameMapHandle, GameMapProps>(function GameMap(
   const venueGroups = useMemo(() => groupByVenue(games), [games]);
   const clusters = useMemo(() => clusterVenues(venueGroups, delta), [venueGroups, delta]);
 
+  const visibleCourts = useMemo(() => {
+    if (delta > COURT_HIDE_DELTA) return [];
+    if (delta >= LABEL_ZOOM_DELTA) return rankedCourts(noGameVenues, center).slice(0, COURT_CAP);
+    return noGameVenues;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [noGameVenues, delta, center.lat, center.lng]);
+
   // Fit to results on open and whenever the result set actually changes (filters, refetch) —
   // not on every render, and not right after a "search this area" query the user just framed.
   const gamesKey = games.map((g) => g.id).join(",");
@@ -416,7 +445,7 @@ export const GameMap = forwardRef<GameMapHandle, GameMapProps>(function GameMap(
         </Marker>
       )}
 
-      {noGameVenues.map((v) => (
+      {visibleCourts.map((v) => (
         <NoGameVenuePin key={v.id} venue={v} onPress={() => onSelectNoGameVenue?.(v)} showLabel={delta < LABEL_ZOOM_DELTA} />
       ))}
 

@@ -12,6 +12,27 @@ export function formatDistance(meters: number): string {
   return meters < 1000 ? `${Math.round(meters)} m` : `${(meters / 1000).toFixed(1)} km`;
 }
 
+const OPENING_HOURS_DAY_KEYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
+
+// "Open now" (discover-map-ux-plan.md §4.3/P3) — venue_profiles.opening_hours is
+// {day: [["HH:MM","HH:MM"], ...]}, per-day ranges, "24:00" meaning midnight-end-of-day (seeded
+// as e.g. mon:[["05:00","24:00"]]). No overnight-spanning ranges in the enriched data, so a
+// range is checked only against its own day — good enough for a map card, not a booking system.
+export function isOpenNow(openingHours: Record<string, [string, string][]> | null | undefined, now: Date = new Date()): boolean | null {
+  if (!openingHours) return null;
+  const dayKey = OPENING_HOURS_DAY_KEYS[now.getDay()];
+  const ranges = openingHours[dayKey];
+  if (!ranges || ranges.length === 0) return false;
+  const minutesNow = now.getHours() * 60 + now.getMinutes();
+  return ranges.some(([start, end]) => {
+    const toMinutes = (t: string) => {
+      const [h, m] = t.split(":").map(Number);
+      return h * 60 + m;
+    };
+    return minutesNow >= toMinutes(start) && minutesNow < toMinutes(end);
+  });
+}
+
 // venues_near carries no distance_m (map-plan.md pins are viewport-bound, not distance-sorted
 // server-side) — client-side haversine is the cheap way to rank/label them against the map center.
 export function haversineMeters(aLat: number, aLng: number, bLat: number, bLng: number): number {

@@ -233,9 +233,17 @@ truthful context header.
 **P2 — Games | Courts mode split (1–2 days).** Segmented control, per-mode sheets, per-mode
 filters, sport scoping (§4.7), mode auto-selected by liquidity.
 
-**P3 — density and query surface.** Zoom-tiered disclosure with ranked court cap (§4.3); cluster
-copy with nouns; geocoded map search (backlog B8 — search is client-side over fetched pins today);
-"open now" from venue opening hours.
+**P3 — density and query surface.**
+- Zoom-tiered disclosure with ranked court cap (§4.3) — **done**, [GameMap.tsx](../ui/components/GameMap.tsx):
+  courts hidden above `COURT_HIDE_DELTA`, capped to 15 ranked dedicated-first-then-distance
+  between that and `LABEL_ZOOM_DELTA`, full detail below.
+- Cluster copy with nouns — **done**, [GameMap.tsx](../ui/components/GameMap.tsx)'s `ClusterBubble`
+  reads "12 games" not a bare count.
+- Open-now from venue opening hours — **done**. `venues_near` now returns `opening_hours`
+  ([20260820000500_venues_near_opening_hours.sql](../supabase/migrations/20260820000500_venues_near_opening_hours.sql));
+  [format.ts](../ui/lib/format.ts)'s `isOpenNow` checks it against the current day/time;
+  [MapCourtCard.tsx](../ui/components/MapCourtCard.tsx) shows an Open now / Closed badge.
+- Remaining: geocoded map search (backlog B8 — search is client-side over fetched pins today).
 
 ---
 

@@ -565,6 +565,7 @@ export default function Discover() {
         bookability: v.bookability,
         dedicated: v.dedicated,
         courtsBadminton: v.courts_badminton,
+        openingHours: v.opening_hours as Record<string, [string, string][]> | null,
       }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [venuesNearQuery.data, mapQuery.data]);

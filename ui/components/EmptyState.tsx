@@ -7,7 +7,7 @@ import { Button } from "./Button";
 const LOGO = require("../assets/splash-icon.png");
 
 // Gentle idle float — never distracting, just enough to feel alive instead of static.
-function FloatingShuttlecock({ size = 84 }: { size?: number }) {
+function FloatingShuttlecock({ size = 67 }: { size?: number }) {
   const translateY = useSharedValue(0);
   const rotate = useSharedValue(-6);
 

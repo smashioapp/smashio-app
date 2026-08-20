@@ -18,7 +18,7 @@ const LOGO = require("../assets/splash-icon.png");
 // Must match expo-splash-screen's `imageWidth` in app.config.js: the animation starts with the
 // logo at exactly the size and position the native splash left it at, so there is no jump on the
 // handoff — the shuttle simply starts moving.
-const SIZE = 180;
+const SIZE = 144;
 
 // A shuttlecock rotates about its cork, not its bounding box: the weight is all in the base and
 // the feathers are drag. Offset from the image centre to the cork in the artwork, so the flip

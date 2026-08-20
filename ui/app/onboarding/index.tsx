@@ -159,9 +159,9 @@ export default function Splash() {
               style={[
                 {
                   position: "absolute",
-                  width: 96,
-                  height: 96,
-                  borderRadius: 48,
+                  width: 77,
+                  height: 77,
+                  borderRadius: 38,
                   borderWidth: 1.5,
                   borderColor: colors.accent,
                 },
@@ -171,7 +171,7 @@ export default function Splash() {
             <Animated.View style={logoStyle}>
               <Image
                 source={require("../../assets/smashio-logo.png")}
-                style={{ width: 84, height: 84 }}
+                style={{ width: 67, height: 67 }}
                 resizeMode="contain"
               />
             </Animated.View>
@@ -225,7 +225,7 @@ export default function Splash() {
           <View style={{ flex: 1 }} />
 
           <Animated.View style={[{ width: "100%", gap: 16 }, ctaStyle]}>
-            <Button label="Get Started" onPress={goNext} />
+            <Button label="Get Started" onPress={goNext} testID="onboarding-get-started" />
             <Pressable onPress={goNext} hitSlop={10}>
               <Text className="text-center font-body-bold text-[14.5px]" style={{ color: colors.textTertiary }}>
                 I already have an account

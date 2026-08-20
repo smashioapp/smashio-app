@@ -193,7 +193,7 @@ export default function GameDetails() {
           </StatTileRow>
 
           <View className="mt-5">
-            {organizer && (
+            {organizer && !isOrganizer && (
               <View className="flex-row items-center gap-2.5" style={{ paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: LAYOUT.HAIRLINE }}>
                 <View className="w-9 h-9 rounded-full items-center justify-center overflow-hidden" style={{ backgroundColor: colors.surfaceAlt }}>
                   <Text style={{ color: colors.text, fontSize: 12, fontWeight: "800" }}>{initial(organizer.displayName)}</Text>
@@ -290,17 +290,18 @@ export default function GameDetails() {
           ListRow above; the old floating chat button next to it is gone. */}
       <View className="px-5 pb-8 pt-3.5" style={{ backgroundColor: colors.base }}>
         {cancelled ? (
-          <Button label="Game cancelled" variant="secondary" disabled />
+          <Button testID="game-cta" label="Game cancelled" variant="secondary" disabled />
         ) : isOrganizer ? (
-          <Button label="Manage this game" variant="secondary" onPress={() => router.push(`/game/edit/${game.id}`)} />
+          <Button testID="game-cta" label="Manage this game" variant="secondary" onPress={() => router.push(`/game/edit/${game.id}`)} />
         ) : membership?.status === "approved" ? (
-          <Button label="Leave game" variant="secondary" loading={leaveGame.isPending} onPress={confirmLeave} />
+          <Button testID="game-cta" label="Leave game" variant="secondary" loading={leaveGame.isPending} onPress={confirmLeave} />
         ) : membership?.status === "requested" ? (
-          <Button label="Request sent" variant="secondary" disabled />
+          <Button testID="game-cta" label="Request sent" variant="secondary" disabled />
         ) : full ? (
-          <Button label="Game full" variant="secondary" disabled />
+          <Button testID="game-cta" label="Game full" variant="secondary" disabled />
         ) : (
           <HoldButton
+            testID="game-cta"
             label={`Hold to join · $${perPlayer}`}
             completeLabel="Request sent"
             sfx="chime"

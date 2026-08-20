@@ -10,7 +10,9 @@ import {
   gameRescheduledBody,
   joinDecisionBody,
   joinRequestBody,
+  joinRequestCoalescedBody,
   messageBody,
+  messageCoalescedBody,
   money,
   pick,
   playerLeftBody,
@@ -166,6 +168,13 @@ Deno.test("joinRequestBody names the actor and the exact spot count", () => {
   assertMatch(body, /Approve or decline/);
 });
 
+Deno.test("joinRequestCoalescedBody states the count, not a name", () => {
+  const { title, body } = joinRequestCoalescedBody(4, summary);
+  assertMatch(title, /^4 players want to join$/);
+  assertMatch(body, /Badminton at Test Courts, Mon 2:00 pm/);
+  assertMatch(body, /tap to review/);
+});
+
 Deno.test("joinDecisionBody approved: carries time, host and the chat nudge", () => {
   const { title, body } = joinDecisionBody("approved", summary);
   assertMatch(title, /Mon 2:00 pm|You made the roster/);
@@ -306,6 +315,12 @@ Deno.test("messageBody: image without caption", () => {
 
 Deno.test("messageBody: text truncated to 140 chars", () => {
   assertEquals(messageBody({ ...message, body: "x".repeat(200) }).body.length, 140);
+});
+
+Deno.test("messageCoalescedBody titles with the game and states the count", () => {
+  const { title, body } = messageCoalescedBody(5, summary);
+  assertMatch(title, /Badminton at Test Courts/);
+  assertMatch(body, /^5 new messages$/);
 });
 
 Deno.test("messageBody: text of exactly 140 chars is untouched", () => {

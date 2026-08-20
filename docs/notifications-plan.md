@@ -1,9 +1,10 @@
 # Notifications plan
 
-Status: **approved 2026-08-20. P0 and P1 shipped** (20260820000200_notifications_p0.sql,
-20260820000300_notifications_p1.sql, push-dispatch rewrite, client routing + sign-out token
-delete + foreground suppression + settings UI). P2-P3 are still proposed; P2 needs its own
-sign-off because an activity inbox is beyond [mvp-spec.md](mvp-spec.md).
+Status: **approved 2026-08-20. P0, P1 and P2 shipped** (20260820000200_notifications_p0.sql,
+20260820000300_notifications_p1.sql, 20260820000400_notifications_p2.sql, push-dispatch rewritten
+around a durable `notifications` table, inbox screen, badge, coalescing, retry sweep). P2 signed
+off 2026-08-20 per AGENTS.md's "ask before scope beyond MVP" rule — an activity inbox is beyond
+[mvp-spec.md](mvp-spec.md). P3 is still proposed.
 Written 2026-08-20.
 
 Scope: every push/in-app notification in SMASHIO — when it fires, who receives it, what it says,
@@ -278,9 +279,48 @@ What landed, against what §6 planned:
   module-level variable set from `usePathname` at the root layout — not React state, since the
   notification handler is registered once outside the component tree.
 
-**P2 — inbox, badge, coalescing.** Requires sign-off: an activity inbox is beyond
-[mvp-spec.md](mvp-spec.md). `notifications` table as the source of truth (§6.2), badge counts,
-A2/E2 coalescing, retry sweeper (#7), in-app inbox screen with Realtime.
+**P2 — inbox, badge, coalescing. Shipped 2026-08-20** (20260820000400_notifications_p2.sql).
+`notifications` table as the source of truth (§6.2), badge counts, A2/E2 coalescing, retry
+sweeper (#7), in-app inbox screen with Realtime.
+
+What changed against §6.2 as planned, and two bugs the migration's own local smoke test caught:
+
+- **Every trigger that used to call `notify_push(event payload)` directly now resolves its own
+  recipient set first** (via `enqueue_notifications`) and writes one row per recipient *before*
+  calling `notify_push({ids: [...]})` — exactly as §6.2 describes. push-dispatch no longer knows
+  how to resolve a recipient at all; it only reads rows, renders, sends, and stamps
+  `title`/`body`/`sent_at`.
+- **P0/P1's recipient functions (`push_recipients_for_host`, `push_recipients_for_game`,
+  `push_post_game_recipients`, `chat_push_recipients`) all joined `push_tokens`**, because under
+  P0/P1 they were called from push-dispatch purely to get a token to send to. P2 calls them from
+  *triggers*, to decide who gets an inbox row — and that join silently dropped every recipient
+  with no registered device yet (fresh install, notifications not granted), since they'd never
+  match the join. Redefined to resolve membership + prefs only; token lookup happens separately
+  in push-dispatch's `fetchTokens`, by profile id, once it's time to actually send. Caught by this
+  migration's own pgTAP suite (tests 10-13 of `push_dispatch_triggers_test.sql` started failing
+  once the P2 triggers ran before any `push_tokens` row existed) before it ever reached staging.
+- **Coalescing counts every sibling in the window, not just unsent ones.** The first draft gated
+  on `sent_at is null`, but a row is normally dispatched (and stamped sent) within milliseconds of
+  being enqueued — by the time a second join request lands, the first has almost always already
+  sent and is no longer "pending" by that definition, so the count never crossed the threshold.
+  Caught by a local end-to-end smoke test (`supabase functions serve` + real trigger fires) that
+  showed two individual pushes instead of a coalesced one. Fixed to count every row created inside
+  the window regardless of `sent_at`, and only re-stamp the still-unsent ones — an already-sent
+  sibling keeps its original individual copy; a later arrival that crosses the threshold gets one
+  coalesced push naming the running total instead of another individual one.
+- **`push_actor_name` never actually caught the blank-name case.** `profiles.display_name`
+  defaults to `''`, not `null`, until onboarding sets one — so P0's original
+  `coalesce(display_name, 'A player')` produced "New request from " with a trailing blank for a
+  profile that hadn't set a name yet. Also caught by the local smoke test; fixed with
+  `coalesce(nullif(display_name, ''), 'A player')`.
+- **Badge is a per-send unread count**, fetched once per profile per dispatch call
+  (`notification_unread_count`) and cached for the rest of that invocation.
+- **Multi-device is not fully preserved.** `push-dispatch`'s `fetchTokens` maps one profile to one
+  token (last-registered device wins) rather than fanning out to every device on the account. P0's
+  `push_tokens` schema still supports multiple devices per profile; P2's simpler one-push-per-row
+  model just doesn't iterate them. Not addressed — a pre-existing gap this rewrite didn't widen,
+  since P0/P1 already sent to whatever `push_tokens` rows a recipient function happened to join,
+  not deliberately to every device.
 
 **P3 — delight.** Notification actions (Approve/Decline from the tray, inline chat reply), B3, B4,
 C4, C5, D1 improvements (#8).

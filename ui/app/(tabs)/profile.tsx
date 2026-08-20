@@ -12,6 +12,7 @@ import { TierRing, tierProgressLabel } from "../../components/TierRing";
 import { BehaviourBadges } from "../../components/BehaviourBadges";
 import { useSession } from "../../lib/session";
 import { usePlayerCard, useLateLeaveCount } from "../../lib/queries/profile";
+import { useUnreadNotificationCount } from "../../lib/queries/notifications";
 import { shareReferral } from "../../lib/share";
 import { haptics } from "../../lib/haptics";
 import { supabase } from "../../lib/supabase";
@@ -29,6 +30,7 @@ export default function Profile() {
 
   const { data: card } = usePlayerCard(userId);
   const { data: lateLeaves } = useLateLeaveCount(userId);
+  const { data: unreadCount } = useUnreadNotificationCount();
 
   const tabBarSpace = useTabBarSpace();
   const scrollRef = useRef<ScrollView>(null);
@@ -130,6 +132,12 @@ export default function Profile() {
 
         <View className="mt-4">
           <ListRow title="Edit profile" accessory="chevron" onPress={() => router.push("/profile-edit")} />
+          <ListRow
+            title="Notifications"
+            accessory="chevron"
+            trailing={unreadCount ? String(unreadCount) : undefined}
+            onPress={() => router.push("/notifications")}
+          />
           <ListRow title="Notification settings" accessory="chevron" onPress={() => router.push("/notification-settings")} />
           <Pressable
             onPress={() => {

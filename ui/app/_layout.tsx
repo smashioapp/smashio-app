@@ -13,6 +13,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "../lib/queryClient";
 import { SessionProvider } from "../lib/session";
 import { usePushRegistration, useTrackActiveRoute } from "../lib/notifications";
+import { useNotificationRealtimeSync } from "../lib/queries/notifications";
 import { AnimatedSplash } from "../components/AnimatedSplash";
 import {
   useFonts as useSpaceGroteskFonts,
@@ -80,6 +81,7 @@ export default function RootLayout() {
               <Stack.Screen name="profile-stats" options={{ presentation: "card" }} />
               <Stack.Screen name="chat/[id]" options={{ presentation: "card" }} />
               <Stack.Screen name="post-game/[id]" options={{ presentation: "card" }} />
+              <Stack.Screen name="notifications" options={{ presentation: "card" }} />
               <Stack.Screen name="wizard" options={{ presentation: "modal" }} />
             </Stack>
             {showSplash && <AnimatedSplash onFinish={() => setShowSplash(false)} />}
@@ -93,5 +95,6 @@ export default function RootLayout() {
 function PushRegistration() {
   usePushRegistration();
   useTrackActiveRoute();
+  useNotificationRealtimeSync();
   return null;
 }

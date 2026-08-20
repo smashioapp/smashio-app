@@ -104,10 +104,20 @@ export async function unregisterPushToken() {
   }
 }
 
-type PushData = { screen?: string; game_id?: string; type?: string };
+type PushData = { screen?: string; game_id?: string; type?: string; notification_id?: string };
 
 function handleNotificationTap(response: Notifications.NotificationResponse) {
   const data = response.notification.request.content.data as PushData;
+
+  // Best-effort — a tap should navigate regardless of whether this write lands. A coalesced push
+  // (P2 §6.2) carries only its triggering row's id, so opening from a coalesced tap marks that
+  // one read; the rest clear from the inbox screen the normal way.
+  if (data.notification_id) {
+    supabase.from("notifications").update({ read_at: new Date().toISOString() }).eq("id", data.notification_id).then(
+      () => {},
+      () => {},
+    );
+  }
 
   // A declined request lands on Discover, not on the game that said no — there's nothing to do
   // there. Every other screen needs the game id.

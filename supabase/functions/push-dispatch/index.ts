@@ -1,11 +1,17 @@
-// Slice 8: push. Invoked by pg_net from DB triggers (join request, join decision, roster
-// change, game change, new message) and the reminder / post-game cron sweeps — never called by
+// Slice 8, reworked in P2 (docs/notifications-plan.md §6.2). Invoked by pg_net — never called by
 // the client directly. Auth is a shared secret (PUSH_DISPATCH_KEY, matches the
 // 'push_dispatch_key' Vault entry the DB reads), checked here since verify_jwt is off for this
 // function (the caller has no Supabase JWT).
 //
-// Recipients are SQL (transactional, cheap); copy is TypeScript (unit-tested in format.test.ts).
-// Event matrix and tiers: docs/notifications-plan.md §4.
+// P0/P1 had every DB trigger call notify_push with a raw event payload, and this function did
+// the recipient lookup + rendering + send in one shot, with nothing persisted. P2 flips that:
+// each trigger now resolves recipients itself and writes one `notifications` row per recipient
+// *in the same transaction as the event* (public.enqueue_notifications), then calls notify_push
+// with just the new row ids. This function reads those rows, renders copy via format.ts, sends,
+// and stamps title/body/sent_at back onto them — which is what makes the retry sweep, the unread
+// badge, and the inbox screen possible; none of them have anything to read from under the old
+// fire-and-forget shape. Recipients are still SQL (transactional, cheap); copy is still
+// TypeScript (unit-tested in format.test.ts). Event matrix and tiers: docs/notifications-plan.md §4.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import {
   alertMatchBody,
@@ -16,10 +22,13 @@ import {
   gameRescheduledBody,
   joinDecisionBody,
   joinRequestBody,
+  joinRequestCoalescedBody,
   type MessageSummary,
   messageBody,
+  messageCoalescedBody,
   playerLeftBody,
   postGameRateBody,
+  type PushBody,
   type PushChannel,
   type PushTier,
   reminder24hBody,
@@ -30,25 +39,44 @@ const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 
 type Recipient = { profile_id: string; expo_token: string };
 
-type Payload =
-  | { type: "message"; game_id: string; sender_id: string; message_id: string }
-  | { type: "join_request"; game_id: string; actor_id: string; host_id: string }
-  | { type: "player_left"; game_id: string; actor_id: string; host_id: string }
-  | { type: "game_full"; game_id: string; host_id: string }
-  | { type: "join_decision"; game_id: string; profile_id: string; status: "approved" | "rejected" | "removed" }
-  // 'reminder' is the pre-P0 name; kept so requests already queued in pg_net at deploy time
-  // still render instead of falling through as unknown.
-  | { type: "reminder" | "reminder_2h" | "reminder_24h"; game_id: string }
-  | { type: "post_game_rate"; game_id: string }
-  | { type: "game_cancelled"; game_id: string; organizer_id: string }
-  | { type: "game_rescheduled"; game_id: string; organizer_id: string; old_starts_at?: string }
-  | { type: "alert_match"; game_id: string; profile_ids: string[] }
-  | { type: "prune_receipts" };
+type NotificationRow = {
+  id: string;
+  profile_id: string;
+  type: string;
+  game_id: string | null;
+  actor_id: string | null;
+  params: Record<string, unknown>;
+  priority: string;
+  collapse_key: string | null;
+  created_at: string;
+};
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
 );
+
+// §4E's channel map, keyed by notification type instead of by call site now that every send goes
+// through one dispatch loop. Keep in sync with ui/lib/notifications.ts's ANDROID_CHANNELS.
+const CHANNEL_FOR_TYPE: Record<string, PushChannel> = {
+  join_request: "requests",
+  player_left: "requests",
+  game_full: "requests",
+  join_decision: "requests",
+  game_cancelled: "game-updates",
+  game_rescheduled: "game-updates",
+  reminder_24h: "reminders",
+  reminder_2h: "reminders",
+  post_game_rate: "reminders",
+  alert_match: "discovery",
+  message: "chat",
+};
+
+// §4A/§4E: A2 and E2 are the only two coalescing rules the plan defines. Window in minutes,
+// threshold = how many pending (sent_at is null) rows sharing a recipient + collapse_key inside
+// that window trigger the coalesced copy instead of N individual pushes.
+const COALESCE_WINDOW_MIN: Record<string, number> = { join_request: 10, message: 5 };
+const COALESCE_THRESHOLD: Record<string, number> = { join_request: 2, message: 3 };
 
 // §6.5. Low tier is "silent, respects quiet hours" — the only tier that ever drops. Evaluated per
 // recipient, in their own timezone (profiles.timezone, bug #9), right before send.
@@ -69,6 +97,7 @@ async function sendExpoPush(
     data: Record<string, unknown>;
     tier: PushTier;
     channelId: PushChannel;
+    badge?: number;
   },
 ) {
   const filtered = opts.tier === "low" ? await filterQuietHours(recipients) : recipients;
@@ -138,21 +167,179 @@ async function pruneDeadTokens(): Promise<void> {
   await supabase.rpc("delete_push_receipts", { p_ticket_ids: batch.map((b) => b.ticket_id) });
 }
 
-function gameSummary(gameId: string) {
-  return supabase.rpc("push_game_summary", { p_game_id: gameId }).single();
+// Memoized per-invocation — a burst of rows for the same game (a coalesced group, or several
+// unrelated event types firing off one edit) shouldn't re-fetch the summary per row.
+function makeCache<T>(fetch: (key: string) => Promise<T>) {
+  const cache = new Map<string, Promise<T>>();
+  return (key: string) => {
+    if (!cache.has(key)) cache.set(key, fetch(key));
+    return cache.get(key)!;
+  };
 }
 
-async function actorName(profileId: string): Promise<string> {
+const getGameSummary = makeCache(async (gameId: string) => {
+  const { data } = await supabase.rpc("push_game_summary", { p_game_id: gameId }).single();
+  return data as GameSummary | null;
+});
+
+const getActorName = makeCache(async (profileId: string) => {
   const { data } = await supabase.rpc("push_actor_name", { p_profile_id: profileId });
   return (data as string | null) ?? "A player";
+});
+
+const getUnreadCount = makeCache(async (profileId: string) => {
+  const { data } = await supabase.rpc("notification_unread_count", { p_profile_id: profileId });
+  return (data as number | null) ?? 0;
+});
+
+type Rendered = { body: PushBody; screen: string };
+
+// One row, one recipient — every notification type's individual (non-coalesced) copy.
+async function renderIndividual(row: NotificationRow): Promise<Rendered | null> {
+  if (row.type === "message") {
+    const { data: msgSummary } = await supabase
+      .rpc("push_message_summary", { p_message_id: row.params.message_id })
+      .single();
+    if (!msgSummary) return null;
+    return { body: messageBody(msgSummary as MessageSummary), screen: "chat" };
+  }
+
+  if (!row.game_id) return null;
+  const summary = await getGameSummary(row.game_id);
+  if (!summary) return null;
+
+  switch (row.type) {
+    case "join_request": {
+      const actor = row.actor_id ? await getActorName(row.actor_id) : "A player";
+      return { body: joinRequestBody(actor, summary), screen: "game_requests" };
+    }
+    case "player_left": {
+      const actor = row.actor_id ? await getActorName(row.actor_id) : "A player";
+      return { body: playerLeftBody(actor, summary), screen: "game" };
+    }
+    case "game_full":
+      return { body: gameFullBody(summary), screen: "game" };
+    case "game_cancelled":
+      return { body: gameCancelledBody(summary), screen: "game" };
+    case "game_rescheduled":
+      return { body: gameRescheduledBody(summary, row.params.old_starts_at as string | undefined), screen: "game" };
+    case "join_decision": {
+      const status = row.params.status as "approved" | "rejected" | "removed";
+      // A declined player is sent looking for another game, not back to the one that said no.
+      return { body: joinDecisionBody(status, summary), screen: status === "rejected" ? "discover" : "game" };
+    }
+    case "reminder_24h":
+      return { body: reminder24hBody(summary), screen: "game" };
+    case "reminder_2h":
+      return { body: reminder2hBody(summary), screen: "game" };
+    case "post_game_rate":
+      return { body: postGameRateBody(summary, row.params.rateable_count as number), screen: "post_game" };
+    case "alert_match":
+      return { body: alertMatchBody(summary), screen: "game" };
+    default:
+      return null;
+  }
 }
 
-function hostRecipients(gameId: string, prefKey: string) {
-  return supabase.rpc("push_recipients_for_host", { p_game_id: gameId, p_pref_key: prefKey });
+async function renderCoalesced(type: string, count: number, gameId: string): Promise<Rendered | null> {
+  const summary = await getGameSummary(gameId);
+  if (!summary) return null;
+  if (type === "join_request") return { body: joinRequestCoalescedBody(count, summary), screen: "game_requests" };
+  if (type === "message") return { body: messageCoalescedBody(count, summary), screen: "chat" };
+  return null;
 }
 
-function tokensFor(profileIds: string[]) {
-  return supabase.from("push_tokens").select("profile_id, expo_token").in("profile_id", profileIds);
+async function fetchTokens(profileIds: string[]): Promise<Map<string, string>> {
+  if (profileIds.length === 0) return new Map();
+  const { data } = await supabase.from("push_tokens").select("profile_id, expo_token").in("profile_id", profileIds);
+  const map = new Map<string, string>();
+  for (const row of (data ?? []) as Recipient[]) map.set(row.profile_id, row.expo_token);
+  return map;
+}
+
+async function markSent(ids: string[], title?: string, body?: string): Promise<void> {
+  await supabase
+    .from("notifications")
+    .update({ sent_at: new Date().toISOString(), ...(title !== undefined ? { title, body } : {}) })
+    .in("id", ids);
+}
+
+async function dispatchNotifications(ids: string[]): Promise<void> {
+  const { data } = await supabase
+    .from("notifications")
+    .select("id, profile_id, type, game_id, actor_id, params, priority, collapse_key, created_at")
+    .in("id", ids)
+    .is("sent_at", null);
+  const rows = (data ?? []) as NotificationRow[];
+  if (rows.length === 0) return;
+
+  const tokens = await fetchTokens([...new Set(rows.map((r) => r.profile_id))]);
+  // A batch can contain several rows from the same coalescing group (e.g. the retry sweep picks
+  // up a whole burst at once) — process each (profile, collapse_key) pair only once.
+  const handledGroups = new Set<string>();
+
+  for (const row of rows) {
+    const groupKey = row.collapse_key ? `${row.profile_id}::${row.collapse_key}` : null;
+    if (groupKey && handledGroups.has(groupKey)) continue;
+
+    let idsToStamp = [row.id];
+    let rendered: Rendered | null;
+    let count = 1;
+
+    const threshold = row.collapse_key ? COALESCE_THRESHOLD[row.type] : undefined;
+    if (groupKey && threshold && row.game_id) {
+      const windowMin = COALESCE_WINDOW_MIN[row.type];
+      // Count every sibling in the window, sent or not — most rows get individually dispatched
+      // within milliseconds of being enqueued, so gating on "still unsent" almost never catches a
+      // real burst: by the time request #2 lands, #1 has usually already sent and been stamped.
+      // The count that matters is "how many of these has this recipient gotten in the window",
+      // which includes ones already pushed.
+      const { data: siblings } = await supabase
+        .from("notifications")
+        .select("id, sent_at")
+        .eq("profile_id", row.profile_id)
+        .eq("collapse_key", row.collapse_key)
+        .gt("created_at", new Date(Date.now() - windowMin * 60_000).toISOString());
+      const siblingRows = (siblings ?? []) as { id: string; sent_at: string | null }[];
+      count = siblingRows.length;
+      // Only ever stamp/send for rows still unsent — an already-sent sibling keeps its original
+      // individual copy; this pass just adds one more (now coalesced) push on top for whichever
+      // row(s) are new.
+      const unsent = siblingRows.filter((s) => s.sent_at === null).map((s) => s.id);
+      if (count >= threshold) {
+        idsToStamp = unsent.length > 0 ? unsent : [row.id];
+        rendered = await renderCoalesced(row.type, count, row.game_id);
+      } else {
+        rendered = await renderIndividual(row);
+      }
+      handledGroups.add(groupKey);
+    } else {
+      rendered = await renderIndividual(row);
+    }
+
+    if (!rendered) {
+      // Nothing to render (the game or message was deleted under us) — stamp it sent anyway so
+      // the retry sweep doesn't loop on it forever.
+      await markSent(idsToStamp);
+      continue;
+    }
+
+    const { title, body } = rendered.body;
+    const token = tokens.get(row.profile_id);
+    if (token) {
+      const badge = await getUnreadCount(row.profile_id);
+      await sendExpoPush([{ profile_id: row.profile_id, expo_token: token }], {
+        title,
+        body,
+        data: { type: row.type, screen: rendered.screen, game_id: row.game_id, notification_id: row.id },
+        tier: row.priority as PushTier,
+        channelId: CHANNEL_FOR_TYPE[row.type] ?? "reminders",
+        badge,
+      });
+    }
+
+    await markSent(idsToStamp, title, body);
+  }
 }
 
 Deno.serve(async (req) => {
@@ -162,205 +349,12 @@ Deno.serve(async (req) => {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const payload = (await req.json()) as Payload;
+  const payload = (await req.json()) as { ids?: string[]; type?: string };
 
-  if (payload.type === "message") {
-    const [{ data: recipients }, { data: summary }] = await Promise.all([
-      supabase.rpc("chat_push_recipients", { p_message_id: payload.message_id }),
-      supabase.rpc("push_message_summary", { p_message_id: payload.message_id }).single(),
-    ]);
-    if (recipients?.length && summary) {
-      const { title, body } = messageBody(summary as MessageSummary);
-      await sendExpoPush(recipients, {
-        title,
-        body,
-        data: { type: "message", screen: "chat", game_id: payload.game_id },
-        tier: "normal",
-        channelId: "chat",
-      });
-    }
-  } else if (payload.type === "join_request") {
-    // A1. Host only — nobody else can approve it.
-    const [{ data: recipients }, { data: summary }, actor] = await Promise.all([
-      hostRecipients(payload.game_id, "join_requests"),
-      gameSummary(payload.game_id),
-      actorName(payload.actor_id),
-    ]);
-    if (recipients?.length && summary) {
-      const { title, body } = joinRequestBody(actor, summary as GameSummary);
-      await sendExpoPush(recipients, {
-        title,
-        body,
-        data: { type: "join_request", screen: "game_requests", game_id: payload.game_id },
-        tier: "critical",
-        channelId: "requests",
-      });
-    }
-  } else if (payload.type === "player_left") {
-    // A6. A reopened spot is the last thing a host can still act on.
-    const [{ data: recipients }, { data: summary }, actor] = await Promise.all([
-      hostRecipients(payload.game_id, "roster_changes"),
-      gameSummary(payload.game_id),
-      actorName(payload.actor_id),
-    ]);
-    if (recipients?.length && summary) {
-      const { title, body } = playerLeftBody(actor, summary as GameSummary);
-      await sendExpoPush(recipients, {
-        title,
-        body,
-        data: { type: "player_left", screen: "game", game_id: payload.game_id },
-        tier: "normal",
-        channelId: "requests",
-      });
-    }
-  } else if (payload.type === "game_full") {
-    const [{ data: recipients }, { data: summary }] = await Promise.all([
-      hostRecipients(payload.game_id, "roster_changes"),
-      gameSummary(payload.game_id),
-    ]);
-    if (recipients?.length && summary) {
-      const { title, body } = gameFullBody(summary as GameSummary);
-      await sendExpoPush(recipients, {
-        title,
-        body,
-        data: { type: "game_full", screen: "game", game_id: payload.game_id },
-        tier: "low",
-        channelId: "requests",
-      });
-    }
-  } else if (payload.type === "join_decision") {
-    const [{ data: recipient }, { data: summary }] = await Promise.all([
-      tokensFor([payload.profile_id]),
-      gameSummary(payload.game_id),
-    ]);
-    if (recipient?.length && summary) {
-      const { title, body } = joinDecisionBody(payload.status, summary as GameSummary);
-      // A declined player is sent looking for another game, not back to the one that said no.
-      const screen = payload.status === "rejected" ? "discover" : "game";
-      await sendExpoPush(recipient, {
-        title,
-        body,
-        data: { type: `join_${payload.status}`, screen, game_id: payload.game_id },
-        tier: payload.status === "approved" ? "critical" : "normal",
-        channelId: "requests",
-      });
-    }
-  } else if (payload.type === "game_cancelled") {
-    // Organiser excluded — they just cancelled it. Pending requesters included (bug #1): their
-    // request is now against a game that no longer exists.
-    const [{ data: recipients }, { data: summary }] = await Promise.all([
-      supabase.rpc("push_recipients_for_game", {
-        p_game_id: payload.game_id,
-        p_exclude_profile: payload.organizer_id,
-        p_include_requested: true,
-        p_pref_key: "game_changes",
-      }),
-      gameSummary(payload.game_id),
-    ]);
-    if (recipients?.length && summary) {
-      const { title, body } = gameCancelledBody(summary as GameSummary);
-      await sendExpoPush(recipients, {
-        title,
-        body,
-        data: { type: "game_cancelled", screen: "game", game_id: payload.game_id },
-        tier: "critical",
-        channelId: "game-updates",
-      });
-    }
-  } else if (payload.type === "game_rescheduled") {
-    // Organiser excluded — they just made the change. Pending requesters included (bug #1).
-    const [{ data: recipients }, { data: summary }] = await Promise.all([
-      supabase.rpc("push_recipients_for_game", {
-        p_game_id: payload.game_id,
-        p_exclude_profile: payload.organizer_id,
-        p_include_requested: true,
-        p_pref_key: "game_changes",
-      }),
-      gameSummary(payload.game_id),
-    ]);
-    if (recipients?.length && summary) {
-      const { title, body } = gameRescheduledBody(summary as GameSummary, payload.old_starts_at);
-      await sendExpoPush(recipients, {
-        title,
-        body,
-        data: { type: "game_rescheduled", screen: "game", game_id: payload.game_id },
-        tier: "critical",
-        channelId: "game-updates",
-      });
-    }
-  } else if (payload.type === "alert_match") {
-    const [{ data: recipients }, { data: summary }] = await Promise.all([
-      tokensFor(payload.profile_ids),
-      gameSummary(payload.game_id),
-    ]);
-    if (recipients?.length && summary) {
-      const { title, body } = alertMatchBody(summary as GameSummary);
-      await sendExpoPush(recipients, {
-        title,
-        body,
-        data: { type: "alert_match", screen: "game", game_id: payload.game_id },
-        tier: "low",
-        channelId: "discovery",
-      });
-    }
-  } else if (payload.type === "reminder_24h") {
-    const [{ data: recipients }, { data: summary }] = await Promise.all([
-      supabase.rpc("push_recipients_for_game", { p_game_id: payload.game_id, p_pref_key: "reminders" }),
-      gameSummary(payload.game_id),
-    ]);
-    if (recipients?.length && summary) {
-      const { title, body } = reminder24hBody(summary as GameSummary);
-      await sendExpoPush(recipients, {
-        title,
-        body,
-        data: { type: "reminder_24h", screen: "game", game_id: payload.game_id },
-        tier: "normal",
-        channelId: "reminders",
-      });
-    }
-  } else if (payload.type === "reminder_2h" || payload.type === "reminder") {
-    const [{ data: recipients }, { data: summary }] = await Promise.all([
-      supabase.rpc("push_recipients_for_game", { p_game_id: payload.game_id, p_pref_key: "reminders" }),
-      gameSummary(payload.game_id),
-    ]);
-    if (recipients?.length && summary) {
-      const { title, body } = reminder2hBody(summary as GameSummary);
-      await sendExpoPush(recipients, {
-        title,
-        body,
-        data: { type: "reminder_2h", screen: "game", game_id: payload.game_id },
-        tier: "critical",
-        channelId: "reminders",
-      });
-    }
-  } else if (payload.type === "post_game_rate") {
-    // C3. The host can rate every approved player; an approved player's rate list excludes
-    // themselves (and the host, who has no game_players row), so their count is one lower.
-    // Different copy per group, so this fans out as two batches.
-    const [{ data: recipients }, { data: summary }] = await Promise.all([
-      supabase.rpc("push_post_game_recipients", { p_game_id: payload.game_id }),
-      gameSummary(payload.game_id),
-    ]);
-    const s = summary as GameSummary | null;
-    if (recipients?.length && s) {
-      const groups: [Recipient[], number][] = [
-        [(recipients as Recipient[]).filter((r) => r.profile_id === s.host_id), s.approved_count],
-        [(recipients as Recipient[]).filter((r) => r.profile_id !== s.host_id), s.approved_count - 1],
-      ];
-      for (const [group, rateable] of groups) {
-        if (group.length === 0 || rateable < 1) continue;
-        const { title, body } = postGameRateBody(s, rateable);
-        await sendExpoPush(group, {
-          title,
-          body,
-          data: { type: "post_game_rate", screen: "post_game", game_id: payload.game_id },
-          tier: "low",
-          channelId: "reminders",
-        });
-      }
-    }
-  } else if (payload.type === "prune_receipts") {
+  if (payload.type === "prune_receipts") {
     await pruneDeadTokens();
+  } else if (Array.isArray(payload.ids)) {
+    await dispatchNotifications(payload.ids);
   }
 
   return new Response("ok", { status: 200 });

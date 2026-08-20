@@ -118,6 +118,14 @@ export function joinRequestBody(actor: string, s: GameSummary): PushBody {
   };
 }
 
+// A2. §4A: 2+ pending join requests within 10 min collapse into one push instead of a burst.
+export function joinRequestCoalescedBody(n: number, s: GameSummary): PushBody {
+  return {
+    title: `${n} players want to join`,
+    body: `${where(s)}, ${shortTime(s.starts_at)} · tap to review`,
+  };
+}
+
 // A3.
 export function joinApprovedBody(s: GameSummary): PushBody {
   const title = pick(
@@ -250,6 +258,14 @@ export type MessageSummary = {
   body: string;
 };
 
+// E2. §4E: 3+ unread messages from one game within 5 min collapse the same way A2 does.
+export function messageCoalescedBody(n: number, s: GameSummary): PushBody {
+  return {
+    title: where(s),
+    body: `${n} new messages`,
+  };
+}
+
 export function messageBody(summary: MessageSummary): PushBody {
   const announce = summary.chat_mode === "announce";
   // Game identity, not a bare venue: a venue hosts many games (§4E1).
@@ -275,9 +291,12 @@ export function expoMessages(
     data: Record<string, unknown>;
     tier: PushTier;
     channelId: PushChannel;
+    // Unread inbox count (P2 §6.6), fetched per profile — same value for every recipient here
+    // since P2 dispatches one profile at a time.
+    badge?: number;
   },
 ) {
-  const { title, body, data, tier, channelId } = opts;
+  const { title, body, data, tier, channelId, badge } = opts;
   return recipients
     .filter((r) => r.expo_token.startsWith("ExponentPushToken"))
     .map((r) => ({
@@ -289,5 +308,6 @@ export function expoMessages(
       priority: tier === "critical" ? "high" : "normal",
       sound: tier === "low" ? null : "default",
       interruptionLevel: tier === "critical" ? "time-sensitive" : tier === "low" ? "passive" : "active",
+      ...(badge !== undefined ? { badge } : {}),
     }));
 }

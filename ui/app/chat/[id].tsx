@@ -248,6 +248,7 @@ export default function ChatThread() {
   const isMember = isHost || !!meMember;
   const closed = !!metaQuery.data?.chatClosedAt;
   const announce = metaQuery.data?.chatMode === "announce";
+  const paused = !!metaQuery.data?.chatPauseUntil && new Date(metaQuery.data.chatPauseUntil) > new Date();
 
   const composerState: ComposerState = membersQuery.isLoading || !isMember
     ? "locked_not_member"
@@ -257,6 +258,8 @@ export default function ChatThread() {
     ? announce
       ? "announce_host"
       : "can_post"
+    : paused
+    ? "locked_paused"
     : announce
     ? "locked_announce"
     : meMember?.muted

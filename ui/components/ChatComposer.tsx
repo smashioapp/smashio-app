@@ -9,12 +9,13 @@ import { Avatar } from "./Avatar";
 import { ChatQuickReplies } from "./ChatQuickReplies";
 import type { ChatMember, ChatMessage } from "../lib/queries/messages";
 
-export type ComposerState = "can_post" | "locked_announce" | "locked_muted" | "locked_closed" | "announce_host" | "locked_not_member";
+export type ComposerState = "can_post" | "locked_announce" | "locked_muted" | "locked_closed" | "locked_paused" | "announce_host" | "locked_not_member";
 
 const LOCKED_COPY: Partial<Record<ComposerState, string>> = {
   locked_announce: "🔒 Only the host can post here",
   locked_muted: "The host has turned off your messages for this game",
   locked_closed: "This chat is closed",
+  locked_paused: "🔒 Chat opens closer to the game — the host can still post",
   locked_not_member: "You're not part of this game",
 };
 

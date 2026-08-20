@@ -1,23 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { View, Text, TextInput, Pressable, ScrollView, Keyboard } from "react-native";
+import { View, Text, TextInput, Pressable, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import Animated, { useAnimatedStyle, withTiming } from "react-native-reanimated";
 import { colors } from "../lib/theme";
+import { useKeyboardVisible } from "../lib/useKeyboardVisible";
 import { Avatar } from "./Avatar";
-import type { ChatMember } from "../lib/queries/messages";
-
-function useKeyboardVisible(): boolean {
-  const [visible, setVisible] = useState(false);
-  useEffect(() => {
-    const show = Keyboard.addListener("keyboardDidShow", () => setVisible(true));
-    const hide = Keyboard.addListener("keyboardDidHide", () => setVisible(false));
-    return () => {
-      show.remove();
-      hide.remove();
-    };
-  }, []);
-  return visible;
-}
+import { ChatQuickReplies } from "./ChatQuickReplies";
+import type { ChatMember, ChatMessage } from "../lib/queries/messages";
 
 export type ComposerState = "can_post" | "locked_announce" | "locked_muted" | "locked_closed" | "announce_host" | "locked_not_member";
 
@@ -30,6 +20,11 @@ const LOCKED_COPY: Partial<Record<ComposerState, string>> = {
 
 const MENTION_RE = /(?:^|\s)@([a-zA-Z0-9_]{0,24})$/;
 
+function replyLabel(replyTo: ChatMessage, members: ChatMember[]): string {
+  if (replyTo.me) return "You";
+  return members.find((m) => m.id === replyTo.senderId)?.name ?? "Player";
+}
+
 // The composer is the honest signal of what you're allowed to do — it never renders as a
 // greyed-out input, always a plain explanation (chat-plan.md §Composer states).
 export function ChatComposer({
@@ -37,13 +32,19 @@ export function ChatComposer({
   members,
   memberCount,
   onSendText,
-  onPickImage,
+  onOpenAttachTray,
+  attachTrayOpen,
+  replyTo,
+  onCancelReply,
 }: {
   state: ComposerState;
   members: ChatMember[];
   memberCount: number;
   onSendText: (text: string, mentions: string[]) => void;
-  onPickImage: () => void;
+  onOpenAttachTray: () => void;
+  attachTrayOpen: boolean;
+  replyTo: ChatMessage | null;
+  onCancelReply: () => void;
 }) {
   const [input, setInput] = useState("");
   const [mentionIds, setMentionIds] = useState<Set<string>>(new Set());
@@ -69,7 +70,12 @@ export function ChatComposer({
     onSendText(text, [...mentionIds]);
     setInput("");
     setMentionIds(new Set());
+    onCancelReply();
   };
+
+  const plusStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: withTiming(attachTrayOpen ? "45deg" : "0deg", { duration: 160 }) }],
+  }));
 
   if (state !== "can_post" && state !== "announce_host") {
     return (
@@ -107,6 +113,30 @@ export function ChatComposer({
           ))}
         </ScrollView>
       )}
+
+      {keyboardVisible && !input.trim() && !replyTo && (
+        <ChatQuickReplies onPick={(text) => onSendText(text, [])} />
+      )}
+
+      {replyTo && (
+        <View
+          className="flex-row items-center gap-2 mx-4 mb-2 pl-2.5 pr-2 py-1.5 rounded-xl border-l-2"
+          style={{ backgroundColor: colors.surfaceAlt, borderLeftColor: colors.accent }}
+        >
+          <View className="flex-1 min-w-0">
+            <Text className="text-[10.5px] font-body-bold" style={{ color: colors.accent }}>
+              Replying to {replyLabel(replyTo, members)}
+            </Text>
+            <Text numberOfLines={1} className="text-[11.5px]" style={{ color: colors.textSecondary }}>
+              {replyTo.kind === "image" ? "📷 Photo" : replyTo.kind === "game_share" ? "Shared game" : replyTo.body}
+            </Text>
+          </View>
+          <Pressable onPress={onCancelReply} hitSlop={8}>
+            <Ionicons name="close" size={16} color={colors.textTertiary} />
+          </Pressable>
+        </View>
+      )}
+
       <View
         className="flex-row gap-2 px-4 pt-2.5 items-center"
         style={[
@@ -114,8 +144,10 @@ export function ChatComposer({
           announceHost ? { borderLeftWidth: 3, borderLeftColor: colors.accent } : undefined,
         ]}
       >
-        <Pressable onPress={onPickImage} className="w-9 h-9 items-center justify-center">
-          <Ionicons name="add-circle-outline" size={24} color={colors.textSecondary} />
+        <Pressable onPress={onOpenAttachTray} className="w-9 h-9 items-center justify-center">
+          <Animated.View style={plusStyle}>
+            <Ionicons name="add-circle-outline" size={24} color={colors.textSecondary} />
+          </Animated.View>
         </Pressable>
         <TextInput
           testID="chat-composer-input"

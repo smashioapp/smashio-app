@@ -257,6 +257,8 @@ export type Database = {
         Row: {
           chat_closed_at: string | null
           chat_mode: string
+          chat_pause_until: string | null
+          chat_photo_approval: boolean
           cost_per_player_cents: number
           court_label: string | null
           courts_booked: number
@@ -265,6 +267,8 @@ export type Database = {
           ends_at: string
           id: string
           max_players: number
+          nudge_pending_at: string | null
+          nudge_underfilled_at: string | null
           organizer_id: string
           rate_prompted_at: string | null
           reminded_24h_at: string | null
@@ -280,6 +284,8 @@ export type Database = {
         Insert: {
           chat_closed_at?: string | null
           chat_mode?: string
+          chat_pause_until?: string | null
+          chat_photo_approval?: boolean
           cost_per_player_cents?: number
           court_label?: string | null
           courts_booked?: number
@@ -288,6 +294,8 @@ export type Database = {
           ends_at: string
           id?: string
           max_players: number
+          nudge_pending_at?: string | null
+          nudge_underfilled_at?: string | null
           organizer_id: string
           rate_prompted_at?: string | null
           reminded_24h_at?: string | null
@@ -303,6 +311,8 @@ export type Database = {
         Update: {
           chat_closed_at?: string | null
           chat_mode?: string
+          chat_pause_until?: string | null
+          chat_photo_approval?: boolean
           cost_per_player_cents?: number
           court_label?: string | null
           courts_booked?: number
@@ -311,6 +321,8 @@ export type Database = {
           ends_at?: string
           id?: string
           max_players?: number
+          nudge_pending_at?: string | null
+          nudge_underfilled_at?: string | null
           organizer_id?: string
           rate_prompted_at?: string | null
           reminded_24h_at?: string | null
@@ -350,6 +362,42 @@ export type Database = {
             columns: ["venue_id"]
             isOneToOne: false
             referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      message_reactions: {
+        Row: {
+          created_at: string
+          emoji: string
+          message_id: string
+          profile_id: string
+        }
+        Insert: {
+          created_at?: string
+          emoji: string
+          message_id: string
+          profile_id: string
+        }
+        Update: {
+          created_at?: string
+          emoji?: string
+          message_id?: string
+          profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_reactions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_reactions_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -396,41 +444,59 @@ export type Database = {
       }
       messages: {
         Row: {
+          approval_status: string
           body: string
           client_id: string | null
           created_at: string
           deleted_at: string | null
           game_id: string
+          game_share_id: string | null
           id: string
           image_path: string | null
           kind: string
           mentions: string[]
+          reply_to_body: string | null
+          reply_to_kind: string | null
+          reply_to_message_id: string | null
+          reply_to_sender_id: string | null
           sender_id: string | null
           system_event: string | null
         }
         Insert: {
+          approval_status?: string
           body?: string
           client_id?: string | null
           created_at?: string
           deleted_at?: string | null
           game_id: string
+          game_share_id?: string | null
           id?: string
           image_path?: string | null
           kind?: string
           mentions?: string[]
+          reply_to_body?: string | null
+          reply_to_kind?: string | null
+          reply_to_message_id?: string | null
+          reply_to_sender_id?: string | null
           sender_id?: string | null
           system_event?: string | null
         }
         Update: {
+          approval_status?: string
           body?: string
           client_id?: string | null
           created_at?: string
           deleted_at?: string | null
           game_id?: string
+          game_share_id?: string | null
           id?: string
           image_path?: string | null
           kind?: string
           mentions?: string[]
+          reply_to_body?: string | null
+          reply_to_kind?: string | null
+          reply_to_message_id?: string | null
+          reply_to_sender_id?: string | null
           sender_id?: string | null
           system_event?: string | null
         }
@@ -447,6 +513,27 @@ export type Database = {
             columns: ["game_id"]
             isOneToOne: false
             referencedRelation: "games_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_game_share_id_fkey"
+            columns: ["game_share_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_game_share_id_fkey"
+            columns: ["game_share_id"]
+            isOneToOne: false
+            referencedRelation: "games_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_reply_to_message_id_fkey"
+            columns: ["reply_to_message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
             referencedColumns: ["id"]
           },
           {
@@ -1247,6 +1334,11 @@ export type Database = {
       }
     }
     Functions: {
+      approve_chat_photo: { Args: { p_message_id: string }; Returns: undefined }
+      approve_join_action: {
+        Args: { p_game_id: string; p_notification_id: string }
+        Returns: undefined
+      }
       approved_player_count: { Args: { p_game_id: string }; Returns: number }
       auto_close_stale_chats: { Args: never; Returns: undefined }
       can_post_in_chat: {
@@ -1281,6 +1373,10 @@ export type Database = {
         Args: { approve: boolean; p_game_id: string; p_profile_id: string }
         Returns: undefined
       }
+      decline_join_action: {
+        Args: { p_game_id: string; p_notification_id: string }
+        Returns: undefined
+      }
       delete_account: { Args: { p_profile_id: string }; Returns: Json }
       delete_message: { Args: { p_message_id: string }; Returns: undefined }
       delete_push_receipts: {
@@ -1290,6 +1386,8 @@ export type Database = {
       delete_push_token: { Args: { p_expo_token: string }; Returns: undefined }
       dispatch_game_reminders: { Args: never; Returns: undefined }
       dispatch_notification_retries: { Args: never; Returns: undefined }
+      dispatch_nudge_pending_requests: { Args: never; Returns: undefined }
+      dispatch_nudge_underfilled: { Args: never; Returns: undefined }
       dispatch_post_game_prompts: { Args: never; Returns: undefined }
       enqueue_notifications: {
         Args: {
@@ -1478,6 +1576,18 @@ export type Database = {
         Returns: string
       }
       request_to_join: { Args: { p_game_id: string }; Returns: undefined }
+      send_chat_reply: {
+        Args: { p_game_id: string; p_notification_id: string; p_text: string }
+        Returns: undefined
+      }
+      set_chat_broadcast_settings: {
+        Args: {
+          p_game_id: string
+          p_pause_until: string
+          p_photo_approval: boolean
+        }
+        Returns: undefined
+      }
       set_chat_mode: {
         Args: { p_game_id: string; p_mode: string }
         Returns: undefined
@@ -1492,6 +1602,10 @@ export type Database = {
       }
       time_in_window: {
         Args: { p_end: string; p_start: string; p_t: string }
+        Returns: boolean
+      }
+      toggle_message_reaction: {
+        Args: { p_emoji: string; p_message_id: string }
         Returns: boolean
       }
       trigger_purge_confirmations: {

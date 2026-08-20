@@ -13,11 +13,15 @@ export function ChatEventHeader({
   onPress,
   onBack,
   onDetails,
+  collapsed = false,
 }: {
   game: Game;
   onPress: () => void;
   onBack: () => void;
   onDetails: () => void;
+  // Keyboard-up state (SMASHIO Chat Redesign mock, §2) — drops the countdown/status row so
+  // the thread gets its ~34px back; title stays put so orientation never disappears entirely.
+  collapsed?: boolean;
 }) {
   const cancelled = game.status === "cancelled";
   const dotColor = cancelled ? colors.danger : tierColor(game.skill);
@@ -39,19 +43,23 @@ export function ChatEventHeader({
         <Text numberOfLines={1} className="font-body-bold text-[14.5px]" style={{ color: colors.text }}>
           {[game.venue, game.courts].filter(Boolean).join(" — ")}
         </Text>
-        <View className="flex-row items-center gap-1.5 mt-0.5">
-          {countingDown && <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.intermediate }} />}
-          <Text numberOfLines={1} className="text-[12px] font-body-semibold" style={{ color: subtitleColor }}>
-            {subtitle}
-          </Text>
-        </View>
+        {!collapsed && (
+          <View className="flex-row items-center gap-1.5 mt-0.5">
+            {countingDown && <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: colors.intermediate }} />}
+            <Text numberOfLines={1} className="text-[12px] font-body-semibold" style={{ color: subtitleColor }}>
+              {subtitle}
+            </Text>
+          </View>
+        )}
       </Pressable>
 
-      <View className="rounded-pill px-2.5 py-1" style={{ backgroundColor: colors.surfaceAlt }}>
-        <Text className="font-body-bold text-[12px]" style={{ color: colors.textDim }}>
-          {game.joinedCount}/{game.maxPlayers}
-        </Text>
-      </View>
+      {!collapsed && (
+        <View className="rounded-pill px-2.5 py-1" style={{ backgroundColor: colors.surfaceAlt }}>
+          <Text className="font-body-bold text-[12px]" style={{ color: colors.textDim }}>
+            {game.joinedCount}/{game.maxPlayers}
+          </Text>
+        </View>
+      )}
 
       <Pressable onPress={onDetails} className="w-8 h-8 items-center justify-center" hitSlop={8}>
         <Ionicons name="ellipsis-horizontal" size={19} color={colors.textSecondary} />

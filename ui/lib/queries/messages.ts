@@ -33,8 +33,11 @@ function avatarUrl(photoPath: string | null | undefined): string | null {
   return photoPath ? supabase.storage.from("avatars").getPublicUrl(photoPath).data.publicUrl : null;
 }
 
-export type ChatMessageKind = "text" | "image" | "system";
+export type ChatMessageKind = "text" | "image" | "system" | "game_share";
 export type SendStatus = "sent" | "pending" | "failed";
+export type ApprovalStatus = "approved" | "pending";
+
+export type ReplyPreview = { senderId: string | null; body: string; kind: ChatMessageKind };
 
 export type ChatMessage = {
   id: string;
@@ -52,6 +55,9 @@ export type ChatMessage = {
   createdAt: string;
   time: string;
   status: SendStatus;
+  replyTo: ReplyPreview | null;
+  gameShareId: string | null;
+  approvalStatus: ApprovalStatus;
 };
 
 type MessageRow = Database["public"]["Tables"]["messages"]["Row"];
@@ -70,6 +76,11 @@ function toChatMessage(row: MessageRow, uid: string): ChatMessage {
     createdAt: row.created_at,
     time: formatClock(row.created_at),
     status: "sent",
+    replyTo: row.reply_to_message_id
+      ? { senderId: row.reply_to_sender_id, body: row.reply_to_body ?? "", kind: (row.reply_to_kind as ChatMessageKind) ?? "text" }
+      : null,
+    gameShareId: row.game_share_id,
+    approvalStatus: row.approval_status as ApprovalStatus,
   };
 }
 
@@ -188,11 +199,32 @@ export function useMessages(gameId: string) {
 export function useSendMessage(gameId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ clientId, text, mentions }: { clientId: string; text: string; mentions: string[] }) => {
+    mutationFn: async ({
+      clientId,
+      text,
+      mentions,
+      replyTo,
+    }: {
+      clientId: string;
+      text: string;
+      mentions: string[];
+      replyTo?: ChatMessage | null;
+    }) => {
       const uid = await requireUserId();
       const { data, error } = await supabase
         .from("messages")
-        .insert({ game_id: gameId, sender_id: uid, body: text, kind: "text", mentions, client_id: clientId })
+        .insert({
+          game_id: gameId,
+          sender_id: uid,
+          body: text,
+          kind: "text",
+          mentions,
+          client_id: clientId,
+          reply_to_message_id: replyTo?.id ?? null,
+          reply_to_sender_id: replyTo?.senderId ?? null,
+          reply_to_body: replyTo?.body ?? null,
+          reply_to_kind: replyTo?.kind ?? null,
+        })
         .select("*")
         .single();
       if (error) {
@@ -204,7 +236,7 @@ export function useSendMessage(gameId: string) {
       }
       return data;
     },
-    onMutate: async ({ clientId, text }) => {
+    onMutate: async ({ clientId, text, replyTo }) => {
       const uid = await requireUserId();
       const optimistic: ChatMessage = {
         id: clientId,
@@ -219,6 +251,9 @@ export function useSendMessage(gameId: string) {
         createdAt: new Date().toISOString(),
         time: formatClock(new Date().toISOString()),
         status: "pending",
+        replyTo: replyTo ? { senderId: replyTo.senderId, body: replyTo.body, kind: replyTo.kind } : null,
+        gameShareId: null,
+        approvalStatus: "approved",
       };
       patchMessages(queryClient, gameId, (pages) => {
         if (pages.length === 0) return [{ items: [optimistic], oldestCursor: optimistic.createdAt }];
@@ -229,6 +264,60 @@ export function useSendMessage(gameId: string) {
     onSuccess: (data, { clientId }) => {
       const uid = data.sender_id!;
       const resolved = toChatMessage(data as MessageRow, uid);
+      patchMessages(queryClient, gameId, (pages) =>
+        pages.map((p) => ({ ...p, items: p.items.map((m) => (m.clientId === clientId ? resolved : m)) })),
+      );
+    },
+    onError: (_err, { clientId }) => {
+      patchMessages(queryClient, gameId, (pages) =>
+        pages.map((p) => ({ ...p, items: p.items.map((m) => (m.clientId === clientId ? { ...m, status: "failed" as const } : m)) })),
+      );
+    },
+  });
+}
+
+// A game shared into the current thread — always the game the thread itself belongs to (RLS
+// requires the sender to actually be a member of the shared game), rendered as a live card.
+export function useSendGameShare(gameId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ clientId }: { clientId: string }) => {
+      const uid = await requireUserId();
+      const { data, error } = await supabase
+        .from("messages")
+        .insert({ game_id: gameId, sender_id: uid, body: "", kind: "game_share", game_share_id: gameId, client_id: clientId })
+        .select("*")
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onMutate: async ({ clientId }) => {
+      const uid = await requireUserId();
+      const optimistic: ChatMessage = {
+        id: clientId,
+        clientId,
+        kind: "game_share",
+        systemEvent: null,
+        senderId: uid,
+        me: true,
+        body: "",
+        imagePath: null,
+        mentions: [],
+        createdAt: new Date().toISOString(),
+        time: formatClock(new Date().toISOString()),
+        status: "pending",
+        replyTo: null,
+        gameShareId: gameId,
+        approvalStatus: "approved",
+      };
+      patchMessages(queryClient, gameId, (pages) => {
+        if (pages.length === 0) return [{ items: [optimistic], oldestCursor: optimistic.createdAt }];
+        const [first, ...rest] = pages;
+        return [{ ...first, items: [...first.items, optimistic] }, ...rest];
+      });
+    },
+    onSuccess: (data, { clientId }) => {
+      const resolved = toChatMessage(data as MessageRow, (data as MessageRow).sender_id!);
       patchMessages(queryClient, gameId, (pages) =>
         pages.map((p) => ({ ...p, items: p.items.map((m) => (m.clientId === clientId ? resolved : m)) })),
       );
@@ -277,6 +366,9 @@ export function useSendChatImage(gameId: string) {
         createdAt: new Date().toISOString(),
         time: formatClock(new Date().toISOString()),
         status: "pending",
+        replyTo: null,
+        gameShareId: null,
+        approvalStatus: "approved",
       };
       patchMessages(queryClient, gameId, (pages) => {
         if (pages.length === 0) return [{ items: [optimistic], oldestCursor: optimistic.createdAt }];
@@ -319,7 +411,12 @@ export function useDeleteMessage(gameId: string) {
   });
 }
 
-export type ChatGameMeta = { chatMode: "open" | "announce"; chatClosedAt: string | null };
+export type ChatGameMeta = {
+  chatMode: "open" | "announce";
+  chatClosedAt: string | null;
+  chatPauseUntil: string | null;
+  chatPhotoApproval: boolean;
+};
 
 // games (not games_public) is readable by any authenticated user, so this is a direct
 // select rather than a games_public view change — keeps the wide, well-established view
@@ -328,11 +425,117 @@ export function useChatGameMeta(gameId: string) {
   return useQuery({
     queryKey: ["chat_game_meta", gameId],
     queryFn: async (): Promise<ChatGameMeta> => {
-      const { data, error } = await supabase.from("games").select("chat_mode, chat_closed_at").eq("id", gameId).single();
+      const { data, error } = await supabase
+        .from("games")
+        .select("chat_mode, chat_closed_at, chat_pause_until, chat_photo_approval")
+        .eq("id", gameId)
+        .single();
       if (error) throw error;
-      return { chatMode: data.chat_mode as "open" | "announce", chatClosedAt: data.chat_closed_at };
+      return {
+        chatMode: data.chat_mode as "open" | "announce",
+        chatClosedAt: data.chat_closed_at,
+        chatPauseUntil: data.chat_pause_until,
+        chatPhotoApproval: data.chat_photo_approval,
+      };
     },
     enabled: !!gameId,
+  });
+}
+
+export function useSetBroadcastSettings(gameId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ pauseUntil, photoApproval }: { pauseUntil: string | null; photoApproval: boolean }) => {
+      const { error } = await supabase.rpc("set_chat_broadcast_settings", {
+        p_game_id: gameId,
+        // Generated Functions typing can't express SQL nullability from arg type alone
+        // (timestamptz -> string, no `| null`) — the RPC param itself has no NOT NULL,
+        // so this is safe at runtime; unpausing genuinely sends SQL NULL.
+        p_pause_until: pauseUntil as string,
+        p_photo_approval: photoApproval,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["chat_game_meta", gameId] }),
+  });
+}
+
+export function useApproveChatPhoto(gameId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (messageId: string) => {
+      const { error } = await supabase.rpc("approve_chat_photo", { p_message_id: messageId });
+      if (error) throw error;
+    },
+    onSuccess: (_data, messageId) => {
+      patchMessages(queryClient, gameId, (pages) =>
+        pages.map((p) => ({ ...p, items: p.items.map((m) => (m.id === messageId ? { ...m, approvalStatus: "approved" as const } : m)) })),
+      );
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------------------
+// Reactions — grouped client-side (emoji -> count + whether I reacted) from the raw rows,
+// kept in its own realtime-backed query rather than joined into the messages page so the
+// paginated message fetch stays untouched/cheap.
+// ---------------------------------------------------------------------------------------
+
+export type MessageReaction = { emoji: string; count: number; mine: boolean };
+
+function reactionsQueryKey(gameId: string) {
+  return ["message_reactions", gameId] as const;
+}
+
+export function useMessageReactions(gameId: string) {
+  const queryClient = useQueryClient();
+
+  const query = useQuery({
+    queryKey: reactionsQueryKey(gameId),
+    queryFn: async (): Promise<Record<string, MessageReaction[]>> => {
+      const uid = await requireUserId();
+      const { data, error } = await supabase
+        .from("message_reactions")
+        .select("message_id, profile_id, emoji, messages!inner(game_id)")
+        .eq("messages.game_id", gameId);
+      if (error) throw error;
+      const grouped: Record<string, Map<string, MessageReaction>> = {};
+      for (const row of data ?? []) {
+        const byEmoji = (grouped[row.message_id] ??= new Map());
+        const existing = byEmoji.get(row.emoji) ?? { emoji: row.emoji, count: 0, mine: false };
+        existing.count += 1;
+        if (row.profile_id === uid) existing.mine = true;
+        byEmoji.set(row.emoji, existing);
+      }
+      return Object.fromEntries(Object.entries(grouped).map(([id, m]) => [id, [...m.values()]]));
+    },
+    enabled: !!gameId,
+  });
+
+  useEffect(() => {
+    if (!gameId) return;
+    const channel = supabase
+      .channel(`message_reactions:${gameId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "message_reactions" }, () => {
+        queryClient.invalidateQueries({ queryKey: reactionsQueryKey(gameId) });
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [gameId, queryClient]);
+
+  return query.data ?? {};
+}
+
+export function useToggleReaction(gameId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ messageId, emoji }: { messageId: string; emoji: string }) => {
+      const { error } = await supabase.rpc("toggle_message_reaction", { p_message_id: messageId, p_emoji: emoji });
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: reactionsQueryKey(gameId) }),
   });
 }
 

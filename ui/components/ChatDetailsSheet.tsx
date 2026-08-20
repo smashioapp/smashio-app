@@ -7,9 +7,11 @@ import { Avatar } from "./Avatar";
 import {
   useChatMembers,
   useChatPrefs,
+  useChatGameMeta,
   useSetChatPrefs,
   useSetChatMode,
   useSetPlayerChatMute,
+  useSetBroadcastSettings,
   useCloseChat,
   snoozeUntil,
   type ChatMember,
@@ -35,6 +37,7 @@ export function ChatDetailsSheet({
   chatMode,
   chatClosedAt,
   gameEndsAt,
+  gameStartsAt,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -44,6 +47,7 @@ export function ChatDetailsSheet({
   chatMode: "open" | "announce";
   chatClosedAt: string | null;
   gameEndsAt: string;
+  gameStartsAt: string;
 }) {
   const membersQuery = useChatMembers(gameId, organizerId);
   const members = membersQuery.data ?? [];
@@ -55,6 +59,10 @@ export function ChatDetailsSheet({
   const closeChat = useCloseChat(gameId);
   const leaveGame = useLeaveGame(gameId);
   const removePlayer = useRemovePlayer(gameId);
+  const metaQuery = useChatGameMeta(gameId);
+  const setBroadcast = useSetBroadcastSettings(gameId);
+  const pauseUntil2h = new Date(new Date(gameStartsAt).getTime() - 2 * 60 * 60 * 1000).toISOString();
+  const isPaused = !!metaQuery.data?.chatPauseUntil && new Date(metaQuery.data.chatPauseUntil) > new Date();
 
   const cycleLevel = () => {
     const order: ChatPrefLevel[] = ["all", "mentions", "none"];
@@ -114,6 +122,42 @@ export function ChatDetailsSheet({
               trackColor={{ true: colors.accent, false: "rgba(255,255,255,0.15)" }}
             />
           </View>
+        )}
+
+        {isHost && (
+          <>
+            <View className="flex-row items-center justify-between py-3 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+              <View className="flex-1 pr-3">
+                <Text className="font-body-bold text-[14.5px]" style={{ color: colors.text }}>
+                  Pause chat until 2h before start
+                </Text>
+                <Text className="text-[12.5px] mt-0.5" style={{ color: colors.textTertiary }}>
+                  You can still post — players can react and DM you
+                </Text>
+              </View>
+              <Switch
+                value={isPaused}
+                onValueChange={(v) => setBroadcast.mutate({ pauseUntil: v ? pauseUntil2h : null, photoApproval: metaQuery.data?.chatPhotoApproval ?? false })}
+                trackColor={{ true: colors.accent, false: "rgba(255,255,255,0.15)" }}
+              />
+            </View>
+
+            <View className="flex-row items-center justify-between py-3 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+              <View className="flex-1 pr-3">
+                <Text className="font-body-bold text-[14.5px]" style={{ color: colors.text }}>
+                  Photos need host approval
+                </Text>
+                <Text className="text-[12.5px] mt-0.5" style={{ color: colors.textTertiary }}>
+                  Yours never do
+                </Text>
+              </View>
+              <Switch
+                value={metaQuery.data?.chatPhotoApproval ?? false}
+                onValueChange={(v) => setBroadcast.mutate({ pauseUntil: metaQuery.data?.chatPauseUntil ?? null, photoApproval: v })}
+                trackColor={{ true: colors.accent, false: "rgba(255,255,255,0.15)" }}
+              />
+            </View>
+          </>
         )}
 
         <Pressable

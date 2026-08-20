@@ -3,6 +3,7 @@ import { View, Text } from "react-native";
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from "react-native-reanimated";
 import { colors } from "../lib/theme";
 import { Button } from "./Button";
+import { Glow } from "./Glow";
 
 const LOGO = require("../assets/splash-icon.png");
 
@@ -34,12 +35,15 @@ function FloatingShuttlecock({ size = 67 }: { size?: number }) {
     transform: [{ translateY: translateY.value }, { rotate: `${rotate.value}deg` }],
   }));
 
+  // The bloom is far wider than the logo, so the box is sized to the bloom and the overflow is
+  // pulled back with a negative margin — Android clips absolutely-positioned children that
+  // spill outside their parent, which would put the hard edge straight back.
+  const bloom = size * 2.6;
+  const bleed = (bloom - size) / 2;
+
   return (
-    <View style={{ width: size, height: size, alignItems: "center", justifyContent: "center" }}>
-      <View
-        className="absolute rounded-full"
-        style={{ width: size * 1.5, height: size * 1.5, backgroundColor: colors.accent, opacity: 0.08 }}
-      />
+    <View style={{ width: bloom, height: bloom, margin: -bleed, alignItems: "center", justifyContent: "center" }}>
+      <Glow size={bloom} intensity={0.26} />
       <Animated.Image source={LOGO} resizeMode="contain" style={[{ width: size, height: size }, style]} />
     </View>
   );

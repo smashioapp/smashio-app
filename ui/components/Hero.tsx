@@ -5,6 +5,7 @@ import Animated, { FadeInDown, useAnimatedStyle, useSharedValue, withSpring } fr
 import { HERO_TONE, LAYOUT, type HeroTone } from "../lib/theme";
 import { haptics } from "../lib/haptics";
 import { SPRING } from "../lib/motion";
+import { Glow } from "./Glow";
 
 // The v2 anchor (docs/v2-design-plan.md §2 rule 1): exactly one of these per screen. Everything
 // else on the screen drops to a compact row, which is what makes this read as the one thing
@@ -35,19 +36,9 @@ export function Hero({
         overflow: "hidden",
       }}
     >
-      {/* The bloom the design puts behind the top-right corner — a radial in CSS, faked here
-          with a soft-edged gradient circle since RN has no radial-gradient. */}
-      <View
-        pointerEvents="none"
-        style={{ position: "absolute", right: -30, top: -30, width: 140, height: 140, borderRadius: 70, opacity: 0.18 }}
-      >
-        <LinearGradient
-          colors={[HERO_TONE[tone].fg, "transparent"]}
-          start={{ x: 0.5, y: 0 }}
-          end={{ x: 0.5, y: 1 }}
-          style={{ flex: 1, borderRadius: 70 }}
-        />
-      </View>
+      {/* The bloom the design puts behind the top-right corner. Was a vertical LinearGradient in
+          a rounded box, which reads as a hard-edged half-disc — Glow is the real radial. */}
+      <Glow size={190} color={HERO_TONE[tone].fg} intensity={0.24} style={{ right: -55, top: -55 }} />
       {children}
     </LinearGradient>
   );

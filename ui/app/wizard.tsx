@@ -23,6 +23,7 @@ import {
 import { newSessionToken, searchPlaces, getPlaceDetails, type PlacePrediction } from "../lib/places";
 import { StepProgress } from "../components/StepProgress";
 import { Burst } from "../components/Burst";
+import { Glow } from "../components/Glow";
 import { haptics } from "../lib/haptics";
 import { SPRING, useReduceMotion } from "../lib/motion";
 import Animated, {
@@ -136,22 +137,28 @@ function PublishStamp({ active, children }: { active: boolean; children: React.R
         />
       </View>
 
-      <View
-        onLayout={(e) => setCircleSize({ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height })}
-        style={{ width: 72, height: 72 }}
-      >
-        <Animated.View
-          className="w-[72px] h-[72px] rounded-full items-center justify-center"
-          style={[{ backgroundColor: "rgba(214,255,63,0.15)" }, checkStyle]}
+      {/* Bloom box is sized to the glow and pulled back to a 72pt footprint, so the halo can
+          spill past the check without Android clipping it into a hard-edged disc. The inner
+          72pt box stays exactly 72pt because Burst's origin is measured off it. */}
+      <View style={{ width: 176, height: 176, margin: -52, alignItems: "center", justifyContent: "center" }}>
+        <Glow size={176} intensity={0.3} />
+        <View
+          onLayout={(e) => setCircleSize({ width: e.nativeEvent.layout.width, height: e.nativeEvent.layout.height })}
+          style={{ width: 72, height: 72 }}
         >
-          <Ionicons name="checkmark" size={30} color={colors.accent} />
-        </Animated.View>
-        {showBurst && circleSize && (
-          <Burst
-            origin={{ x: circleSize.width / 2, y: circleSize.height / 2 }}
-            onDone={() => setShowBurst(false)}
-          />
-        )}
+          <Animated.View
+            className="w-[72px] h-[72px] rounded-full items-center justify-center"
+            style={[{ backgroundColor: "rgba(214,255,63,0.15)" }, checkStyle]}
+          >
+            <Ionicons name="checkmark" size={30} color={colors.accent} />
+          </Animated.View>
+          {showBurst && circleSize && (
+            <Burst
+              origin={{ x: circleSize.width / 2, y: circleSize.height / 2 }}
+              onDone={() => setShowBurst(false)}
+            />
+          )}
+        </View>
       </View>
 
       <Animated.Text entering={FadeInUp.delay(150).duration(300)} className="font-display text-[23.5px]" style={{ color: colors.text }}>

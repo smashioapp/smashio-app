@@ -13,6 +13,7 @@ import { nextRebookSlot } from "../../lib/schedule";
 import { Screen } from "../../components/Screen";
 import { BackButton } from "../../components/BackButton";
 import { Burst } from "../../components/Burst";
+import { Glow } from "../../components/Glow";
 import { RollingNumber } from "../../components/RollingNumber";
 import { haptics } from "../../lib/haptics";
 import { SPRING } from "../../lib/motion";
@@ -107,7 +108,7 @@ function TierUpMoment({ tierId, color, burst }: { tierId: string; color: string;
 
   return (
     <View className="items-center" style={{ position: "relative", marginTop: 4 }}>
-      <View className="absolute rounded-full" style={{ width: 160, height: 160, backgroundColor: color, opacity: 0.14, top: -30 }} />
+      <Glow size={220} color={color} intensity={0.34} style={{ top: -60 }} />
       <Animated.View style={[{ alignItems: "center" }, style]}>
         <Text className="font-body-extrabold text-[12px] uppercase tracking-[3px]" style={{ color }}>
           Tier up

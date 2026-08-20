@@ -16,7 +16,7 @@ Read [README.md](../README.md), [docs/mvp-spec.md](mvp-spec.md), [docs/business-
 
 The venues-plan §3 discovery sweep HAS been run (2026-08-15) — `scripts/venues/` + `data/venues/`, results in [data/venues/SWEEP-FINDINGS.md](../data/venues/SWEEP-FINDINGS.md). Read it before touching venue data: it found that `seed.sql`'s "NBC Homebush" is stale, that `venues.google_place_id` uniqueness does not stop duplicate venues (NULL place_id on the 8 seeded rows), and that venue matching must never merge on proximity alone.
 
-Testing locally: log in with `test@smashio.dev` / `Test1234!` (email/password form, no Google needed) against the hosted project — seeded test accounts + games, see backend-plan.md's "Test data & local login" section.
+Testing locally: log in with `test@smashio.dev` / `Test1234!` (email/password form, no Google needed). Local dev/e2e run against the local `supabase start` db by default (`ui/.env`, seeded by `supabase/seed.sql`) — the same account also exists on the hosted project with bot accounts + games for manual hosted testing, see backend-plan.md's "Test data & local login" section.
 
 ## Rules
 

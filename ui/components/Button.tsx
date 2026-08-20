@@ -16,6 +16,7 @@ export function Button({
   loading = false,
   icon,
   fullWidth = true,
+  testID,
 }: {
   label: string;
   onPress?: () => void;
@@ -25,6 +26,7 @@ export function Button({
   loading?: boolean;
   icon?: ReactNode;
   fullWidth?: boolean;
+  testID?: string;
 }) {
   const pad = size === "lg" ? "py-4" : size === "md" ? "py-3.5" : "py-2.5";
   const textSize = size === "sm" ? "text-[14.5px]" : size === "md" ? "text-[15.5px]" : "text-[16.5px]";
@@ -60,7 +62,7 @@ export function Button({
   if (variant === "primary") {
     return (
       <Animated.View style={[animatedStyle, fullWidth ? { width: "100%" } : undefined]}>
-        <Pressable onPress={onPress} onPressIn={onPressIn} onPressOut={onPressOut} disabled={isDisabled} className={fullWidth ? "w-full" : ""}>
+        <Pressable testID={testID} onPress={onPress} onPressIn={onPressIn} onPressOut={onPressOut} disabled={isDisabled} className={fullWidth ? "w-full" : ""}>
           <LinearGradient
             colors={isDisabled ? [colors.surfaceAlt, colors.surfaceAlt] : gradients.accent}
             start={{ x: 0, y: 0 }}
@@ -84,6 +86,7 @@ export function Button({
     return (
       <Animated.View style={[animatedStyle, fullWidth ? { width: "100%" } : undefined]}>
         <Pressable
+          testID={testID}
           onPress={onPress}
           onPressIn={onPressIn}
           onPressOut={onPressOut}
@@ -100,6 +103,7 @@ export function Button({
   return (
     <Animated.View style={[animatedStyle, fullWidth ? { width: "100%" } : undefined]}>
       <Pressable
+        testID={testID}
         onPress={onPress}
         onPressIn={onPressIn}
         onPressOut={onPressOut}

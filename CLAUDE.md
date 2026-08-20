@@ -25,7 +25,7 @@ npm run web        # experimental web preview, not a shipped platform
 npx tsc --noEmit   # type check (strict mode; no lint/test scripts configured)
 ```
 
-`ui/.env` needs `EXPO_PUBLIC_SUPABASE_URL` / `EXPO_PUBLIC_SUPABASE_ANON_KEY` (from `supabase start` output). `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` blank = grey map tiles + no venue search in the wizard. Test login: `test@smashio.dev` / `Test1234!` (email/password, no Google needed) against the hosted project.
+`ui/.env` is checked in pointing at the local `supabase start` stack — `npm start` / `run:ios` / `run:android` / jest / Maestro e2e all use it, no setup needed. `ui/.env.production` (gitignored) holds the hosted project's URL/key for `eas build`/`expo export` only — real device/store builds always use it, local dev never does. `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` blank = grey map tiles + no venue search in the wizard. Test login: `test@smashio.dev` / `Test1234!` (email/password, no Google needed) — seeded into both the local db (`supabase/seed.sql`) and the hosted project.
 
 Store builds go through EAS (`ui/eas.json`): `eas build --profile production --platform ios`.
 

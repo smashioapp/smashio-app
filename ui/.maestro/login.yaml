@@ -6,6 +6,8 @@ appId: com.smashio.app
 # typed sign-in form flow, see login-form.yaml.
 - launchApp:
     clearState: true
+    permissions:
+      all: allow
 - extendedWaitUntil:
     visible: "Discover|My Games"
     timeout: 45000

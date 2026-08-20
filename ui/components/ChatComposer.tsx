@@ -98,6 +98,7 @@ export function ChatComposer({
           <Ionicons name="add-circle-outline" size={24} color={colors.textSecondary} />
         </Pressable>
         <TextInput
+          testID="chat-composer-input"
           value={input}
           onChangeText={setInput}
           placeholder={announceHost ? `Announce to ${memberCount} players…` : "Message the group…"}
@@ -107,6 +108,7 @@ export function ChatComposer({
           style={{ backgroundColor: "#141416", borderColor: "rgba(255,255,255,0.1)", color: colors.text, fontSize: 13.5, maxHeight: 110 }}
         />
         <Pressable
+          testID="chat-composer-send"
           onPress={send}
           disabled={!input.trim()}
           className="w-[42px] h-[42px] rounded-full items-center justify-center"

@@ -843,7 +843,11 @@ export default function Discover() {
                 if (item.kind === "day") return <DayHeader label={item.label} compact={headerCompact} />;
                 return (
                   <View className="px-5 pb-3">
-                    <GameCard game={item.game} onPress={() => router.push(`/game/${item.game.id}`)} />
+                    <GameCard
+                      game={item.game}
+                      onPress={() => router.push(`/game/${item.game.id}`)}
+                      testID={`discover-card-${item.game.id}`}
+                    />
                   </View>
                 );
               }}
@@ -859,7 +863,7 @@ export default function Discover() {
               onScroll={(e: NativeSyntheticEvent<NativeScrollEvent>) => scrollHide(e.nativeEvent.contentOffset.y)}
               scrollEventThrottle={32}
               renderItem={({ item, index }: { item: Game; index: number }) => (
-                <GameCard game={item} onPress={() => router.push(`/game/${item.id}`)} />
+                <GameCard game={item} onPress={() => router.push(`/game/${item.id}`)} testID={`discover-card-${item.id}`} />
               )}
             />
           )}

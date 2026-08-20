@@ -1,10 +1,15 @@
 appId: com.smashio.app
 ---
-# Covers: settings -> log out returns to the sign-in screen (no stuck session).
+# Covers: settings -> log out returns to unauthenticated state (no stuck session).
+# index.tsx always redirects unauthenticated users to /onboarding ("Get Started"),
+# never straight to the login screen — that's a separate tap away.
 - runFlow: login.yaml
-- tapOn: "Profile"
-- tapOn: "Settings"
-- tapOn: "Log out"
+- tapOn:
+    id: "tab-profile"
+- tapOn:
+    id: "profile-settings"
+- tapOn:
+    id: "settings-logout"
 - extendedWaitUntil:
-    visible: "Sign in to Smashio"
+    visible: "Get Started"
     timeout: 10000

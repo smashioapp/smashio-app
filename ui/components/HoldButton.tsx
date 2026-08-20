@@ -28,6 +28,7 @@ type HoldButtonProps = {
   disabled?: boolean;
   fullWidth?: boolean;
   sfx?: SfxName;
+  testID?: string;
 };
 
 // Our checkbox equivalent: press-and-hold instead of a tap. The effort is the point —
@@ -41,6 +42,7 @@ export function HoldButton({
   disabled = false,
   fullWidth = true,
   sfx = "pop",
+  testID,
 }: HoldButtonProps) {
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [completed, setCompleted] = useState(false);
@@ -95,6 +97,7 @@ export function HoldButton({
   return (
     <Animated.View style={[containerStyle, fullWidth ? { width: "100%" } : undefined]}>
       <Pressable
+        testID={testID}
         onPressIn={onPressIn}
         onPressOut={onPressOut}
         disabled={isDisabled}

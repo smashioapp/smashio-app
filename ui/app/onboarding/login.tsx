@@ -90,6 +90,7 @@ export default function Login() {
           Email
         </Text>
         <TextInput
+          testID="login-email"
           value={email}
           onChangeText={setEmail}
           placeholder="you@example.com"
@@ -105,6 +106,7 @@ export default function Login() {
           Password
         </Text>
         <TextInput
+          testID="login-password"
           value={password}
           onChangeText={setPassword}
           placeholder="At least 6 characters"
@@ -124,6 +126,7 @@ export default function Login() {
 
         <View className="mt-1">
           <Button
+            testID="login-continue"
             label="Continue"
             loading={loading}
             disabled={!email.trim() || password.length < 6}

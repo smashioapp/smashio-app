@@ -39,10 +39,26 @@ if ! adb devices | grep -q "device$"; then
   sleep 5
 fi
 
+# Sydney CBD — flows assert distance strings / "Closest" sort against this fixed point
+# (docs/e2e-test-plan.md P-5). Without it getCurrentPositionAsync returns whatever the AVD
+# last held, or times out into the same fallback, non-deterministically.
+echo "Setting emulator geo fix (Sydney CBD)..."
+adb emu geo fix 151.2093 -33.8688
+
 echo "Disabling animations (removes Maestro animation-idle stalls)..."
 adb shell settings put global window_animation_scale 0
 adb shell settings put global transition_animation_scale 0
 adb shell settings put global animator_duration_scale 0
+
+# Fixed-UUID fixture (docs/e2e-test-plan.md P-1/P-2) — full reset buys every flow exact-count
+# assertions instead of "not empty". `--no-reset` skips it when iterating on a single flow
+# against whatever's already in the local db.
+if [ "${1:-}" != "--no-reset" ]; then
+  echo "Resetting local Supabase db (fixture + migrations)..."
+  (cd .. && supabase db reset)
+else
+  echo "Skipping db reset (--no-reset)"
+fi
 
 echo "Installing + launching dev build..."
 npx expo run:android

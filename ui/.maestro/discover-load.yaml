@@ -1,10 +1,13 @@
 appId: com.smashio.app
 ---
 - runFlow: login.yaml
-- tapOn: "Discover"
+- tapOn:
+    id: "tab-discover"
 - assertVisible: "Discover"
 - extendedWaitUntil:
     visible:
-      text: ".*"
-    timeout: 5000
+      id: "discover-card-44444444-0000-0000-0000-000000000001"
+    timeout: 10000
+- assertVisible:
+    id: "discover-card-44444444-0000-0000-0000-000000000002"
 - takeScreenshot: discover-loaded

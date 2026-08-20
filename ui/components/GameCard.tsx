@@ -25,6 +25,7 @@ export function GameCard({
   kicker,
   ctaLabel,
   onPress,
+  testID,
 }: {
   game: Game;
   variant?: "featured" | "standard" | "rail";
@@ -32,16 +33,27 @@ export function GameCard({
   kicker?: string;
   ctaLabel?: string;
   onPress: () => void;
+  testID?: string;
 }) {
   if (variant === "rail") return <RailCard game={game} onPress={onPress} />;
   if (variant === "featured") return <FeaturedGameCard game={game} kicker={kicker} ctaLabel={ctaLabel} onPress={onPress} />;
-  return <GameRow game={game} onPress={onPress} />;
+  return <GameRow game={game} onPress={onPress} testID={testID} />;
 }
 
 // Standard weight. Everything v1 crammed onto a card — court graphic, organizer line, scarcity
 // bar, verified badge, inline join button — is gone from this row on purpose (backlog B3-B6):
 // a list is for scanning, and the decision surface is the detail screen.
-export function GameRow({ game, onPress, divider = true }: { game: Game; onPress: () => void; divider?: boolean }) {
+export function GameRow({
+  game,
+  onPress,
+  divider = true,
+  testID,
+}: {
+  game: Game;
+  onPress: () => void;
+  divider?: boolean;
+  testID?: string;
+}) {
   const open = spotsLeft(game);
   return (
     <ListRow
@@ -54,6 +66,7 @@ export function GameRow({ game, onPress, divider = true }: { game: Game; onPress
       trailing={`$${game.cost}`}
       divider={divider}
       onPress={onPress}
+      testID={testID}
     />
   );
 }

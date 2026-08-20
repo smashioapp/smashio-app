@@ -1,23 +1,17 @@
 appId: com.smashio.app
 ---
-# Covers: My Games list renders, opening a game detail screen works, join CTA is reachable.
+# Covers: My Games list renders with fixture data, opening a game detail screen works,
+# join-lifecycle CTA is reachable. Fixture guarantees the test user has upcoming games
+# (supabase/seed.sql §E2E fixture), so this no longer needs a "list is non-empty" guard.
 - runFlow: login.yaml
-# The dev-only "Open debugger to view warnings" banner (Reanimated reduced-motion warning,
-# see login.yaml) can reappear over the bottom tab bar after any screen mount and blocks
-# the tap below — dismiss unconditionally rather than gating on a visibility check that
-# can race it.
 - tapOn:
-    point: "97%,92%"
-    optional: true
-- tapOn: "My Games"
+    id: "tab-my-games"
 - assertVisible: "My Games"
-- runFlow:
-    when:
-      notVisible: "Nothing on your calendar"
-    commands:
-      - tapOn:
-          point: "50%,30%"
-      - extendedWaitUntil:
-          visible: "Request to join|Request sent|Cancel game|Leave game"
-          timeout: 10000
-      - back
+- tapOn:
+    id: "mygames-row-44444444-0000-0000-0000-000000000004"
+- extendedWaitUntil:
+    visible:
+      id: "game-cta"
+    timeout: 10000
+- assertVisible: "Leave game"
+- back

@@ -107,6 +107,7 @@ function TabButton({
       accessibilityRole="tab"
       accessibilityState={{ selected: focused }}
       accessibilityLabel={LABELS[name]}
+      testID={`tab-${name}`}
       className="items-center justify-center"
       style={{ width: NAV.ITEM_WIDTH, height: NAV.ITEM_HEIGHT }}
     >

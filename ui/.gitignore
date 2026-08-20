@@ -36,6 +36,7 @@ yarn-error.*
 # overrides out of git so prod project values never land in a commit
 .env
 .env*.local
+.env.production
 
 # typescript
 *.tsbuildinfo

@@ -145,6 +145,7 @@ export default function Settings() {
           style={{ borderColor: "rgba(255,103,103,0.28)", backgroundColor: "rgba(255,103,103,0.05)" }}
         >
           <Pressable
+            testID="settings-logout"
             className="flex-row justify-between items-center px-3.5 py-3.5"
             style={{ borderBottomWidth: 1, borderColor: "rgba(255,103,103,0.18)" }}
             onPress={handleLogout}

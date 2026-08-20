@@ -167,7 +167,7 @@ supabase functions deploy ai-proxy push-dispatch delete-account
 supabase secrets set ANTHROPIC_API_KEY=... PUSH_DISPATCH_KEY=...
 ```
 
-Then point `ui/.env` at the hosted project's URL + anon key, and provision the Google OAuth client + Maps API key for production (restrict by package name + SHA-1 before shipping — see inline comments in `ui/.env.example`).
+Then point `ui/.env.production` at the hosted project's URL + anon key (`ui/.env` stays on the local Docker stack — real device/store builds load `.env.production` automatically, forced by Expo's production bundling mode), and provision the Google OAuth client + Maps API key for production (restrict by package name + SHA-1 before shipping — see inline comments in `ui/.env.example`).
 
 ## App store builds
 

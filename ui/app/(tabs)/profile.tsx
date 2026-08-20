@@ -152,7 +152,7 @@ export default function Profile() {
               </View>
             </View>
           </Pressable>
-          <ListRow title="Settings" accessory="chevron" onPress={() => router.push("/settings")} />
+          <ListRow title="Settings" accessory="chevron" onPress={() => router.push("/settings")} testID="profile-settings" />
           <ListRow title="Delete account" accessory="chevron" danger divider={false} onPress={() => router.push("/delete-account")} />
         </View>
 

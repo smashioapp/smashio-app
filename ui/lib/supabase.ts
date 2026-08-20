@@ -5,8 +5,16 @@ import { createClient } from "@supabase/supabase-js";
 import { Platform } from "react-native";
 import type { Database } from "./db.types";
 
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const rawSupabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+// Android emulators can't reach the host machine's 127.0.0.1/localhost (that's the
+// emulator itself) — 10.0.2.2 is the documented alias back to the host, needed to hit
+// `supabase start`'s local API from a dev-mode Android build.
+const supabaseUrl =
+  __DEV__ && Platform.OS === "android" && rawSupabaseUrl
+    ? rawSupabaseUrl.replace(/127\.0\.0\.1|localhost/, "10.0.2.2")
+    : rawSupabaseUrl;
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error(

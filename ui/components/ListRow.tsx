@@ -18,6 +18,7 @@ export function ListRow({
   divider = true,
   danger = false,
   onPress,
+  testID,
 }: {
   dotColor?: string;
   title: string;
@@ -31,6 +32,7 @@ export function ListRow({
   divider?: boolean;
   danger?: boolean;
   onPress?: () => void;
+  testID?: string;
 }) {
   const body = (
     <View className="flex-row items-center gap-2.5" style={{ paddingVertical: 11 }}>
@@ -66,6 +68,7 @@ export function ListRow({
   if (!onPress) return wrapped;
   return (
     <Pressable
+      testID={testID}
       onPress={() => {
         haptics.tick();
         onPress();

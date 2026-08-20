@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { Platform } from "react-native";
+import { Linking, Platform } from "react-native";
 import { router } from "expo-router";
 import { supabase } from "./supabase";
 import { consumePendingReferral } from "./referral";
@@ -44,7 +44,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       }
 
       const { data } = await supabase.auth.getSession();
-      if (!data.session && __DEV__ && process.env.EXPO_PUBLIC_E2E_EMAIL) {
+      // login-form.yaml opts out via ?e2e_manual_login=1 on the cold-launch deep link —
+      // it exercises the typed sign-in form and needs the onboarding/login screens to
+      // actually render instead of being skipped by the shortcut below.
+      const initialUrl = __DEV__ ? await Linking.getInitialURL() : null;
+      const manualLoginRequested = !!initialUrl && new URLSearchParams(initialUrl.split("?")[1]).get("e2e_manual_login") === "1";
+      if (!data.session && __DEV__ && process.env.EXPO_PUBLIC_E2E_EMAIL && !manualLoginRequested) {
         // Maestro flows skip the login form entirely — typing on the emulator can take
         // 10s/char (Maestro #2718 on API 36+ animation-idle wait). __DEV__ guard keeps
         // this out of release builds. supabase-js's fetch has no built-in timeout, and a

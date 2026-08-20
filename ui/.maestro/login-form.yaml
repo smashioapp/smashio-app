@@ -3,36 +3,33 @@ appId: com.smashio.app
 # Exercises the real typed sign-in form (login.yaml uses the __DEV__ auto-login
 # shortcut instead — this is the flow that actually covers form input + auth).
 # Assumes the seeded test account: test@smashio.dev / Test1234!
-#
-# Dismisses the dev-only "Open debugger to view warnings" banner (fired by
-# Reanimated's reduced-motion warning) — it can appear a beat after each screen
-# mounts, so the dismiss tap is unconditional + optional rather than gated on a
-# visibility check that can race it.
 - launchApp:
     clearState: true
+    permissions:
+      all: allow
+# launchApp's own stopApp races the deep-link intent below against RN's bridgeless
+# context init (onNewIntent fires while "context is not ready", dropping the URL
+# silently — confirmed via logcat). Let the app fully settle once, then kill and
+# cold-launch via openLink as the only start event so the intent actually lands.
+- stopApp
+- openLink: "smashio://?e2e_manual_login=1"
 - extendedWaitUntil:
     visible: "Get Started"
     timeout: 45000
-- waitForAnimationToEnd:
-    timeout: 3000
 - tapOn:
-    point: "97%,92%"
-    optional: true
-- tapOn: "Get Started"
-- waitForAnimationToEnd:
-    timeout: 3000
-- tapOn:
-    point: "97%,92%"
-    optional: true
+    id: "onboarding-get-started"
 - extendedWaitUntil:
     visible: "Sign in to Smashio"
     timeout: 15000
-- tapOn: "you@example.com"
+- tapOn:
+    id: "login-email"
 - inputText: "test@smashio.dev"
-- tapOn: "At least 6 characters"
+- tapOn:
+    id: "login-password"
 - inputText: "Test1234!"
 - hideKeyboard
-- tapOn: "Continue"
+- tapOn:
+    id: "login-continue"
 - extendedWaitUntil:
     visible: "Discover|My Games"
     timeout: 45000

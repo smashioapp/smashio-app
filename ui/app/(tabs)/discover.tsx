@@ -24,6 +24,7 @@ import { GameCard } from "../../components/GameCard";
 import { EmptyState } from "../../components/EmptyState";
 import { GameMap, GameMapHandle, venueKeyOf, venueKeyOfCoords, NoGameVenue } from "../../components/GameMap";
 import { MapSheet, MapSheetHandle, sheetSnapHeights } from "../../components/MapSheet";
+import { MapCourtCard } from "../../components/MapCourtCard";
 import { RefreshableList } from "../../components/RefreshableList";
 import { GameCardSkeletonList } from "../../components/Skeleton";
 import { Sheet } from "../../components/Sheet";
@@ -420,6 +421,11 @@ export default function Discover() {
   // Client-side name/suburb filter over the pins already fetched (docs/v2-design-plan.md §4.2) —
   // no geocoded search in this pass, see backlog B8.
   const [mapSearch, setMapSearch] = useState("");
+  // Games | Courts mode (P2, discover-map-ux-plan.md §4.1) — auto-selected by liquidity
+  // (games if any are in radius, courts otherwise) until the viewer touches the control
+  // themselves, same "personalise until touched" pattern as the level filter above.
+  const [mapMode, setMapMode] = useState<"games" | "courts">("games");
+  const mapModeTouched = useRef(false);
   // Clears geometry above the floating tab bar (lib/nav.ts) — the sheet must never sit under
   // the centre host FAB the bar itself renders.
   const mapSheetBottomSpace = tabBarBottom(insets.bottom) + NAV.BAR_HEIGHT + NAV.RAIL_GAP;
@@ -448,6 +454,10 @@ export default function Discover() {
     if (discoverView !== "map") {
       setMapAreaOverride(null);
       setMapSearch("");
+      // Un-touch the mode too, so the next time the map opens it re-picks by liquidity
+      // instead of sticking on whatever the viewer last chose in a different area.
+      mapModeTouched.current = false;
+      setMapMode("games");
     }
   }, [discoverView]);
 
@@ -492,6 +502,18 @@ export default function Discover() {
     { enabled: discoverView === "map" }
   );
   const mapPinnedGamesAll = (mapQuery.data ?? []).filter((g) => g.venueLat != null && g.venueLng != null);
+
+  // Mode auto-select (§4.1) — games if any are in radius, courts otherwise. Waits for the
+  // query so a mid-fetch empty array can't flash Courts mode and then snap back to Games.
+  useEffect(() => {
+    if (discoverView !== "map" || mapQuery.isLoading || mapModeTouched.current) return;
+    setMapMode(mapPinnedGamesAll.length > 0 ? "games" : "courts");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [discoverView, mapQuery.isLoading, mapPinnedGamesAll.length]);
+  const handleSetMapMode = (m: "games" | "courts") => {
+    mapModeTouched.current = true;
+    setMapMode(m);
+  };
 
   // Client-side name/suburb filter over the pins already fetched (docs/v2-design-plan.md §4.2,
   // backlog B8 — no geocoded search yet). Only narrows what's shown, never re-fetches.
@@ -679,6 +701,21 @@ export default function Discover() {
     [noGameVenues, mapCenter.lat, mapCenter.lng]
   );
   const nearestVenue = nearestVenues[0];
+
+  // Sport scoping (D9, §4.7) — Courts mode only shows venues that can actually host the
+  // active sport (badminton is the only one that ships, so this is courts_badminton). A venue
+  // with no court count on file stays visible but sorts last: unknown isn't evidence of absence.
+  const courtsModeVenues = useMemo(
+    () =>
+      nearestVenues
+        .filter((v) => v.courtsBadminton == null || v.courtsBadminton > 0)
+        .sort((a, b) => {
+          const aKnown = a.courtsBadminton != null ? 0 : 1;
+          const bKnown = b.courtsBadminton != null ? 0 : 1;
+          return aKnown - bKnown;
+        }),
+    [nearestVenues]
+  );
   const handleHostAtNearest = () => {
     if (!nearestVenue) {
       router.push("/wizard");
@@ -760,9 +797,25 @@ export default function Discover() {
           <Text className="font-display text-[30px]" style={{ color: colors.text }}>
             Discover
           </Text>
-          <Text className="text-[12.5px] font-body-bold mt-0.5 uppercase" style={{ color: colors.textSecondary, letterSpacing: 0.6 }}>
-            {locationLabel.toUpperCase()} · {discoverRadiusKm}KM RADIUS
-          </Text>
+          {/* D5 (discover-map-ux-plan.md §4.5) — once the camera has actually diverged from the
+              filter-driven center (a pan + "search this area"), the header stops claiming to
+              describe a location it isn't showing anymore. */}
+          {discoverView === "map" && mapAreaOverride ? (
+            <View className="flex-row items-center gap-1.5 mt-0.5">
+              <Text className="text-[12.5px] font-body-bold uppercase" style={{ color: colors.textSecondary, letterSpacing: 0.6 }}>
+                SHOWING THIS AREA · {Math.round(mapRadiusKm)}KM
+              </Text>
+              <Pressable onPress={() => setMapAreaOverride(null)} hitSlop={6}>
+                <Text className="text-[12.5px] font-body-extrabold uppercase" style={{ color: colors.accent, letterSpacing: 0.6 }}>
+                  · Back to {locationLabel.toUpperCase()}
+                </Text>
+              </Pressable>
+            </View>
+          ) : (
+            <Text className="text-[12.5px] font-body-bold mt-0.5 uppercase" style={{ color: colors.textSecondary, letterSpacing: 0.6 }}>
+              {locationLabel.toUpperCase()} · {discoverRadiusKm}KM RADIUS
+            </Text>
+          )}
         </View>
         <View className="flex-row items-center gap-2">
           <Pressable
@@ -919,16 +972,18 @@ export default function Discover() {
         >
           <GameMap
             ref={mapRef}
-            games={mapPinnedGames}
+            games={mapMode === "games" ? mapPinnedGames : []}
             center={mapAreaOverride ? { lat: mapAreaOverride.lat, lng: mapAreaOverride.lng, isDeviceLocation: false } : userLocation}
             onSelectGame={handleSelectFromMap}
             selectedGameId={selectedGameId}
-            radiusKm={mapAreaOverride ? null : discoverRadiusKm}
+            // Radius ring is a Games-mode-only affordance (§4.1's per-mode table) — Courts mode
+            // has no query radius to visualise, the directory just is what it is.
+            radiusKm={mapMode === "games" && !mapAreaOverride ? discoverRadiusKm : null}
             bottomInset={sheetHeight}
             onSearchThisArea={(region) => setMapAreaOverride(region)}
-            noGameVenues={noGameVenues}
+            noGameVenues={mapMode === "games" ? noGameVenues : courtsModeVenues}
             onSelectNoGameVenue={handleSelectNoGameVenue}
-            ownGames={ownMapGames}
+            ownGames={mapMode === "games" ? ownMapGames : []}
           />
 
           {/* Floating search + Tonight chip (docs/v2-design-plan.md §4.2) — glass-backed, sits
@@ -963,20 +1018,56 @@ export default function Discover() {
                 <Ionicons name="options-outline" size={17} color={colors.textDim} />
               </Pressable>
             </View>
-            <View className="flex-row">
-              <Chip
-                label="Tonight"
-                active={whenFilter === "tonight"}
-                onPress={() => setWhenFilter(whenFilter === "tonight" ? "all" : "tonight")}
-                size="sm"
+            {/* Games | Courts (P2, §4.1) replaces the lone Tonight chip's position — Tonight
+                only makes sense once you're looking at games, so it moves inside that mode. */}
+            <View className="flex-row items-center gap-2">
+              <SegmentedToggle
+                options={[
+                  { key: "games", label: "Games" },
+                  { key: "courts", label: "Courts" },
+                ]}
+                value={mapMode}
+                onChange={handleSetMapMode}
               />
+              {mapMode === "games" && (
+                <Chip
+                  label="Tonight"
+                  active={whenFilter === "tonight"}
+                  onPress={() => setWhenFilter(whenFilter === "tonight" ? "all" : "tonight")}
+                  size="sm"
+                />
+              )}
+            </View>
+
+            {/* Pin legend (P1, D3 of the plan's "what that means for us" table) — every pin
+                type gets a labelled swatch so none of them depend on an icon reading correctly
+                out of context. */}
+            <View className="flex-row items-center gap-3 rounded-pill px-3 py-1.5 self-start" style={{ backgroundColor: "rgba(23,23,26,0.9)" }}>
+              <View className="flex-row items-center gap-1.5">
+                <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: colors.accent }} />
+                <Text className="text-[10.5px] font-body-bold" style={{ color: colors.textSecondary }}>
+                  Game
+                </Text>
+              </View>
+              <View className="flex-row items-center gap-1.5">
+                <View style={{ width: 8, height: 8, borderRadius: 4, borderWidth: 1.5, borderColor: colors.accent, backgroundColor: "transparent" }} />
+                <Text className="text-[10.5px] font-body-bold" style={{ color: colors.textSecondary }}>
+                  Yours
+                </Text>
+              </View>
+              <View className="flex-row items-center gap-1.5">
+                <View style={{ width: 8, height: 8, borderRadius: 4, borderWidth: 1.5, borderColor: colors.textMuted, backgroundColor: colors.surfaceAlt }} />
+                <Text className="text-[10.5px] font-body-bold" style={{ color: colors.textSecondary }}>
+                  Court
+                </Text>
+              </View>
             </View>
           </View>
 
           <MapSheet
             ref={mapSheetRef}
-            pinnedGames={mapPinnedGames}
-            venueGroups={mapVenueGroups}
+            pinnedGames={mapMode === "games" ? mapPinnedGames : []}
+            venueGroups={mapMode === "games" ? mapVenueGroups : []}
             bottomSpace={mapSheetBottomSpace}
             onCardPress={(id) => router.push(`/game/${id}`)}
             onCarouselSettle={handleCarouselSettle}
@@ -991,6 +1082,23 @@ export default function Discover() {
             // nearest-courts list below it is the "sheet reflects the pins" fix for D1 — every
             // pin on the map now has a matching row here, even at zero game liquidity.
             emptyState={
+              mapMode === "courts" ? (
+                // Courts mode's own sheet body (§4.1) — never empty, the directory always has
+                // rows. Reuses MapSheet's emptyState slot rather than adding a second sheet
+                // implementation, since Courts mode always sets pinnedGames=[] above.
+                <View className="gap-2 px-5 pb-4">
+                  <Text className="text-[12px] font-body-bold uppercase mb-1" style={{ color: colors.textTertiary, letterSpacing: 0.5 }}>
+                    {courtsModeVenues.length} court{courtsModeVenues.length === 1 ? "" : "s"} near you
+                  </Text>
+                  {courtsModeVenues.length === 0 ? (
+                    <Text className="text-[13px]" style={{ color: colors.textSecondary }}>
+                      No badminton courts on file for this area yet.
+                    </Text>
+                  ) : (
+                    courtsModeVenues.map((v) => <MapCourtCard key={v.id} venue={v} onPress={handleSelectNoGameVenue} />)
+                  )}
+                </View>
+              ) : (
               <View className="gap-3 px-5 pb-4">
                 <View className="items-center gap-1.5 px-1">
                   <Ionicons name="search-outline" size={24} color={colors.textTertiary} />
@@ -1075,6 +1183,7 @@ export default function Discover() {
                   </View>
                 )}
               </View>
+              )
             }
           />
         </Animated.View>

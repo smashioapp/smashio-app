@@ -1,5 +1,5 @@
 import { forwardRef, useImperativeHandle, useState } from "react";
-import { View, Text, FlatList, Dimensions, NativeSyntheticEvent, NativeScrollEvent } from "react-native";
+import { View, Text, FlatList, ScrollView, Dimensions, NativeSyntheticEvent, NativeScrollEvent } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
@@ -121,7 +121,12 @@ export const MapSheet = forwardRef<MapSheetHandle, MapSheetProps>(function MapSh
         </GestureDetector>
 
         {pinnedGames.length === 0 ? (
-          <View style={{ paddingTop: 8 }}>{emptyState}</View>
+          // The sheet's outer edge clips (overflow:hidden, animated height) — the empty ladder
+          // and the Courts-mode card list (up to a few dozen rows) both need to scroll within
+          // whatever snap the sheet is currently at, not spill past it silently.
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingTop: 8, paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
+            {emptyState}
+          </ScrollView>
         ) : (
           <>
             <FlatList

@@ -221,16 +221,13 @@ function ClusterBubble({ cluster, onPress }: { cluster: Cluster; onPress: () => 
   );
 }
 
-function NoGameVenuePin({ venue, onPress }: { venue: NoGameVenue; onPress: () => void }) {
-  const tracks = useTracksViewChanges([], 60);
-  // Directory venues (has_profile) get a solid, more opaque pin so they read as "a real place
-  // with facility data", not just a faint host-here dot. club_only/members_only still gets the
-  // directory-pin treatment (it's a known, real venue) but never the "host here" affordance —
-  // that's enforced by the tap handler in discover.tsx, not here.
-  const isDirectory = venue.hasProfile === true;
-  // Restricted pins get the same "can't book this" language as cards/badges (confidence
-  // system, design/23bc2cae panel 5): dashed border instead of a solid fill.
-  const restricted = venue.bookability === "club_only" || venue.bookability === "members_only";
+// Court pin (P1, discover-map-ux-plan.md §4.2) — one size, one colour, no glyph. The medal
+// (dedicated), lock (club/members-only) and hollow-ring (non-directory) variants this used to
+// branch on are "properties of the place", not the pin shape — they now live on the court card
+// in the sheet, where there's room for the word "Members only" instead of a 9px icon that fails
+// the out-of-context icon test (NN/g) before it's even run.
+function NoGameVenuePin({ venue, onPress, showLabel }: { venue: NoGameVenue; onPress: () => void; showLabel: boolean }) {
+  const tracks = useTracksViewChanges([showLabel], 60);
   return (
     <Marker
       coordinate={{ latitude: venue.lat, longitude: venue.lng }}
@@ -238,33 +235,35 @@ function NoGameVenuePin({ venue, onPress }: { venue: NoGameVenue; onPress: () =>
         haptics.tap();
         onPress();
       }}
-      opacity={isDirectory ? 0.85 : 0.4}
+      anchor={{ x: 0.5, y: 0.5 }}
       tracksViewChanges={tracks}
     >
-      {isDirectory ? (
+      {/* D8: visual dot is 20px, but the tap target is the full 44x44pt Apple minimum — padding
+          on a transparent wrapper, not a bigger dot. */}
+      <View style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}>
         <View
-          className="rounded-full items-center justify-center"
-          style={
-            restricted
-              ? { width: 16, height: 16, backgroundColor: colors.surfaceAlt, borderColor: colors.textMuted, borderWidth: 1.5, borderStyle: "dashed" }
-              : { width: 16, height: 16, backgroundColor: colors.accent, borderColor: colors.base, borderWidth: 1.5 }
-          }
-        >
-          <Ionicons
-            name={restricted ? "lock-closed" : venue.dedicated ? "medal" : "location"}
-            size={9}
-            color={restricted ? colors.textMuted : colors.base}
-          />
-        </View>
-      ) : (
-        <View
-          className="rounded-full items-center justify-center border"
-          style={{ width: 10, height: 10, backgroundColor: "transparent", borderColor: colors.textMuted, borderWidth: 1.5 }}
+          className="rounded-full border"
+          style={{ width: 20, height: 20, backgroundColor: colors.surfaceAlt, borderColor: colors.textMuted, borderWidth: 2 }}
         />
-      )}
+        {showLabel && (
+          <View
+            className="absolute rounded-md px-1.5 py-0.5"
+            style={{ top: 30, backgroundColor: "rgba(23,23,26,0.9)", maxWidth: 120 }}
+          >
+            <Text numberOfLines={1} className="font-body-bold text-[10px]" style={{ color: colors.textSecondary }}>
+              {venue.name}
+            </Text>
+          </View>
+        )}
+      </View>
     </Marker>
   );
 }
+
+// z>=14 threshold for venue name labels (§4.3) — latitudeDelta shrinks as zoom increases;
+// 0.006 is roughly city-block scale on a phone screen, empirically where "which court is that"
+// becomes a real question.
+const LABEL_ZOOM_DELTA = 0.006;
 
 // "Yours" pin (D7) — the game pill's shape so it still reads as "a game", plus an accent ring
 // and a "You" label prefix so it's unmistakably not one you could join. Never clusters, never
@@ -418,7 +417,7 @@ export const GameMap = forwardRef<GameMapHandle, GameMapProps>(function GameMap(
       )}
 
       {noGameVenues.map((v) => (
-        <NoGameVenuePin key={v.id} venue={v} onPress={() => onSelectNoGameVenue?.(v)} />
+        <NoGameVenuePin key={v.id} venue={v} onPress={() => onSelectNoGameVenue?.(v)} showLabel={delta < LABEL_ZOOM_DELTA} />
       ))}
 
       {ownGames

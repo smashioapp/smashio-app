@@ -36,6 +36,7 @@ function toGame(row: NearbyGameRow): Game {
     maxPlayers: row.max_players,
     courtsBooked: row.courts_booked,
     durationHours: row.duration_hours,
+    reservedSpots: row.reserved_spots ?? 0,
     // Named roster is a separate fetch (useGameRoster), gated by RLS to organizer + approved
     // members — a discover card only ever gets the headcount.
     joined: [],
@@ -75,6 +76,7 @@ function toGameFromPublicRow(row: GamesPublicRow): Game {
     maxPlayers: row.max_players!,
     courtsBooked: row.courts_booked ?? 1,
     durationHours: row.duration_hours ?? 2,
+    reservedSpots: row.reserved_spots ?? 0,
     joined: [],
     joinedCount: row.approved_count ?? 0,
     cost: (row.cost_per_player_cents ?? 0) / 100,
@@ -212,6 +214,7 @@ export function useCreateGame() {
       courtsBooked: number;
       durationHours: number;
       costPerPlayerCents: number;
+      reservedSpots?: number;
     }) => {
       const {
         data: { user },
@@ -232,6 +235,7 @@ export function useCreateGame() {
           courts_booked: input.courtsBooked,
           duration_hours: input.durationHours,
           cost_per_player_cents: input.costPerPlayerCents,
+          reserved_spots: input.reservedSpots ?? 0,
         })
         .select("id")
         .single();
@@ -263,6 +267,7 @@ export function useUpdateGame(gameId: string) {
       courtsBooked: number;
       durationHours: number;
       costPerPlayerCents: number;
+      reservedSpots: number;
     }) => {
       const { error } = await supabase
         .from("games")
@@ -274,6 +279,7 @@ export function useUpdateGame(gameId: string) {
           courts_booked: input.courtsBooked,
           duration_hours: input.durationHours,
           cost_per_player_cents: input.costPerPlayerCents,
+          reserved_spots: input.reservedSpots,
         })
         .eq("id", gameId);
       if (error) throw error;

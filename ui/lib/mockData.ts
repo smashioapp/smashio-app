@@ -20,6 +20,9 @@ export type Game = {
   maxPlayers: number;
   courtsBooked: number;
   durationHours: number;
+  // Spots the host has taken off max_players for people joining outside the app (own friends,
+  // teammates) — not named, just a count. See spotsLeft below.
+  reservedSpots: number;
   // Named roster — only populated where the viewer is allowed to see it (organizer/approved
   // member); everyone else sees `joinedCount` only. See useGameRoster's RLS-driven privacy.
   joined: Player[];
@@ -73,8 +76,8 @@ export type PastGame = {
   startsAtIso: string;
 };
 
-export function spotsLeft(game: Pick<Game, "joinedCount" | "maxPlayers">): number {
-  return Math.max(0, game.maxPlayers - game.joinedCount);
+export function spotsLeft(game: Pick<Game, "joinedCount" | "maxPlayers" | "reservedSpots">): number {
+  return Math.max(0, game.maxPlayers - game.joinedCount - game.reservedSpots);
 }
 
 export type LevelFit = "below" | "match" | "one-above" | "above";

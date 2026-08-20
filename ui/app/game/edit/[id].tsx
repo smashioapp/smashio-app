@@ -1,15 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { View, Text, Pressable, ScrollView, Alert } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { colors, TIERS, type TierId } from "../../../lib/theme";
 import { formatDate, formatTimeRange } from "../../../lib/format";
-import { MAX_DURATION_HOURS, MIN_DURATION_HOURS, TIME_OPTIONS, dateOptions, durationMs, isSlotBookable, slotAt } from "../../../lib/schedule";
+import { MAX_DURATION_HOURS, MIN_DURATION_HOURS, durationMs, isSlotBookable, slotAt } from "../../../lib/schedule";
 import { MAX_COST_PER_PLAYER_PER_HOUR, MAX_COURTS_BOOKED, MAX_PLAYERS, MIN_COURTS_BOOKED, MIN_PLAYERS } from "../../../lib/store";
 import { useCancelGame, useGameDetail, useUpdateGame } from "../../../lib/queries/games";
 import { useGameRoster } from "../../../lib/queries/gamePlayers";
 import { useSkillTiers } from "../../../lib/queries/sports";
-import { Chip } from "../../../components/Chip";
 import { Button } from "../../../components/Button";
 import { BackButton } from "../../../components/BackButton";
 import { haptics } from "../../../lib/haptics";
@@ -32,6 +32,7 @@ export default function EditGame() {
   const [courtsBooked, setCourtsBooked] = useState(1);
   const [durationHours, setDurationHours] = useState(2);
   const [cost, setCost] = useState(8);
+  const [reservedSpots, setReservedSpots] = useState(0);
 
   // Seed the form from the loaded game exactly once — later refetches must not stomp edits
   // the organiser has already made.
@@ -43,6 +44,7 @@ export default function EditGame() {
     setCourtsBooked(game.courtsBooked);
     setDurationHours(game.durationHours);
     setCost(game.cost);
+    setReservedSpots(game.reservedSpots);
   }, [game, startsAt]);
 
   // max_players can't drop below the roster — the DB rejects it, so don't let the stepper
@@ -50,7 +52,6 @@ export default function EditGame() {
   const approvedCount = rosterQuery.data?.length ?? 0;
   const minPlayers = Math.max(MIN_PLAYERS, approvedCount);
   const maxCost = durationHours * MAX_COST_PER_PLAYER_PER_HOUR;
-  const days = useMemo(() => dateOptions(), []);
 
   if (gameQuery.isLoading || !startsAt) {
     return (
@@ -86,7 +87,7 @@ export default function EditGame() {
       return;
     }
     updateGame.mutate(
-      { startsAt, skillTierId: tier.id, maxPlayers, courtsBooked, durationHours, costPerPlayerCents: Math.round(cost * 100) },
+      { startsAt, skillTierId: tier.id, maxPlayers, courtsBooked, durationHours, costPerPlayerCents: Math.round(cost * 100), reservedSpots },
       {
         onSuccess: () => {
           haptics.success();
@@ -150,32 +151,42 @@ export default function EditGame() {
         </View>
 
         <Label>Date</Label>
-        <View className="flex-row flex-wrap gap-2 mb-5">
-          {days.map(({ label, date }) => {
-            const active = date.toDateString() === startsAt.toDateString();
-            return (
-              <Chip
-                key={label}
-                label={label}
-                active={active}
-                onPress={() => setStartsAt(slotAt(date, startsAt.getHours(), startsAt.getMinutes()))}
-              />
-            );
-          })}
+        <View className="rounded-2xl p-2 mb-5 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
+          <DateTimePicker
+            value={startsAt}
+            mode="date"
+            display="inline"
+            minimumDate={new Date()}
+            themeVariant="dark"
+            accentColor={colors.accent}
+            onChange={(_e, date) => {
+              if (!date) return;
+              setStartsAt(slotAt(date, startsAt.getHours(), startsAt.getMinutes()));
+            }}
+          />
         </View>
 
-        <Label>Time slot</Label>
-        <View className="flex-row flex-wrap gap-2 mb-5">
-          {TIME_OPTIONS.map(({ label, h, m }) => {
-            const active = startsAt.getHours() === h && startsAt.getMinutes() === m;
-            const bookable = isSlotBookable(startsAt, h, m);
-            return (
-              <View key={label} style={{ opacity: bookable || active ? 1 : 0.35 }}>
-                <Chip label={label} active={active} onPress={() => bookable && setStartsAt(slotAt(startsAt, h, m))} />
-              </View>
-            );
-          })}
+        <Label>Time</Label>
+        <View className="rounded-2xl items-center mb-2 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
+          <DateTimePicker
+            value={startsAt}
+            mode="time"
+            display="spinner"
+            minuteInterval={5}
+            themeVariant="dark"
+            textColor={colors.text}
+            onChange={(_e, date) => {
+              if (!date) return;
+              setStartsAt(slotAt(startsAt, date.getHours(), date.getMinutes()));
+            }}
+          />
         </View>
+        {startInPast && (
+          <Text className="text-[13.5px] mb-5 text-center" style={{ color: colors.advanced }}>
+            That slot has already passed. Pick a later time or another day.
+          </Text>
+        )}
+        {!startInPast && <View className="mb-5" />}
 
         <Label>Skill level</Label>
         <View className="mb-5">
@@ -205,16 +216,47 @@ export default function EditGame() {
           className="flex-row items-center justify-center gap-6 rounded-2xl p-4.5 mb-1.5 border"
           style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}
         >
-          <Stepper icon="remove" disabled={maxPlayers <= minPlayers} onPress={() => setMaxPlayers(Math.max(minPlayers, maxPlayers - 2))} />
+          <Stepper
+            icon="remove"
+            disabled={maxPlayers <= minPlayers}
+            onPress={() => {
+              const next = Math.max(minPlayers, maxPlayers - 2);
+              setMaxPlayers(next);
+              setReservedSpots((r) => Math.min(r, next - approvedCount));
+            }}
+          />
           <Text className="font-display text-[28px]" style={{ color: colors.accent }}>
             {maxPlayers}
           </Text>
-          <Stepper icon="add" disabled={maxPlayers >= MAX_PLAYERS} onPress={() => setMaxPlayers(Math.min(MAX_PLAYERS, maxPlayers + 2))} />
+          <Stepper
+            icon="add"
+            disabled={maxPlayers >= MAX_PLAYERS}
+            onPress={() => setMaxPlayers(Math.min(MAX_PLAYERS, maxPlayers + 2))}
+          />
         </View>
         <Text className="text-[13px] mb-5" style={{ color: colors.textMuted }}>
           {approvedCount > 0
             ? `${approvedCount} already approved, so this can't go below ${minPlayers}.`
             : "No one's joined yet, so you can still change this freely."}
+        </Text>
+
+        <Label>Reserved spots</Label>
+        <View
+          className="flex-row items-center justify-center gap-6 rounded-2xl p-4.5 mb-1.5 border"
+          style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}
+        >
+          <Stepper icon="remove" disabled={reservedSpots <= 0} onPress={() => setReservedSpots(Math.max(0, reservedSpots - 1))} />
+          <Text className="font-display text-[28px]" style={{ color: colors.accent }}>
+            {reservedSpots}
+          </Text>
+          <Stepper
+            icon="add"
+            disabled={reservedSpots >= maxPlayers - approvedCount}
+            onPress={() => setReservedSpots(Math.min(maxPlayers - approvedCount, reservedSpots + 1))}
+          />
+        </View>
+        <Text className="text-[13px] mb-5" style={{ color: colors.textMuted }}>
+          Spots you're taking for people joining outside the app — held back from the {maxPlayers} above.
         </Text>
 
         <Label>Courts booked</Label>

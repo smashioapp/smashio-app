@@ -177,10 +177,13 @@ export default function Wizard() {
     decCourts,
     incHours,
     decHours,
+    incReservedSpots,
+    decReservedSpots,
     setMaxPlayers,
     setCourtsBooked,
     setDurationHours,
     setCost,
+    setReservedSpots,
   } = useAppStore();
 
   const { data: sports = [] } = useSports();
@@ -240,6 +243,7 @@ export default function Wizard() {
       setCourtsBooked(seed.courtsBooked);
       setDurationHours(seed.durationHours);
       setCost(seed.cost);
+      setReservedSpots(0);
       setSelectedVenue({ name: seed.venueName, suburb: seed.venueSuburb, address: seed.venueAddress });
       setVenueQuery(seed.venueName);
       setEntryMode("manual");
@@ -565,6 +569,7 @@ export default function Wizard() {
         courtsBooked: wizard.courtsBooked,
         durationHours: wizard.durationHours,
         costPerPlayerCents: Math.round(wizard.cost * 100),
+        reservedSpots: wizard.reservedSpots,
       });
     } catch (e) {
       haptics.error();
@@ -819,13 +824,25 @@ export default function Wizard() {
         );
       })}
       <Label style={{ marginTop: 8 }}>Max players</Label>
-      <View className="flex-row items-center justify-center gap-6 rounded-2xl p-4.5 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
+      <View className="flex-row items-center justify-center gap-6 rounded-2xl p-4.5 mb-5 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
         <Stepper onPress={decPlayers} icon="remove" />
         <Text className="font-display text-[28px]" style={{ color: colors.accent }}>
           {wizard.maxPlayers}
         </Text>
         <Stepper onPress={incPlayers} icon="add" />
       </View>
+
+      <Label>Reserved spots</Label>
+      <View className="flex-row items-center justify-center gap-6 rounded-2xl p-4.5 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
+        <Stepper onPress={decReservedSpots} icon="remove" disabled={wizard.reservedSpots <= 0} />
+        <Text className="font-display text-[28px]" style={{ color: colors.accent }}>
+          {wizard.reservedSpots}
+        </Text>
+        <Stepper onPress={incReservedSpots} icon="add" disabled={wizard.reservedSpots >= wizard.maxPlayers} />
+      </View>
+      <Text className="text-[13px] mt-2" style={{ color: colors.textMuted }}>
+        Spots you're taking for people joining outside the app — held back from the {wizard.maxPlayers} above.
+      </Text>
     </View>
   );
 

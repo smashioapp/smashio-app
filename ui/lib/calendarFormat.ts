@@ -5,7 +5,7 @@ import { spotsLeft, type Game } from "./mockData";
 
 export type CalendarGame = Pick<
   Game,
-  "id" | "venue" | "venueAddress" | "suburb" | "startsAt" | "endsAt" | "cost" | "joinedCount" | "maxPlayers"
+  "id" | "venue" | "venueAddress" | "suburb" | "startsAt" | "endsAt" | "cost" | "joinedCount" | "maxPlayers" | "reservedSpots"
 >;
 
 // Human label for a device calendar, derived from its account source — expo-calendar gives us
@@ -34,7 +34,7 @@ export function calendarLabel(cal: { title: string; source?: { type?: string; na
   return name ? `${cal.title} (${name})` : cal.title;
 }
 
-export function buildNotes(game: Pick<CalendarGame, "id" | "cost" | "joinedCount" | "maxPlayers">, hostName?: string): string {
+export function buildNotes(game: Pick<CalendarGame, "id" | "cost" | "joinedCount" | "maxPlayers" | "reservedSpots">, hostName?: string): string {
   const spots = spotsLeft(game);
   return [
     hostName ? `Hosted by ${hostName}` : null,

@@ -267,6 +267,7 @@ export type Database = {
           max_players: number
           organizer_id: string
           reminded_at: string | null
+          reserved_spots: number
           skill_tier_id: string
           sport_id: string
           starts_at: string
@@ -287,6 +288,7 @@ export type Database = {
           max_players: number
           organizer_id: string
           reminded_at?: string | null
+          reserved_spots?: number
           skill_tier_id: string
           sport_id: string
           starts_at: string
@@ -307,6 +309,7 @@ export type Database = {
           max_players?: number
           organizer_id?: string
           reminded_at?: string | null
+          reserved_spots?: number
           skill_tier_id?: string
           sport_id?: string
           starts_at?: string
@@ -1034,6 +1037,7 @@ export type Database = {
           organizer_id: string | null
           organizer_photo_path: string | null
           organizer_reliability_score: number | null
+          reserved_spots: number | null
           skill_tier_id: string | null
           skill_tier_label: string | null
           skill_tier_ordinal: number | null
@@ -1156,6 +1160,7 @@ export type Database = {
           organizer_id: string
           organizer_photo_path: string
           organizer_reliability_score: number
+          reserved_spots: number
           skill_tier_label: string
           skill_tier_ordinal: number
           skill_tier_slug: string
@@ -1229,6 +1234,7 @@ export type Database = {
         }
         Returns: string
       }
+      request_to_join: { Args: { p_game_id: string }; Returns: undefined }
       set_chat_mode: {
         Args: { p_game_id: string; p_mode: string }
         Returns: undefined

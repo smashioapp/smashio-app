@@ -19,6 +19,8 @@ export type WizardDraft = {
   courtsBooked: number;
   durationHours: number;
   cost: number;
+  // Spots taken off max_players for people joining outside the app — not named, just a count.
+  reservedSpots: number;
 };
 
 // 7pm today is the slot most hosts want, but it's already gone if the wizard is opened in the
@@ -38,6 +40,7 @@ const initialWizard: WizardDraft = {
   courtsBooked: 1,
   durationHours: DEFAULT_DURATION_HOURS,
   cost: 8,
+  reservedSpots: 0,
 };
 
 // Rebook (my-games-plan.md §M4): carries both the draft fields and the venue *display* fields,
@@ -105,10 +108,13 @@ type AppState = {
   decHours: () => void;
   incCost: () => void;
   decCost: () => void;
+  incReservedSpots: () => void;
+  decReservedSpots: () => void;
   setMaxPlayers: (n: number) => void;
   setCourtsBooked: (n: number) => void;
   setDurationHours: (n: number) => void;
   setCost: (n: number) => void;
+  setReservedSpots: (n: number) => void;
 
   rebookSeed: RebookSeed | null;
   setRebookSeed: (seed: RebookSeed) => void;
@@ -154,8 +160,16 @@ export const useAppStore = create<AppState>((set) => ({
   selectVenue: (id) => set((s) => ({ wizard: { ...s.wizard, venueId: id } })),
   setStartsAt: (d) => set((s) => ({ wizard: { ...s.wizard, startsAt: d } })),
   selectWizardTier: (id) => set((s) => ({ wizard: { ...s.wizard, skill: id } })),
-  incPlayers: () => set((s) => ({ wizard: { ...s.wizard, maxPlayers: Math.min(MAX_PLAYERS, s.wizard.maxPlayers + 2) } })),
-  decPlayers: () => set((s) => ({ wizard: { ...s.wizard, maxPlayers: Math.max(MIN_PLAYERS, s.wizard.maxPlayers - 2) } })),
+  incPlayers: () =>
+    set((s) => {
+      const maxPlayers = Math.min(MAX_PLAYERS, s.wizard.maxPlayers + 2);
+      return { wizard: { ...s.wizard, maxPlayers, reservedSpots: Math.min(s.wizard.reservedSpots, maxPlayers) } };
+    }),
+  decPlayers: () =>
+    set((s) => {
+      const maxPlayers = Math.max(MIN_PLAYERS, s.wizard.maxPlayers - 2);
+      return { wizard: { ...s.wizard, maxPlayers, reservedSpots: Math.min(s.wizard.reservedSpots, maxPlayers) } };
+    }),
   incCourts: () => set((s) => ({ wizard: { ...s.wizard, courtsBooked: Math.min(MAX_COURTS_BOOKED, s.wizard.courtsBooked + 1) } })),
   decCourts: () => set((s) => ({ wizard: { ...s.wizard, courtsBooked: Math.max(MIN_COURTS_BOOKED, s.wizard.courtsBooked - 1) } })),
   incHours: () =>
@@ -173,10 +187,13 @@ export const useAppStore = create<AppState>((set) => ({
   incCost: () =>
     set((s) => ({ wizard: { ...s.wizard, cost: Math.min(s.wizard.durationHours * MAX_COST_PER_PLAYER_PER_HOUR, s.wizard.cost + 1) } })),
   decCost: () => set((s) => ({ wizard: { ...s.wizard, cost: Math.max(1, s.wizard.cost - 1) } })),
-  setMaxPlayers: (n) => set((s) => ({ wizard: { ...s.wizard, maxPlayers: n } })),
+  incReservedSpots: () => set((s) => ({ wizard: { ...s.wizard, reservedSpots: Math.min(s.wizard.maxPlayers, s.wizard.reservedSpots + 1) } })),
+  decReservedSpots: () => set((s) => ({ wizard: { ...s.wizard, reservedSpots: Math.max(0, s.wizard.reservedSpots - 1) } })),
+  setMaxPlayers: (n) => set((s) => ({ wizard: { ...s.wizard, maxPlayers: n, reservedSpots: Math.min(s.wizard.reservedSpots, n) } })),
   setCourtsBooked: (n) => set((s) => ({ wizard: { ...s.wizard, courtsBooked: n } })),
   setDurationHours: (n) => set((s) => ({ wizard: { ...s.wizard, durationHours: n } })),
   setCost: (n) => set((s) => ({ wizard: { ...s.wizard, cost: n } })),
+  setReservedSpots: (n) => set((s) => ({ wizard: { ...s.wizard, reservedSpots: Math.max(0, Math.min(s.wizard.maxPlayers, n)) } })),
 
   rebookSeed: null,
   setRebookSeed: (seed) => set({ rebookSeed: seed }),

@@ -266,6 +266,8 @@ export type Database = {
           id: string
           max_players: number
           organizer_id: string
+          reminded_24h_at: string | null
+          rate_prompted_at: string | null
           reminded_at: string | null
           reserved_spots: number
           skill_tier_id: string
@@ -287,6 +289,8 @@ export type Database = {
           id?: string
           max_players: number
           organizer_id: string
+          reminded_24h_at?: string | null
+          rate_prompted_at?: string | null
           reminded_at?: string | null
           reserved_spots?: number
           skill_tier_id: string
@@ -308,6 +312,8 @@ export type Database = {
           id?: string
           max_players?: number
           organizer_id?: string
+          reminded_24h_at?: string | null
+          rate_prompted_at?: string | null
           reminded_at?: string | null
           reserved_spots?: number
           skill_tier_id?: string

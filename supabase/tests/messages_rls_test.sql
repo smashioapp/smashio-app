@@ -10,7 +10,7 @@ SELECT plan(19);
 set local role postgres;
 
 insert into auth.users (id, email) values
-  ('11111111-1111-1111-1111-111111111111', 'organizer@test.dev'),
+  ('b1111111-1111-1111-1111-111111111111', 'organizer@test.dev'),
   ('22222222-2222-2222-2222-222222222222', 'member@test.dev'),
   ('33333333-3333-3333-3333-333333333333', 'requester@test.dev'),
   ('44444444-4444-4444-4444-444444444444', 'stranger@test.dev'),
@@ -25,7 +25,7 @@ insert into public.games (id, sport_id, venue_id, organizer_id, starts_at, ends_
 select
   '99999999-9999-9999-9999-999999999999',
   s.id, '88888888-8888-8888-8888-888888888888',
-  '11111111-1111-1111-1111-111111111111',
+  'b1111111-1111-1111-1111-111111111111',
   now() + interval '1 day', now() + interval '1 day 2 hours',
   t.id, 8
 from public.sports s
@@ -128,7 +128,7 @@ SELECT lives_ok(
 -- ---------------------------------------------------------------------------------------
 -- 6. Announce mode: only the host can post.
 -- ---------------------------------------------------------------------------------------
-select set_config('request.jwt.claims', json_build_object('sub', '11111111-1111-1111-1111-111111111111', 'role', 'authenticated')::text, true);
+select set_config('request.jwt.claims', json_build_object('sub', 'b1111111-1111-1111-1111-111111111111', 'role', 'authenticated')::text, true);
 
 SELECT lives_ok(
   $$ select public.set_chat_mode('99999999-9999-9999-9999-999999999999', 'announce') $$,
@@ -144,10 +144,10 @@ SELECT throws_ok(
   'an approved non-host player cannot post while chat_mode is announce'
 );
 
-select set_config('request.jwt.claims', json_build_object('sub', '11111111-1111-1111-1111-111111111111', 'role', 'authenticated')::text, true);
+select set_config('request.jwt.claims', json_build_object('sub', 'b1111111-1111-1111-1111-111111111111', 'role', 'authenticated')::text, true);
 
 SELECT lives_ok(
-  $$ insert into public.messages (game_id, sender_id) values ('99999999-9999-9999-9999-999999999999', '11111111-1111-1111-1111-111111111111') $$,
+  $$ insert into public.messages (game_id, sender_id) values ('99999999-9999-9999-9999-999999999999', 'b1111111-1111-1111-1111-111111111111') $$,
   'the host can post even while chat_mode is announce (host outranks announce mode)'
 );
 
@@ -174,10 +174,10 @@ SELECT throws_ok(
   'a muted player cannot post'
 );
 
-select set_config('request.jwt.claims', json_build_object('sub', '11111111-1111-1111-1111-111111111111', 'role', 'authenticated')::text, true);
+select set_config('request.jwt.claims', json_build_object('sub', 'b1111111-1111-1111-1111-111111111111', 'role', 'authenticated')::text, true);
 
 SELECT throws_ok(
-  $$ select public.set_player_chat_mute('99999999-9999-9999-9999-999999999999', '11111111-1111-1111-1111-111111111111', true) $$,
+  $$ select public.set_player_chat_mute('99999999-9999-9999-9999-999999999999', 'b1111111-1111-1111-1111-111111111111', true) $$,
   'The host can''t be muted',
   'set_player_chat_mute refuses to mute the organizer'
 );
@@ -196,7 +196,7 @@ SELECT throws_ok(
 -- ---------------------------------------------------------------------------------------
 -- 9. Closed chat blocks everyone, including the host.
 -- ---------------------------------------------------------------------------------------
-select set_config('request.jwt.claims', json_build_object('sub', '11111111-1111-1111-1111-111111111111', 'role', 'authenticated')::text, true);
+select set_config('request.jwt.claims', json_build_object('sub', 'b1111111-1111-1111-1111-111111111111', 'role', 'authenticated')::text, true);
 
 SELECT lives_ok(
   $$ select public.close_chat('99999999-9999-9999-9999-999999999999') $$,
@@ -212,10 +212,10 @@ SELECT throws_ok(
   'an approved player cannot post once chat is closed'
 );
 
-select set_config('request.jwt.claims', json_build_object('sub', '11111111-1111-1111-1111-111111111111', 'role', 'authenticated')::text, true);
+select set_config('request.jwt.claims', json_build_object('sub', 'b1111111-1111-1111-1111-111111111111', 'role', 'authenticated')::text, true);
 
 SELECT throws_ok(
-  $$ insert into public.messages (game_id, sender_id) values ('99999999-9999-9999-9999-999999999999', '11111111-1111-1111-1111-111111111111') $$,
+  $$ insert into public.messages (game_id, sender_id) values ('99999999-9999-9999-9999-999999999999', 'b1111111-1111-1111-1111-111111111111') $$,
   '42501',
   null,
   'even the host cannot post once chat is closed'

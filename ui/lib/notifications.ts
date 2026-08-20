@@ -16,6 +16,21 @@ Notifications.setNotificationHandler({
   }),
 });
 
+// One channel per notification category, importance matching the tier the edge function sends
+// (supabase/functions/push-dispatch/format.ts). Ids must stay in sync with PushChannel there:
+// an unknown channelId on an Expo push falls back to 'default' and loses its importance.
+const ANDROID_CHANNELS: { id: string; name: string; importance: Notifications.AndroidImportance }[] = [
+  { id: "requests", name: "Join requests", importance: Notifications.AndroidImportance.HIGH },
+  { id: "game-updates", name: "Game changes", importance: Notifications.AndroidImportance.HIGH },
+  { id: "chat", name: "Chat messages", importance: Notifications.AndroidImportance.HIGH },
+  { id: "reminders", name: "Reminders", importance: Notifications.AndroidImportance.DEFAULT },
+  { id: "discovery", name: "Games near you", importance: Notifications.AndroidImportance.LOW },
+];
+
+// The token this device is currently registered with, so sign-out can delete exactly this row
+// rather than every device on the account. Module-level because signOut runs outside the hook.
+let currentToken: string | null = null;
+
 async function registerForPush(profileId: string) {
   // Push tokens require a physical device (simulators/emulators have no APNs/FCM registration)
   // and Expo's push service, unavailable on web.
@@ -33,14 +48,17 @@ async function registerForPush(profileId: string) {
       name: "default",
       importance: Notifications.AndroidImportance.DEFAULT,
     });
-    await Notifications.setNotificationChannelAsync("chat", {
-      name: "Chat messages",
-      importance: Notifications.AndroidImportance.HIGH,
-    });
+    for (const channel of ANDROID_CHANNELS) {
+      await Notifications.setNotificationChannelAsync(channel.id, {
+        name: channel.name,
+        importance: channel.importance,
+      });
+    }
   }
 
   const projectId = Constants.expoConfig?.extra?.eas?.projectId;
   const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
+  currentToken = token;
 
   await supabase
     .from("push_tokens")
@@ -50,10 +68,37 @@ async function registerForPush(profileId: string) {
     );
 }
 
+// Nothing ever deleted a token, so on a shared or resold device the previous account kept
+// receiving this account's pushes — chat message bodies included. Call before signOut, while the
+// session still satisfies push_tokens' self-only RLS. Best effort: a failed delete must not
+// block the user from signing out.
+export async function unregisterPushToken() {
+  if (!currentToken) return;
+  const token = currentToken;
+  currentToken = null;
+  try {
+    await supabase.from("push_tokens").delete().eq("expo_token", token);
+  } catch {
+    // ignored — sign-out proceeds regardless
+  }
+}
+
+type PushData = { screen?: string; game_id?: string; type?: string };
+
 function handleNotificationTap(response: Notifications.NotificationResponse) {
-  const data = response.notification.request.content.data as { screen?: string; game_id?: string };
+  const data = response.notification.request.content.data as PushData;
+
+  // A declined request lands on Discover, not on the game that said no — there's nothing to do
+  // there. Every other screen needs the game id.
+  if (data.screen === "discover") {
+    router.push("/(tabs)/discover");
+    return;
+  }
   if (!data.game_id) return;
+
   if (data.screen === "chat") router.push(`/chat/${data.game_id}`);
+  else if (data.screen === "post_game") router.push(`/post-game/${data.game_id}`);
+  else if (data.screen === "game_requests") router.push(`/game/${data.game_id}?focus=requests`);
   else if (data.screen === "game") router.push(`/game/${data.game_id}`);
 }
 

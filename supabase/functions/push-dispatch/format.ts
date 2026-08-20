@@ -1,6 +1,10 @@
 // Pure formatting helpers for push-dispatch, split out from index.ts so they can be unit
 // tested without a running Supabase client / Deno.serve (createClient in index.ts requires
 // SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY env vars at import time).
+//
+// Copy rules (docs/notifications-plan.md §3): every body carries sport, venue and Sydney-local
+// time; social events lead with the person's name; never "You have an update". Sport is
+// interpolated from sports.name — no badminton strings in here (AGENTS.md).
 
 const SYDNEY_TZ = "Australia/Sydney";
 
@@ -17,82 +21,273 @@ export function shortTime(iso: string): string {
   });
 }
 
+// Clock only — for strings that already say which day ("Tomorrow, 7:00 pm").
+export function clockTime(iso: string): string {
+  return new Date(iso).toLocaleString("en-AU", {
+    timeZone: SYDNEY_TZ,
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function sydneyDayNumber(iso: string | Date): number {
+  const d = typeof iso === "string" ? new Date(iso) : iso;
+  // en-CA gives YYYY-MM-DD, which subtracts cleanly as a day index.
+  const [y, m, day] = d.toLocaleDateString("en-CA", { timeZone: SYDNEY_TZ }).split("-").map(Number);
+  return Math.floor(Date.UTC(y, m - 1, day) / 86_400_000);
+}
+
+// "Today" / "Tomorrow" / "Saturday" — relative to Sydney's calendar day, not UTC's. The 24h
+// reminder sweep self-heals after an outage, so it can fire well outside a literal 24 hours;
+// this keeps the copy honest whenever it does.
+export function dayLabel(iso: string, now: Date = new Date()): string {
+  const delta = sydneyDayNumber(iso) - sydneyDayNumber(now);
+  if (delta <= 0) return "Today";
+  if (delta === 1) return "Tomorrow";
+  return new Date(iso).toLocaleDateString("en-AU", { timeZone: SYDNEY_TZ, weekday: "long" });
+}
+
+export function money(cents: number | null | undefined): string {
+  if (!cents) return "free";
+  return cents % 100 === 0 ? `$${cents / 100}` : `$${(cents / 100).toFixed(2)}`;
+}
+
+// Deterministic variant picker. Notification copy that repeats word for word reads like a robot;
+// copy that is random reads like a different app every time. Seeding on the game id gives each
+// game its own consistent voice while the inbox as a whole stays varied.
+export function pick<T>(variants: T[], seed: string): T {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  return variants[h % variants.length];
+}
+
+export type PushTier = "critical" | "normal" | "low";
+
+// Android channel per category, created client-side in ui/lib/notifications.ts with matching
+// importance. Keep the ids in sync with that file.
+export type PushChannel = "chat" | "requests" | "game-updates" | "reminders" | "discovery";
+
 export type GameSummary = {
-  venue_name: string;
+  game_id: string;
   sport_name: string;
+  venue_name: string;
+  venue_suburb: string | null;
   starts_at: string;
+  ends_at: string;
+  court_label: string | null;
+  host_id: string;
+  host_name: string;
+  max_players: number;
+  approved_count: number;
+  reserved_spots: number;
+  spots_left: number;
+  per_player_cents: number;
+  tier_name: string;
+  verification_status: string;
 };
 
 export type PushBody = { title: string; body: string };
 
+// "{sport} at {venue}" — the phrase almost every body needs.
+function where(s: GameSummary): string {
+  return `${s.sport_name} at ${s.venue_name}`;
+}
+
+function courtSuffix(s: GameSummary): string {
+  return s.court_label ? ` · ${s.court_label}` : "";
+}
+
+function spotsPhrase(s: GameSummary): string {
+  if (s.spots_left <= 0) return "full";
+  if (s.spots_left === 1) return "1 spot left";
+  return `${s.spots_left} spots left`;
+}
+
+// --- A. Roster -------------------------------------------------------------------------------
+
+// A1. The headline gap: before this, a host learned about a request only by opening the game.
+export function joinRequestBody(actor: string, s: GameSummary): PushBody {
+  const title = pick(
+    [`${actor} wants in`, `${actor} is asking for a spot`, `New request from ${actor}`],
+    s.game_id,
+  );
+  const filled = s.approved_count + s.reserved_spots;
+  return {
+    title,
+    body: `${where(s)}, ${shortTime(s.starts_at)} · ${filled} of ${s.max_players} filled. Approve or decline.`,
+  };
+}
+
+// A3.
+export function joinApprovedBody(s: GameSummary): PushBody {
+  const title = pick(
+    [`You're in — ${shortTime(s.starts_at)}`, `Spot confirmed — ${shortTime(s.starts_at)}`, `You made the roster`],
+    s.game_id,
+  );
+  return {
+    title,
+    body: `${where(s)} with ${s.host_name}${courtSuffix(s)}. Chat's open — say hi.`,
+  };
+}
+
+// A4. Lands on Discover rather than the game they just missed out on.
+export function joinDeclinedBody(s: GameSummary): PushBody {
+  return {
+    title: "Not this time",
+    body: `Your request for ${where(s)} wasn't accepted. There are other games near you — tap to look.`,
+  };
+}
+
+// A5.
+export function playerRemovedBody(s: GameSummary): PushBody {
+  return {
+    title: "Removed from a game",
+    body: `${s.host_name} removed you from ${where(s)}, ${shortTime(s.starts_at)}.`,
+  };
+}
+
 export function joinDecisionBody(
   status: "approved" | "rejected" | "removed",
-  summary: GameSummary,
+  s: GameSummary,
 ): PushBody {
-  const verb = status === "approved"
-    ? "You're in!"
-    : status === "removed"
-    ? "Removed from a game"
-    : "Request declined";
+  if (status === "approved") return joinApprovedBody(s);
+  if (status === "removed") return playerRemovedBody(s);
+  return joinDeclinedBody(s);
+}
+
+// A6. The one thing a host can still act on: a spot reopened.
+export function playerLeftBody(actor: string, s: GameSummary): PushBody {
+  const title = pick([`${actor} dropped out`, `${actor} pulled out`], s.game_id);
   return {
-    title: verb,
-    body: `${summary.sport_name} at ${summary.venue_name}, ${shortTime(summary.starts_at)}`,
+    title,
+    body: `A spot just reopened on ${where(s)}, ${shortTime(s.starts_at)} · ${spotsPhrase(s)}. Share it to refill.`,
   };
 }
 
-export function gameCancelledBody(summary: GameSummary): PushBody {
+// A8.
+export function gameFullBody(s: GameSummary): PushBody {
+  const title = pick(["Your game is full", "Roster locked in", "That's a full house"], s.game_id);
+  return {
+    title,
+    body: `${s.max_players} of ${s.max_players} in for ${where(s)}, ${shortTime(s.starts_at)}.`,
+  };
+}
+
+// --- B. Game changes -------------------------------------------------------------------------
+
+// B1. Now also reaches people with an open request (bug #1) — they'd otherwise turn up.
+export function gameCancelledBody(s: GameSummary): PushBody {
   return {
     title: "Game cancelled",
-    body: `${summary.venue_name}, ${shortTime(summary.starts_at)} is off. Your spot has been released.`,
+    body: `${s.host_name} called off ${where(s)}, ${shortTime(s.starts_at)}. Your spot's released — nothing owed.`,
   };
 }
 
-export function gameRescheduledBody(summary: GameSummary): PushBody {
+// B2. Needs the time the game moved *from*, which the trigger passes in the payload.
+export function gameRescheduledBody(s: GameSummary, oldStartsAt?: string | null): PushBody {
+  const moved = oldStartsAt ? ` Moved from ${shortTime(oldStartsAt)}.` : "";
   return {
-    title: "New time for your game",
-    body: `${summary.venue_name} now starts ${shortTime(summary.starts_at)}.`,
+    title: `New time — ${shortTime(s.starts_at)}`,
+    body: `${where(s)}${courtSuffix(s)}.${moved} Still in?`,
   };
 }
 
-export function alertMatchBody(summary: GameSummary): PushBody {
+// --- C. Time-based ---------------------------------------------------------------------------
+
+// C1.
+export function reminder24hBody(s: GameSummary, now?: Date): PushBody {
+  const others = Math.max(0, s.approved_count + s.reserved_spots - 1);
+  const company = others === 0
+    ? "No one else yet — share it around."
+    : others === 1
+    ? "1 other playing."
+    : `${others} others playing.`;
   return {
-    title: "A game just matched your alert",
-    body: `${summary.sport_name} at ${summary.venue_name}, ${shortTime(summary.starts_at)}`,
+    title: `${dayLabel(s.starts_at, now)}, ${clockTime(s.starts_at)}`,
+    body: `${where(s)}${courtSuffix(s)}. ${company}`,
   };
 }
 
-export function reminderBody(summary: GameSummary): PushBody {
+// C2.
+export function reminder2hBody(s: GameSummary): PushBody {
+  const title = pick(["Starts in 2 hours", "Two hours out", "Nearly time"], s.game_id);
+  const playing = s.approved_count + s.reserved_spots;
   return {
-    title: "Game starting soon",
-    body: `${summary.sport_name} at ${summary.venue_name} at ${shortTime(summary.starts_at)}`,
+    title,
+    body: `${where(s)}, ${clockTime(s.starts_at)}${courtSuffix(s)} · ${playing} playing. Grab your gear.`,
   };
 }
+
+// C3. Feeds ratings, which feed reliability, which feed trust — the plan's highest-value
+// addition after A1. n is the count of people this recipient can rate.
+export function postGameRateBody(s: GameSummary, rateableCount: number): PushBody {
+  const title = pick(["How was the game?", "Good hit?", "Rate your game"], s.game_id);
+  const who = rateableCount === 1 ? "the player" : `the ${rateableCount} players`;
+  return {
+    title,
+    body: `Rate ${who} from ${where(s)}. Ten seconds, and it's private.`,
+  };
+}
+
+// --- D. Discovery ----------------------------------------------------------------------------
+
+export function alertMatchBody(s: GameSummary): PushBody {
+  const area = s.venue_suburb ?? s.venue_name;
+  return {
+    title: `New ${s.sport_name} game in ${area}`,
+    body: `${s.venue_name}, ${shortTime(s.starts_at)} · ${s.tier_name} · ${money(s.per_player_cents)} · ${spotsPhrase(s)}`,
+  };
+}
+
+// --- E. Chat ---------------------------------------------------------------------------------
 
 export type MessageSummary = {
   chat_mode: string;
   sender_name: string;
   venue_name: string;
+  sport_name?: string;
   kind: string;
   body: string;
 };
 
 export function messageBody(summary: MessageSummary): PushBody {
   const announce = summary.chat_mode === "announce";
-  const title = `${announce ? "📣 " : ""}${summary.sender_name} · ${summary.venue_name}`;
+  // Game identity, not a bare venue: a venue hosts many games (§4E1).
+  const game = summary.sport_name
+    ? `${summary.sport_name} at ${summary.venue_name}`
+    : summary.venue_name;
+  const title = `${announce ? "📣 " : ""}${summary.sender_name} · ${game}`;
   const body = summary.kind === "image"
     ? summary.body ? `📷 Photo · ${summary.body}` : "📷 Photo"
     : summary.body.slice(0, 140);
   return { title, body };
 }
 
+// --- Expo payload ----------------------------------------------------------------------------
+
+// §6.6. Tier drives Android channel importance (via channelId), iOS interruptionLevel, delivery
+// priority and sound. Low-tier pushes are silent — they're worth seeing, not worth interrupting.
 export function expoMessages(
   recipients: { profile_id: string; expo_token: string }[],
-  title: string,
-  body: string,
-  data: Record<string, unknown>,
-  channelId?: string,
+  opts: {
+    title: string;
+    body: string;
+    data: Record<string, unknown>;
+    tier: PushTier;
+    channelId: PushChannel;
+  },
 ) {
+  const { title, body, data, tier, channelId } = opts;
   return recipients
     .filter((r) => r.expo_token.startsWith("ExponentPushToken"))
-    .map((r) => ({ to: r.expo_token, title, body, data, sound: "default", ...(channelId ? { channelId } : {}) }));
+    .map((r) => ({
+      to: r.expo_token,
+      title,
+      body,
+      data,
+      channelId,
+      priority: tier === "critical" ? "high" : "normal",
+      sound: tier === "low" ? null : "default",
+      interruptionLevel: tier === "critical" ? "time-sensitive" : tier === "low" ? "passive" : "active",
+    }));
 }

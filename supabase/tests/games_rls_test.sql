@@ -8,7 +8,7 @@ SELECT plan(6);
 set local role postgres;
 
 insert into auth.users (id, email) values
-  ('11111111-1111-1111-1111-111111111111', 'organizer@test.dev'),
+  ('b1111111-1111-1111-1111-111111111111', 'organizer@test.dev'),
   ('22222222-2222-2222-2222-222222222222', 'other@test.dev');
 
 insert into public.venues (id, name, suburb, state, location) values
@@ -19,7 +19,7 @@ select
   '66666666-6666-6666-6666-666666666666',
   s.id,
   '55555555-5555-5555-5555-555555555555',
-  '11111111-1111-1111-1111-111111111111',
+  'b1111111-1111-1111-1111-111111111111',
   now() + interval '1 day', now() + interval '1 day 2 hours',
   t.id, 8
 from public.sports s
@@ -28,11 +28,13 @@ where s.slug = 'badminton'
 limit 1;
 
 -- Act as the organizer.
-select set_config('request.jwt.claims', json_build_object('sub', '11111111-1111-1111-1111-111111111111', 'role', 'authenticated')::text, true);
+select set_config('request.jwt.claims', json_build_object('sub', 'b1111111-1111-1111-1111-111111111111', 'role', 'authenticated')::text, true);
 set local role authenticated;
 
+-- Scoped to this file's fixture row: supabase/seed.sql populates games too, so a bare count
+-- over the table measures the seed, not the policy.
 SELECT is(
-  (select count(*)::int from public.games),
+  (select count(*)::int from public.games where id = '66666666-6666-6666-6666-666666666666'),
   1,
   'any authenticated user can read games'
 );
@@ -40,7 +42,7 @@ SELECT is(
 SELECT lives_ok(
   $$ insert into public.games (sport_id, venue_id, organizer_id, starts_at, ends_at, skill_tier_id, max_players)
      select s.id, '55555555-5555-5555-5555-555555555555',
-            '11111111-1111-1111-1111-111111111111', now() + interval '2 days', now() + interval '2 days 2 hours',
+            'b1111111-1111-1111-1111-111111111111', now() + interval '2 days', now() + interval '2 days 2 hours',
             t.id, 8
      from public.sports s join public.skill_tiers t on t.sport_id = s.id where s.slug = 'badminton' limit 1 $$,
   'organizer can insert a game with organizer_id = own uid'

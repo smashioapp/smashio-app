@@ -1,12 +1,22 @@
 import { assertEquals, assertMatch } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   alertMatchBody,
+  clockTime,
+  dayLabel,
   expoMessages,
   gameCancelledBody,
+  gameFullBody,
+  type GameSummary,
   gameRescheduledBody,
   joinDecisionBody,
+  joinRequestBody,
   messageBody,
-  reminderBody,
+  money,
+  pick,
+  playerLeftBody,
+  postGameRateBody,
+  reminder24hBody,
+  reminder2hBody,
   shortTime,
 } from "./format.ts";
 
@@ -68,123 +78,277 @@ Deno.test("shortTime never equals the raw UTC hour when Sydney offset differs fr
   assertMatch(sydney, /pm$/);
 });
 
+
+// --- clockTime / dayLabel: the new time strings -----------------------------------------------
+
+Deno.test("clockTime drops the weekday shortTime carries", () => {
+  assertEquals(clockTime("2026-06-15T04:00:00Z"), "2:00 pm");
+});
+
+Deno.test("dayLabel: same Sydney day is Today", () => {
+  // Both 2026-06-15 in Sydney (12:00 pm and 2:00 pm AEST).
+  assertEquals(dayLabel("2026-06-15T04:00:00Z", new Date("2026-06-15T02:00:00Z")), "Today");
+});
+
+Deno.test("dayLabel: next Sydney day is Tomorrow", () => {
+  assertEquals(dayLabel("2026-06-16T04:00:00Z", new Date("2026-06-15T02:00:00Z")), "Tomorrow");
+});
+
+Deno.test("dayLabel: further out names the weekday", () => {
+  assertEquals(dayLabel("2026-06-19T04:00:00Z", new Date("2026-06-15T02:00:00Z")), "Friday");
+});
+
+Deno.test("dayLabel compares Sydney days, not UTC days", () => {
+  // now = 2026-06-15 20:00 UTC = Tue 06:00 Sydney; game = 2026-06-15 22:00 UTC = Tue 08:00
+  // Sydney. Same UTC date and same Sydney date, but the Sydney date is the day after the UTC one.
+  assertEquals(dayLabel("2026-06-15T22:00:00Z", new Date("2026-06-15T20:00:00Z")), "Today");
+});
+
+Deno.test("dayLabel across the AEST->AEDT spring-forward boundary", () => {
+  // now = 2026-10-03 10:00 UTC = Sat 20:00 AEST (pre-flip, UTC+10).
+  // game = 2026-10-03 16:00 UTC = Sun 03:00 AEDT (post-flip, UTC+11) — the next Sydney day,
+  // only 6 hours away. A fixed-offset or UTC-day comparison gets this wrong.
+  assertEquals(dayLabel("2026-10-03T16:00:00Z", new Date("2026-10-03T10:00:00Z")), "Tomorrow");
+});
+
+// --- money -------------------------------------------------------------------------------------
+
+Deno.test("money renders whole dollars, cents, and free", () => {
+  assertEquals(money(1200), "$12");
+  assertEquals(money(1250), "$12.50");
+  assertEquals(money(0), "free");
+  assertEquals(money(null), "free");
+});
+
+// --- pick: deterministic variety ---------------------------------------------------------------
+
+Deno.test("pick returns the same variant for the same seed", () => {
+  const variants = ["a", "b", "c"];
+  assertEquals(pick(variants, "game-1"), pick(variants, "game-1"));
+});
+
+Deno.test("pick spreads different seeds across the whole variant set", () => {
+  const variants = ["a", "b", "c"];
+  const seen = new Set(Array.from({ length: 60 }, (_, i) => pick(variants, `game-${i}`)));
+  assertEquals(seen.size, 3);
+});
+
 // --- Payload body builders ---------------------------------------------------------------------
 
-const summary = {
-  venue_name: "Test Courts",
+// 8-player game, 3 approved, 1 reserved, starting Mon 2:00 pm AEST.
+const summary: GameSummary = {
+  game_id: "aaaaaaaa-0000-0000-0000-000000000001",
   sport_name: "Badminton",
-  starts_at: "2026-06-15T04:00:00Z", // Mon 2:00 pm AEST
+  venue_name: "Test Courts",
+  venue_suburb: "Homebush",
+  starts_at: "2026-06-15T04:00:00Z",
+  ends_at: "2026-06-15T06:00:00Z",
+  court_label: "Court 3",
+  host_id: "bbbbbbbb-0000-0000-0000-000000000001",
+  host_name: "Riya",
+  max_players: 8,
+  approved_count: 3,
+  reserved_spots: 1,
+  spots_left: 4,
+  per_player_cents: 1200,
+  tier_name: "Intermediate",
+  verification_status: "verified",
 };
 
-Deno.test("joinDecisionBody: approved", () => {
+const withSummary = (over: Partial<GameSummary>): GameSummary => ({ ...summary, ...over });
+
+Deno.test("joinRequestBody names the actor and the exact spot count", () => {
+  const { title, body } = joinRequestBody("Sam", summary);
+  assertMatch(title, /Sam/);
+  // approved (3) + reserved (1) of max (8).
+  assertMatch(body, /4 of 8 filled/);
+  assertMatch(body, /Badminton at Test Courts, Mon 2:00 pm/);
+  assertMatch(body, /Approve or decline/);
+});
+
+Deno.test("joinDecisionBody approved: carries time, host and the chat nudge", () => {
   const { title, body } = joinDecisionBody("approved", summary);
-  assertEquals(title, "You're in!");
-  assertEquals(body, "Badminton at Test Courts, Mon 2:00 pm");
+  assertMatch(title, /Mon 2:00 pm|You made the roster/);
+  assertMatch(body, /Badminton at Test Courts with Riya/);
+  assertMatch(body, /Court 3/);
 });
 
-Deno.test("joinDecisionBody: removed", () => {
-  const { title } = joinDecisionBody("removed", summary);
+Deno.test("joinDecisionBody rejected: points at other games, not this one", () => {
+  const { title, body } = joinDecisionBody("rejected", summary);
+  assertEquals(title, "Not this time");
+  assertMatch(body, /other games near you/);
+});
+
+Deno.test("joinDecisionBody removed: names the host who did it", () => {
+  const { title, body } = joinDecisionBody("removed", summary);
   assertEquals(title, "Removed from a game");
+  assertMatch(body, /Riya removed you from Badminton at Test Courts, Mon 2:00 pm/);
 });
 
-Deno.test("joinDecisionBody: rejected", () => {
-  const { title } = joinDecisionBody("rejected", summary);
-  assertEquals(title, "Request declined");
+Deno.test("playerLeftBody tells the host how many spots are open now", () => {
+  const { title, body } = playerLeftBody("Sam", withSummary({ approved_count: 2, spots_left: 5 }));
+  assertMatch(title, /Sam/);
+  assertMatch(body, /5 spots left/);
+  assertMatch(body, /Mon 2:00 pm/);
 });
 
-Deno.test("gameCancelledBody includes Sydney-local time", () => {
+Deno.test("playerLeftBody uses the singular for one spot", () => {
+  const { body } = playerLeftBody("Sam", withSummary({ spots_left: 1 }));
+  assertMatch(body, /1 spot left/);
+});
+
+Deno.test("gameFullBody states the roster as n of n", () => {
+  const { body } = gameFullBody(withSummary({ approved_count: 7, spots_left: 0 }));
+  assertMatch(body, /8 of 8 in for Badminton at Test Courts/);
+});
+
+Deno.test("gameCancelledBody names the host and the released spot", () => {
   const { title, body } = gameCancelledBody(summary);
   assertEquals(title, "Game cancelled");
-  assertMatch(body, /Mon 2:00 pm/);
+  assertMatch(body, /Riya called off Badminton at Test Courts, Mon 2:00 pm/);
+  assertMatch(body, /spot's released/);
 });
 
-Deno.test("gameRescheduledBody includes Sydney-local time", () => {
-  const { body } = gameRescheduledBody(summary);
-  assertMatch(body, /Mon 2:00 pm/);
+Deno.test("gameRescheduledBody carries both the new time and the old one", () => {
+  const { title, body } = gameRescheduledBody(summary, "2026-06-14T04:00:00Z");
+  assertEquals(title, "New time — Mon 2:00 pm");
+  assertMatch(body, /Moved from Sun 2:00 pm/);
 });
 
-Deno.test("alertMatchBody includes Sydney-local time", () => {
-  const { body } = alertMatchBody(summary);
-  assertMatch(body, /Mon 2:00 pm/);
+Deno.test("gameRescheduledBody omits the old time when the payload predates it", () => {
+  const { title, body } = gameRescheduledBody(summary);
+  assertEquals(title, "New time — Mon 2:00 pm");
+  assertMatch(body, /Still in\?/);
+  assertEquals(body.includes("Moved from"), false);
 });
 
-Deno.test("reminderBody includes Sydney-local time", () => {
-  const { body } = reminderBody(summary);
-  assertMatch(body, /Mon 2:00 pm/);
+Deno.test("reminder24hBody leads with the day and counts the others playing", () => {
+  const { title, body } = reminder24hBody(summary, new Date("2026-06-14T04:00:00Z"));
+  assertEquals(title, "Tomorrow, 2:00 pm");
+  // 3 approved + 1 reserved, minus the recipient = 3 others.
+  assertMatch(body, /3 others playing/);
+  assertMatch(body, /Court 3/);
+});
+
+Deno.test("reminder24hBody nudges sharing when nobody else is in yet", () => {
+  const { body } = reminder24hBody(
+    withSummary({ approved_count: 1, reserved_spots: 0, spots_left: 7 }),
+    new Date("2026-06-14T04:00:00Z"),
+  );
+  assertMatch(body, /share it around/i);
+});
+
+Deno.test("reminder2hBody carries venue, clock time, court and headcount", () => {
+  const { body } = reminder2hBody(summary);
+  assertMatch(body, /Badminton at Test Courts, 2:00 pm · Court 3/);
+  assertMatch(body, /4 playing/);
+});
+
+Deno.test("reminder bodies drop the court segment when the game has no court label", () => {
+  // "Test Courts" is the venue, so the assertion has to be about the court label itself.
+  const noCourt = withSummary({ court_label: null });
+  assertEquals(reminder2hBody(noCourt).body.includes("Court 3"), false);
+  assertEquals(reminder24hBody(noCourt).body.includes("Court 3"), false);
+  assertEquals(reminder2hBody(summary).body.includes("Court 3"), true);
+});
+
+Deno.test("postGameRateBody pluralises the rateable count and promises privacy", () => {
+  assertMatch(postGameRateBody(summary, 1).body, /Rate the player from Badminton at Test Courts/);
+  assertMatch(postGameRateBody(summary, 3).body, /Rate the 3 players/);
+  assertMatch(postGameRateBody(summary, 3).body, /private/);
+});
+
+Deno.test("alertMatchBody leads with sport and suburb, and prices the game", () => {
+  const { title, body } = alertMatchBody(summary);
+  assertEquals(title, "New Badminton game in Homebush");
+  assertMatch(body, /Test Courts, Mon 2:00 pm · Intermediate · \$12 · 4 spots left/);
+});
+
+Deno.test("alertMatchBody falls back to the venue when a suburb is missing", () => {
+  const { title } = alertMatchBody(withSummary({ venue_suburb: null }));
+  assertEquals(title, "New Badminton game in Test Courts");
+});
+
+// --- messageBody --------------------------------------------------------------------------------
+
+const message = {
+  chat_mode: "normal",
+  sender_name: "Alex",
+  venue_name: "Test Courts",
+  sport_name: "Badminton",
+  kind: "text",
+  body: "hello",
+};
+
+Deno.test("messageBody titles with the game, not the bare venue", () => {
+  assertEquals(messageBody(message).title, "Alex · Badminton at Test Courts");
+});
+
+Deno.test("messageBody falls back to the venue when sport is absent", () => {
+  const { sport_name: _drop, ...noSport } = message;
+  assertEquals(messageBody(noSport).title, "Alex · Test Courts");
 });
 
 Deno.test("messageBody: announce mode prefixes megaphone", () => {
-  const { title } = messageBody({
-    chat_mode: "announce",
-    sender_name: "Alex",
-    venue_name: "Test Courts",
-    kind: "text",
-    body: "hello",
-  });
-  assertEquals(title, "📣 Alex · Test Courts");
-});
-
-Deno.test("messageBody: non-announce mode has no prefix", () => {
-  const { title } = messageBody({
-    chat_mode: "normal",
-    sender_name: "Alex",
-    venue_name: "Test Courts",
-    kind: "text",
-    body: "hello",
-  });
-  assertEquals(title, "Alex · Test Courts");
+  assertEquals(
+    messageBody({ ...message, chat_mode: "announce" }).title,
+    "📣 Alex · Badminton at Test Courts",
+  );
 });
 
 Deno.test("messageBody: image with caption", () => {
-  const { body } = messageBody({
-    chat_mode: "normal",
-    sender_name: "Alex",
-    venue_name: "Test Courts",
-    kind: "image",
-    body: "nice one",
-  });
-  assertEquals(body, "📷 Photo · nice one");
+  assertEquals(messageBody({ ...message, kind: "image", body: "nice one" }).body, "📷 Photo · nice one");
 });
 
 Deno.test("messageBody: image without caption", () => {
-  const { body } = messageBody({
-    chat_mode: "normal",
-    sender_name: "Alex",
-    venue_name: "Test Courts",
-    kind: "image",
-    body: "",
-  });
-  assertEquals(body, "📷 Photo");
+  assertEquals(messageBody({ ...message, kind: "image", body: "" }).body, "📷 Photo");
 });
 
 Deno.test("messageBody: text truncated to 140 chars", () => {
-  const long = "x".repeat(200);
-  const { body } = messageBody({
-    chat_mode: "normal",
-    sender_name: "Alex",
-    venue_name: "Test Courts",
-    kind: "text",
-    body: long,
-  });
-  assertEquals(body.length, 140);
+  assertEquals(messageBody({ ...message, body: "x".repeat(200) }).body.length, 140);
 });
 
-// --- expoMessages: token filtering + shape --------------------------------------------------
+Deno.test("messageBody: text of exactly 140 chars is untouched", () => {
+  const exact = "x".repeat(140);
+  assertEquals(messageBody({ ...message, body: exact }).body, exact);
+});
+
+// --- expoMessages: token filtering + tier shape ------------------------------------------------
+
+const opts = (tier: "critical" | "normal" | "low") =>
+  ({ title: "T", body: "B", data: {}, tier, channelId: "requests" }) as const;
 
 Deno.test("expoMessages filters out non-Expo tokens", () => {
   const recipients = [
     { profile_id: "1", expo_token: "ExponentPushToken[abc]" },
     { profile_id: "2", expo_token: "some-other-token" },
   ];
-  const messages = expoMessages(recipients, "T", "B", {});
+  const messages = expoMessages(recipients, opts("normal"));
   assertEquals(messages.length, 1);
   assertEquals(messages[0].to, "ExponentPushToken[abc]");
 });
 
-Deno.test("expoMessages attaches channelId only when provided", () => {
+Deno.test("expoMessages maps tier to priority, sound and interruptionLevel", () => {
   const recipients = [{ profile_id: "1", expo_token: "ExponentPushToken[abc]" }];
-  const withChannel = expoMessages(recipients, "T", "B", {}, "chat");
-  const withoutChannel = expoMessages(recipients, "T", "B", {});
-  assertEquals(withChannel[0].channelId, "chat");
-  assertEquals("channelId" in withoutChannel[0], false);
+
+  const critical = expoMessages(recipients, opts("critical"))[0];
+  assertEquals(critical.priority, "high");
+  assertEquals(critical.sound, "default");
+  assertEquals(critical.interruptionLevel, "time-sensitive");
+
+  const normal = expoMessages(recipients, opts("normal"))[0];
+  assertEquals(normal.priority, "normal");
+  assertEquals(normal.sound, "default");
+  assertEquals(normal.interruptionLevel, "active");
+
+  // Low tier is silent: worth seeing, not worth interrupting.
+  const low = expoMessages(recipients, opts("low"))[0];
+  assertEquals(low.priority, "normal");
+  assertEquals(low.sound, null);
+  assertEquals(low.interruptionLevel, "passive");
+});
+
+Deno.test("expoMessages always carries a channelId", () => {
+  const recipients = [{ profile_id: "1", expo_token: "ExponentPushToken[abc]" }];
+  assertEquals(expoMessages(recipients, opts("low"))[0].channelId, "requests");
 });

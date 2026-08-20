@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { View, Text, Pressable, ScrollView, Alert, useWindowDimensions } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
@@ -52,7 +52,7 @@ function goBack() {
 }
 
 export default function GameDetails() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, focus } = useLocalSearchParams<{ id: string; focus?: string }>();
   const gameId = id ?? "";
   const { session, isLoading: sessionLoading } = useSession();
   const gameQuery = useGameDetail(gameId, !!session);
@@ -66,6 +66,17 @@ export default function GameDetails() {
   const reduceMotion = useReduceMotion();
   const { width: windowWidth } = useWindowDimensions();
   const [onCalendar, setOnCalendar] = useState(false);
+
+  // A join_request push deep-links here with ?focus=requests (docs/notifications-plan.md §7):
+  // the requests list sits well below the hero, so landing at the top hides the one thing the
+  // notification asked the host to do. Scrolls once, after the section reports its position.
+  const scrollRef = useRef<ScrollView>(null);
+  const focusedRequests = useRef(false);
+  const scrollToRequests = (y: number) => {
+    if (focus !== "requests" || focusedRequests.current) return;
+    focusedRequests.current = true;
+    scrollRef.current?.scrollTo({ y: Math.max(0, y - 24), animated: true });
+  };
 
   useEffect(() => {
     if (!gameId || !session) return;
@@ -130,7 +141,7 @@ export default function GameDetails() {
 
   return (
     <View className="flex-1" style={{ backgroundColor: colors.base }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
+      <ScrollView ref={scrollRef} contentContainerStyle={{ paddingBottom: 24 }}>
         {/* Anchor (docs/v2-design-plan.md §4.3): the one hero on this screen. */}
         <View style={{ height: HERO_HEIGHT, backgroundColor: colors.surface, overflow: "hidden" }}>
           <View pointerEvents="none" style={{ position: "absolute", inset: 0 }}>
@@ -262,7 +273,7 @@ export default function GameDetails() {
             <ListRow title="Share game link" accessory="chevron" divider={false} onPress={() => shareGame(game)} />
           </View>
 
-          {isOrganizer && !cancelled && <JoinRequests gameId={gameId} full={full} />}
+          {isOrganizer && !cancelled && <JoinRequests gameId={gameId} full={full} onLayoutY={scrollToRequests} />}
 
           <Text className="font-body-extrabold text-[13px] uppercase tracking-wide mt-5.5 mb-2.5" style={{ color: colors.textTertiary }}>
             Players joined ({game.joinedCount}/{game.maxPlayers})
@@ -445,7 +456,15 @@ function RosterAvatar({
   );
 }
 
-function JoinRequests({ gameId, full }: { gameId: string; full: boolean }) {
+function JoinRequests({
+  gameId,
+  full,
+  onLayoutY,
+}: {
+  gameId: string;
+  full: boolean;
+  onLayoutY: (y: number) => void;
+}) {
   const requestsQuery = useJoinRequests(gameId);
   const decide = useDecideJoinRequest(gameId);
   const requests = requestsQuery.data ?? [];
@@ -453,7 +472,7 @@ function JoinRequests({ gameId, full }: { gameId: string; full: boolean }) {
   if (requests.length === 0) return null;
 
   return (
-    <>
+    <View onLayout={(e) => onLayoutY(e.nativeEvent.layout.y)}>
       <Text className="font-body-extrabold text-[13px] uppercase tracking-wide mt-5.5" style={{ color: colors.textTertiary }}>
         Join requests ({requests.length})
       </Text>
@@ -528,6 +547,6 @@ function JoinRequests({ gameId, full }: { gameId: string; full: boolean }) {
           </SwipeToDecide>
         ))}
       </View>
-    </>
+    </View>
   );
 }

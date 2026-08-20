@@ -260,3 +260,22 @@ insert into public.messages (game_id, sender_id, body, kind, created_at) values
   ('44444444-0000-0000-0000-000000000003', '11111111-1111-1111-1111-111111111111', 'I''ve got a tube, all good', 'text', now() - interval '2 hours 50 minutes'),
   ('44444444-0000-0000-0000-000000000003', '22222222-0000-0000-0000-000000000005', 'See everyone there', 'text', now() - interval '2 hours'),
   ('44444444-0000-0000-0000-000000000003', '22222222-0000-0000-0000-000000000006', 'Running 5 min late, save my spot', 'text', now() - interval '1 hour');
+
+-- Push dispatch, local. notify_push no-ops without a 'push_dispatch_key' Vault secret and posts
+-- to the hosted project without 'push_dispatch_url' (docs/notifications-plan.md §6.7), so a
+-- local db could never exercise a notification end to end. These two point it at the local
+-- functions runtime instead: run `supabase functions serve` alongside `supabase start` and the
+-- triggers reach push-dispatch for real. The key only has to match PUSH_DISPATCH_KEY in
+-- supabase/functions/.env locally. Guarded because vault secret names are unique and pgTAP
+-- tests create the same key themselves.
+do $$
+begin
+  if not exists (select 1 from vault.secrets where name = 'push_dispatch_key') then
+    perform vault.create_secret('local-push-dispatch-key', 'push_dispatch_key');
+  end if;
+  if not exists (select 1 from vault.secrets where name = 'push_dispatch_url') then
+    -- host.docker.internal: pg_net runs inside the db container, the functions runtime doesn't.
+    perform vault.create_secret('http://host.docker.internal:54321/functions/v1/push-dispatch', 'push_dispatch_url');
+  end if;
+end;
+$$;

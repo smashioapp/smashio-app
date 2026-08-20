@@ -2,6 +2,7 @@ import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 import { Platform } from "react-native";
 import { supabase } from "./supabase";
+import { unregisterPushToken } from "./notifications";
 
 // Single "Continue" flow: try signing in, and if there's no account yet, sign one up.
 // Keeps onboarding to one form instead of separate login/signup screens.
@@ -77,6 +78,11 @@ export async function continueWithApple() {
 }
 
 export async function signOut() {
+  // Drop this device's push token first, while the session still passes push_tokens' self-only
+  // RLS. Without it the signed-out account keeps receiving pushes on this device — including
+  // chat message bodies — which on a shared or resold phone is a privacy leak, not just noise.
+  await unregisterPushToken();
+
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
 }

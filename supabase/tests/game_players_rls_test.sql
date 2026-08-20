@@ -8,7 +8,7 @@ SELECT plan(13);
 set local role postgres;
 
 insert into auth.users (id, email) values
-  ('11111111-1111-1111-1111-111111111111', 'organizer@test.dev'),
+  ('b1111111-1111-1111-1111-111111111111', 'organizer@test.dev'),
   ('22222222-2222-2222-2222-222222222222', 'member@test.dev'),
   ('33333333-3333-3333-3333-333333333333', 'requester@test.dev'),
   ('44444444-4444-4444-4444-444444444444', 'stranger@test.dev');
@@ -20,7 +20,7 @@ insert into public.games (id, sport_id, venue_id, organizer_id, starts_at, ends_
 select
   '66666666-6666-6666-6666-666666666666',
   s.id, '55555555-5555-5555-5555-555555555555',
-  '11111111-1111-1111-1111-111111111111',
+  'b1111111-1111-1111-1111-111111111111',
   now() + interval '1 day', now() + interval '1 day 2 hours',
   t.id, 4
 from public.sports s
@@ -105,7 +105,7 @@ SELECT is(
 );
 
 -- Act as the organizer: full roster visibility + can decide requests.
-select set_config('request.jwt.claims', json_build_object('sub', '11111111-1111-1111-1111-111111111111', 'role', 'authenticated')::text, true);
+select set_config('request.jwt.claims', json_build_object('sub', 'b1111111-1111-1111-1111-111111111111', 'role', 'authenticated')::text, true);
 
 SELECT is(
   (select count(*)::int from public.game_players where game_id = '66666666-6666-6666-6666-666666666666'),

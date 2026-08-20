@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { View, Text, Pressable, ScrollView, TextInput, Dimensions, FlatList, BackHandler, NativeSyntheticEvent, NativeScrollEvent } from "react-native";
+import { View, Text, Pressable, ScrollView, TextInput, Dimensions, FlatList, BackHandler, Alert, NativeSyntheticEvent, NativeScrollEvent } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useFocusEffect } from "expo-router";
@@ -17,6 +17,7 @@ import { useProfileSports } from "../../lib/queries/profile";
 import { useSession } from "../../lib/session";
 import { useUserLocation, useLocationLabel } from "../../lib/location";
 import { dayLabel, haversineMeters, formatDistance } from "../../lib/format";
+import { newSessionToken, searchPlaces, getPlaceDetails, type PlacePrediction } from "../../lib/places";
 import { haptics } from "../../lib/haptics";
 import { Screen } from "../../components/Screen";
 import { Chip } from "../../components/Chip";
@@ -418,9 +419,15 @@ export default function Discover() {
   // the device-location + radius filter that drives the list. Null = map follows the filters
   // like everything else.
   const [mapAreaOverride, setMapAreaOverride] = useState<{ lat: number; lng: number; radiusKm: number } | null>(null);
-  // Client-side name/suburb filter over the pins already fetched (docs/v2-design-plan.md §4.2) —
-  // no geocoded search in this pass, see backlog B8.
+  // Client-side name/suburb filter over the pins already fetched (docs/v2-design-plan.md §4.2),
+  // plus geocoded search (P3, discover-map-ux-plan.md backlog B8) — typing narrows the pins
+  // already on screen instantly, and Places predictions let the viewer jump the map to a place
+  // that isn't in the current viewport at all.
   const [mapSearch, setMapSearch] = useState("");
+  const [mapSearchPredictions, setMapSearchPredictions] = useState<PlacePrediction[]>([]);
+  const [mapSearchResolving, setMapSearchResolving] = useState(false);
+  const mapSearchSelectedRef = useRef(false);
+  const mapSearchTokenRef = useRef(newSessionToken());
   // Games | Courts mode (P2, discover-map-ux-plan.md §4.1) — auto-selected by liquidity
   // (games if any are in radius, courts otherwise) until the viewer touches the control
   // themselves, same "personalise until touched" pattern as the level filter above.
@@ -454,6 +461,7 @@ export default function Discover() {
     if (discoverView !== "map") {
       setMapAreaOverride(null);
       setMapSearch("");
+      setMapSearchPredictions([]);
       // Un-touch the mode too, so the next time the map opens it re-picks by liquidity
       // instead of sticking on whatever the viewer last chose in a different area.
       mapModeTouched.current = false;
@@ -515,14 +523,55 @@ export default function Discover() {
     setMapMode(m);
   };
 
-  // Client-side name/suburb filter over the pins already fetched (docs/v2-design-plan.md §4.2,
-  // backlog B8 — no geocoded search yet). Only narrows what's shown, never re-fetches.
+  // Client-side name/suburb filter over the pins already fetched. Narrows what's shown while
+  // the viewer types; a Places prediction picked below jumps the map instead of filtering it.
   const mapPinnedGames = useMemo(() => {
     const q = mapSearch.trim().toLowerCase();
     if (!q) return mapPinnedGamesAll;
     return mapPinnedGamesAll.filter((g) => g.venue.toLowerCase().includes(q) || g.suburb.toLowerCase().includes(q));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapPinnedGamesAll, mapSearch]);
+
+  // Geocoded search (P3, discover-map-ux-plan.md backlog B8) — debounced Places autocomplete
+  // alongside the instant local filter above, so "Newtown" both narrows currently-loaded pins
+  // and offers to jump the map there even if nothing near the current viewport matches.
+  useEffect(() => {
+    if (mapSearchSelectedRef.current) {
+      mapSearchSelectedRef.current = false;
+      return;
+    }
+    const handle = setTimeout(async () => {
+      if (mapSearch.trim().length < 3) {
+        setMapSearchPredictions([]);
+        return;
+      }
+      try {
+        const results = await searchPlaces(mapSearch, mapSearchTokenRef.current);
+        setMapSearchPredictions(results);
+      } catch {
+        // Search errors surface as no predictions — the local filter above still works.
+      }
+    }, 350);
+    return () => clearTimeout(handle);
+  }, [mapSearch]);
+
+  const handlePickMapSearchPrediction = async (prediction: PlacePrediction) => {
+    haptics.tap();
+    setMapSearchResolving(true);
+    try {
+      const details = await getPlaceDetails(prediction.placeId, mapSearchTokenRef.current);
+      mapSearchSelectedRef.current = true;
+      setMapSearch(details.name);
+      setMapSearchPredictions([]);
+      setMapAreaOverride({ lat: details.lat, lng: details.lng, radiusKm: mapRadiusKm });
+      mapRef.current?.focusOn(details.lat, details.lng);
+      mapSearchTokenRef.current = newSessionToken();
+    } catch (e) {
+      Alert.alert("Couldn't find that place", e instanceof Error ? e.message : "Try again.");
+    } finally {
+      setMapSearchResolving(false);
+    }
+  };
 
   // D7 (discover-map-ux-plan.md) — the viewer's own upcoming games, excluded from mapPinnedGames
   // by nearby_games' p_exclude_mine but still worth showing on the map they're looking at.
@@ -988,8 +1037,9 @@ export default function Discover() {
           />
 
           {/* Floating search + Tonight chip (docs/v2-design-plan.md §4.2) — glass-backed, sits
-              where the list's filter chip row would be. Search is a client-side name/suburb
-              filter over the pins already fetched (backlog B8: no geocoded search yet). */}
+              where the list's filter chip row would be. Instant local filter over the pins
+              already fetched, plus geocoded Places predictions to jump the map to a place
+              outside the current viewport (P3, discover-map-ux-plan.md backlog B8). */}
           <View pointerEvents="box-none" className="absolute left-0 right-0" style={{ top: 12, paddingHorizontal: LAYOUT.SCREEN_PAD, gap: 8 }}>
             <View className="flex-row items-center gap-2.5">
               <View
@@ -1006,7 +1056,13 @@ export default function Discover() {
                   style={{ color: colors.text }}
                 />
                 {mapSearch.length > 0 && (
-                  <Pressable onPress={() => setMapSearch("")} hitSlop={8}>
+                  <Pressable
+                    onPress={() => {
+                      setMapSearch("");
+                      setMapSearchPredictions([]);
+                    }}
+                    hitSlop={8}
+                  >
                     <Ionicons name="close-circle" size={16} color={colors.textTertiary} />
                   </Pressable>
                 )}
@@ -1019,6 +1075,35 @@ export default function Discover() {
                 <Ionicons name="options-outline" size={17} color={colors.textDim} />
               </Pressable>
             </View>
+
+            {mapSearchPredictions.length > 0 && (
+              <View
+                className="rounded-xl border overflow-hidden"
+                style={{ backgroundColor: "rgba(23,23,26,0.96)", borderColor: colors.cardBorder }}
+              >
+                {mapSearchPredictions.map((p, i) => (
+                  <Pressable
+                    key={p.placeId}
+                    onPress={() => handlePickMapSearchPrediction(p)}
+                    disabled={mapSearchResolving}
+                    className="flex-row items-center gap-2.5 px-4 py-3"
+                    style={{ borderTopWidth: i === 0 ? 0 : 1, borderTopColor: colors.cardBorder, opacity: mapSearchResolving ? 0.5 : 1 }}
+                  >
+                    <Ionicons name="location-outline" size={15} color={colors.textTertiary} />
+                    <View className="flex-1 min-w-0">
+                      <Text numberOfLines={1} className="font-body-semibold text-[13px]" style={{ color: colors.text }}>
+                        {p.mainText}
+                      </Text>
+                      {p.secondaryText.length > 0 && (
+                        <Text numberOfLines={1} className="text-[11.5px] mt-0.5" style={{ color: colors.textTertiary }}>
+                          {p.secondaryText}
+                        </Text>
+                      )}
+                    </View>
+                  </Pressable>
+                ))}
+              </View>
+            )}
             {/* Games | Courts (P2, §4.1) replaces the lone Tonight chip's position — Tonight
                 only makes sense once you're looking at games, so it moves inside that mode. */}
             <View className="flex-row items-center gap-2">

@@ -243,7 +243,16 @@ filters, sport scoping (§4.7), mode auto-selected by liquidity.
   ([20260820000500_venues_near_opening_hours.sql](../supabase/migrations/20260820000500_venues_near_opening_hours.sql));
   [format.ts](../ui/lib/format.ts)'s `isOpenNow` checks it against the current day/time;
   [MapCourtCard.tsx](../ui/components/MapCourtCard.tsx) shows an Open now / Closed badge.
-- Remaining: geocoded map search (backlog B8 — search is client-side over fetched pins today).
+- Geocoded map search (backlog B8) — **done**. The existing client-side name/suburb filter over
+  fetched pins stays for instant narrowing, and a debounced Places autocomplete dropdown
+  ([discover.tsx](../ui/app/(tabs)/discover.tsx)'s `mapSearchPredictions`) now lets the viewer
+  jump the map to anywhere in Australia, not just what's already in the viewport — picking a
+  result sets `mapAreaOverride` and calls `mapRef.focusOn`, same path as "Search this area".
+  [places.ts](../ui/lib/places.ts)'s `searchPlaces` gained an optional `types` param so the map
+  search can run unrestricted (venues + suburbs) while the wizard's venue step keeps its
+  `establishment`-only restriction.
+
+P3 is now fully shipped.
 
 ---
 

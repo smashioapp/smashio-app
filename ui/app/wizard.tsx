@@ -289,7 +289,7 @@ export default function Wizard() {
       }
       setVenueSearching(true);
       try {
-        const results = await searchPlaces(venueQuery, sessionTokenRef.current);
+        const results = await searchPlaces(venueQuery, sessionTokenRef.current, "establishment");
         setVenueResults(results);
       } catch (e) {
         // Search errors surface as an empty result list — the input stays usable.
@@ -416,7 +416,7 @@ export default function Wizard() {
     setVenueResolving(true);
     try {
       const query = [parsed.venue_name, parsed.venue_address].filter(Boolean).join(", ");
-      const results = await searchPlaces(query, sessionTokenRef.current);
+      const results = await searchPlaces(query, sessionTokenRef.current, "establishment");
       const top = results[0];
       if (top && sharesToken(top.mainText, parsed.venue_name)) {
         const details = await getPlaceDetails(top.placeId, sessionTokenRef.current);

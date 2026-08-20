@@ -25,11 +25,15 @@ export function newSessionToken() {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-export async function searchPlaces(query: string, sessionToken: string): Promise<PlacePrediction[]> {
+// `types` restricts the autocomplete category — Google only allows one of the mutually
+// exclusive groups (geocode|address|establishment|regions|cities) per request, so the wizard's
+// venue step passes "establishment" and the map's "venues, suburbs" search passes nothing
+// (autocomplete returns a mix of establishments and geocoded places when unrestricted).
+export async function searchPlaces(query: string, sessionToken: string, types?: string): Promise<PlacePrediction[]> {
   if (!API_KEY || query.trim().length < 3) return [];
   const url =
     `${PLACES_BASE}/autocomplete/json?input=${encodeURIComponent(query)}` +
-    `&types=establishment&components=country:au&sessiontoken=${sessionToken}&key=${API_KEY}`;
+    `${types ? `&types=${types}` : ""}&components=country:au&sessiontoken=${sessionToken}&key=${API_KEY}`;
   const res = await fetch(url, { headers: { "X-Ios-Bundle-Identifier": "com.smashio.app" } });
   const json = await res.json();
   if (json.status !== "OK" && json.status !== "ZERO_RESULTS") {

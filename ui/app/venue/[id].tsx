@@ -272,20 +272,18 @@ export default function VenueScreen() {
           {Object.keys(amenitiesByCategory).length > 0 && (
             <>
               <SectionLabel>Amenities</SectionLabel>
-              {Object.entries(amenitiesByCategory).map(([category, amenities]) => (
-                <View key={category} className="mb-3">
-                  <Text className="text-[12px] font-body-bold uppercase tracking-wide mb-1.5" style={{ color: colors.textMuted }}>
-                    {AMENITY_CATEGORY_LABELS[category] ?? category}
-                  </Text>
-                  <View className="flex-row flex-wrap">
-                    {amenities.map((a) => (
-                      <View key={a.slug} style={{ width: "50%" }}>
-                        <AmenityRow amenity={a} />
-                      </View>
+              <View className="rounded-2xl border overflow-hidden" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
+                {Object.entries(amenitiesByCategory).map(([category, amenities], ci) => (
+                  <View key={category} style={ci > 0 ? { borderTopWidth: 1, borderTopColor: colors.cardBorder } : undefined}>
+                    <Text className="text-[11.5px] font-body-bold uppercase tracking-wide px-4 pt-3.5 pb-1" style={{ color: colors.textMuted }}>
+                      {AMENITY_CATEGORY_LABELS[category] ?? category}
+                    </Text>
+                    {amenities.map((a, ai) => (
+                      <AmenityRow key={a.slug} amenity={a} divider={ai < amenities.length - 1} />
                     ))}
                   </View>
-                </View>
-              ))}
+                ))}
+              </View>
             </>
           )}
 
@@ -367,35 +365,47 @@ function InfoChip({ label }: { label: string }) {
   );
 }
 
-// Five-state amenity treatment (design/23bc2cae panel 2) — fill + border style + glyph + label
-// weight pair per state, never a single cue alone, so state reads without color vision either.
-const AMENITY_ICON_STYLE: Record<
+// Five-state amenity treatment (design/23bc2cae panel 2) — border style + tone + label pair per
+// state, never a single cue alone, so state reads without color vision either. The icon itself
+// stays the amenity's own glyph (toilet, car, water, ...) so the row still says *what* the
+// amenity is once the label truncates or the note wraps off-screen.
+const AMENITY_STATE_STYLE: Record<
   VenueAmenity["availability"],
-  { bg: string; border: string; borderStyle: "solid" | "dashed" | "dotted"; fg: string; glyph: keyof typeof Ionicons.glyphMap; note: string }
+  { bg: string; border: string; borderStyle: "solid" | "dashed" | "dotted"; fg: string; statusLabel: string }
 > = {
-  yes: { bg: colors.intermediate, border: colors.intermediate, borderStyle: "solid", fg: colors.base, glyph: "checkmark", note: "Yes" },
-  paid: { bg: "transparent", border: colors.beginner, borderStyle: "solid", fg: colors.beginner, glyph: "cash-outline", note: "Paid" },
-  nearby: { bg: "transparent", border: colors.textTertiary, borderStyle: "dashed", fg: colors.textTertiary, glyph: "arrow-redo-outline", note: "Nearby" },
-  no: { bg: "transparent", border: colors.surfaceAlt, borderStyle: "solid", fg: colors.textMuted, glyph: "remove", note: "No" },
-  unknown: { bg: "transparent", border: colors.textMuted, borderStyle: "dotted", fg: colors.textMuted, glyph: "help", note: "Not confirmed" },
+  yes: { bg: "rgba(53,214,166,0.12)", border: colors.intermediate, borderStyle: "solid", fg: colors.intermediate, statusLabel: "Yes" },
+  paid: { bg: "rgba(255,182,72,0.1)", border: colors.beginner, borderStyle: "solid", fg: colors.beginner, statusLabel: "Paid" },
+  nearby: { bg: "transparent", border: colors.textTertiary, borderStyle: "dashed", fg: colors.textTertiary, statusLabel: "Nearby" },
+  no: { bg: "transparent", border: colors.surfaceAlt, borderStyle: "solid", fg: colors.textMuted, statusLabel: "No" },
+  unknown: { bg: "transparent", border: colors.textMuted, borderStyle: "dotted", fg: colors.textMuted, statusLabel: "Not confirmed" },
 };
 
-function AmenityRow({ amenity }: { amenity: VenueAmenity }) {
-  const s = AMENITY_ICON_STYLE[amenity.availability];
+function AmenityRow({ amenity, divider }: { amenity: VenueAmenity; divider: boolean }) {
+  const s = AMENITY_STATE_STYLE[amenity.availability];
   const dim = amenity.availability === "unknown";
   return (
-    <View className="flex-row items-center gap-2.5 py-1.5" style={{ opacity: dim ? 0.55 : 1 }}>
+    <View
+      className="flex-row items-center gap-3 px-4 py-2.5"
+      style={{ opacity: dim ? 0.55 : 1, borderBottomWidth: divider ? 1 : 0, borderBottomColor: colors.cardBorder }}
+    >
       <View
         className="items-center justify-center rounded-full"
-        style={{ width: 22, height: 22, backgroundColor: s.bg, borderWidth: 1.5, borderColor: s.border, borderStyle: s.borderStyle }}
+        style={{ width: 30, height: 30, backgroundColor: s.bg, borderWidth: 1.5, borderColor: s.border, borderStyle: s.borderStyle }}
       >
-        <Ionicons name={s.glyph} size={11} color={s.fg} />
+        <Ionicons name={amenity.icon as keyof typeof Ionicons.glyphMap} size={14} color={s.fg} />
       </View>
-      <Text numberOfLines={1} className="flex-1 text-[12.5px] font-body-semibold" style={{ color: colors.textDim }}>
-        {amenity.label}
-      </Text>
-      <Text className="text-[10.5px]" style={{ color: colors.textTertiary, fontStyle: dim ? "italic" : "normal" }}>
-        {amenity.note ?? s.note}
+      <View className="flex-1 min-w-0">
+        <Text numberOfLines={1} className="text-[13.5px] font-body-semibold" style={{ color: colors.text }}>
+          {amenity.label}
+        </Text>
+        {amenity.note && (
+          <Text numberOfLines={1} className="text-[11.5px] mt-0.5" style={{ color: colors.textMuted }}>
+            {amenity.note}
+          </Text>
+        )}
+      </View>
+      <Text className="text-[11.5px] font-body-bold" style={{ color: s.fg, fontStyle: dim ? "italic" : "normal" }}>
+        {s.statusLabel}
       </Text>
     </View>
   );

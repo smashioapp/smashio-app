@@ -220,7 +220,7 @@ export default function EditGame() {
             icon="remove"
             disabled={maxPlayers <= minPlayers}
             onPress={() => {
-              const next = Math.max(minPlayers, maxPlayers - 2);
+              const next = Math.max(minPlayers, maxPlayers - 1);
               setMaxPlayers(next);
               setReservedSpots((r) => Math.min(r, next - approvedCount));
             }}
@@ -231,7 +231,7 @@ export default function EditGame() {
           <Stepper
             icon="add"
             disabled={maxPlayers >= MAX_PLAYERS}
-            onPress={() => setMaxPlayers(Math.min(MAX_PLAYERS, maxPlayers + 2))}
+            onPress={() => setMaxPlayers(Math.min(MAX_PLAYERS, maxPlayers + 1))}
           />
         </View>
         <Text className="text-[13px] mb-5" style={{ color: colors.textMuted }}>

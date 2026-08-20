@@ -162,12 +162,12 @@ export const useAppStore = create<AppState>((set) => ({
   selectWizardTier: (id) => set((s) => ({ wizard: { ...s.wizard, skill: id } })),
   incPlayers: () =>
     set((s) => {
-      const maxPlayers = Math.min(MAX_PLAYERS, s.wizard.maxPlayers + 2);
+      const maxPlayers = Math.min(MAX_PLAYERS, s.wizard.maxPlayers + 1);
       return { wizard: { ...s.wizard, maxPlayers, reservedSpots: Math.min(s.wizard.reservedSpots, maxPlayers) } };
     }),
   decPlayers: () =>
     set((s) => {
-      const maxPlayers = Math.max(MIN_PLAYERS, s.wizard.maxPlayers - 2);
+      const maxPlayers = Math.max(MIN_PLAYERS, s.wizard.maxPlayers - 1);
       return { wizard: { ...s.wizard, maxPlayers, reservedSpots: Math.min(s.wizard.reservedSpots, maxPlayers) } };
     }),
   incCourts: () => set((s) => ({ wizard: { ...s.wizard, courtsBooked: Math.min(MAX_COURTS_BOOKED, s.wizard.courtsBooked + 1) } })),

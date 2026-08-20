@@ -1,8 +1,10 @@
 import { assertEquals, assertMatch } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   alertMatchBody,
+  bookingVerifiedBody,
   clockTime,
   dayLabel,
+  detailsChangedBody,
   expoMessages,
   gameCancelledBody,
   gameFullBody,
@@ -14,6 +16,8 @@ import {
   messageBody,
   messageCoalescedBody,
   money,
+  nudgePendingBody,
+  nudgeUnderfilledBody,
   pick,
   playerLeftBody,
   postGameRateBody,
@@ -326,6 +330,44 @@ Deno.test("messageCoalescedBody titles with the game and states the count", () =
 Deno.test("messageBody: text of exactly 140 chars is untouched", () => {
   const exact = "x".repeat(140);
   assertEquals(messageBody({ ...message, body: exact }).body, exact);
+});
+
+// --- P3 B3/B4/C4/C5 ---------------------------------------------------------------------------
+
+Deno.test("detailsChangedBody shows court, cost, game info", () => {
+  const { title, body } = detailsChangedBody(summary);
+  assertEquals(title, "Game details updated");
+  assertMatch(body, /Court 3/);
+  assertMatch(body, /\$12 per player/);
+  assertMatch(body, /Badminton at Test Courts/);
+});
+
+Deno.test("bookingVerifiedBody confirms host uploaded booking", () => {
+  const { title, body } = bookingVerifiedBody(summary);
+  assertEquals(title, "Court booking confirmed");
+  assertMatch(body, /Riya uploaded the booking/);
+  assertMatch(body, /Test Courts/);
+});
+
+Deno.test("nudgeUnderfilledBody shows open spot count", () => {
+  const singleSpot = { ...summary, spots_left: 1 };
+  const { title, body } = nudgeUnderfilledBody(singleSpot);
+  assertMatch(title, /1 spot still open/);
+  assertMatch(body, /tomorrow/);
+  assertMatch(body, /Share it/);
+});
+
+Deno.test("nudgeUnderfilledBody pluralizes spots", () => {
+  const multiSpot = { ...summary, spots_left: 3 };
+  const { title } = nudgeUnderfilledBody(multiSpot);
+  assertMatch(title, /3 spots still open/);
+});
+
+Deno.test("nudgePendingBody shows request count and days out", () => {
+  // starts_at is in ISO format, date in the future
+  const { title, body } = nudgePendingBody(summary, 2);
+  assertMatch(title, /2 requests waiting/);
+  assertMatch(body, /approve or decline/);
 });
 
 // --- expoMessages: token filtering + tier shape ------------------------------------------------

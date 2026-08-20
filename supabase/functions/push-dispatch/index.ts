@@ -15,6 +15,8 @@
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import {
   alertMatchBody,
+  bookingVerifiedBody,
+  detailsChangedBody,
   expoMessages,
   gameCancelledBody,
   gameFullBody,
@@ -26,6 +28,8 @@ import {
   type MessageSummary,
   messageBody,
   messageCoalescedBody,
+  nudgePendingBody,
+  nudgeUnderfilledBody,
   playerLeftBody,
   postGameRateBody,
   type PushBody,
@@ -65,9 +69,13 @@ const CHANNEL_FOR_TYPE: Record<string, PushChannel> = {
   join_decision: "requests",
   game_cancelled: "game-updates",
   game_rescheduled: "game-updates",
+  details_changed: "game-updates",
+  booking_verified: "game-updates",
   reminder_24h: "reminders",
   reminder_2h: "reminders",
   post_game_rate: "reminders",
+  nudge_underfilled: "reminders",
+  nudge_pending: "reminders",
   alert_match: "discovery",
   message: "chat",
 };
@@ -223,11 +231,19 @@ async function renderIndividual(row: NotificationRow): Promise<Rendered | null> 
       return { body: gameCancelledBody(summary), screen: "game" };
     case "game_rescheduled":
       return { body: gameRescheduledBody(summary, row.params.old_starts_at as string | undefined), screen: "game" };
+    case "details_changed":
+      return { body: detailsChangedBody(summary), screen: "game" };
+    case "booking_verified":
+      return { body: bookingVerifiedBody(summary), screen: "game" };
     case "join_decision": {
       const status = row.params.status as "approved" | "rejected" | "removed";
       // A declined player is sent looking for another game, not back to the one that said no.
       return { body: joinDecisionBody(status, summary), screen: status === "rejected" ? "discover" : "game" };
     }
+    case "nudge_underfilled":
+      return { body: nudgeUnderfilledBody(summary), screen: "game" };
+    case "nudge_pending":
+      return { body: nudgePendingBody(summary, row.params.pending_count as number), screen: "game_requests" };
     case "reminder_24h":
       return { body: reminder24hBody(summary), screen: "game" };
     case "reminder_2h":

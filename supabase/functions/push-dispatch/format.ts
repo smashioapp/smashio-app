@@ -200,6 +200,22 @@ export function gameRescheduledBody(s: GameSummary, oldStartsAt?: string | null)
   };
 }
 
+// B3. Court, cost, or max_players changed. (Low tier, goes to inbox if user inside quiet hours.)
+export function detailsChangedBody(s: GameSummary): PushBody {
+  return {
+    title: "Game details updated",
+    body: `${s.court_label ? `${s.court_label} · ` : ""}${money(s.per_player_cents)} per player · ${where(s)}, ${shortTime(s.starts_at)}.`,
+  };
+}
+
+// B4. Booking was verified — host uploaded proof. (Low tier.)
+export function bookingVerifiedBody(s: GameSummary): PushBody {
+  return {
+    title: "Court booking confirmed",
+    body: `${s.host_name} uploaded the booking for ${s.venue_name}, ${shortTime(s.starts_at)}.`,
+  };
+}
+
 // --- C. Time-based ---------------------------------------------------------------------------
 
 // C1.
@@ -234,6 +250,27 @@ export function postGameRateBody(s: GameSummary, rateableCount: number): PushBod
   return {
     title,
     body: `Rate ${who} from ${where(s)}. Ten seconds, and it's private.`,
+  };
+}
+
+// C4. Nudge host at T-24h if game still has open spots. (Low tier, goes to inbox if quiet hours.)
+export function nudgeUnderfilledBody(s: GameSummary): PushBody {
+  const open = s.spots_left;
+  const plural = open === 1 ? "spot" : "spots";
+  return {
+    title: `${open} ${plural} still open`,
+    body: `${where(s)} is tomorrow at ${clockTime(s.starts_at)}. Share it to fill up.`,
+  };
+}
+
+// C5. Nudge host if join requests pending >12h and game <48h away. (Low tier.)
+export function nudgePendingBody(s: GameSummary, pendingCount: number): PushBody {
+  const plural = pendingCount === 1 ? "request" : "requests";
+  const daysOut = Math.ceil((new Date(s.starts_at).getTime() - Date.now()) / (24 * 3600 * 1000));
+  const when = daysOut === 1 ? "tomorrow" : daysOut > 1 ? `in ${daysOut} days` : "today";
+  return {
+    title: `${pendingCount} ${plural} waiting`,
+    body: `${where(s)} is ${when} at ${clockTime(s.starts_at)} — approve or decline.`,
   };
 }
 

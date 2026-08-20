@@ -262,7 +262,7 @@ export default function MyGames() {
                     }}
                   />
                 </View>
-              ) : (
+              ) : heroVisible ? null : (
                 <View>
                   <View className="px-5">
                     <EmptyState
@@ -358,6 +358,7 @@ export default function MyGames() {
                     subtitle={`${game.skill} · ${ROLE_LABEL[game.role]}`}
                     accessory="chevron"
                     onPress={() => router.push(`/game/${game.id}`)}
+                    testID={`mygames-row-${game.id}`}
                   />
                 </View>
               );

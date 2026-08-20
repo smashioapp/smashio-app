@@ -42,12 +42,24 @@ type Payload =
   | { type: "post_game_rate"; game_id: string }
   | { type: "game_cancelled"; game_id: string; organizer_id: string }
   | { type: "game_rescheduled"; game_id: string; organizer_id: string; old_starts_at?: string }
-  | { type: "alert_match"; game_id: string; profile_ids: string[] };
+  | { type: "alert_match"; game_id: string; profile_ids: string[] }
+  | { type: "prune_receipts" };
 
 const supabase = createClient(
   Deno.env.get("SUPABASE_URL")!,
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
 );
+
+// §6.5. Low tier is "silent, respects quiet hours" — the only tier that ever drops. Evaluated per
+// recipient, in their own timezone (profiles.timezone, bug #9), right before send.
+async function filterQuietHours(recipients: Recipient[]): Promise<Recipient[]> {
+  if (recipients.length === 0) return recipients;
+  const { data } = await supabase.rpc("filter_quiet_recipients", {
+    p_profile_ids: recipients.map((r) => r.profile_id),
+  });
+  const allowed = new Set((data as string[] | null) ?? []);
+  return recipients.filter((r) => allowed.has(r.profile_id));
+}
 
 async function sendExpoPush(
   recipients: Recipient[],
@@ -59,19 +71,71 @@ async function sendExpoPush(
     channelId: PushChannel;
   },
 ) {
-  const messages = expoMessages(recipients, opts);
+  const filtered = opts.tier === "low" ? await filterQuietHours(recipients) : recipients;
+  const messages = expoMessages(filtered, opts);
 
   if (messages.length === 0) return;
 
   // Expo caps batches at 100 messages per request.
   for (let i = 0; i < messages.length; i += 100) {
     const chunk = messages.slice(i, i + 100);
-    await fetch(EXPO_PUSH_URL, {
+    const res = await fetch(EXPO_PUSH_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json", Accept: "application/json" },
       body: JSON.stringify(chunk),
     });
+    await recordReceiptHandoff(res, chunk);
   }
+}
+
+// Bug #5 setup half. A dead-token error (DeviceNotRegistered) surfaces on the *receipt*, which
+// Expo only makes available a while after send — not on this immediate ticket. Stash the
+// ticket-id/token pairs so the prune sweep (below) can check receipts later and know which token
+// to delete. A ticket with status "error" here (malformed request, not a dead device) has no id
+// and nothing to check later, so it's skipped rather than stored.
+async function recordReceiptHandoff(
+  res: Response,
+  chunk: { to: string }[],
+): Promise<void> {
+  let tickets: { id?: string; status: string }[];
+  try {
+    const json = await res.json();
+    tickets = json?.data ?? [];
+  } catch {
+    return;
+  }
+  const rows = tickets
+    .map((t, i) => ({ ticket_id: t.id, expo_token: chunk[i]?.to }))
+    .filter((r): r is { ticket_id: string; expo_token: string } => !!r.ticket_id && !!r.expo_token);
+  if (rows.length > 0) {
+    await supabase.from("push_receipts").insert(rows);
+  }
+}
+
+// Bug #5 sweep half. Triggered every 20 min by the prune-dead-push-tokens cron via notify_push,
+// same fan-out path as every other notification type. Expo batches getReceipts at up to 1000 ids.
+async function pruneDeadTokens(): Promise<void> {
+  const { data } = await supabase.rpc("prune_ready_receipt_batch", { p_limit: 1000 });
+  const batch = (data as { ticket_id: string; expo_token: string }[] | null) ?? [];
+  if (batch.length === 0) return;
+
+  const res = await fetch("https://exp.host/--/api/v2/push/getReceipts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ ids: batch.map((b) => b.ticket_id) }),
+  });
+  const json = await res.json().catch(() => null);
+  const receipts = json?.data ?? {};
+
+  for (const { ticket_id, expo_token } of batch) {
+    const receipt = receipts[ticket_id];
+    if (receipt?.status === "error" && receipt?.details?.error === "DeviceNotRegistered") {
+      await supabase.rpc("delete_push_token", { p_expo_token: expo_token });
+    }
+  }
+  // Handled either way — an unrecognized/not-yet-ready receipt isn't retried, since the next send
+  // to that token will queue a fresh ticket.
+  await supabase.rpc("delete_push_receipts", { p_ticket_ids: batch.map((b) => b.ticket_id) });
 }
 
 function gameSummary(gameId: string) {
@@ -83,8 +147,8 @@ async function actorName(profileId: string): Promise<string> {
   return (data as string | null) ?? "A player";
 }
 
-function hostRecipients(gameId: string) {
-  return supabase.rpc("push_recipients_for_host", { p_game_id: gameId });
+function hostRecipients(gameId: string, prefKey: string) {
+  return supabase.rpc("push_recipients_for_host", { p_game_id: gameId, p_pref_key: prefKey });
 }
 
 function tokensFor(profileIds: string[]) {
@@ -118,7 +182,7 @@ Deno.serve(async (req) => {
   } else if (payload.type === "join_request") {
     // A1. Host only — nobody else can approve it.
     const [{ data: recipients }, { data: summary }, actor] = await Promise.all([
-      hostRecipients(payload.game_id),
+      hostRecipients(payload.game_id, "join_requests"),
       gameSummary(payload.game_id),
       actorName(payload.actor_id),
     ]);
@@ -135,7 +199,7 @@ Deno.serve(async (req) => {
   } else if (payload.type === "player_left") {
     // A6. A reopened spot is the last thing a host can still act on.
     const [{ data: recipients }, { data: summary }, actor] = await Promise.all([
-      hostRecipients(payload.game_id),
+      hostRecipients(payload.game_id, "roster_changes"),
       gameSummary(payload.game_id),
       actorName(payload.actor_id),
     ]);
@@ -151,7 +215,7 @@ Deno.serve(async (req) => {
     }
   } else if (payload.type === "game_full") {
     const [{ data: recipients }, { data: summary }] = await Promise.all([
-      hostRecipients(payload.game_id),
+      hostRecipients(payload.game_id, "roster_changes"),
       gameSummary(payload.game_id),
     ]);
     if (recipients?.length && summary) {
@@ -189,6 +253,7 @@ Deno.serve(async (req) => {
         p_game_id: payload.game_id,
         p_exclude_profile: payload.organizer_id,
         p_include_requested: true,
+        p_pref_key: "game_changes",
       }),
       gameSummary(payload.game_id),
     ]);
@@ -209,6 +274,7 @@ Deno.serve(async (req) => {
         p_game_id: payload.game_id,
         p_exclude_profile: payload.organizer_id,
         p_include_requested: true,
+        p_pref_key: "game_changes",
       }),
       gameSummary(payload.game_id),
     ]);
@@ -239,7 +305,7 @@ Deno.serve(async (req) => {
     }
   } else if (payload.type === "reminder_24h") {
     const [{ data: recipients }, { data: summary }] = await Promise.all([
-      supabase.rpc("push_recipients_for_game", { p_game_id: payload.game_id }),
+      supabase.rpc("push_recipients_for_game", { p_game_id: payload.game_id, p_pref_key: "reminders" }),
       gameSummary(payload.game_id),
     ]);
     if (recipients?.length && summary) {
@@ -254,7 +320,7 @@ Deno.serve(async (req) => {
     }
   } else if (payload.type === "reminder_2h" || payload.type === "reminder") {
     const [{ data: recipients }, { data: summary }] = await Promise.all([
-      supabase.rpc("push_recipients_for_game", { p_game_id: payload.game_id }),
+      supabase.rpc("push_recipients_for_game", { p_game_id: payload.game_id, p_pref_key: "reminders" }),
       gameSummary(payload.game_id),
     ]);
     if (recipients?.length && summary) {
@@ -293,6 +359,8 @@ Deno.serve(async (req) => {
         });
       }
     }
+  } else if (payload.type === "prune_receipts") {
+    await pruneDeadTokens();
   }
 
   return new Response("ok", { status: 200 });

@@ -1,7 +1,8 @@
 # Notifications plan
 
-Status: **approved 2026-08-20. P0 shipped** (20260820000200_notifications_p0.sql, push-dispatch
-rewrite, client routing + sign-out token delete). P1-P3 are still proposed; P2 needs its own
+Status: **approved 2026-08-20. P0 and P1 shipped** (20260820000200_notifications_p0.sql,
+20260820000300_notifications_p1.sql, push-dispatch rewrite, client routing + sign-out token
+delete + foreground suppression + settings UI). P2-P3 are still proposed; P2 needs its own
 sign-off because an activity inbox is beyond [mvp-spec.md](mvp-spec.md).
 Written 2026-08-20.
 
@@ -243,9 +244,39 @@ What landed, against what this section planned:
 `supabase functions serve` receives real trigger dispatches. Set `PUSH_DISPATCH_KEY` in the
 gitignored `supabase/functions/.env` to `local-push-dispatch-key` to match the seeded secret.
 
-**P1 — controls and hygiene.** `notification_prefs` table plus settings UI; quiet hours; Expo
-receipt handling and dead-token pruning (#5); per-category Android channels; foreground suppression;
-`profiles.timezone` to retire the hardcoded Sydney (#9).
+**P1 — controls and hygiene. Shipped 2026-08-20** (20260820000300_notifications_p1.sql).
+`notification_prefs` table (seven categories, all defaulting true so a row is only created the
+first time someone touches a toggle) plus settings UI; quiet hours; Expo receipt handling and
+dead-token pruning (#5); foreground suppression; `profiles.timezone` (#9). Per-category Android
+channels turned out to already exist — they landed with P0's tier work (§5 P0 notes) — so this
+phase only wired the new preference gate on top.
+
+What landed, against what §6 planned:
+
+- **Quiet hours don't hold-and-redeliver as §6.5 describes.** That needs a durable queue
+  (`sent_at`/`deliver_after` on a `notifications` row), and the only table with those columns is
+  P2's, which needs its own sign-off. P1 instead **drops** a low-tier push for a recipient
+  currently inside their window, checked per-recipient (their own `profiles.timezone`) at send
+  time in `push-dispatch`. Nothing critical or normal ever drops — only the tier the plan already
+  calls "silent, respects quiet hours". Re-delivery moves to P2 alongside the retry sweeper (#7),
+  which needs the same queue.
+- **Dead-token pruning needed its own small queue too.** Expo's `DeviceNotRegistered` error
+  surfaces on the *receipt*, fetched separately ~15 min after send — not on the immediate send
+  ticket, which is "ok" for a dead token as often as not. `push_receipts` holds the ticket-id →
+  token mapping for that gap; a `prune-dead-push-tokens` cron (`*/20 * * * *`) calls
+  `notify_push({type: 'prune_receipts'})`, same fan-out path as every other event, and
+  `push-dispatch` fetches ready receipts, deletes any `DeviceNotRegistered` token, and clears the
+  batch either way.
+- **`push_recipients_for_game`/`_for_host` gained `p_pref_key`** rather than the categories being
+  bolted on separately — one parameter, checked via `notification_pref_enabled()`, threaded
+  through every call site including `chat_push_recipients` and the `game_alerts` trigger. C3
+  (`post_game_rate`) has no dedicated category in the plan's list, so it's gated under
+  `reminders` — it's the other time-based prompt, and P3's `nudges` is a different, host-facing
+  concept.
+- **Foreground suppression is chat-only**, matching the one reported complaint (§2 "Banner shows
+  even when you're already in that chat"). `ui/lib/notifications.ts` tracks the active route via a
+  module-level variable set from `usePathname` at the root layout — not React state, since the
+  notification handler is registered once outside the component tree.
 
 **P2 — inbox, badge, coalescing.** Requires sign-off: an activity inbox is beyond
 [mvp-spec.md](mvp-spec.md). `notifications` table as the source of truth (§6.2), badge counts,
@@ -318,9 +349,11 @@ above it.
 ### 6.5 Quiet hours
 
 Applied in the edge function, not the trigger, so the decision sees the recipient's timezone.
-Low-tier notifications landing inside a recipient's quiet window are held: `sent_at` stays null and
-a `deliver_after` timestamp is set to the window's end; the sweeper cron picks them up. Critical and
-normal tiers ignore quiet hours entirely, with C2 as the single explicit exception (§4C).
+Critical and normal tiers ignore quiet hours entirely, with C2 as the single explicit exception
+(§4C). As shipped in P1, a low-tier push landing inside a recipient's quiet window is **dropped**,
+not held-and-redelivered — `filter_quiet_recipients()` strips them out per-recipient right before
+send. The hold/`deliver_after`/sweeper design below needs a durable per-notification row, which
+only exists once §6.2's table ships in P2; see the P1 shipped-notes in §5 for the reasoning.
 
 ### 6.6 Expo payload fields
 
@@ -346,14 +379,22 @@ absent. Local `supabase start` sets it to the local functions URL, making push t
 
 - **Sign-out deletes this device's token** before `supabase.auth.signOut()` in
   [auth.ts:79](../ui/lib/auth.ts:79), and on account deletion. Fixes #4. **P0.**
-- **Foreground suppression**: `setNotificationHandler` compares `data.game_id` and `data.screen`
-  against the active route; an already-open chat shows no banner.
+- **Foreground suppression** (**P1**): `setNotificationHandler` in
+  [notifications.ts](../ui/lib/notifications.ts) compares `data.game_id`/`data.screen` against a
+  module-level active-route value kept current by `useTrackActiveRoute()` (mounted at the root
+  layout, driven by `usePathname`) — an already-open chat shows no banner. Chat-only for now, per
+  the one reported complaint.
 - **Tap routing** ([notifications.ts:54](../ui/lib/notifications.ts:54)) extends to
   `/game/:id?tab=requests`, `/post-game/:id`, and `/(tabs)/discover` with prefilled filters.
 - **Android channels** per category (`chat`, `requests`, `game-updates`, `reminders`, `discovery`)
-  with importance matching the tier, replacing today's `default` + `chat` pair.
-- **Notification settings screen** grows the per-category toggles and quiet-hours row above the
-  existing alerts list.
+  with importance matching the tier, replacing today's `default` + `chat` pair. **Shipped with P0**
+  ([notifications.ts](../ui/lib/notifications.ts):`ANDROID_CHANNELS`).
+- **Notification settings screen** (**P1**) — `ui/app/notification-settings.tsx` grows a
+  `CategoryToggles` block (six switches; `nudges` has no P3 events yet, so no toggle) and a
+  `QuietHoursRow` above the existing alerts list, backed by
+  [ui/lib/queries/notificationPrefs.ts](../ui/lib/queries/notificationPrefs.ts). Quiet hours ships
+  with the fixed 22:00-07:00 default only — a custom-range time picker is a follow-up, the column
+  already supports it.
 - **Inbox** (P2): `ui/app/notifications.tsx`, Realtime-subscribed, unread bell in the header,
   `read_at` stamped on open.
 

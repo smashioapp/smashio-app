@@ -12,7 +12,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "../lib/queryClient";
 import { SessionProvider } from "../lib/session";
-import { usePushRegistration } from "../lib/notifications";
+import { usePushRegistration, useTrackActiveRoute } from "../lib/notifications";
 import { AnimatedSplash } from "../components/AnimatedSplash";
 import {
   useFonts as useSpaceGroteskFonts,
@@ -92,5 +92,6 @@ export default function RootLayout() {
 
 function PushRegistration() {
   usePushRegistration();
+  useTrackActiveRoute();
   return null;
 }

@@ -266,8 +266,8 @@ export type Database = {
           id: string
           max_players: number
           organizer_id: string
-          reminded_24h_at: string | null
           rate_prompted_at: string | null
+          reminded_24h_at: string | null
           reminded_at: string | null
           reserved_spots: number
           skill_tier_id: string
@@ -289,8 +289,8 @@ export type Database = {
           id?: string
           max_players: number
           organizer_id: string
-          reminded_24h_at?: string | null
           rate_prompted_at?: string | null
+          reminded_24h_at?: string | null
           reminded_at?: string | null
           reserved_spots?: number
           skill_tier_id: string
@@ -312,8 +312,8 @@ export type Database = {
           id?: string
           max_players?: number
           organizer_id?: string
-          reminded_24h_at?: string | null
           rate_prompted_at?: string | null
+          reminded_24h_at?: string | null
           reminded_at?: string | null
           reserved_spots?: number
           skill_tier_id?: string
@@ -458,6 +458,62 @@ export type Database = {
           },
         ]
       }
+      notification_prefs: {
+        Row: {
+          alerts: boolean
+          chat: boolean
+          created_at: string
+          game_changes: boolean
+          join_requests: boolean
+          nudges: boolean
+          profile_id: string
+          quiet_end: string
+          quiet_hours_enabled: boolean
+          quiet_start: string
+          reminders: boolean
+          roster_changes: boolean
+          updated_at: string
+        }
+        Insert: {
+          alerts?: boolean
+          chat?: boolean
+          created_at?: string
+          game_changes?: boolean
+          join_requests?: boolean
+          nudges?: boolean
+          profile_id: string
+          quiet_end?: string
+          quiet_hours_enabled?: boolean
+          quiet_start?: string
+          reminders?: boolean
+          roster_changes?: boolean
+          updated_at?: string
+        }
+        Update: {
+          alerts?: boolean
+          chat?: boolean
+          created_at?: string
+          game_changes?: boolean
+          join_requests?: boolean
+          nudges?: boolean
+          profile_id?: string
+          quiet_end?: string
+          quiet_hours_enabled?: boolean
+          quiet_start?: string
+          reminders?: boolean
+          roster_changes?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_prefs_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profile_sports: {
         Row: {
           profile_id: string
@@ -509,6 +565,7 @@ export type Database = {
           photo_path: string | null
           referred_by: string | null
           reliability_score: number
+          timezone: string
         }
         Insert: {
           created_at?: string
@@ -520,6 +577,7 @@ export type Database = {
           photo_path?: string | null
           referred_by?: string | null
           reliability_score?: number
+          timezone?: string
         }
         Update: {
           created_at?: string
@@ -531,6 +589,7 @@ export type Database = {
           photo_path?: string | null
           referred_by?: string | null
           reliability_score?: number
+          timezone?: string
         }
         Relationships: [
           {
@@ -541,6 +600,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      push_receipts: {
+        Row: {
+          created_at: string
+          expo_token: string
+          ticket_id: string
+        }
+        Insert: {
+          created_at?: string
+          expo_token: string
+          ticket_id: string
+        }
+        Update: {
+          created_at?: string
+          expo_token?: string
+          ticket_id?: string
+        }
+        Relationships: []
       }
       push_tokens: {
         Row: {
@@ -1130,7 +1207,32 @@ export type Database = {
       }
       delete_account: { Args: { p_profile_id: string }; Returns: Json }
       delete_message: { Args: { p_message_id: string }; Returns: undefined }
+      delete_push_receipts: {
+        Args: { p_ticket_ids: string[] }
+        Returns: undefined
+      }
+      delete_push_token: { Args: { p_expo_token: string }; Returns: undefined }
       dispatch_game_reminders: { Args: never; Returns: undefined }
+      dispatch_post_game_prompts: { Args: never; Returns: undefined }
+      filter_quiet_recipients: {
+        Args: { p_profile_ids: string[] }
+        Returns: string[]
+      }
+      game_preview: {
+        Args: { p_game_id: string }
+        Returns: {
+          cost_per_player_cents: number
+          ends_at: string
+          id: string
+          max_players: number
+          skill_tier_label: string
+          sport_slug: string
+          starts_at: string
+          status: string
+          venue_name: string
+          venue_suburb: string
+        }[]
+      }
       is_approved_player: {
         Args: { p_game_id: string; p_profile_id: string }
         Returns: boolean
@@ -1180,6 +1282,10 @@ export type Database = {
           verification_status: string
         }[]
       }
+      notification_pref_enabled: {
+        Args: { p_pref_key: string; p_profile_id: string }
+        Returns: boolean
+      }
       notify_push: { Args: { p_payload: Json }; Returns: undefined }
       player_card: {
         Args: { target_id: string }
@@ -1200,12 +1306,33 @@ export type Database = {
           sports: Json
         }[]
       }
+      prune_ready_receipt_batch: {
+        Args: { p_limit?: number }
+        Returns: {
+          expo_token: string
+          ticket_id: string
+        }[]
+      }
+      push_actor_name: { Args: { p_profile_id: string }; Returns: string }
       push_game_summary: {
         Args: { p_game_id: string }
         Returns: {
+          approved_count: number
+          court_label: string
+          ends_at: string
+          game_id: string
+          host_id: string
+          host_name: string
+          max_players: number
+          per_player_cents: number
+          reserved_spots: number
           sport_name: string
+          spots_left: number
           starts_at: string
+          tier_name: string
           venue_name: string
+          venue_suburb: string
+          verification_status: string
         }[]
       }
       push_message_summary: {
@@ -1216,11 +1343,31 @@ export type Database = {
           is_host: boolean
           kind: string
           sender_name: string
+          sport_name: string
           venue_name: string
         }[]
       }
+      push_post_game_recipients: {
+        Args: { p_game_id: string }
+        Returns: {
+          expo_token: string
+          profile_id: string
+        }[]
+      }
       push_recipients_for_game: {
-        Args: { p_exclude_profile?: string; p_game_id: string }
+        Args: {
+          p_exclude_profile?: string
+          p_game_id: string
+          p_include_requested?: boolean
+          p_pref_key?: string
+        }
+        Returns: {
+          expo_token: string
+          profile_id: string
+        }[]
+      }
+      push_recipients_for_host: {
+        Args: { p_game_id: string; p_pref_key?: string }
         Returns: {
           expo_token: string
           profile_id: string
@@ -1252,6 +1399,10 @@ export type Database = {
       set_player_chat_mute: {
         Args: { p_game_id: string; p_muted: boolean; p_profile_id: string }
         Returns: undefined
+      }
+      time_in_window: {
+        Args: { p_end: string; p_start: string; p_t: string }
+        Returns: boolean
       }
       trigger_purge_confirmations: {
         Args: { p_type: string }

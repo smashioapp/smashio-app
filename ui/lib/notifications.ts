@@ -3,18 +3,39 @@ import { Platform } from "react-native";
 import * as Device from "expo-device";
 import * as Notifications from "expo-notifications";
 import Constants from "expo-constants";
-import { router } from "expo-router";
+import { router, usePathname } from "expo-router";
 import { supabase } from "./supabase";
 import { useSession } from "./session";
 
+// The screen currently on top, so a push about the chat you're already looking at doesn't bank a
+// banner over it. Module-level (like currentToken below) because the notification handler is
+// registered once, outside React, and needs the latest value without a re-render each nav.
+let activeRoute: { screen: "chat" | null; gameId: string | null } = { screen: null, gameId: null };
+
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-  }),
+  handleNotification: async (notification) => {
+    const data = notification.request.content.data as PushData;
+    const suppressed =
+      data.screen === "chat" && activeRoute.screen === "chat" && !!data.game_id && data.game_id === activeRoute.gameId;
+    return {
+      shouldShowBanner: !suppressed,
+      shouldShowList: !suppressed,
+      shouldPlaySound: !suppressed,
+      shouldSetBadge: false,
+    };
+  },
 });
+
+// Mounted once at the root (ui/app/_layout.tsx). Only /chat/:id sets activeRoute today since
+// that's the one reported banner-over-open-screen complaint (§4 "Banner shows even when you're
+// already in that chat") — extend the regex list if another screen needs the same suppression.
+export function useTrackActiveRoute() {
+  const pathname = usePathname();
+  useEffect(() => {
+    const chatMatch = pathname.match(/^\/chat\/([^/]+)/);
+    activeRoute = chatMatch ? { screen: "chat", gameId: chatMatch[1] } : { screen: null, gameId: null };
+  }, [pathname]);
+}
 
 // One channel per notification category, importance matching the tier the edge function sends
 // (supabase/functions/push-dispatch/format.ts). Ids must stay in sync with PushChannel there:

@@ -13,6 +13,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { colors } from "../lib/theme";
+import { useAppStore } from "../lib/store";
 import { NAV, tabBarBottom } from "../lib/nav";
 import { navMinimize, scrollRouteToTop } from "../lib/navScroll";
 import { useChatThreads } from "../lib/queries/messages";
@@ -180,6 +181,9 @@ function HostButton() {
 
 export function TabBar({ state, navigation }: TabBarProps) {
   const insets = useSafeAreaInsets();
+  // Discover map already carries its own primary CTA in the sheet (discover-map-ux-plan.md
+  // D4) — showing the global host FAB on top of it is two competing primary actions.
+  const discoverView = useAppStore((s) => s.discoverView);
   const { data: threads = [] } = useChatThreads();
   const unreadChatCount = threads.filter((t) => t.unread).length;
   const { data: pendingRequests = 0 } = useMyPendingRequestsCount();
@@ -255,7 +259,7 @@ export function TabBar({ state, navigation }: TabBarProps) {
           alignItems: "center",
         }}
       >
-        <HostButton />
+        {discoverView !== "map" && <HostButton />}
       </View>
     </View>
   );

@@ -10,13 +10,13 @@ import { colors, LAYOUT, TIERS } from "../../lib/theme";
 import { NAV, tabBarBottom, useTabBarSpace } from "../../lib/nav";
 import { useReduceMotion } from "../../lib/motion";
 import { makeScrollHideHandler, registerScrollToTop, unregisterScrollToTop } from "../../lib/navScroll";
-import { useDiscoverGames, useMyPastGames } from "../../lib/queries/games";
+import { useDiscoverGames, useMyPastGames, useMyJoinedGames, useMyHostingGames } from "../../lib/queries/games";
 import { useVenuesForMap } from "../../lib/queries/venues";
 import { useCreateAlert } from "../../lib/queries/alerts";
 import { useProfileSports } from "../../lib/queries/profile";
 import { useSession } from "../../lib/session";
 import { useUserLocation, useLocationLabel } from "../../lib/location";
-import { dayLabel } from "../../lib/format";
+import { dayLabel, haversineMeters, formatDistance } from "../../lib/format";
 import { haptics } from "../../lib/haptics";
 import { Screen } from "../../components/Screen";
 import { Chip } from "../../components/Chip";
@@ -502,6 +502,16 @@ export default function Discover() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mapPinnedGamesAll, mapSearch]);
 
+  // D7 (discover-map-ux-plan.md) — the viewer's own upcoming games, excluded from mapPinnedGames
+  // by nearby_games' p_exclude_mine but still worth showing on the map they're looking at.
+  // Unfiltered by radius/level/when: "yours" isn't a search result, it's just where you're going.
+  const myJoinedQuery = useMyJoinedGames();
+  const myHostingQuery = useMyHostingGames();
+  const ownMapGames = useMemo(() => {
+    if (discoverView !== "map") return [];
+    return [...(myJoinedQuery.data ?? []), ...(myHostingQuery.data ?? [])].filter((g) => g.venueLat != null && g.venueLng != null);
+  }, [discoverView, myJoinedQuery.data, myHostingQuery.data]);
+
   // Venue-anchored carousel groups (§4.2) — one card per venue, court rows for each game there.
   const mapVenueGroups = useMemo(() => {
     const map = new Map<string, Game[]>();
@@ -657,6 +667,33 @@ export default function Discover() {
     }
   };
   const handleMapSnapChange = (_snap: "peek" | "half" | "full", heightPx: number) => setSheetHeight(heightPx);
+
+  // §4.4's ladder ranks nearest-first — venues_near carries no distance_m (viewport-bound, not
+  // distance-sorted server-side), so this is the same client-side haversine used for the "N km"
+  // label everywhere else on the pin.
+  const nearestVenues = useMemo(
+    () =>
+      [...noGameVenues]
+        .map((v) => ({ ...v, distanceM: haversineMeters(mapCenter.lat, mapCenter.lng, v.lat, v.lng) }))
+        .sort((a, b) => a.distanceM - b.distanceM),
+    [noGameVenues, mapCenter.lat, mapCenter.lng]
+  );
+  const nearestVenue = nearestVenues[0];
+  const handleHostAtNearest = () => {
+    if (!nearestVenue) {
+      router.push("/wizard");
+      return;
+    }
+    haptics.tap();
+    const full = venuesNearQuery.data?.find((v) => v.id === nearestVenue.id);
+    useAppStore.getState().setHostHereSeed({
+      venueId: nearestVenue.id,
+      venueName: nearestVenue.name,
+      venueSuburb: full?.suburb ?? "",
+      venueAddress: full?.address ?? `${full?.suburb ?? ""}, ${full?.state ?? ""}`,
+    });
+    router.push("/wizard");
+  };
 
   const filterSummary = [
     levelFilters.length === 1 ? LEVEL_FILTERS.find((l) => l.slug === levelFilters[0])?.label : levelFilters.length > 1 ? "your levels" : null,
@@ -891,6 +928,7 @@ export default function Discover() {
             onSearchThisArea={(region) => setMapAreaOverride(region)}
             noGameVenues={noGameVenues}
             onSelectNoGameVenue={handleSelectNoGameVenue}
+            ownGames={ownMapGames}
           />
 
           {/* Floating search + Tonight chip (docs/v2-design-plan.md §4.2) — glass-backed, sits
@@ -947,33 +985,95 @@ export default function Discover() {
             carouselStep={CAROUSEL_STEP}
             carouselGap={CAROUSEL_GAP}
             cardWidth={CAROUSEL_CARD_WIDTH}
+            // D1/D10 (discover-map-ux-plan.md §4.4) — the sheet's empty state ranks concrete next
+            // steps instead of a shrug: nearest real court, an alert for when one appears, and
+            // "clear Tonight" only when that chip is actually what emptied the screen. The
+            // nearest-courts list below it is the "sheet reflects the pins" fix for D1 — every
+            // pin on the map now has a matching row here, even at zero game liquidity.
             emptyState={
-              <View className="items-center gap-2 px-6 pb-4">
-                <Ionicons name="search-outline" size={26} color={colors.textTertiary} />
-                <Text className="font-display-bold text-[15px] text-center" style={{ color: colors.text }}>
-                  {mapAreaOverride ? "Nothing here yet" : "No games pinned nearby"}
-                </Text>
-                <Text className="text-[13px] text-center max-w-[240px]" style={{ color: colors.textSecondary }}>
-                  {mapAreaOverride ? "No upcoming games in this part of the map." : "Widen your filters or be the first to host here."}
-                </Text>
-                <View className="flex-row gap-2 mt-1">
+              <View className="gap-3 px-5 pb-4">
+                <View className="items-center gap-1.5 px-1">
+                  <Ionicons name="search-outline" size={24} color={colors.textTertiary} />
+                  <Text className="font-display-bold text-[15px] text-center" style={{ color: colors.text }}>
+                    {mapAreaOverride ? "Nothing here yet" : "No games here yet"}
+                  </Text>
+                  <Text className="text-[13px] text-center max-w-[260px]" style={{ color: colors.textSecondary }}>
+                    {nearestVenue
+                      ? `${nearestVenues.length} badminton court${nearestVenues.length === 1 ? "" : "s"} within ${mapRadiusKm} km. Nearest: ${nearestVenue.name}, ${formatDistance(nearestVenue.distanceM)}.`
+                      : "No courts on file for this area yet."}
+                  </Text>
+                </View>
+
+                <View className="gap-2">
+                  <Pressable
+                    onPress={handleHostAtNearest}
+                    className="flex-row items-center justify-between rounded-xl px-4 py-3.5"
+                    style={{ backgroundColor: colors.accent }}
+                  >
+                    <Text className="font-body-extrabold text-[14px]" style={{ color: colors.base }}>
+                      {nearestVenue ? `Host at ${nearestVenue.name}` : "Host a game"}
+                    </Text>
+                    <Ionicons name="chevron-forward" size={16} color={colors.base} />
+                  </Pressable>
+                  <AlertMeRow state={alertState} onPress={handleSetAlert} />
+                  {whenFilter === "tonight" && (
+                    <Pressable
+                      onPress={() => setWhenFilter("all")}
+                      className="flex-row items-center justify-between rounded-xl px-4 py-3.5 border"
+                      style={{ backgroundColor: colors.surfaceAlt, borderColor: colors.cardBorder }}
+                    >
+                      <Text className="font-body-bold text-[14px]" style={{ color: colors.text }}>
+                        Clear "Tonight"
+                      </Text>
+                      <Ionicons name="close" size={16} color={colors.textTertiary} />
+                    </Pressable>
+                  )}
                   {mapAreaOverride && (
                     <Pressable
                       onPress={() => setMapAreaOverride(null)}
-                      className="rounded-pill px-4 py-2.5 border"
-                      style={{ borderColor: colors.cardBorder }}
+                      className="flex-row items-center justify-between rounded-xl px-4 py-3.5 border"
+                      style={{ backgroundColor: colors.surfaceAlt, borderColor: colors.cardBorder }}
                     >
-                      <Text className="font-body-bold text-[13px]" style={{ color: colors.textSecondary }}>
+                      <Text className="font-body-bold text-[14px]" style={{ color: colors.text }}>
                         Back to my area
                       </Text>
+                      <Ionicons name="close" size={16} color={colors.textTertiary} />
                     </Pressable>
                   )}
-                  <Pressable onPress={() => router.push("/wizard")} className="rounded-pill px-4 py-2.5" style={{ backgroundColor: colors.accent }}>
-                    <Text className="font-body-extrabold text-[13px]" style={{ color: colors.base }}>
-                      Host a game
+                  <Pressable
+                    onPress={() => router.push("/venues")}
+                    className="flex-row items-center justify-between rounded-xl px-4 py-3.5 border"
+                    style={{ borderColor: colors.cardBorder }}
+                  >
+                    <Text className="font-body-bold text-[14px]" style={{ color: colors.textSecondary }}>
+                      Browse courts
                     </Text>
+                    <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
                   </Pressable>
                 </View>
+
+                {nearestVenues.length > 0 && (
+                  <View className="gap-2 mt-1">
+                    <Text className="text-[12px] font-body-bold uppercase" style={{ color: colors.textTertiary, letterSpacing: 0.5 }}>
+                      {nearestVenues.length} court{nearestVenues.length === 1 ? "" : "s"} near you
+                    </Text>
+                    {nearestVenues.slice(0, 5).map((v) => (
+                      <Pressable
+                        key={v.id}
+                        onPress={() => handleSelectNoGameVenue(v)}
+                        className="flex-row items-center justify-between rounded-xl px-4 py-3 border"
+                        style={{ backgroundColor: colors.surfaceAlt, borderColor: colors.cardBorder }}
+                      >
+                        <Text className="font-body-bold text-[13.5px] flex-1" style={{ color: colors.text }} numberOfLines={1}>
+                          {v.name}
+                        </Text>
+                        <Text className="font-body-semibold text-[12.5px] ml-2" style={{ color: colors.textTertiary }}>
+                          {formatDistance(v.distanceM)}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
               </View>
             }
           />

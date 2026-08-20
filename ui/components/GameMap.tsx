@@ -35,6 +35,10 @@ export type GameMapProps = {
   noGameVenues?: NoGameVenue[];
   onSelectNoGameVenue?: (venue: NoGameVenue) => void;
   onSearchThisArea?: (region: { lat: number; lng: number; radiusKm: number }) => void;
+  // The viewer's own upcoming games (D7, discover-map-ux-plan.md) — excluded from `games` by
+  // nearby_games' p_exclude_mine, but erasing them from the map entirely is disorienting, not
+  // correct. Rendered as a visually distinct "Yours" pin, never folded into games/clustering.
+  ownGames?: Game[];
 };
 
 export type GameMapHandle = {
@@ -262,6 +266,35 @@ function NoGameVenuePin({ venue, onPress }: { venue: NoGameVenue; onPress: () =>
   );
 }
 
+// "Yours" pin (D7) — the game pill's shape so it still reads as "a game", plus an accent ring
+// and a "You" label prefix so it's unmistakably not one you could join. Never clusters, never
+// dims when full, never counted in the sheet's game total.
+function OwnGamePin({ game, active, onPress }: { game: Game; active: boolean; onPress: () => void }) {
+  const color = tierColor(game.skill);
+  const tracks = useTracksViewChanges([active, game.id], 60);
+  return (
+    <Marker
+      coordinate={{ latitude: game.venueLat!, longitude: game.venueLng! }}
+      onPress={() => {
+        haptics.tap();
+        onPress();
+      }}
+      anchor={{ x: 0.5, y: 1 }}
+      zIndex={active ? 11 : 6}
+      tracksViewChanges={tracks}
+    >
+      <View
+        className="rounded-full px-2.5 py-1 border-2"
+        style={{ backgroundColor: active ? color : colors.card, borderColor: colors.accent, transform: [{ scale: active ? 1.15 : 1 }] }}
+      >
+        <Text className="font-body-extrabold text-[11px]" style={{ color: active ? colors.base : color }}>
+          You · {gameLabel(game)}
+        </Text>
+      </View>
+    </Marker>
+  );
+}
+
 function UserDot() {
   return (
     <View
@@ -291,6 +324,7 @@ export const GameMap = forwardRef<GameMapHandle, GameMapProps>(function GameMap(
     noGameVenues = [],
     onSelectNoGameVenue,
     onSearchThisArea,
+    ownGames = [],
   },
   ref
 ) {
@@ -387,6 +421,12 @@ export const GameMap = forwardRef<GameMapHandle, GameMapProps>(function GameMap(
         <NoGameVenuePin key={v.id} venue={v} onPress={() => onSelectNoGameVenue?.(v)} />
       ))}
 
+      {ownGames
+        .filter((g) => g.venueLat != null && g.venueLng != null)
+        .map((g) => (
+          <OwnGamePin key={`own-${g.id}`} game={g} active={g.id === selectedGameId} onPress={() => onSelectGame(g.id)} />
+        ))}
+
       {clusters.map((c) => {
         if (c.venues.length === 1) {
           const venue = c.venues[0];
@@ -421,10 +461,12 @@ export const GameMap = forwardRef<GameMapHandle, GameMapProps>(function GameMap(
       </MapView>
 
       {onSearchThisArea && userPanned && pendingRegion && (
+        // D3 (discover-map-ux-plan.md): docked above the sheet's peek edge, not top:16 where it
+        // collided with the floating search bar sharing that same coordinate space.
         <Pressable
           onPress={handleSearchThisArea}
           className="absolute self-center flex-row items-center gap-1.5 rounded-pill px-4 py-2.5 border"
-          style={{ top: 16, backgroundColor: colors.text, borderColor: colors.text }}
+          style={{ bottom: bottomInset + 16, backgroundColor: colors.text, borderColor: colors.text }}
         >
           <Ionicons name="refresh-outline" size={14} color={colors.base} />
           <Text className="font-body-extrabold text-[13px]" style={{ color: colors.base }}>

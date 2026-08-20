@@ -71,8 +71,10 @@ export type HostHereSeed = {
 export type WhenFilter = "tonight" | "tomorrow" | "week" | "all";
 export type SortOption = "soonest" | "closest" | "cheapest" | "most_spots";
 
-export const DISCOVER_RADIUS_OPTIONS_KM = [5, 10, 25, 50];
-export const DEFAULT_DISCOVER_RADIUS_KM = 50;
+// 15km default (discover-map-ux-plan.md §4.5, D6) — 50km from a Sydney suburb spans most of
+// Greater Sydney, so the radius ring never fits the opening viewport. 50 stays selectable.
+export const DISCOVER_RADIUS_OPTIONS_KM = [5, 10, 15, 25, 50];
+export const DEFAULT_DISCOVER_RADIUS_KM = 15;
 export const PRICE_CAP_OPTIONS_CENTS = [1000, 2000, 3000];
 
 type AppState = {

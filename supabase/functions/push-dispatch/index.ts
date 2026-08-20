@@ -16,6 +16,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import {
   alertMatchBody,
   bookingVerifiedBody,
+  CATEGORY_FOR_TYPE,
   detailsChangedBody,
   expoMessages,
   gameCancelledBody,
@@ -344,12 +345,14 @@ async function dispatchNotifications(ids: string[]): Promise<void> {
     const token = tokens.get(row.profile_id);
     if (token) {
       const badge = await getUnreadCount(row.profile_id);
+      const categoryId = CATEGORY_FOR_TYPE[row.type];
       await sendExpoPush([{ profile_id: row.profile_id, expo_token: token }], {
         title,
         body,
         data: { type: row.type, screen: rendered.screen, game_id: row.game_id, notification_id: row.id },
         tier: row.priority as PushTier,
         channelId: CHANNEL_FOR_TYPE[row.type] ?? "reminders",
+        ...(categoryId ? { categoryId } : {}),
         badge,
       });
     }

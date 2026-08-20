@@ -223,3 +223,116 @@ begin
   return new;
 end;
 $$;
+
+-- P3 action handlers: Approve/Decline from notification actions (A1), Reply from chat (E1 placeholder)
+
+-- Action: Host approves a join request from a notification action button
+create or replace function public.approve_join_action(p_notification_id uuid, p_game_id uuid)
+returns void
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  v_profile_id uuid;
+  v_actor_id uuid;
+  v_game_organizer_id uuid;
+begin
+  -- Verify this is a join_request notification for the given game
+  select profile_id, actor_id into v_profile_id, v_actor_id
+  from public.notifications
+  where id = p_notification_id
+    and type = 'join_request'
+    and game_id = p_game_id;
+
+  if v_profile_id is null then
+    raise exception 'Notification not found or wrong type';
+  end if;
+
+  -- Verify the user is the host
+  select organizer_id into v_game_organizer_id
+  from public.games
+  where id = p_game_id;
+
+  if auth.uid() <> v_game_organizer_id then
+    raise exception 'Only the game organizer can approve requests';
+  end if;
+
+  -- Mark the notification as read
+  update public.notifications
+  set read_at = now()
+  where id = p_notification_id;
+
+  -- Approve the join request (actor_id is the requester)
+  update public.game_players
+  set status = 'approved'
+  where game_id = p_game_id
+    and profile_id = v_actor_id
+    and status = 'requested';
+end;
+$$;
+
+-- Action: Host declines a join request from a notification action button
+create or replace function public.decline_join_action(p_notification_id uuid, p_game_id uuid)
+returns void
+language plpgsql
+security definer set search_path = public
+as $$
+declare
+  v_profile_id uuid;
+  v_actor_id uuid;
+  v_game_organizer_id uuid;
+begin
+  -- Verify this is a join_request notification for the given game
+  select profile_id, actor_id into v_profile_id, v_actor_id
+  from public.notifications
+  where id = p_notification_id
+    and type = 'join_request'
+    and game_id = p_game_id;
+
+  if v_profile_id is null then
+    raise exception 'Notification not found or wrong type';
+  end if;
+
+  -- Verify the user is the host
+  select organizer_id into v_game_organizer_id
+  from public.games
+  where id = p_game_id;
+
+  if auth.uid() <> v_game_organizer_id then
+    raise exception 'Only the game organizer can decline requests';
+  end if;
+
+  -- Mark the notification as read
+  update public.notifications
+  set read_at = now()
+  where id = p_notification_id;
+
+  -- Reject the join request
+  update public.game_players
+  set status = 'rejected'
+  where game_id = p_game_id
+    and profile_id = v_actor_id
+    and status = 'requested';
+end;
+$$;
+
+-- Action: Placeholder for chat reply from notification action. Full implementation requires
+-- a compose UI and message insertion logic (E1). For now, this is a no-op stub.
+create or replace function public.send_chat_reply(p_notification_id uuid, p_game_id uuid, p_text text)
+returns void
+language plpgsql
+security definer set search_path = public
+as $$
+begin
+  -- TODO: P3 E1 chat reply actions. Needs:
+  -- 1. Verify this is a message notification
+  -- 2. Insert a message into the game's chat
+  -- 3. Dispatch a new message notification to the game roster
+  -- 4. Mark the triggering notification as read
+
+  -- Mark as read for now
+  update public.notifications
+  set read_at = now()
+  where id = p_notification_id;
+end;
+$$;

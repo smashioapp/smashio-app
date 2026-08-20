@@ -67,6 +67,14 @@ export type PushTier = "critical" | "normal" | "low";
 // importance. Keep the ids in sync with that file.
 export type PushChannel = "chat" | "requests" | "game-updates" | "reminders" | "discovery";
 
+// iOS notification categories (P3) with action buttons. Map which types get which category.
+// P3 implements two action types: join_actions (approve/decline for A1) and chat_actions (reply for E1).
+export type NotificationCategory = "join_actions" | "chat_actions" | null;
+export const CATEGORY_FOR_TYPE: Record<string, NotificationCategory> = {
+  join_request: "join_actions",
+  message: "chat_actions",
+};
+
 export type GameSummary = {
   game_id: string;
   sport_name: string;
@@ -320,6 +328,8 @@ export function messageBody(summary: MessageSummary): PushBody {
 
 // §6.6. Tier drives Android channel importance (via channelId), iOS interruptionLevel, delivery
 // priority and sound. Low-tier pushes are silent — they're worth seeing, not worth interrupting.
+// P3: categoryId (iOS notification category for action buttons) is inferred from the notification
+// type and passed in data; the server maps it when calling this function.
 export function expoMessages(
   recipients: { profile_id: string; expo_token: string }[],
   opts: {
@@ -328,12 +338,13 @@ export function expoMessages(
     data: Record<string, unknown>;
     tier: PushTier;
     channelId: PushChannel;
+    categoryId?: NotificationCategory;
     // Unread inbox count (P2 §6.6), fetched per profile — same value for every recipient here
     // since P2 dispatches one profile at a time.
     badge?: number;
   },
 ) {
-  const { title, body, data, tier, channelId, badge } = opts;
+  const { title, body, data, tier, channelId, categoryId, badge } = opts;
   return recipients
     .filter((r) => r.expo_token.startsWith("ExponentPushToken"))
     .map((r) => ({
@@ -342,6 +353,7 @@ export function expoMessages(
       body,
       data,
       channelId,
+      ...(categoryId ? { categoryId } : {}),
       priority: tier === "critical" ? "high" : "normal",
       sound: tier === "low" ? null : "default",
       interruptionLevel: tier === "critical" ? "time-sensitive" : tier === "low" ? "passive" : "active",

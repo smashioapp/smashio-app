@@ -7,6 +7,7 @@ import { Screen } from "../../components/Screen";
 import { StepProgress } from "../../components/StepProgress";
 import { useSports, useSkillTiers } from "../../lib/queries/sports";
 import { useUpsertProfileSport } from "../../lib/queries/profile";
+import { consumePendingGame } from "../../lib/pendingGame";
 
 export default function ProfileSkill() {
   const [skill, setSkill] = useState<TierId>("Intermediate");
@@ -25,7 +26,10 @@ export default function ProfileSkill() {
     }
     try {
       await upsertProfileSport.mutateAsync({ sportId: badminton.id, skillTierId: tierRow.id });
-      router.replace("/(tabs)/discover");
+      // Every login/signup passes through here (see login.tsx), so this — not index.tsx — is
+      // where a shared game link deferred by an unauthenticated open (game/[id].tsx) resumes.
+      const pendingGameId = await consumePendingGame();
+      router.replace(pendingGameId ? `/game/${pendingGameId}` : "/(tabs)/discover");
     } catch (e) {
       Alert.alert("Couldn't save", e instanceof Error ? e.message : "Try again.");
     }

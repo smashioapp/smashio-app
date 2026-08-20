@@ -301,7 +301,7 @@ export function useCancelGame(gameId: string) {
   });
 }
 
-export function useGameDetail(gameId: string) {
+export function useGameDetail(gameId: string, enabled = true) {
   return useQuery({
     queryKey: ["games_public", gameId],
     queryFn: async () => {
@@ -309,7 +309,48 @@ export function useGameDetail(gameId: string) {
       if (error) throw error;
       return toGameFromPublicRow(data);
     },
-    enabled: !!gameId,
+    enabled: enabled && !!gameId,
+  });
+}
+
+export type GamePreview = {
+  id: string;
+  sportSlug: string;
+  venue: string;
+  suburb: string;
+  date: string;
+  time: string;
+  skill: string;
+  maxPlayers: number;
+  costCents: number;
+  status: string;
+};
+
+// Anon-safe teaser for a shared game link (see 20260820000100_game_preview_anon.sql) — used when
+// there's no session yet, so the wife/friend clicking a WhatsApp link sees the event before login.
+export function useGamePreview(gameId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["game_preview", gameId],
+    queryFn: async (): Promise<GamePreview> => {
+      // Not in db.types.ts's generated Functions map yet (regenerate after this migration lands).
+      const { data, error } = await (supabase.rpc as any)("game_preview", { p_game_id: gameId }).single();
+      if (error) throw error;
+      if (!data) throw new Error("Game not found");
+      return {
+        id: data.id,
+        sportSlug: data.sport_slug,
+        venue: data.venue_name,
+        suburb: data.venue_suburb,
+        date: formatDate(data.starts_at),
+        time: formatTimeRange(data.starts_at, data.ends_at),
+        skill: data.skill_tier_label,
+        maxPlayers: data.max_players,
+        costCents: data.cost_per_player_cents,
+        status: data.status,
+      };
+    },
+    enabled: enabled && !!gameId,
+    retry: false,
   });
 }
 

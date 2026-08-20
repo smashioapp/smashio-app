@@ -7,7 +7,9 @@ import { colors, LAYOUT, initial, reliabilityLabel } from "../../lib/theme";
 import { spotsLeft, type Game } from "../../lib/mockData";
 import { openDirections } from "../../lib/directions";
 import { addGameToCalendar, hasCalendarEvent } from "../../lib/calendar";
-import { useGameDetail } from "../../lib/queries/games";
+import { useGameDetail, useGamePreview } from "../../lib/queries/games";
+import { useSession } from "../../lib/session";
+import { savePendingGame } from "../../lib/pendingGame";
 import { usePlayerCard } from "../../lib/queries/profile";
 import { supabase } from "../../lib/supabase";
 import {
@@ -41,14 +43,23 @@ function avatarUrl(photoPath: string | null | undefined): string | null {
   return photoPath ? supabase.storage.from("avatars").getPublicUrl(photoPath).data.publicUrl : null;
 }
 
+function goBack() {
+  if (router.canGoBack()) {
+    router.back();
+  } else {
+    router.replace("/");
+  }
+}
+
 export default function GameDetails() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const gameId = id ?? "";
-  const gameQuery = useGameDetail(gameId);
+  const { session, isLoading: sessionLoading } = useSession();
+  const gameQuery = useGameDetail(gameId, !!session);
   const game = gameQuery.data;
 
   const membershipQuery = useMyMembership(gameId, game?.organizerId);
-  const rosterQuery = useGameRoster(gameId);
+  const rosterQuery = useGameRoster(session ? gameId : "");
   const requestToJoin = useRequestToJoin(gameId);
   const leaveGame = useLeaveGame(gameId);
   const organizerCard = usePlayerCard(game?.organizerId);
@@ -57,21 +68,29 @@ export default function GameDetails() {
   const [onCalendar, setOnCalendar] = useState(false);
 
   useEffect(() => {
-    if (!gameId) return;
+    if (!gameId || !session) return;
     hasCalendarEvent(gameId).then(setOnCalendar);
-  }, [gameId]);
+  }, [gameId, session]);
 
-  if (gameQuery.isLoading) {
+  useEffect(() => {
+    if (!sessionLoading && !session && gameId) savePendingGame(gameId);
+  }, [sessionLoading, session, gameId]);
+
+  if (sessionLoading || (session && gameQuery.isLoading)) {
     return (
       <View className="flex-1" style={{ backgroundColor: colors.base }}>
         <LinearGradient colors={["#1F1F24", "#141416"]} style={{ height: 150, paddingTop: 56 }}>
           <View className="px-4">
-            <BackButton dark onPress={() => router.back()} />
+            <BackButton dark onPress={goBack} />
           </View>
         </LinearGradient>
         <GameDetailSkeleton />
       </View>
     );
+  }
+
+  if (!session) {
+    return <GamePreviewTeaser gameId={gameId} />;
   }
 
   if (!game) {
@@ -119,7 +138,7 @@ export default function GameDetails() {
           </View>
 
           <View className="px-4 flex-row justify-between items-center" style={{ paddingTop: 56 }}>
-            <BackButton dark onPress={() => router.back()} />
+            <BackButton dark onPress={goBack} />
             <View className="flex-row items-center gap-2">
               {isOrganizer && !cancelled && (
                 <Pressable
@@ -312,6 +331,59 @@ export default function GameDetails() {
             }}
           />
         )}
+      </View>
+    </View>
+  );
+}
+
+// Shown for a shared game link opened while logged out (see AGENTS.md re: private beta —
+// full detail, roster, and organizer identity stay behind login; this is deliberately thin).
+function GamePreviewTeaser({ gameId }: { gameId: string }) {
+  const previewQuery = useGamePreview(gameId, true);
+  const preview = previewQuery.data;
+
+  const goToLogin = () => {
+    haptics.tap();
+    router.push("/onboarding/login");
+  };
+
+  return (
+    <View className="flex-1" style={{ backgroundColor: colors.base }}>
+      <LinearGradient colors={["#1F1F24", "#141416"]} style={{ paddingTop: 56, paddingBottom: 20 }}>
+        <View className="px-4">
+          <BackButton dark onPress={goBack} />
+        </View>
+      </LinearGradient>
+
+      <View className="flex-1 px-5 pt-6">
+        {previewQuery.isLoading ? (
+          <GameDetailSkeleton />
+        ) : !preview || preview.status === "cancelled" ? (
+          <Text style={{ color: colors.textSecondary }}>Game not found</Text>
+        ) : (
+          <>
+            <Text className="font-display text-[27px]" style={{ color: colors.text }}>
+              {preview.venue}
+            </Text>
+            <Text className="text-[14px] mt-1" style={{ color: colors.textDim }}>
+              {preview.suburb} · {preview.date} · {preview.time}
+            </Text>
+
+            <StatTileRow>
+              <StatTile value={`$${preview.costCents / 100}`} label="per player" tone={colors.accent} />
+              <StatTile value={`${preview.maxPlayers}`} label="max players" />
+              <StatTile value={preview.skill} label="skill level" small />
+            </StatTileRow>
+
+            <Text className="text-[14.5px] mt-6" style={{ color: colors.textSecondary, lineHeight: 21 }}>
+              Log in or create an account to see who's playing, chat, and join this game.
+            </Text>
+          </>
+        )}
+      </View>
+
+      <View className="px-5 pb-8 pt-3.5" style={{ backgroundColor: colors.base }}>
+        <Button label="Log in / Create account" onPress={goToLogin} />
       </View>
     </View>
   );

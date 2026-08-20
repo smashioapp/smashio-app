@@ -1,17 +1,32 @@
-import { Redirect } from "expo-router";
+import { useEffect, useState } from "react";
+import { Redirect, router } from "expo-router";
 import { useSession } from "../lib/session";
 import { useProfile, useProfileSports } from "../lib/queries/profile";
+import { consumePendingGame } from "../lib/pendingGame";
 
 export default function Index() {
   const { session, isLoading: sessionLoading } = useSession();
   const userId = session?.user.id;
   const { data: profile, isLoading: profileLoading } = useProfile(userId);
   const { data: profileSports, isLoading: sportsLoading } = useProfileSports(userId);
+  const [pendingGameChecked, setPendingGameChecked] = useState(false);
+
+  const onboarded = !!profile?.display_name && (profileSports?.length ?? 0) > 0;
+
+  // Resume a shared game link that forced a login/signup detour (game/[id].tsx) once the
+  // account is actually ready to view it — before onboarding finishes there's no profile yet.
+  useEffect(() => {
+    if (!onboarded) return;
+    consumePendingGame().then((gameId) => {
+      if (gameId) router.replace(`/game/${gameId}`);
+      setPendingGameChecked(true);
+    });
+  }, [onboarded]);
 
   if (sessionLoading) return null;
   if (!session) return <Redirect href="/onboarding" />;
   if (profileLoading || sportsLoading) return null;
+  if (onboarded && !pendingGameChecked) return null;
 
-  const onboarded = !!profile?.display_name && (profileSports?.length ?? 0) > 0;
   return <Redirect href={onboarded ? "/(tabs)/discover" : "/onboarding"} />;
 }

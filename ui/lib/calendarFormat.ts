@@ -14,7 +14,11 @@ export type CalendarGame = Pick<
 // ("me@gmail.com", "Work Exchange") vary per device.
 export function calendarLabel(cal: { title: string; source?: { type?: string; name?: string } | null; ownerAccount?: string }): string {
   const type = String(cal.source?.type ?? "").toLowerCase();
-  const name = cal.source?.name ?? cal.ownerAccount ?? "";
+  // ownerAccount is the actual account email; source.name is a user-set nickname that iOS
+  // defaults to the generic "Gmail" for every Google account added via Settings — with two+
+  // Google accounts that collides into indistinguishable "Google (Gmail)" entries, so prefer
+  // the email when we have one.
+  const name = cal.ownerAccount ?? cal.source?.name ?? "";
   const lowerName = name.toLowerCase();
 
   if (!cal.source || type === "local") return "On My Phone";

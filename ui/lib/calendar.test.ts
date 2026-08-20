@@ -28,6 +28,15 @@ describe("calendarLabel", () => {
   it("labels local/device-only calendars", () => {
     expect(calendarLabel({ title: "Home", source: { type: "local", name: "" } })).toBe("On My Phone");
   });
+
+  it("prefers ownerAccount over the source nickname so multiple Google accounts don't collide", () => {
+    expect(
+      calendarLabel({ title: "Home", source: { type: "caldav", name: "Gmail" }, ownerAccount: "first@gmail.com" })
+    ).toBe("Google (first@gmail.com)");
+    expect(
+      calendarLabel({ title: "Home", source: { type: "caldav", name: "Gmail" }, ownerAccount: "second@gmail.com" })
+    ).toBe("Google (second@gmail.com)");
+  });
 });
 
 describe("buildNotes", () => {

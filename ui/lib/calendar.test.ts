@@ -10,6 +10,7 @@ const game: CalendarGame = {
   cost: 12,
   joinedCount: 3,
   maxPlayers: 8,
+  reservedSpots: 0,
 };
 
 describe("calendarLabel", () => {

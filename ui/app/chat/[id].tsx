@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { View, Text, Pressable, FlatList, KeyboardAvoidingView, Platform, Image, Alert } from "react-native";
+import { View, Text, Pressable, FlatList, Platform, Image, Alert } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as Clipboard from "expo-clipboard";
 import { colors } from "../../lib/theme";
 import { useGameDetail } from "../../lib/queries/games";
-import { useKeyboardVisible } from "../../lib/useKeyboardVisible";
+import { useKeyboardVisible, useKeyboardHeight } from "../../lib/useKeyboardVisible";
 import {
   useMarkThreadRead,
   useMessages,
@@ -221,6 +221,7 @@ export default function ChatThread() {
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
   const [newCount, setNewCount] = useState(0);
   const keyboardVisible = useKeyboardVisible();
+  const keyboardHeight = useKeyboardHeight();
 
   const listRef = useRef<FlatList<TimelineEntry>>(null);
   const nearBottomRef = useRef(true);
@@ -329,7 +330,7 @@ export default function ChatThread() {
 
   return (
     <Screen>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <View style={{ flex: 1, paddingBottom: keyboardHeight }}>
         {/* One slim sticky bar (docs/v2-design-plan.md §4.5) — replaces the old stacked pair
             (a plain nav header plus ChatEventHeader as a separate card below it). Collapses
             while the keyboard is up (SMASHIO Chat Redesign mock §2). */}
@@ -527,7 +528,7 @@ export default function ChatThread() {
           replyTo={replyTo}
           onCancelReply={() => setReplyTo(null)}
         />
-      </KeyboardAvoidingView>
+      </View>
 
       {game && (
         <ChatDetailsSheet

@@ -198,7 +198,7 @@ export default function ChatThread() {
 
   return (
     <Screen>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         {/* One slim sticky bar (docs/v2-design-plan.md §4.5) — replaces the old stacked pair
             (a plain nav header plus ChatEventHeader as a separate card below it). */}
         {game ? (

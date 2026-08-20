@@ -1,9 +1,23 @@
-import { useMemo, useState } from "react";
-import { View, Text, TextInput, Pressable, ScrollView } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { View, Text, TextInput, Pressable, ScrollView, Keyboard } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../lib/theme";
 import { Avatar } from "./Avatar";
 import type { ChatMember } from "../lib/queries/messages";
+
+function useKeyboardVisible(): boolean {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    const show = Keyboard.addListener("keyboardDidShow", () => setVisible(true));
+    const hide = Keyboard.addListener("keyboardDidHide", () => setVisible(false));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+  return visible;
+}
 
 export type ComposerState = "can_post" | "locked_announce" | "locked_muted" | "locked_closed" | "announce_host" | "locked_not_member";
 
@@ -33,6 +47,9 @@ export function ChatComposer({
 }) {
   const [input, setInput] = useState("");
   const [mentionIds, setMentionIds] = useState<Set<string>>(new Set());
+  const insets = useSafeAreaInsets();
+  const keyboardVisible = useKeyboardVisible();
+  const bottomPad = keyboardVisible ? 10 : Math.max(insets.bottom, 10);
 
   const mentionQuery = useMemo(() => MENTION_RE.exec(input)?.[1] ?? null, [input]);
   const suggestions = useMemo(() => {
@@ -91,8 +108,11 @@ export function ChatComposer({
         </ScrollView>
       )}
       <View
-        className="flex-row gap-2 px-4 pt-2.5 pb-7 items-center"
-        style={announceHost ? { borderLeftWidth: 3, borderLeftColor: colors.accent } : undefined}
+        className="flex-row gap-2 px-4 pt-2.5 items-center"
+        style={[
+          { paddingBottom: bottomPad },
+          announceHost ? { borderLeftWidth: 3, borderLeftColor: colors.accent } : undefined,
+        ]}
       >
         <Pressable onPress={onPickImage} className="w-9 h-9 items-center justify-center">
           <Ionicons name="add-circle-outline" size={24} color={colors.textSecondary} />

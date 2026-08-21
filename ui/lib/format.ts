@@ -8,7 +8,16 @@ export function formatTimeRange(startIso: string, endIso: string): string {
   return `${fmt(startIso)}–${fmt(endIso)}`;
 }
 
-export function formatDistance(meters: number): string {
+export type DistanceUnits = "km" | "mi";
+
+// Threaded from profiles.distance_units (Settings > Preferences, 20260822000000). Miles never
+// step down to a smaller unit the way km does under 1000m — "0.5 mi" reads fine at short
+// distances, "feet" would be a second unit system for one row.
+export function formatDistance(meters: number, units: DistanceUnits = "km"): string {
+  if (units === "mi") {
+    const miles = meters / 1609.344;
+    return `${miles.toFixed(1)} mi`;
+  }
   return meters < 1000 ? `${Math.round(meters)} m` : `${(meters / 1000).toFixed(1)} km`;
 }
 

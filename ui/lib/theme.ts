@@ -110,6 +110,15 @@ export function nextGamesPlayedTier(gamesPlayed: number): { id: PlayerTierId; co
   return idx > 0 ? GAMES_PLAYED_TIERS[idx - 1] : null;
 }
 
+// Was TierRing's subtitle line ("N games to Gold · Advanced player"). Moved here when the ring
+// was retired for the design's compact avatar+chips header (20260822000000, P4) — kept as a
+// general games-tier utility even though nothing calls it today.
+export function tierProgressLabel(gamesPlayed: number, skillLabel: string | null): string {
+  const next = nextGamesPlayedTier(gamesPlayed);
+  const left = next ? `${next.min - gamesPlayed} game${next.min - gamesPlayed === 1 ? "" : "s"} to ${next.id}` : "Top tier";
+  return skillLabel ? `${left} · ${skillLabel} player` : left;
+}
+
 // Matches the actual nightly formula (recompute_reliability_scores): -5 per late leave
 // (approved, then left after the game had already started), floored at 0, recalculated every
 // night — it's not a slow climb, a clean night resets you straight back to 100. Keep this copy

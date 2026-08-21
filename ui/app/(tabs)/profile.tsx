@@ -5,13 +5,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import ViewShot, { type ViewShotRef } from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
-import { colors, LAYOUT, gamesPlayedTier, nextGamesPlayedTier, reliabilityLedgerLabel, RELIABILITY_EXPLAINER } from "../../lib/theme";
+import { colors, LAYOUT, gamesPlayedTier, nextGamesPlayedTier, reliabilityLedgerLabel, RELIABILITY_EXPLAINER, avatarColor } from "../../lib/theme";
 import { useTabBarSpace } from "../../lib/nav";
 import { makeScrollHideHandler, registerScrollToTop, unregisterScrollToTop } from "../../lib/navScroll";
 import { Screen } from "../../components/Screen";
 import { Sheet } from "../../components/Sheet";
-import { ListRow } from "../../components/ListRow";
-import { TierRing, tierProgressLabel } from "../../components/TierRing";
+import { Avatar } from "../../components/Avatar";
+import { SegmentedToggle } from "../../components/SegmentedToggle";
 import { ReputationGrid } from "../../components/ReputationGrid";
 import { TrophyCase } from "../../components/TrophyCase";
 import { ShareCard, type ShareCardFormat } from "../../components/ShareCard";
@@ -23,7 +23,6 @@ import { useSession } from "../../lib/session";
 import { usePlayerCard, useLateLeaveCount, useProfileStreak, useProfileActivity } from "../../lib/queries/profile";
 import { usePeerPerceivedSkill } from "../../lib/queries/ratings";
 import { useUnreadNotificationCount } from "../../lib/queries/notifications";
-import { shareReferral } from "../../lib/share";
 import { haptics } from "../../lib/haptics";
 import { supabase } from "../../lib/supabase";
 
@@ -129,15 +128,36 @@ export default function Profile() {
           <Text className="font-display text-[26px]" style={{ color: colors.text }}>
             Profile
           </Text>
-          <Pressable
-            onPress={() => router.push("/settings")}
-            hitSlop={8}
-            className="w-9 h-9 rounded-full items-center justify-center border"
-            style={{ backgroundColor: colors.surface, borderColor: colors.cardBorder }}
-            testID="profile-settings-gear"
-          >
-            <Ionicons name="settings-outline" size={16} color={colors.textTertiary} />
-          </Pressable>
+          <View className="flex-row items-center gap-2.5">
+            <Pressable
+              onPress={() => router.push("/notifications")}
+              hitSlop={8}
+              className="w-9 h-9 rounded-full items-center justify-center border"
+              style={{ backgroundColor: colors.surface, borderColor: colors.cardBorder }}
+              testID="profile-notifications-bell"
+            >
+              <Ionicons name="notifications-outline" size={16} color={colors.textTertiary} />
+              {!!unreadCount && (
+                <View
+                  className="absolute rounded-full items-center justify-center"
+                  style={{ top: -2, right: -2, minWidth: 15, height: 15, paddingHorizontal: 3, backgroundColor: colors.accent }}
+                >
+                  <Text className="font-body-extrabold" style={{ fontSize: 9, color: colors.base }}>
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </Text>
+                </View>
+              )}
+            </Pressable>
+            <Pressable
+              onPress={() => router.push("/settings")}
+              hitSlop={8}
+              className="w-9 h-9 rounded-full items-center justify-center border"
+              style={{ backgroundColor: colors.surface, borderColor: colors.cardBorder }}
+              testID="profile-settings-gear"
+            >
+              <Ionicons name="settings-outline" size={16} color={colors.textTertiary} />
+            </Pressable>
+          </View>
         </View>
 
         {cardLoading && (
@@ -167,21 +187,54 @@ export default function Profile() {
 
         {userId && card && !cardLoading && (
           <>
-            <View className="mt-2">
-              <TierRing
-                profileId={userId}
-                name={card.displayName}
-                photoUri={photoUrl}
-                gamesPlayed={gamesPlayed}
-                subtitle={hasPlayedAnything ? tierProgressLabel(gamesPlayed, selfTier) : "New player · joined today"}
-                onPress={() => router.push("/profile-edit")}
-              />
+            <View className="flex-row items-center gap-3.5 mt-2" style={{ paddingHorizontal: LAYOUT.SCREEN_PAD }}>
+              <Pressable onPress={() => router.push("/profile-edit")} accessibilityRole="button" accessibilityLabel="Edit profile">
+                <View style={{ width: 64, height: 64 }}>
+                  <Avatar name={card.displayName} color={avatarColor(userId)} size={64} photoUri={photoUrl} />
+                  <View
+                    className="absolute rounded-full items-center justify-center"
+                    style={{ bottom: -3, right: -3, width: 24, height: 24, backgroundColor: colors.accent, borderWidth: 2, borderColor: colors.base }}
+                  >
+                    <Ionicons name="pencil" size={11} color={colors.base} />
+                  </View>
+                </View>
+              </Pressable>
+              <View className="flex-1 min-w-0">
+                <Text className="font-display-bold text-[19px]" style={{ color: colors.text }} numberOfLines={1}>
+                  {card.displayName}
+                </Text>
+                {hasPlayedAnything ? (
+                  <View className="flex-row gap-1.5 mt-1.5">
+                    <View className="rounded-pill px-2.5 py-1" style={{ backgroundColor: tier.color + "22" }}>
+                      <Text className="font-body-extrabold text-[10px] uppercase" style={{ color: tier.color, letterSpacing: 0.3 }}>
+                        {tier.id}
+                      </Text>
+                    </View>
+                    <View className="rounded-pill px-2.5 py-1 border" style={{ borderColor: colors.cardBorder }}>
+                      <Text className="font-body-semibold text-[10px]" style={{ color: colors.textTertiary }}>
+                        Member since {new Date(card.memberSince).getFullYear()}
+                      </Text>
+                    </View>
+                  </View>
+                ) : (
+                  <Text className="text-[12px] mt-1" style={{ color: colors.textSecondary }}>
+                    New player · joined today
+                  </Text>
+                )}
+              </View>
             </View>
 
-            <View className="flex-row mt-6" style={{ paddingHorizontal: LAYOUT.SCREEN_PAD, gap: 6 }}>
-              <SegItem label="Overview" active={tab === "overview"} onPress={() => setTab("overview")} />
-              <SegItem label="History" active={tab === "history"} locked={!hasPlayedAnything} onPress={() => hasPlayedAnything && setTab("history")} />
-              <SegItem label="Trophy case" active={tab === "trophy"} locked={!hasPlayedAnything} onPress={() => hasPlayedAnything && setTab("trophy")} />
+            <View className="mt-6" style={{ paddingHorizontal: LAYOUT.SCREEN_PAD }}>
+              <SegmentedToggle
+                fullWidth
+                options={[
+                  { key: "overview" as const, label: "Overview" },
+                  { key: "history" as const, label: "History", locked: !hasPlayedAnything },
+                  { key: "trophy" as const, label: "Trophy case", locked: !hasPlayedAnything },
+                ]}
+                value={tab}
+                onChange={setTab}
+              />
             </View>
 
             <View className="mt-5" style={{ paddingHorizontal: LAYOUT.SCREEN_PAD }}>
@@ -215,6 +268,7 @@ export default function Profile() {
                       </Text>
                       <ReputationGrid
                         reliabilityScore={card.reliabilityScore}
+                        reliabilityCoaching={reliabilityLedgerLabel(lateLeaves ?? 0, gamesPlayed)}
                         ratingAvg={card.ratingAvg}
                         ratingCount={card.ratingCount}
                         showRating
@@ -399,37 +453,6 @@ export default function Profile() {
           </>
         )}
 
-        <View className="mt-7">
-          <ListRow
-            title="Notifications"
-            accessory="chevron"
-            trailing={unreadCount ? String(unreadCount) : undefined}
-            onPress={() => router.push("/notifications")}
-          />
-          <ListRow title="Notification settings" accessory="chevron" onPress={() => router.push("/notification-settings")} />
-          <Pressable
-            onPress={() => {
-              haptics.tap();
-              if (userId) shareReferral(userId);
-            }}
-            style={{ paddingHorizontal: LAYOUT.SCREEN_PAD }}
-          >
-            <View
-              className="flex-row items-center justify-between"
-              style={{ paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: LAYOUT.HAIRLINE }}
-            >
-              <Text className="font-body-semibold text-[13.5px]" style={{ color: colors.text }}>
-                Invite friends
-              </Text>
-              <View className="rounded-pill px-2.5 py-1" style={{ backgroundColor: colors.accent }}>
-                <Text className="font-body-extrabold text-[10.5px] uppercase" style={{ color: colors.base, letterSpacing: 0.4 }}>
-                  Earn badges
-                </Text>
-              </View>
-            </View>
-          </Pressable>
-        </View>
-
         <Sheet visible={reliabilitySheetOpen} onClose={() => setReliabilitySheetOpen(false)} title="Reliability score">
           <Text className="text-[15px] leading-5" style={{ color: colors.textSecondary }}>
             {RELIABILITY_EXPLAINER}
@@ -447,26 +470,6 @@ export default function Profile() {
         </Sheet>
       </ScrollView>
     </Screen>
-  );
-}
-
-function SegItem({ label, active, locked, onPress }: { label: string; active: boolean; locked?: boolean; onPress: () => void }) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={{ flex: 1, opacity: locked ? 0.4 : 1 }}
-      className="rounded-pill items-center justify-center py-2"
-    >
-      <View
-        className="rounded-pill items-center justify-center w-full"
-        style={{ backgroundColor: active ? colors.accent : colors.surface, borderWidth: active ? 0 : 1, borderColor: colors.cardBorder, paddingVertical: 8 }}
-      >
-        <Text className="font-body-extrabold text-[11.5px]" style={{ color: active ? colors.base : colors.textSecondary }}>
-          {label}
-          {locked ? " 🔒" : ""}
-        </Text>
-      </View>
-    </Pressable>
   );
 }
 

@@ -320,12 +320,159 @@ Deliver:
 
 ---
 
+## Prompt 5 — Profile, player card & reputation
+
+```
+This part IS built and live — you are redesigning it, not inventing it. Same rules as Prompt 2:
+keep the components, the dark/lime identity and every piece of information; change composition,
+hierarchy, density and IA. Inherit the type scale and elevation ladder from Prompt 1.
+
+--- THE THESIS ---
+A SMASHIO profile is a CLAIM you make about yourself, backed by EVIDENCE other people generated.
+Reputation is by definition something someone else reads. The single highest-stakes decision in
+this product is a host deciding a join request from a stranger, and that decision is made by
+reading a profile. Design for the reader first, the owner second.
+
+Four readers, roughly:
+  · Host vetting a join request (~30% of profile views) — "will this person turn up, are they my
+    level?" Needs: photo, tier, games played, reliability, behaviour badges, games-together.
+  · Player sizing up a host (~25%) — "is this legit?" Needs: hosted count, rating, verified marks.
+  · Self-checker (~25%) — "how am I doing, did that game count?" Needs: streak, tier progress,
+    what changed since last time.
+  · New user (~10%) — "why is nobody approving me?" Needs: what is missing and what it costs.
+
+--- WHAT EXISTS TODAY (three routes, one identity — this is the main thing I want challenged) ---
+
+1. PROFILE TAB (/(tabs)/profile) — the "me" view:
+   · TierRing: 132px SVG progress ring + avatar + name + "N more games to Silver" subtitle.
+     Games-played tiers are Bronze (0) / Silver (10) / Gold (25). Tapping it opens Edit profile.
+   · Reliability card: big number in band colour + "Reliability · Excellent" + a ledger line
+     ("No late cancellations in 14 games") + a "What's this? ›" explainer sheet.
+   · A "12 games played" line + behaviour badge chips.
+   · Then rows: Stats & achievements › | Edit profile › | Notifications (unread count) ›
+     | Notification settings › | Invite friends (EARN BADGES pill) | Settings › | Delete account ›
+
+2. STATS & ACHIEVEMENTS (/profile-stats) — everything the v2 anchor displaced:
+   · The full PlayerCard in "me" mode, wrapped in a screenshot-to-share view.
+   · Rating distribution bars (1-5 star histogram).
+   · Peer-perceived skill line: "You say Advanced · your co-players say Intermediate".
+   · Week-streak card (flame + "3 week streak").
+   · Activity tiles: this month · regular spot (most-played venue) · usual time (most-played night).
+   · 12-week calendar heatmap.
+   · Regulars list: "Sam 5× · Priya 4×", each tappable through to their card.
+   · Achievements: 8 fixed chips, locked/unlocked — first game, first hosted, 10/25/50 played,
+     4-week streak, 5 different venues, first 5-star. Plus a Bronze/Silver/Gold TierBadge.
+   · Profile completeness meter: photo, suburb, tier, email verified, first game.
+   · "Share my card" — renders the card to a PNG and opens the OS share sheet.
+
+3. PUBLIC PLAYER CARD (/player/[id]) — the "them" view, same component in a different mode:
+   · Avatar, name, verified tick, suburb, tier pill, "Member since 2026".
+   · "You've played together 3×" lime strip (only when > 0).
+   · Two StatTiles: games played · games hosted.
+   · Reliability BAND ONLY (dot + "Excellent"), never the raw number.
+   · Rating average + count, but ONLY once the player has 5 or more ratings; below that it reads
+     "New player". Individual ratings and who gave them are NEVER shown to anyone.
+   · Behaviour badge counts, and per-sport tier pills when a profile has more than one sport.
+
+4. EDIT PROFILE (/profile-edit) — photo upload, display name, suburb (free text), skill tier picker.
+5. SETTINGS (/settings) — sign-in method, email + verification, notification prefs entry, legal,
+   and a visually separated danger zone (log out, delete account).
+6. VETTING STRIP — a compact inline reputation summary rendered on join-request rows in Game
+   Detail's host console: tier, games played, reliability band, "played together 3×".
+
+--- THE EXACT DATA WE HAVE (do not design for data we cannot supply) ---
+One RPC returns, for any profile id: display name, photo, suburb (text only), member-since,
+games played, games hosted, reliability 0-100 + band, rating average + count, games-together
+with the viewer, behaviour badge counts, and per-sport tier.
+Behaviour badges are a FIXED four-item vocabulary, collected one-tap at post-game:
+Punctual · Good sport · Strong player · Settled up.
+Reliability is a real formula: starts at 100, minus 5 per game you leave after it has already
+started, recomputed nightly, floored at 0. Bands: 90+ Excellent, 75+ Good, 50+ Fair, else Needs
+work. Peer-perceived tier is derived from co-player star ratings — one vote per rater, latest
+only, last 25 — mapped Beginner/Intermediate/Advanced/Pro. Also available: week streak,
+this-month count, most-played venue, most-played night, 12 weeks of played-dates, regulars with
+counts, distinct venue count, 1-5 star distribution, late-leave count, email-verified flag.
+
+--- BENCHMARKS (mechanics, not screenshots — argue with these) ---
+· Playo — skill is what your co-players say it is: an anonymous distribution across Beginner to
+  Pro, weighted to your recent games, one vote per rater, framed explicitly as what gets you
+  accepted into games. Plus behaviour badges. This is our exact product one market over.
+· Playtomic — a numeric level PLUS a "reliability %" that is the system's own CONFIDENCE in that
+  level, climbing as you play. The confidence-alongside-the-number idea is the transferable part.
+· DUPR / UTR-P — one portable rating that clubs accept; identity travels with the player.
+· Strava — the profile IS the history: calendar widget as the spine, four most recent trophies
+  pinned with a full trophy case behind them, rolling stats at three time horizons.
+· GoodRec — "Player of the Match" peer vote and host reviews as the reputation primitives.
+· Duolingo — badges pulled OUT of the buried profile and made shareable; friend-streak as the
+  social hook.
+· Airbnb — trust is stacked signals, and the profile openly names which one you are missing.
+
+--- WHAT I THINK IS WRONG — CHALLENGE OR CONFIRM ---
+1. Three routes for one identity. Profile tab, /profile-stats and /player/[id] each render a
+   different composition of the same person. The split was a spacing fix, not an IA decision.
+   Give me a defended answer: one scrolling profile, a segmented profile, or keep the split.
+2. "me" and "them" have drifted into two visual identities — the tab leads with a progress ring,
+   the public card leads with stat tiles. Same human, two designs.
+3. Reputation — the entire point — sits one tap DOWN behind a "Stats & achievements ›" row, while
+   Notification settings sits above the fold. Inverted hierarchy.
+4. The profile tab bottoms out as a settings list. Six rows of identical weight, one of which
+   deletes the account.
+5. Achievements are eight flat chips at 50% opacity when locked. No sense of a case, a set, a
+   next target, or anything worth screenshotting.
+6. Reliability is the most decision-relevant number we hold and renders as a plain integer.
+7. "Share my card" is a screenshot of a scrolling screen, not a designed shareable object.
+8. The host-vetting strip — our highest-stakes read — has never had a dedicated design pass.
+
+--- HARD CONSTRAINTS ---
+· Dark only. Mobile only, 393×852 and 430×932. No web profile.
+· NO ELO / numeric skill level. Casual badminton produces no match scores; peer-perceived tier
+  (Playo's model) is the ceiling until we ship ladders.
+· NO followers/following, NO city leaderboards, NO paid or purchasable badges. Every badge is
+  earned by playing. (The follow graph belongs to Prompt 4's social layer and is unapproved
+  scope — do not assume it here.)
+· PRIVACY IS NOT NEGOTIABLE. Never show another player: email, phone, exact location, the raw
+  reliability integer, individual ratings, or who rated them. Suburb is text, never a pin.
+  Ratings stay hidden entirely below 5 of them. Rating is always anonymous.
+· Sport is a data concern — badminton ships first but the design must hold 2-4 sports per profile
+  without a redesign.
+· No new visual language, no new colour ramp. Existing kit only.
+
+--- USE THE REAL COMPONENTS ---
+TierRing, PlayerCard, ReliabilityGauge, BehaviourBadges, RatingDistributionBars, Heatmap,
+CompletenessMeter, StatTile, TierBadge, SkillPill, Avatar, ListRow, Chip, Badge, Sheet,
+RollingNumber, Burst, EmptyState, Skeleton, VettingStrip, SegmentedToggle, Button.
+
+--- DELIVER ---
+1. A defended IA for the profile area: how many routes, what lives where, and where settings go.
+2. The "me" profile at three life stages: 0 games (day one, nothing earned), 12 games (Silver,
+   a few badges, one streak), 60 games (Gold, full trophy case, long history). The zero state
+   must sell the first game, not display a row of zeros.
+3. The "them" public player card in two contexts: opened from a roster avatar, and opened by a
+   host mid-decision on a join request. Show what changes between them.
+4. The vetting strip in situ on a join-request row, at a density a host can scan five of.
+5. The reputation block redesigned as one system — reliability, rating, peer-perceived tier and
+   behaviour badges are FOUR SEPARATE SIGNALS and must not read as one blob.
+6. The trophy case / achievements surface, with a visible next target.
+7. History-as-identity: heatmap, streak, regulars and activity stats composed as one habit
+   surface rather than four stacked cards.
+8. The shareable player card as a designed 1:1 and 9:16 export object, not a screenshot.
+9. Edit profile and Settings, including the danger zone, and the completeness meter wherever you
+   decide it belongs.
+10. States: loading skeletons, failed-fetch error (a network error must never render as
+    "reliability 0"), new player with no ratings, and a player with a poor reliability band —
+    show me how we render bad news without shaming someone into churning.
+```
+
+---
+
 ## Notes for whoever runs these
 
-- Prompt 1 must settle **before** 2-4 — everything downstream inherits the type scale and the
+- Prompt 1 must settle **before** 2-5 — everything downstream inherits the type scale and the
   elevation ladder.
 - Font pick has a hard implementation constraint: `@expo-google-fonts` package or a bundled
   variable `.ttf`, weights 400-800, tabular figures. Same family must work on the static website.
 - The mark itself is frozen. Only the wordmark typeface is in play.
+- Prompt 5 is a redesign of shipped code, not greenfield — read [profile-plan.md](profile-plan.md)
+  (P0-P6 all landed) before running it, so the agent is not handed problems we already fixed.
 - Social (prompt 4) is unapproved scope — see [social-plan.md](social-plan.md) §11. Designing it is
   cheap; building it needs sign-off.

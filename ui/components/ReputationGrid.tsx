@@ -5,8 +5,20 @@ import { colors, reliabilityLabel, reliabilityColor, tierColor } from "../lib/th
 import { BehaviourBadges } from "./BehaviourBadges";
 import type { TierId } from "../lib/theme";
 
-function Signal({ label, labelColor, children, onPress }: { label: string; labelColor?: string; children: ReactNode; onPress?: () => void }) {
-  const style = { backgroundColor: colors.card, borderColor: colors.cardBorder, width: "48.5%" as const };
+function Signal({
+  label,
+  labelColor,
+  children,
+  onPress,
+  style: styleOverride,
+}: {
+  label: string;
+  labelColor?: string;
+  children: ReactNode;
+  onPress?: () => void;
+  style?: { backgroundColor?: string; borderColor?: string };
+}) {
+  const style = { backgroundColor: colors.card, borderColor: colors.cardBorder, width: "48.5%" as const, ...styleOverride };
   const inner = (
     <>
       <Text className="font-body-extrabold text-[10.5px] uppercase tracking-wide" style={{ color: labelColor ?? colors.textTertiary }}>
@@ -34,6 +46,7 @@ function Signal({ label, labelColor, children, onPress }: { label: string; label
 // cards, never merged into one score (design/23bc2cae "reputation block").
 export function ReputationGrid({
   reliabilityScore,
+  reliabilityCoaching,
   ratingAvg,
   ratingCount,
   showRating,
@@ -42,31 +55,62 @@ export function ReputationGrid({
   badgeCounts,
   onReliabilityPress,
 }: {
-  reliabilityScore: number;
+  reliabilityScore: number | null;
+  // Owner-only. Pass the ledger line (e.g. "2 late cancellations in your last 10 games") when
+  // the viewer's own band is Fair or Needs work — this state is coaching, never a penalty
+  // screen, so it always renders amber and never colors.danger (design brief hard constraint:
+  // "how we render bad news without shaming someone into churning").
+  reliabilityCoaching?: string | null;
   ratingAvg: number | null;
-  ratingCount: number;
+  ratingCount: number | null;
   showRating: boolean;
   peerTier: TierId | null;
   peerVoteCount: number;
   badgeCounts: Record<string, number>;
   onReliabilityPress?: () => void;
 }) {
-  const relColor = reliabilityColor(reliabilityScore);
+  const coaching = reliabilityScore != null && reliabilityScore < 75 && !!reliabilityCoaching;
+  const relColor = reliabilityScore == null ? colors.textMuted : coaching ? colors.advanced : reliabilityColor(reliabilityScore);
   return (
     <View className="flex-row flex-wrap justify-between" style={{ gap: 8 }}>
-      <Signal label="Reliability" labelColor={relColor} onPress={onReliabilityPress}>
-        <View className="flex-row items-baseline gap-1.5">
-          <Text className="font-display-bold text-[22px]" style={{ color: relColor }}>
-            {reliabilityScore}
+      <Signal
+        label="Reliability"
+        labelColor={relColor}
+        onPress={onReliabilityPress}
+        style={coaching ? { backgroundColor: "rgba(255,182,72,0.06)", borderColor: "rgba(255,182,72,0.3)" } : undefined}
+      >
+        {reliabilityScore == null ? (
+          <Text className="text-[13px] font-body-bold mt-1" style={{ color: colors.textMuted }}>
+            —
           </Text>
-          <Text className="text-[11px] font-body-semibold" style={{ color: colors.textSecondary }}>
-            {reliabilityLabel(reliabilityScore)}
-          </Text>
-        </View>
+        ) : (
+          <>
+            <View className="flex-row items-baseline gap-1.5">
+              <Text className="font-display-bold text-[22px]" style={{ color: relColor }}>
+                {reliabilityScore}
+              </Text>
+              <Text className="text-[11px] font-body-semibold" style={{ color: colors.textSecondary }}>
+                {reliabilityLabel(reliabilityScore)}
+              </Text>
+            </View>
+            {coaching && (
+              <>
+                <Text className="text-[10.5px] mt-1 leading-3.5" style={{ color: colors.textDim }} numberOfLines={2}>
+                  {reliabilityCoaching}
+                </Text>
+                {onReliabilityPress && (
+                  <Text className="text-[10.5px] font-body-bold mt-1" style={{ color: colors.advanced }}>
+                    How reliability recovers ›
+                  </Text>
+                )}
+              </>
+            )}
+          </>
+        )}
       </Signal>
 
       <Signal label="Rating">
-        {showRating && ratingCount > 0 ? (
+        {showRating && !!ratingCount && ratingCount > 0 ? (
           <View className="flex-row items-baseline gap-1.5">
             <Ionicons name="star" size={14} color={colors.advanced} style={{ marginBottom: -1 }} />
             <Text className="font-display-bold text-[22px]" style={{ color: colors.text }}>

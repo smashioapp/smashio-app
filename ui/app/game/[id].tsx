@@ -233,7 +233,9 @@ export default function GameDetails() {
                     {organizer.displayName} · Host
                   </Text>
                   <Text numberOfLines={1} className="text-[11.5px] mt-0.5" style={{ color: colors.textSecondary }}>
-                    Reliability {organizer.reliabilityScore} · {reliabilityLabel(organizer.reliabilityScore)}
+                    {organizer.reliabilityScore != null
+                      ? `Reliability ${organizer.reliabilityScore} · ${reliabilityLabel(organizer.reliabilityScore)}`
+                      : "Reliability hidden by this host"}
                   </Text>
                 </View>
                 <Pressable

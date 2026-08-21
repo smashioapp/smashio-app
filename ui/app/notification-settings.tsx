@@ -69,6 +69,10 @@ function toField(key: NotificationCategory) {
     game_changes: "gameChanges",
     alerts: "alerts",
     nudges: "nudges",
+    // Not in CATEGORIES above — marketing consent lives in Settings' Notifications group
+    // (settings.tsx), not this screen. Listed here only so the map stays exhaustive over
+    // NotificationCategory.
+    marketing: "marketing",
   } as const;
   return map[key];
 }

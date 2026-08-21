@@ -3,7 +3,7 @@ import { File } from "expo-file-system";
 import { supabase } from "../supabase";
 import type { Database } from "../db.types";
 import type { Game, PastGame } from "../mockData";
-import { formatDate, formatDistance, formatTimeRange } from "../format";
+import { formatDate, formatDistance, formatTimeRange, type DistanceUnits } from "../format";
 import { durationMs } from "../schedule";
 import { avatarColor } from "../theme";
 import { prepareConfirmationImage } from "../imagePrep";
@@ -17,7 +17,7 @@ export const SPORT_SLUG = "badminton"; // MVP ships badminton only; sport stays 
 type NearbyGameRow = Database["public"]["Functions"]["nearby_games"]["Returns"][number];
 type GamesPublicRow = Database["public"]["Views"]["games_public"]["Row"];
 
-function toGame(row: NearbyGameRow): Game {
+function toGame(row: NearbyGameRow, units: DistanceUnits = "km"): Game {
   return {
     id: row.id,
     organizerId: row.organizer_id,
@@ -44,7 +44,7 @@ function toGame(row: NearbyGameRow): Game {
     cost: row.cost_per_player_cents / 100,
     verified: row.verification_status === "verified",
     verificationStatus: (row.verification_status as Game["verificationStatus"]) ?? "none",
-    distance: formatDistance(row.distance_m),
+    distance: formatDistance(row.distance_m, units),
     distanceM: row.distance_m,
     venueAddress: row.venue_address,
     venueLat: row.venue_lat,
@@ -134,7 +134,7 @@ export function useDiscoverGames(
     sortBy?: string;
   },
   center: { lat: number; lng: number } = { lat: DEFAULT_LAT, lng: DEFAULT_LNG },
-  options: { enabled?: boolean } = {}
+  options: { enabled?: boolean; units?: DistanceUnits } = {}
 ) {
   const tierSlugs = filter.tierSlugs?.length ? filter.tierSlugs : undefined;
   const when = filter.when ?? "all";
@@ -143,6 +143,7 @@ export function useDiscoverGames(
   const verifiedOnly = filter.verifiedOnly ?? false;
   const maxCostPerPlayerCents = filter.maxCostPerPlayerCents ?? null;
   const sortBy = filter.sortBy ?? "soonest";
+  const units = options.units ?? "km";
   return useQuery({
     enabled: options.enabled ?? true,
     queryKey: [
@@ -157,6 +158,7 @@ export function useDiscoverGames(
       verifiedOnly,
       maxCostPerPlayerCents,
       sortBy,
+      units,
     ],
     queryFn: async () => {
       const { fromTs, toTs } = whenFilterRange(when);
@@ -174,7 +176,7 @@ export function useDiscoverGames(
         sort_by: sortBy,
       });
       if (error) throw error;
-      return (data ?? []).map(toGame);
+      return (data ?? []).map((row) => toGame(row, units));
     },
   });
 }
@@ -197,7 +199,7 @@ export function useWeekPulseGames(center: { lat: number; lng: number } = { lat: 
         p_exclude_mine: false,
       });
       if (error) throw error;
-      return (data ?? []).map(toGame);
+      return (data ?? []).map((row) => toGame(row));
     },
   });
 }

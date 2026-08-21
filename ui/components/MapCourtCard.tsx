@@ -3,6 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { colors, RESTRICTED_TONE } from "../lib/theme";
 import { formatDistance, isOpenNow } from "../lib/format";
 import { haptics } from "../lib/haptics";
+import { useDistanceUnits } from "../lib/queries/settings";
 import type { NoGameVenue } from "./GameMap";
 
 // Courts mode's sheet row (P2, discover-map-ux-plan.md §4.1/§4.2) — the medal/lock/hollow-ring
@@ -12,6 +13,7 @@ import type { NoGameVenue } from "./GameMap";
 export function MapCourtCard({ venue, onPress }: { venue: NoGameVenue & { distanceM: number }; onPress: (venue: NoGameVenue) => void }) {
   const restricted = venue.bookability === "club_only" || venue.bookability === "members_only";
   const openNow = isOpenNow(venue.openingHours);
+  const distanceUnits = useDistanceUnits();
   return (
     <Pressable
       onPress={() => {
@@ -26,7 +28,7 @@ export function MapCourtCard({ venue, onPress }: { venue: NoGameVenue & { distan
           {venue.name}
         </Text>
         <Text numberOfLines={1} className="text-[12px] mt-0.5" style={{ color: colors.textSecondary }}>
-          {formatDistance(venue.distanceM)}
+          {formatDistance(venue.distanceM, distanceUnits)}
           {venue.courtsBadminton != null ? ` · ${venue.courtsBadminton} ${venue.courtsBadminton === 1 ? "court" : "courts"}` : ""}
         </Text>
         <View className="flex-row items-center gap-1.5 mt-1.5">

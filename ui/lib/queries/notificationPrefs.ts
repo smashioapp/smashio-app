@@ -4,11 +4,13 @@ import type { Database } from "../db.types";
 
 type Row = Database["public"]["Tables"]["notification_prefs"]["Row"];
 type Insert = Database["public"]["Tables"]["notification_prefs"]["Insert"];
-type BooleanColumn = "join_requests" | "roster_changes" | "chat" | "reminders" | "game_changes" | "alerts" | "nudges";
+type BooleanColumn = "join_requests" | "roster_changes" | "chat" | "reminders" | "game_changes" | "alerts" | "nudges" | "marketing";
 
 // §6.3: seven categories, all defaulting true, plus the quiet-hours window. Mirrors the plan's
 // category names 1:1 so a toggle here lines up with the p_pref_key strings the recipient SQL
 // functions check (supabase/migrations/20260820000300_notifications_p1.sql).
+// `marketing` (20260822000000) is the odd one out — defaults FALSE, and nothing sends on it yet;
+// it exists so consent lands before the sender does, not after.
 export type NotificationCategory =
   | "join_requests"
   | "roster_changes"
@@ -16,7 +18,8 @@ export type NotificationCategory =
   | "reminders"
   | "game_changes"
   | "alerts"
-  | "nudges";
+  | "nudges"
+  | "marketing";
 
 export type NotificationPrefs = {
   joinRequests: boolean;
@@ -26,6 +29,7 @@ export type NotificationPrefs = {
   gameChanges: boolean;
   alerts: boolean;
   nudges: boolean;
+  marketing: boolean;
   quietHoursEnabled: boolean;
   quietStart: string;
   quietEnd: string;
@@ -39,6 +43,7 @@ const DEFAULTS: NotificationPrefs = {
   gameChanges: true,
   alerts: true,
   nudges: true,
+  marketing: false,
   quietHoursEnabled: false,
   quietStart: "22:00",
   quietEnd: "07:00",
@@ -54,6 +59,7 @@ function fromRow(row: Row | null): NotificationPrefs {
     gameChanges: row.game_changes,
     alerts: row.alerts,
     nudges: row.nudges,
+    marketing: row.marketing,
     quietHoursEnabled: row.quiet_hours_enabled,
     quietStart: row.quiet_start.slice(0, 5),
     quietEnd: row.quiet_end.slice(0, 5),
@@ -81,6 +87,7 @@ const COLUMN: Record<NotificationCategory, BooleanColumn> = {
   game_changes: "game_changes",
   alerts: "alerts",
   nudges: "nudges",
+  marketing: "marketing",
 };
 
 export function useSetNotificationCategory() {
@@ -139,6 +146,7 @@ function toFieldName(category: NotificationCategory): keyof NotificationPrefs {
     game_changes: "gameChanges",
     alerts: "alerts",
     nudges: "nudges",
+    marketing: "marketing",
   };
   return map[category];
 }

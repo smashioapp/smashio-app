@@ -107,7 +107,7 @@ export function PlayerCard({
     );
   }
 
-  if (isError || !card) {
+  if (isError) {
     return (
       <View className="items-center justify-center py-16 gap-3 px-6">
         <Text className="font-body-semibold text-[14.5px] text-center" style={{ color: colors.textSecondary }}>
@@ -122,8 +122,24 @@ export function PlayerCard({
     );
   }
 
+  // player_card returns zero rows — not an error — for a blocked or deleted profile
+  // (20260822000000). No Retry here: refetching a block never comes back different.
+  if (!card) {
+    return (
+      <View className="items-center justify-center py-16 gap-2 px-6">
+        <Ionicons name="person-remove-outline" size={22} color={colors.textMuted} />
+        <Text className="font-body-semibold text-[14.5px] text-center" style={{ color: colors.textSecondary }}>
+          Profile unavailable
+        </Text>
+      </View>
+    );
+  }
+
   const primaryTier = card.sports.find((s) => s.sportSlug === "badminton")?.tierLabel ?? card.sports[0]?.tierLabel ?? null;
-  const showRating = mode === "me" || card.ratingCount >= 5;
+  const showRating = mode === "me" || (card.ratingCount ?? 0) >= 5;
+  // restricted is only ever true in "them" mode — player_card never restricts a viewer from
+  // their own row (20260822000000: `c.vid <> c.id` in is_restricted).
+  const restricted = mode === "them" && card.restricted;
 
   return (
     <View>
@@ -152,54 +168,68 @@ export function PlayerCard({
         <StatTile value={card.gamesHosted} label="Games hosted" />
       </View>
 
-      <View className="flex-row items-center gap-2.5 px-5 mt-2.5">
-        {mode === "me" ? (
-          <LinearGradient colors={gradients.card} className="rounded-2xl p-3.5 flex-1 items-center border" style={{ borderColor: colors.cardBorder }}>
-            <ReliabilityGauge score={card.reliabilityScore} />
-            <Text className="text-[12.5px] font-body-bold mt-1" style={{ color: colors.textTertiary }}>
-              Reliability
-            </Text>
-          </LinearGradient>
-        ) : (
-          <View className="rounded-2xl p-3.5 flex-1 items-center border gap-1.5" style={{ backgroundColor: colors.surface, borderColor: colors.cardBorder }}>
-            <View className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: reliabilityColor(card.reliabilityScore) }} />
-            <Text className="font-body-extrabold text-[14px]" style={{ color: colors.text }}>
-              {reliabilityLabel(card.reliabilityScore)}
-            </Text>
-            <Text className="text-[11.5px] font-body-bold" style={{ color: colors.textTertiary }}>
-              Reliability
-            </Text>
-          </View>
-        )}
-
-        <View className="rounded-2xl p-3.5 flex-1 items-center border gap-1" style={{ backgroundColor: colors.surface, borderColor: colors.cardBorder }}>
-          {showRating && card.ratingCount > 0 ? (
-            <>
-              <View className="flex-row items-center gap-1">
-                <Ionicons name="star" size={15} color={colors.advanced} />
-                <Text className="font-display-bold text-[18px]" style={{ color: colors.text }}>
-                  {card.ratingAvg?.toFixed(1)}
+      {restricted ? (
+        <View className="mx-5 mt-2.5 rounded-2xl p-4 items-center border gap-1" style={{ backgroundColor: colors.surface, borderColor: colors.cardBorder }}>
+          <Ionicons name="lock-closed-outline" size={16} color={colors.textTertiary} />
+          <Text className="font-body-bold text-[13px] text-center" style={{ color: colors.textSecondary }}>
+            {card.displayName} keeps reputation private
+          </Text>
+          <Text className="text-[11.5px] text-center" style={{ color: colors.textTertiary }}>
+            Reliability, rating and badges show once you've played together.
+          </Text>
+        </View>
+      ) : (
+        <>
+          <View className="flex-row items-center gap-2.5 px-5 mt-2.5">
+            {mode === "me" ? (
+              <LinearGradient colors={gradients.card} className="rounded-2xl p-3.5 flex-1 items-center border" style={{ borderColor: colors.cardBorder }}>
+                <ReliabilityGauge score={card.reliabilityScore ?? 0} />
+                <Text className="text-[12.5px] font-body-bold mt-1" style={{ color: colors.textTertiary }}>
+                  Reliability
+                </Text>
+              </LinearGradient>
+            ) : (
+              <View className="rounded-2xl p-3.5 flex-1 items-center border gap-1.5" style={{ backgroundColor: colors.surface, borderColor: colors.cardBorder }}>
+                <View className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: reliabilityColor(card.reliabilityScore ?? 0) }} />
+                <Text className="font-body-extrabold text-[14px]" style={{ color: colors.text }}>
+                  {reliabilityLabel(card.reliabilityScore ?? 0)}
+                </Text>
+                <Text className="text-[11.5px] font-body-bold" style={{ color: colors.textTertiary }}>
+                  Reliability
                 </Text>
               </View>
-              <Text className="text-[11.5px] font-body-bold" style={{ color: colors.textTertiary }}>
-                {card.ratingCount} rating{card.ratingCount === 1 ? "" : "s"}
-              </Text>
-            </>
-          ) : (
-            <>
-              <Ionicons name="star-outline" size={16} color={colors.textMuted} />
-              <Text className="text-[11.5px] font-body-bold text-center" style={{ color: colors.textMuted }}>
-                {mode === "me" ? "No ratings yet" : "New player"}
-              </Text>
-            </>
-          )}
-        </View>
-      </View>
+            )}
 
-      {Object.keys(card.badgeCounts).length > 0 && (
-        <View className="px-5 mt-3.5">
-          <BehaviourBadges counts={card.badgeCounts} />
-        </View>
+            <View className="rounded-2xl p-3.5 flex-1 items-center border gap-1" style={{ backgroundColor: colors.surface, borderColor: colors.cardBorder }}>
+              {showRating && !!card.ratingCount && card.ratingCount > 0 ? (
+                <>
+                  <View className="flex-row items-center gap-1">
+                    <Ionicons name="star" size={15} color={colors.advanced} />
+                    <Text className="font-display-bold text-[18px]" style={{ color: colors.text }}>
+                      {card.ratingAvg?.toFixed(1)}
+                    </Text>
+                  </View>
+                  <Text className="text-[11.5px] font-body-bold" style={{ color: colors.textTertiary }}>
+                    {card.ratingCount} rating{card.ratingCount === 1 ? "" : "s"}
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <Ionicons name="star-outline" size={16} color={colors.textMuted} />
+                  <Text className="text-[11.5px] font-body-bold text-center" style={{ color: colors.textMuted }}>
+                    {mode === "me" ? "No ratings yet" : "New player"}
+                  </Text>
+                </>
+              )}
+            </View>
+          </View>
+
+          {Object.keys(card.badgeCounts).length > 0 && (
+            <View className="px-5 mt-3.5">
+              <BehaviourBadges counts={card.badgeCounts} />
+            </View>
+          )}
+        </>
       )}
 
       {/* Multi-sport ready (profile-plan.md P3): every sport this profile has a tier in, not

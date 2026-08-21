@@ -1,19 +1,22 @@
 import { useState } from "react";
-import { View, Text, Pressable, Linking, Alert } from "react-native";
+import { View, Text, Pressable, Linking, Alert, ScrollView, Switch, Platform } from "react-native";
 import { router } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
+import * as StoreReview from "expo-store-review";
+import Constants from "expo-constants";
 import { LinearGradient } from "expo-linear-gradient";
 import { colors, gradients } from "../lib/theme";
 import { Screen } from "../components/Screen";
 import { BackButton } from "../components/BackButton";
 import { Badge } from "../components/Badge";
+import { Sheet } from "../components/Sheet";
+import { ListRow, RowSectionLabel } from "../components/ListRow";
 import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
 import { signOut } from "../lib/auth";
-
-const ROWS = [
-  { label: "Notifications", href: "/notification-settings" as const, icon: "notifications-outline" as const },
-];
+import { useProfile } from "../lib/queries/profile";
+import { useSetNotificationCategory, useNotificationPrefs } from "../lib/queries/notificationPrefs";
+import { useBlockedPlayers } from "../lib/queries/settings";
+import { shareReferral } from "../lib/share";
 
 function providerLabel(provider: string | undefined): string {
   if (provider === "google") return "Google";
@@ -21,14 +24,41 @@ function providerLabel(provider: string | undefined): string {
   return "Email & password";
 }
 
+function Group({ children }: { children: React.ReactNode }) {
+  return (
+    <LinearGradient
+      colors={gradients.card}
+      className="rounded-2xl border overflow-hidden px-3.5"
+      style={{ borderColor: colors.cardBorder }}
+    >
+      {children}
+    </LinearGradient>
+  );
+}
+
+function ToggleSwitch({ value, onValueChange }: { value: boolean; onValueChange: (v: boolean) => void }) {
+  return (
+    <Switch value={value} onValueChange={onValueChange} trackColor={{ true: colors.accent, false: "rgba(255,255,255,0.15)" }} />
+  );
+}
+
 // Identity and account settings are different products (profile-plan.md P4) — this is the
-// boring, findable list that used to sit two rows from the tier badge.
+// findable list that used to sit two rows from the tier badge. Rebuilt to the full six-group IA
+// from docs/design-brief.md's "Settings — full IA" artboard: everything the design put behind
+// the gear that the old three-card version never surfaced.
 export default function Settings() {
   const { session } = useSession();
+  const userId = session?.user.id;
   const email = session?.user.email;
   const emailVerified = !!session?.user.email_confirmed_at;
   const provider = session?.user.app_metadata?.provider as string | undefined;
   const [resending, setResending] = useState(false);
+  const [signInSheetOpen, setSignInSheetOpen] = useState(false);
+
+  const { data: profile } = useProfile(userId);
+  const { data: prefs } = useNotificationPrefs();
+  const setCategory = useSetNotificationCategory();
+  const { data: blocked } = useBlockedPlayers();
 
   const resendVerification = async () => {
     if (!email) return;
@@ -44,10 +74,34 @@ export default function Settings() {
     }
   };
 
-  const handleLogout = async () => {
-    await signOut();
-    router.replace("/onboarding");
+  const handleLogout = () => {
+    Alert.alert("Log out?", "You can sign back in any time.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Log out",
+        style: "destructive",
+        onPress: async () => {
+          await signOut();
+          router.replace("/onboarding");
+        },
+      },
+    ]);
   };
+
+  const rateApp = async () => {
+    try {
+      if (await StoreReview.hasAction()) {
+        await StoreReview.requestReview();
+        return;
+      }
+    } catch {}
+    Alert.alert("Not on the store yet", "SMASHIO is in private beta — thanks for testing it early!");
+  };
+
+  const buildLabel =
+    Platform.OS === "ios"
+      ? Constants.expoConfig?.ios?.buildNumber
+      : Constants.expoConfig?.android?.versionCode;
 
   return (
     <Screen>
@@ -58,113 +112,187 @@ export default function Settings() {
         </Text>
       </View>
 
-      <View className="px-5 pt-4 gap-4">
-        <LinearGradient
-          colors={gradients.card}
-          className="rounded-2xl border overflow-hidden"
-          style={{ borderColor: colors.cardBorder }}
-        >
-          {ROWS.map((row) => (
-            <Pressable
-              key={row.label}
-              onPress={() => router.push(row.href)}
-              className="flex-row justify-between items-center px-3.5 py-3.5"
-              style={{ borderBottomWidth: 1, borderColor: "rgba(255,255,255,0.06)" }}
-            >
-              <View className="flex-row items-center gap-2.5">
-                <Ionicons name={row.icon} size={16} color={colors.textSecondary} />
-                <Text className="text-[15px] font-body-semibold" style={{ color: colors.text }}>
-                  {row.label}
-                </Text>
-              </View>
-              <Text style={{ color: colors.textMuted }}>›</Text>
-            </Pressable>
-          ))}
-
-          <View
-            className="flex-row justify-between items-center px-3.5 py-3.5"
-            style={{ borderBottomWidth: 1, borderColor: "rgba(255,255,255,0.06)" }}
-          >
-            <View className="flex-row items-center gap-2.5">
-              <Ionicons name="key-outline" size={16} color={colors.textSecondary} />
-              <Text className="text-[15px] font-body-semibold" style={{ color: colors.text }}>
-                Sign-in method
-              </Text>
-            </View>
-            <Text className="text-[13.5px] font-body-semibold" style={{ color: colors.textTertiary }}>
-              {providerLabel(provider)}
-            </Text>
-          </View>
-
-          <View className="px-3.5 py-3.5 gap-2">
-            <View className="flex-row justify-between items-center">
-              <View className="flex-row items-center gap-2.5 flex-1 pr-2">
-                <Ionicons name="mail-outline" size={16} color={colors.textSecondary} />
-                <Text className="text-[15px] font-body-semibold flex-1" style={{ color: colors.text }} numberOfLines={1}>
+      <ScrollView contentContainerClassName="px-5 pt-4 pb-10 gap-5" showsVerticalScrollIndicator={false}>
+        <View className="gap-2">
+          <RowSectionLabel label="Account" />
+          <Group>
+            <ListRow
+              title="Sign-in method"
+              trailing={providerLabel(provider)}
+              accessory="chevron"
+              divider
+              onPress={() => setSignInSheetOpen(true)}
+            />
+            <View className="py-2.5">
+              <View className="flex-row justify-between items-center">
+                <Text className="text-[13.5px] font-body-semibold flex-1 pr-2" style={{ color: colors.text }} numberOfLines={1}>
                   {email ?? "Email"}
                 </Text>
+                {emailVerified ? <Badge state="verified" label="Verified" /> : <Badge state="pending" label="Unverified" />}
               </View>
-              {emailVerified ? <Badge state="verified" label="Verified" /> : <Badge state="pending" label="Unverified" />}
-            </View>
-            {!emailVerified && (
-              <View className="pl-[26px] gap-1.5">
-                <Text className="text-[12.5px] leading-4" style={{ color: colors.textTertiary }}>
-                  A verified email unlocks hosting games and password recovery.
-                </Text>
-                <Pressable onPress={resendVerification} disabled={resending} hitSlop={6}>
-                  <Text className="text-[13.5px] font-body-bold" style={{ color: colors.accent }}>
-                    {resending ? "Sending…" : "Resend verification email"}
+              {!emailVerified && (
+                <View className="mt-1.5 gap-1.5">
+                  <Text className="text-[12px] leading-4" style={{ color: colors.textTertiary }}>
+                    A verified email unlocks hosting games and password recovery.
                   </Text>
-                </Pressable>
-              </View>
-            )}
-          </View>
-        </LinearGradient>
-
-        <LinearGradient
-          colors={gradients.card}
-          className="rounded-2xl border overflow-hidden"
-          style={{ borderColor: colors.cardBorder }}
-        >
-          <Pressable
-            onPress={() => Linking.openURL("https://smashio.com.au/privacy.html")}
-            className="flex-row justify-between items-center px-3.5 py-3.5"
-          >
-            <View className="flex-row items-center gap-2.5">
-              <Ionicons name="document-text-outline" size={16} color={colors.textSecondary} />
-              <Text className="text-[15px] font-body-semibold" style={{ color: colors.text }}>
-                Privacy & legal
-              </Text>
+                  <Pressable onPress={resendVerification} disabled={resending} hitSlop={6}>
+                    <Text className="text-[13px] font-body-bold" style={{ color: colors.accent }}>
+                      {resending ? "Sending…" : "Resend verification email"}
+                    </Text>
+                  </Pressable>
+                </View>
+              )}
             </View>
-            <Ionicons name="open-outline" size={14} color={colors.textMuted} />
-          </Pressable>
-        </LinearGradient>
+            <ListRow
+              title="Phone number"
+              subtitle="Used only for game-day contact"
+              accessory="chevron"
+              divider={false}
+              onPress={() => router.push("/settings/phone")}
+            />
+          </Group>
+        </View>
 
-        <View
-          className="rounded-2xl border overflow-hidden"
-          style={{ borderColor: "rgba(255,103,103,0.28)", backgroundColor: "rgba(255,103,103,0.05)" }}
-        >
-          <Pressable
-            testID="settings-logout"
-            className="flex-row justify-between items-center px-3.5 py-3.5"
-            style={{ borderBottomWidth: 1, borderColor: "rgba(255,103,103,0.18)" }}
-            onPress={handleLogout}
-          >
-            <Text className="text-[15px] font-body-semibold" style={{ color: colors.danger }}>
-              Log out
+        <View className="gap-2">
+          <RowSectionLabel label="Notifications" />
+          <Group>
+            <ListRow
+              title="Game reminders"
+              subtitle="1 hour before kickoff"
+              trailingNode={
+                <ToggleSwitch
+                  value={prefs?.reminders ?? true}
+                  onValueChange={(v) => setCategory.mutate({ category: "reminders", enabled: v })}
+                />
+              }
+            />
+            <ListRow
+              title="Join requests"
+              trailingNode={
+                <ToggleSwitch
+                  value={prefs?.joinRequests ?? true}
+                  onValueChange={(v) => setCategory.mutate({ category: "join_requests", enabled: v })}
+                />
+              }
+            />
+            <ListRow
+              title="New messages"
+              trailingNode={
+                <ToggleSwitch value={prefs?.chat ?? true} onValueChange={(v) => setCategory.mutate({ category: "chat", enabled: v })} />
+              }
+            />
+            <ListRow
+              title="Product news & promos"
+              trailingNode={
+                <ToggleSwitch
+                  value={prefs?.marketing ?? false}
+                  onValueChange={(v) => setCategory.mutate({ category: "marketing", enabled: v })}
+                />
+              }
+              divider={false}
+            />
+          </Group>
+          <Pressable className="px-1 pt-1" onPress={() => router.push("/notification-settings")} hitSlop={6}>
+            <Text className="text-[13px] font-body-bold" style={{ color: colors.textSecondary }}>
+              All notification settings ›
             </Text>
-          </Pressable>
-          <Pressable
-            className="flex-row justify-between items-center px-3.5 py-3.5"
-            onPress={() => router.push("/delete-account")}
-          >
-            <Text className="text-[15px] font-body-semibold" style={{ color: colors.danger }}>
-              Delete account
-            </Text>
-            <Ionicons name="chevron-forward" size={14} color={colors.danger} />
           </Pressable>
         </View>
-      </View>
+
+        <View className="gap-2">
+          <RowSectionLabel label="Privacy & visibility" />
+          <Group>
+            <ListRow
+              title="Profile visibility"
+              subtitle="Who can open your full profile"
+              trailing={profile?.profile_visibility === "players_only" ? "Players I've played with" : "Everyone"}
+              accessory="chevron"
+              onPress={() => router.push("/settings/visibility")}
+            />
+            <ListRow
+              title="Show suburb on profile"
+              trailingNode={
+                <ToggleSwitch
+                  value={profile?.show_suburb ?? true}
+                  onValueChange={async (v) => {
+                    const { error } = await supabase.from("profiles").update({ show_suburb: v }).eq("id", userId!);
+                    if (error) Alert.alert("Couldn't save", error.message);
+                  }}
+                />
+              }
+            />
+            <ListRow
+              title="Blocked players"
+              trailing={String(blocked?.length ?? 0)}
+              accessory="chevron"
+              divider={false}
+              onPress={() => router.push("/settings/blocked")}
+            />
+          </Group>
+        </View>
+
+        <View className="gap-2">
+          <RowSectionLabel label="Preferences" />
+          <Group>
+            <ListRow
+              title="Distance units"
+              trailing={profile?.distance_units === "mi" ? "Miles" : "Kilometres"}
+              accessory="chevron"
+              onPress={() => router.push("/settings/units")}
+            />
+            <ListRow title="Preferred sports" accessory="chevron" divider={false} onPress={() => router.push("/settings/sports")} />
+          </Group>
+        </View>
+
+        <View className="gap-2">
+          <RowSectionLabel label="Support" />
+          <Group>
+            <ListRow title="Help centre" accessory="chevron" onPress={() => Linking.openURL("https://smashio.com.au/support.html")} />
+            <ListRow title="Contact us" accessory="chevron" onPress={() => Linking.openURL("mailto:hello@smashio.com.au")} />
+            <ListRow title="Invite friends" accessory="chevron" onPress={() => userId && shareReferral(userId)} />
+            <ListRow title="Rate SMASHIO" accessory="chevron" divider={false} onPress={rateApp} />
+          </Group>
+        </View>
+
+        <View className="gap-2">
+          <RowSectionLabel label="Legal" />
+          <Group>
+            <ListRow title="Terms of service" accessory="chevron" onPress={() => Linking.openURL("https://smashio.com.au/terms.html")} />
+            <ListRow title="Privacy policy" accessory="chevron" divider={false} onPress={() => Linking.openURL("https://smashio.com.au/privacy.html")} />
+          </Group>
+        </View>
+
+        <View className="gap-2">
+          <Text className="font-body-bold text-[12px] uppercase px-1" style={{ color: colors.danger, letterSpacing: 0.6 }}>
+            Danger zone
+          </Text>
+          <View
+            className="rounded-2xl border overflow-hidden px-3.5"
+            style={{ borderColor: "rgba(255,103,103,0.28)", backgroundColor: "rgba(255,103,103,0.05)" }}
+          >
+            <ListRow title="Log out" danger testID="settings-logout" onPress={handleLogout} />
+            <ListRow
+              title="Delete account"
+              subtitle="permanent"
+              accessory="chevron"
+              danger
+              divider={false}
+              onPress={() => router.push("/delete-account")}
+            />
+          </View>
+        </View>
+
+        <Text className="text-center text-[11px] mt-1" style={{ color: colors.textMuted }}>
+          SMASHIO v{Constants.expoConfig?.version ?? "—"} · build {buildLabel ?? "—"}
+        </Text>
+      </ScrollView>
+
+      <Sheet visible={signInSheetOpen} onClose={() => setSignInSheetOpen(false)} title="Sign-in method">
+        <Text className="text-[13.5px] leading-5" style={{ color: colors.textSecondary }}>
+          You signed up with {providerLabel(provider)}. SMASHIO doesn't support switching sign-in
+          methods yet — contact support if you need a different one linked to this account.
+        </Text>
+      </Sheet>
     </Screen>
   );
 }

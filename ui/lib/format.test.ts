@@ -8,6 +8,18 @@ describe("formatDistance", () => {
   it("shows km with one decimal at/over 1km", () => {
     expect(formatDistance(1500)).toBe("1.5 km");
   });
+
+  it("defaults to km when units is omitted", () => {
+    expect(formatDistance(1500)).toBe("1.5 km");
+  });
+
+  it("shows miles with one decimal when units is mi", () => {
+    expect(formatDistance(1609.344, "mi")).toBe("1.0 mi");
+  });
+
+  it("never steps miles down to a smaller unit under 1000m", () => {
+    expect(formatDistance(500, "mi")).toBe("0.3 mi");
+  });
 });
 
 describe("formatTimeShort", () => {

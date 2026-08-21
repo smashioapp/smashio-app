@@ -58,6 +58,39 @@ export type Database = {
         }
         Relationships: []
       }
+      blocks: {
+        Row: {
+          blocked_id: string
+          blocker_id: string
+          created_at: string
+        }
+        Insert: {
+          blocked_id: string
+          blocker_id: string
+          created_at?: string
+        }
+        Update: {
+          blocked_id?: string
+          blocker_id?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blocks_blocked_id_fkey"
+            columns: ["blocked_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "blocks_blocker_id_fkey"
+            columns: ["blocker_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_prefs: {
         Row: {
           game_id: string
@@ -552,6 +585,7 @@ export type Database = {
           created_at: string
           game_changes: boolean
           join_requests: boolean
+          marketing: boolean
           nudges: boolean
           profile_id: string
           quiet_end: string
@@ -567,6 +601,7 @@ export type Database = {
           created_at?: string
           game_changes?: boolean
           join_requests?: boolean
+          marketing?: boolean
           nudges?: boolean
           profile_id: string
           quiet_end?: string
@@ -582,6 +617,7 @@ export type Database = {
           created_at?: string
           game_changes?: boolean
           join_requests?: boolean
+          marketing?: boolean
           nudges?: boolean
           profile_id?: string
           quiet_end?: string
@@ -678,6 +714,32 @@ export type Database = {
           },
         ]
       }
+      profile_private: {
+        Row: {
+          phone: string | null
+          profile_id: string
+          updated_at: string
+        }
+        Insert: {
+          phone?: string | null
+          profile_id: string
+          updated_at?: string
+        }
+        Update: {
+          phone?: string | null
+          profile_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_private_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profile_sports: {
         Row: {
           profile_id: string
@@ -723,36 +785,45 @@ export type Database = {
           created_at: string
           deleted_at: string | null
           display_name: string
+          distance_units: string
           home_point: unknown
           home_suburb: string | null
           id: string
           photo_path: string | null
+          profile_visibility: string
           referred_by: string | null
           reliability_score: number
+          show_suburb: boolean
           timezone: string
         }
         Insert: {
           created_at?: string
           deleted_at?: string | null
           display_name?: string
+          distance_units?: string
           home_point?: unknown
           home_suburb?: string | null
           id: string
           photo_path?: string | null
+          profile_visibility?: string
           referred_by?: string | null
           reliability_score?: number
+          show_suburb?: boolean
           timezone?: string
         }
         Update: {
           created_at?: string
           deleted_at?: string | null
           display_name?: string
+          distance_units?: string
           home_point?: unknown
           home_suburb?: string | null
           id?: string
           photo_path?: string | null
+          profile_visibility?: string
           referred_by?: string | null
           reliability_score?: number
+          show_suburb?: boolean
           timezone?: string
         }
         Relationships: [
@@ -973,6 +1044,68 @@ export type Database = {
           slug?: string
         }
         Relationships: []
+      }
+      user_reports: {
+        Row: {
+          context_game_id: string | null
+          created_at: string
+          detail: string | null
+          id: string
+          reason: string
+          reported_id: string
+          reporter_id: string
+          status: string
+        }
+        Insert: {
+          context_game_id?: string | null
+          created_at?: string
+          detail?: string | null
+          id?: string
+          reason: string
+          reported_id: string
+          reporter_id: string
+          status?: string
+        }
+        Update: {
+          context_game_id?: string | null
+          created_at?: string
+          detail?: string | null
+          id?: string
+          reason?: string
+          reported_id?: string
+          reporter_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_reports_context_game_id_fkey"
+            columns: ["context_game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_reports_context_game_id_fkey"
+            columns: ["context_game_id"]
+            isOneToOne: false
+            referencedRelation: "games_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_reports_reported_id_fkey"
+            columns: ["reported_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_reports_reporter_id_fkey"
+            columns: ["reporter_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       venue_amenities: {
         Row: {
@@ -1341,6 +1474,7 @@ export type Database = {
       }
       approved_player_count: { Args: { p_game_id: string }; Returns: number }
       auto_close_stale_chats: { Args: never; Returns: undefined }
+      blocked_between: { Args: { a: string; b: string }; Returns: boolean }
       can_post_in_chat: {
         Args: { p_game_id: string; p_profile_id: string }
         Returns: boolean
@@ -1494,6 +1628,7 @@ export type Database = {
           rating_count: number
           reliability_band: string
           reliability_score: number
+          restricted: boolean
           sports: Json
         }[]
       }
@@ -1565,6 +1700,15 @@ export type Database = {
       remove_player: {
         Args: { p_game_id: string; p_profile_id: string }
         Returns: undefined
+      }
+      report_user: {
+        Args: {
+          p_context_game_id?: string
+          p_detail?: string
+          p_reason: string
+          p_reported_id: string
+        }
+        Returns: string
       }
       report_venue_correction: {
         Args: {

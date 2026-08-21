@@ -10,11 +10,15 @@ export function SegmentedToggle<T extends string>({
   value,
   onChange,
   disabled = false,
+  fullWidth = false,
 }: {
-  options: { key: T; label: string }[];
+  options: { key: T; label: string; locked?: boolean }[];
   value: T;
   onChange: (key: T) => void;
   disabled?: boolean;
+  /** Equal-width segments filling the row (Profile's Overview/History/Trophy) instead of the
+   * default content-sized pills (Discover's compact List|Map switch). */
+  fullWidth?: boolean;
 }) {
   return (
     <View
@@ -33,19 +37,22 @@ export function SegmentedToggle<T extends string>({
         return (
           <Pressable
             key={o.key}
-            disabled={disabled}
+            disabled={disabled || o.locked}
             accessibilityRole="button"
-            accessibilityState={{ selected: active }}
+            accessibilityState={{ selected: active, disabled: o.locked }}
             onPress={() => {
               if (active) return;
               haptics.tick();
               onChange(o.key);
             }}
             style={{
+              flex: fullWidth ? 1 : undefined,
+              alignItems: "center",
               paddingHorizontal: 12,
               paddingVertical: 5,
               borderRadius: 100,
               backgroundColor: active ? colors.accent : "transparent",
+              opacity: o.locked ? 0.4 : 1,
             }}
           >
             <Text
@@ -53,6 +60,7 @@ export function SegmentedToggle<T extends string>({
               style={{ color: active ? colors.base : colors.textDim }}
             >
               {o.label}
+              {o.locked ? " 🔒" : ""}
             </Text>
           </Pressable>
         );

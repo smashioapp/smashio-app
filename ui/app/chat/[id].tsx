@@ -6,6 +6,7 @@ import * as ImagePicker from "expo-image-picker";
 import * as Clipboard from "expo-clipboard";
 import { colors } from "../../lib/theme";
 import { useGameDetail } from "../../lib/queries/games";
+import { useReportUser } from "../../lib/queries/settings";
 import { useKeyboardVisible, useKeyboardHeight } from "../../lib/useKeyboardVisible";
 import {
   useMarkThreadRead,
@@ -195,6 +196,7 @@ export default function ChatThread() {
   const gameId = id ?? "";
   const { session } = useSession();
   const uid = session?.user.id;
+  const reportUser = useReportUser();
 
   const gameQuery = useGameDetail(gameId);
   const game = gameQuery.data;
@@ -320,7 +322,26 @@ export default function ChatThread() {
         ),
     });
     if (m.kind === "text") options.push({ text: "Copy", onPress: () => Clipboard.setStringAsync(m.body) });
-    options.push({ text: "Report", onPress: () => Alert.alert("Reported", "Thanks — we'll take a look.") });
+    if (!m.me && m.senderId) {
+      const senderId = m.senderId;
+      options.push({
+        text: "Report",
+        onPress: () => {
+          const submit = async () => {
+            try {
+              await reportUser.mutateAsync({ reportedId: senderId, reason: "other", detail: "Reported from a chat message", contextGameId: gameId });
+              Alert.alert("Reported", "Thanks — a moderator will take a look.");
+            } catch (e) {
+              Alert.alert("Couldn't send report", e instanceof Error ? e.message : "You may have already reported this player today.");
+            }
+          };
+          Alert.alert("Report this message?", "We'll pass it to a moderator along with which game it's from.", [
+            { text: "Cancel", style: "cancel" },
+            { text: "Report", style: "destructive", onPress: submit },
+          ]);
+        },
+      });
+    }
     if (canDelete) options.push({ text: "Delete", style: "destructive", onPress: () => deleteMessage.mutate(m.id) });
     options.push({ text: "Cancel", style: "cancel" });
     Alert.alert(m.me ? "Your message" : memberName(members, m.senderId), undefined, options);

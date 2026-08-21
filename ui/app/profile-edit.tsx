@@ -1,12 +1,14 @@
 import { useState } from "react";
-import { View, Text, TextInput, Pressable, Image, Alert, ScrollView } from "react-native";
+import { View, Text, TextInput, Pressable, Alert, ScrollView } from "react-native";
 import { router } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useEffect } from "react";
-import { colors, TIERS, TierId } from "../lib/theme";
+import { colors, TIERS, TierId, avatarColor } from "../lib/theme";
 import { Button } from "../components/Button";
 import { Screen } from "../components/Screen";
 import { BackButton } from "../components/BackButton";
+import { Avatar } from "../components/Avatar";
 import { useSession } from "../lib/session";
 import { useProfile, useProfileSports, useUpdateProfile, useUpsertProfileSport, useUploadAvatar, useSetHomePoint } from "../lib/queries/profile";
 import { useSports, useSkillTiers } from "../lib/queries/sports";
@@ -99,22 +101,20 @@ export default function ProfileEdit() {
         </Text>
       </View>
       <ScrollView className="flex-1 px-6 pt-4" contentContainerStyle={{ paddingBottom: 24, gap: 14 }}>
-        <Pressable
-          onPress={pickPhoto}
-          className="self-center w-24 h-24 rounded-full items-center justify-center mb-2 overflow-hidden"
-          style={{ borderWidth: 2, borderStyle: "dashed", borderColor: "rgba(255,255,255,0.2)" }}
-        >
-          {previewUri ? (
-            <Image source={{ uri: previewUri }} className="w-24 h-24" />
-          ) : (
-            <Text className="text-center text-[13px] font-body-bold" style={{ color: colors.textMuted }}>
-              Add{"\n"}photo
-            </Text>
-          )}
+        <Pressable onPress={pickPhoto} className="self-center mb-2" accessibilityRole="button" accessibilityLabel="Change photo">
+          <View style={{ width: 88, height: 88 }}>
+            <Avatar name={displayName || "?"} color={avatarColor(userId ?? "")} size={88} photoUri={previewUri} />
+            <View
+              className="absolute rounded-full items-center justify-center"
+              style={{ bottom: -2, right: -2, width: 30, height: 30, backgroundColor: colors.accent, borderWidth: 2, borderColor: colors.base }}
+            >
+              <Ionicons name="pencil" size={13} color={colors.base} />
+            </View>
+          </View>
         </Pressable>
 
         <Text className="font-body-extrabold text-[13px] uppercase tracking-wide" style={{ color: colors.textTertiary }}>
-          Full name
+          Display name
         </Text>
         <TextInput
           value={displayName}
@@ -141,34 +141,44 @@ export default function ProfileEdit() {
           className="rounded-2xl px-4 py-4 border font-body-semibold text-[16.5px]"
           style={{ backgroundColor: colors.surfaceAlt, borderColor: "rgba(255,255,255,0.1)", color: colors.text }}
         />
-
-        <Text className="font-body-extrabold text-[13px] uppercase tracking-wide mt-1.5" style={{ color: colors.textTertiary }}>
-          Skill level
+        <Text className="text-[11.5px] -mt-2.5" style={{ color: colors.textTertiary }}>
+          Shown as text only — never a map pin.
         </Text>
-        {TIERS.map((t) => {
-          const active = skill === t.id;
-          return (
-            <Pressable
-              key={t.id}
-              onPress={() => {
-                setSkillTouched(true);
-                setSkill(t.id);
-              }}
-              className="flex-row items-center rounded-2xl px-3.5 py-3.5 border-[1.5px]"
-              style={{ backgroundColor: active ? colors.surfaceAlt : colors.surface, borderColor: active ? t.color : "rgba(255,255,255,0.07)" }}
-            >
-              <View className="w-2.5 h-2.5 rounded-full mr-3" style={{ backgroundColor: t.color }} />
-              <Text className="font-body-extrabold text-[15.5px]" style={{ color: colors.text }}>
-                {t.id}
-              </Text>
-            </Pressable>
-          );
-        })}
 
-        <View className="mt-2">
-          <Button label="Save changes" loading={saving} disabled={!displayName.trim() || !sportsLoaded} onPress={save} />
+        <View className="mt-1.5">
+          <Text className="font-body-extrabold text-[13px] uppercase tracking-wide" style={{ color: colors.textTertiary }}>
+            Starting skill level
+          </Text>
+          <Text className="text-[11.5px] mt-1 mb-2" style={{ color: colors.textTertiary }}>
+            Co-players' ratings refine this after your first few games.
+          </Text>
+          <View className="flex-row flex-wrap gap-2">
+            {TIERS.map((t) => {
+              const active = skill === t.id;
+              return (
+                <Pressable
+                  key={t.id}
+                  onPress={() => {
+                    setSkillTouched(true);
+                    setSkill(t.id);
+                  }}
+                  className="flex-row items-center gap-2 rounded-pill px-4 py-2.5 border-[1.5px]"
+                  style={{ backgroundColor: active ? colors.surfaceAlt : colors.surface, borderColor: active ? t.color : "rgba(255,255,255,0.07)" }}
+                >
+                  <View className="w-2 h-2 rounded-full" style={{ backgroundColor: t.color }} />
+                  <Text className="font-body-extrabold text-[13.5px]" style={{ color: colors.text }}>
+                    {t.id}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
       </ScrollView>
+
+      <View className="px-6 pb-2" style={{ paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.cardBorder }}>
+        <Button label="Save changes" loading={saving} disabled={!displayName.trim() || !sportsLoaded} onPress={save} />
+      </View>
     </Screen>
   );
 }

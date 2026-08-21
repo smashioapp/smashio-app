@@ -7,10 +7,18 @@ import { usePlayerCard } from "../lib/queries/profile";
 export function VettingStrip({ profileId }: { profileId: string }) {
   const { data: card, isLoading } = usePlayerCard(profileId);
 
-  if (isLoading || !card) {
+  if (isLoading) {
     return (
       <Text className="text-[12px] font-body-semibold" style={{ color: colors.textMuted }}>
         Loading…
+      </Text>
+    );
+  }
+
+  if (!card) {
+    return (
+      <Text className="text-[12px] font-body-semibold" style={{ color: colors.textMuted }}>
+        Profile unavailable
       </Text>
     );
   }
@@ -19,7 +27,7 @@ export function VettingStrip({ profileId }: { profileId: string }) {
   const parts = [
     tier,
     `${card.gamesPlayed} played`,
-    `${reliabilityLabel(card.reliabilityScore)} reliability`,
+    card.reliabilityScore != null ? `${reliabilityLabel(card.reliabilityScore)} reliability` : null,
     card.gamesTogether && card.gamesTogether > 0 ? `Played together ${card.gamesTogether}×` : null,
   ].filter(Boolean);
 

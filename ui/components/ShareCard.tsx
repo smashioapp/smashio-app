@@ -25,7 +25,7 @@ export function ShareCard({
 }) {
   const tier = gamesPlayedTier(card.gamesPlayed);
   const primaryTier = card.sports.find((s) => s.sportSlug === "badminton")?.tierLabel ?? card.sports[0]?.tierLabel ?? null;
-  const subtitle = [primaryTier, `${reliabilityLabel(card.reliabilityScore)} reliability`].filter(Boolean).join(" · ");
+  const subtitle = [primaryTier, `${reliabilityLabel(card.reliabilityScore ?? 100)} reliability`].filter(Boolean).join(" · ");
 
   if (format === "story") {
     return (
@@ -58,7 +58,7 @@ export function ShareCard({
         </View>
         <View className="flex-row justify-center" style={{ gap: 8, position: "absolute", bottom: 36, left: 0, right: 0 }}>
           <Chip label={`${achievementsEarned}/${achievementsTotal} badges`} />
-          <Chip label={`${reliabilityLabel(card.reliabilityScore)} reliability`} />
+          <Chip label={`${reliabilityLabel(card.reliabilityScore ?? 100)} reliability`} />
         </View>
       </View>
     );

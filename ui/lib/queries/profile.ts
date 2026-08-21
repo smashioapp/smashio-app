@@ -101,24 +101,33 @@ export type PlayerCard = {
   memberSince: string;
   gamesPlayed: number;
   gamesHosted: number;
-  reliabilityScore: number;
-  reliabilityBand: string;
+  reliabilityScore: number | null;
+  reliabilityBand: string | null;
   ratingAvg: number | null;
-  ratingCount: number;
+  ratingCount: number | null;
   gamesTogether: number | null;
   badgeCounts: Record<string, number>;
   sports: { sportSlug: string; tierLabel: string; tierOrdinal: number }[];
+  // true when the profile has gone players_only and the viewer hasn't earned a read (no shared
+  // games, not a host this player has an open request with) — see player_card's is_restricted,
+  // 20260822000000. Reputation fields above are null in that case, never a fake zero.
+  restricted: boolean;
 };
 
 // The public player card (profile-plan.md P1) — security-definer RPC, not a view, because
 // game_players (joined-game counts, games-together) is only readable to a game's own
 // organizer/members under RLS. One round trip for any profile id, self included.
+//
+// player_card returns zero rows — not an error — for a blocked or deleted profile
+// (20260822000000). maybeSingle() surfaces that as `data: null` instead of throwing, so the UI
+// can tell "gone" apart from "network failed" and skip offering a Retry that can never work.
 export function usePlayerCard(targetId: string | undefined) {
   return useQuery({
     queryKey: ["player_card", targetId],
-    queryFn: async (): Promise<PlayerCard> => {
-      const { data, error } = await supabase.rpc("player_card", { target_id: targetId! }).single();
+    queryFn: async (): Promise<PlayerCard | null> => {
+      const { data, error } = await supabase.rpc("player_card", { target_id: targetId! }).maybeSingle();
       if (error) throw error;
+      if (!data) return null;
       return {
         id: data.id,
         displayName: data.display_name,
@@ -138,6 +147,7 @@ export function usePlayerCard(targetId: string | undefined) {
           tierLabel: s.tier_label,
           tierOrdinal: s.tier_ordinal,
         })),
+        restricted: data.restricted,
       };
     },
     enabled: !!targetId,
@@ -282,6 +292,22 @@ export function useUpsertProfileSport() {
       const { error } = await supabase
         .from("profile_sports")
         .upsert({ profile_id: id, sport_id: sportId, skill_tier_id: skillTierId });
+      if (error) throw error;
+      return id;
+    },
+    onSuccess: (id) => queryClient.invalidateQueries({ queryKey: ["profile_sports", id] }),
+  });
+}
+
+// Settings > Preferred sports "off" path — drops the tier row entirely rather than writing a
+// null tier, since profile_sports' pk is (profile_id, sport_id) and a sport you don't play
+// shouldn't carry a skill tier at all.
+export function useRemoveProfileSport() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (sportId: string) => {
+      const id = await currentUserId();
+      const { error } = await supabase.from("profile_sports").delete().eq("profile_id", id).eq("sport_id", sportId);
       if (error) throw error;
       return id;
     },

@@ -13,6 +13,7 @@ export function ListRow({
   title,
   subtitle,
   trailing,
+  trailingNode,
   accessory = "none",
   leading,
   divider = true,
@@ -25,6 +26,8 @@ export function ListRow({
   subtitle?: string;
   /** Right-hand value (price, count) — rendered in the display face. */
   trailing?: string;
+  /** Right-hand control that isn't plain text — a Switch, mainly. Takes over from `trailing`. */
+  trailingNode?: ReactNode;
   /** What sits at the far right after `trailing`. */
   accessory?: "none" | "chevron";
   /** Anything between the dot and the text — an avatar stack, usually. */
@@ -52,11 +55,12 @@ export function ListRow({
           </Text>
         )}
       </View>
-      {!!trailing && (
-        <Text className="font-display-bold text-[12.5px]" style={{ color: colors.textDim }}>
-          {trailing}
-        </Text>
-      )}
+      {trailingNode ??
+        (!!trailing && (
+          <Text className="font-display-bold text-[12.5px]" style={{ color: colors.textDim }}>
+            {trailing}
+          </Text>
+        ))}
       {accessory === "chevron" && <Ionicons name="chevron-forward" size={15} color={colors.textTertiary} />}
     </View>
   );

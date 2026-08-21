@@ -65,17 +65,19 @@ export function ChatProfilePeek({
             <View className="border-t pt-1" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
               {card ? (
                 <>
-                  <StatLine
-                    label="Reliability"
-                    value={`${card.reliabilityScore}% · ${card.reliabilityBand}`}
-                    valueColor={card.reliabilityScore >= 90 ? colors.intermediate : card.reliabilityScore >= 75 ? colors.accent : colors.textDim}
-                  />
+                  {card.reliabilityScore != null && (
+                    <StatLine
+                      label="Reliability"
+                      value={`${card.reliabilityScore}% · ${card.reliabilityBand}`}
+                      valueColor={card.reliabilityScore >= 90 ? colors.intermediate : card.reliabilityScore >= 75 ? colors.accent : colors.textDim}
+                    />
+                  )}
                   <StatLine label="Games played" value={String(card.gamesPlayed)} />
                   {card.gamesTogether != null && <StatLine label="Played with you" value={`${card.gamesTogether} times`} />}
                 </>
               ) : (
                 <Text className="text-[12px] py-2" style={{ color: colors.textMuted }}>
-                  Loading…
+                  {cardQuery.isLoading ? "Loading…" : "Profile unavailable"}
                 </Text>
               )}
             </View>

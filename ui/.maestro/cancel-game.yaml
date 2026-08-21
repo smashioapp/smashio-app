@@ -1,0 +1,50 @@
+appId: com.smashio.app
+---
+# D4: test user organizer of …06 (no requests) → Manage → Cancel this game → confirm
+# native alert → detail reflects the cancelled CTA state.
+- runFlow: login.yaml
+- tapOn:
+    id: "tab-my-games"
+- extendedWaitUntil:
+    visible:
+      id: "mygames-row-44444444-0000-0000-0000-000000000006"
+    timeout: 25000
+- tapOn:
+    id: "mygames-row-44444444-0000-0000-0000-000000000006"
+- extendedWaitUntil:
+    visible: "Manage this game"
+    timeout: 15000
+- tapOn:
+    id: "game-cta"
+# "Manage this game" and the Edit screen's Date field can occupy the same on-screen
+# position across the navigation — the tap's touch-up lands on the new screen and pops
+# its native picker a beat after this flow's next command would otherwise run. Give it
+# time to actually appear before trying to dismiss it, then dismiss defensively —
+# no-ops if it never opened.
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    text: "CANCEL"
+    optional: true
+- waitForAnimationToEnd:
+    timeout: 3000
+- tapOn:
+    text: "CANCEL"
+    optional: true
+- extendedWaitUntil:
+    visible: "Edit match"
+    timeout: 15000
+# scrollUntilVisible's small incremental swipes can land on the Date/Time fields near
+# the top and pop the native picker instead of scrolling — two full-height swipes get
+# straight past them to the danger zone at the bottom without touching either field.
+- scroll
+- scroll
+- extendedWaitUntil:
+    visible: "Cancel this game"
+    timeout: 15000
+- tapOn: "Cancel this game"
+- assertVisible: "Cancel this game?"
+- tapOn: "Cancel game"
+- extendedWaitUntil:
+    visible: "Game cancelled"
+    timeout: 10000

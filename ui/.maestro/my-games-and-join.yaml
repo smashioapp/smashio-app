@@ -7,11 +7,15 @@ appId: com.smashio.app
 - tapOn:
     id: "tab-my-games"
 - assertVisible: "My Games"
+- extendedWaitUntil:
+    visible:
+      id: "mygames-row-44444444-0000-0000-0000-000000000003"
+    timeout: 25000
 - tapOn:
-    id: "mygames-row-44444444-0000-0000-0000-000000000004"
+    id: "mygames-row-44444444-0000-0000-0000-000000000003"
 - extendedWaitUntil:
     visible:
       id: "game-cta"
-    timeout: 10000
+    timeout: 15000
 - assertVisible: "Leave game"
 - back

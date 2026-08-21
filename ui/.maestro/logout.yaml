@@ -3,13 +3,34 @@ appId: com.smashio.app
 # Covers: settings -> log out returns to unauthenticated state (no stuck session).
 # index.tsx always redirects unauthenticated users to /onboarding ("Get Started"),
 # never straight to the login screen — that's a separate tap away.
+#
+# A4's "relaunch stays logged out" half is NOT addable here: lib/session.tsx auto-signs
+# in on any launch with no session when EXPO_PUBLIC_E2E_EMAIL is set (`!data.session &&
+# __DEV__ && ... && !manualLoginRequested`), which every flow in this suite exports via
+# e2e.sh. A relaunch after logout would just auto-login again, not stay logged out — the
+# harness's own shortcut makes that half of A4 untestable without a second run of the
+# suite with the E2E env vars unset (out of scope for this pass, flagging for the plan).
 - runFlow: login.yaml
 - tapOn:
     id: "tab-profile"
+- extendedWaitUntil:
+    visible:
+      id: "profile-settings-gear"
+    timeout: 15000
 - tapOn:
-    id: "profile-settings"
+    id: "profile-settings-gear"
+- scrollUntilVisible:
+    element:
+      id: "settings-logout"
+    timeout: 15000
 - tapOn:
     id: "settings-logout"
+- assertVisible: "Log out?"
+# "Log out" also matches the settings row underneath the dialog — disambiguate by
+# position relative to the dialog's own title.
+- tapOn:
+    text: "Log out"
+    below: "Log out?"
 - extendedWaitUntil:
     visible: "Get Started"
-    timeout: 10000
+    timeout: 15000

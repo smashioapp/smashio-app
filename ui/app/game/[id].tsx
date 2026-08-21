@@ -446,6 +446,7 @@ function RosterAvatar({
       </Text>
       {canRemove && (
         <Pressable
+          testID={`game-remove-${player.id}`}
           onPress={confirmRemove}
           hitSlop={8}
           className="absolute w-[18px] h-[18px] rounded-full items-center justify-center border"
@@ -515,6 +516,7 @@ function JoinRequests({
                 <VettingStrip profileId={r.profileId} />
               </Pressable>
               <Pressable
+                testID={`game-approve-${r.profileId}`}
                 onPress={() => {
                   if (full) {
                     Alert.alert("Game is full", "Raise max players in Edit before approving anyone else.");
@@ -534,6 +536,7 @@ function JoinRequests({
                 </Text>
               </Pressable>
               <Pressable
+                testID={`game-decline-${r.profileId}`}
                 onPress={() => {
                   haptics.tap();
                   decide.mutate({ profileId: r.profileId, approve: false });

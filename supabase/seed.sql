@@ -181,8 +181,16 @@ select
   g.duration, 1, g.max_players, g.cost_cents, g.status
 from (values
   -- id suffix, venue_id, tier, organizer, starts offset, duration hours, max players, cost/player cents, status
-  ('44444444-0000-0000-0000-000000000001', '55555555-0000-0000-0000-000000000002', 'intermediate', '22222222-0000-0000-0000-000000000001', interval '26 hours', 2, 6, 1200, 'published'),
-  ('44444444-0000-0000-0000-000000000002', '55555555-0000-0000-0000-000000000002', 'intermediate', '22222222-0000-0000-0000-000000000002', interval '27 hours', 2, 6, 1200, 'published'),
+  -- venue …0002 (Alpha Badminton, Silverwater) is ~15.2km from the Sydney CBD e2e geo fix
+  -- (docs/e2e-test-plan.md P-5) — just outside Discover's default 15km radius filter, which
+  -- silently dropped these two from the "near you" list. …0007/…0006 are both confirmed
+  -- inside range.
+  ('44444444-0000-0000-0000-000000000001', '55555555-0000-0000-0000-000000000007', 'intermediate', '22222222-0000-0000-0000-000000000001', interval '26 hours', 2, 6, 1200, 'published'),
+  -- max_players 5, not 6: approved_player_count() (supabase/migrations) counts game_players
+  -- rows only, never the organizer — 5 approved rows + organizer was never actually full at
+  -- max_players=6, it always had 1 open spot. This is the C4 "full game" fixture; it needs to
+  -- genuinely be full.
+  ('44444444-0000-0000-0000-000000000002', '55555555-0000-0000-0000-000000000006', 'intermediate', '22222222-0000-0000-0000-000000000002', interval '27 hours', 2, 5, 1200, 'published'),
   ('44444444-0000-0000-0000-000000000003', '55555555-0000-0000-0000-000000000003', 'intermediate', '22222222-0000-0000-0000-000000000003', interval '28 hours', 2, 6, 1000, 'published'),
   ('44444444-0000-0000-0000-000000000004', '55555555-0000-0000-0000-000000000003', 'intermediate', '22222222-0000-0000-0000-000000000004', interval '29 hours', 2, 6, 1000, 'published'),
   ('44444444-0000-0000-0000-000000000005', '55555555-0000-0000-0000-000000000006', 'intermediate', '11111111-1111-1111-1111-111111111111', interval '31 hours', 2, 6, 1500, 'published'),

@@ -329,6 +329,7 @@ export default function MyGames() {
             ListFooterComponent={
               !isLoading && !isError ? (
                 <Pressable
+                  testID="mygames-past-link"
                   onPress={() => router.push("/my-games/past")}
                   className="flex-row items-center justify-between rounded-2xl px-4 py-3.5 mx-5 mt-1 border"
                   style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}

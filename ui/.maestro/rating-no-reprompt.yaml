@@ -1,0 +1,15 @@
+appId: com.smashio.app
+---
+# G2: …09 completed with ratings already written for this user → Past list shows the
+# "Rated" badge, never the "Rate players" CTA — no re-prompt, no double-submit path.
+- runFlow: login.yaml
+- tapOn:
+    id: "tab-my-games"
+- tapOn:
+    id: "mygames-past-link"
+- extendedWaitUntil:
+    visible:
+      id: "mygames-past-rated-44444444-0000-0000-0000-000000000009"
+    timeout: 10000
+- assertNotVisible:
+    id: "mygames-past-rate-44444444-0000-0000-0000-000000000009"

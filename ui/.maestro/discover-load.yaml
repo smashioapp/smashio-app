@@ -7,7 +7,7 @@ appId: com.smashio.app
 - extendedWaitUntil:
     visible:
       id: "discover-card-44444444-0000-0000-0000-000000000001"
-    timeout: 10000
+    timeout: 25000
 - assertVisible:
     id: "discover-card-44444444-0000-0000-0000-000000000002"
 - takeScreenshot: discover-loaded

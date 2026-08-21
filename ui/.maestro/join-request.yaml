@@ -1,0 +1,29 @@
+appId: com.smashio.app
+---
+# C1: open …01 (open game, test user not a member) from Discover, hold-to-join, CTA flips
+# to "Request sent". Fixture: supabase/seed.sql "…01 open, 2/6 approved" comment.
+- runFlow: login.yaml
+- tapOn:
+    id: "tab-discover"
+- extendedWaitUntil:
+    visible:
+      id: "discover-card-44444444-0000-0000-0000-000000000001"
+    timeout: 25000
+- tapOn:
+    id: "discover-card-44444444-0000-0000-0000-000000000001"
+- extendedWaitUntil:
+    visible:
+      id: "game-cta"
+    timeout: 15000
+# Maestro's text selector here needs the FULL button label, not a prefix — "Hold to
+# join" alone (a substring of the real "Hold to join · $12") never matched even though
+# the hierarchy dump confirmed the node was present and on-screen. …01 costs $12/player
+# (supabase/seed.sql, cost_cents 1200).
+- extendedWaitUntil:
+    visible: "Hold to join · [$]12"
+    timeout: 20000
+- longPressOn:
+    id: "game-cta"
+- extendedWaitUntil:
+    visible: "Request sent"
+    timeout: 15000

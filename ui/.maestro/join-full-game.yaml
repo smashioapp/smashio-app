@@ -1,0 +1,27 @@
+appId: com.smashio.app
+---
+# C4: …02 is 6/6 approved — CTA must show "Game full" and be non-interactive (disabled
+# HoldButton no-ops on hold instead of submitting a request).
+- runFlow: login.yaml
+- tapOn:
+    id: "tab-discover"
+- extendedWaitUntil:
+    visible:
+      id: "discover-card-44444444-0000-0000-0000-000000000002"
+    timeout: 25000
+- tapOn:
+    id: "discover-card-44444444-0000-0000-0000-000000000002"
+# See join-request.yaml for why this anchors on the game-cta id rather than a bare
+# text search.
+- extendedWaitUntil:
+    visible:
+      id: "game-cta"
+      text: "Game full"
+    timeout: 15000
+- longPressOn:
+    id: "game-cta"
+- extendedWaitUntil:
+    visible:
+      id: "game-cta"
+      text: "Game full"
+    timeout: 20000

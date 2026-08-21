@@ -1,0 +1,18 @@
+appId: com.smashio.app
+---
+# A3: relaunch WITHOUT clearState must land straight on the tabs, no sign-in screen.
+#
+# CAVEAT — this does not actually isolate SecureStore persistence: lib/session.tsx
+# auto-signs in on any launch with no session whenever EXPO_PUBLIC_E2E_EMAIL is set
+# (every flow in this suite exports it via e2e.sh), so a broken token write would be
+# silently papered over by the auto-login shortcut and this flow would still go green.
+# A real regression test for token persistence needs a run with the E2E env vars
+# unset — out of scope for this pass, flagging for the plan. Keeping this flow anyway:
+# it still catches a crash-on-relaunch or a routing regression, just not a silent
+# logout.
+- runFlow: login.yaml
+- launchApp:
+    clearState: false
+- extendedWaitUntil:
+    visible: "Discover|My Games"
+    timeout: 45000

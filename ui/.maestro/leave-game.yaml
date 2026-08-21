@@ -1,0 +1,30 @@
+appId: com.smashio.app
+---
+# C5: test user is an approved member of …04 → "Leave game" → confirm native alert →
+# membership clears and CTA returns to the request-to-join state.
+- runFlow: login.yaml
+- tapOn:
+    id: "tab-my-games"
+- assertVisible: "My Games"
+- extendedWaitUntil:
+    visible:
+      id: "mygames-row-44444444-0000-0000-0000-000000000004"
+    timeout: 25000
+- tapOn:
+    id: "mygames-row-44444444-0000-0000-0000-000000000004"
+- extendedWaitUntil:
+    visible: "Leave game"
+    timeout: 15000
+- tapOn:
+    id: "game-cta"
+- assertVisible: "Leave this game?"
+# "Leave game" also matches the CTA button underneath the dialog — disambiguate by
+# position relative to the dialog's own title.
+- tapOn:
+    text: "Leave game"
+    below: "Leave this game?"
+# Full label required, not a prefix — see join-request.yaml. …04 costs $10/player
+# (supabase/seed.sql, cost_cents 1000).
+- extendedWaitUntil:
+    visible: "Hold to join · [$]10"
+    timeout: 25000

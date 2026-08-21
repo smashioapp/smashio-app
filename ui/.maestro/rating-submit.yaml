@@ -1,0 +1,28 @@
+appId: com.smashio.app
+---
+# G1: …08 completed, test user approved, no ratings yet → My Games → Past list → "Rate
+# players" → submit without picking stars (0 is a valid payload — the UI must not
+# require every player rated) → "Nice game!" reveal → lands back on My Games. Also
+# guards the silent-submit-failure fix in a90c5ee.
+- runFlow: login.yaml
+- tapOn:
+    id: "tab-my-games"
+- tapOn:
+    id: "mygames-past-link"
+- extendedWaitUntil:
+    visible:
+      id: "mygames-past-rate-44444444-0000-0000-0000-000000000008"
+    timeout: 10000
+- tapOn:
+    id: "mygames-past-rate-44444444-0000-0000-0000-000000000008"
+- extendedWaitUntil:
+    visible: "Rate your match"
+    timeout: 10000
+- tapOn:
+    id: "postgame-submit"
+- extendedWaitUntil:
+    visible: "Nice game!"
+    timeout: 10000
+- extendedWaitUntil:
+    visible: "My Games"
+    timeout: 5000

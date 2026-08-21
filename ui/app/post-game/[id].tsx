@@ -347,7 +347,7 @@ export default function PostGame() {
           </View>
 
           <LinearGradient colors={gradients.accent} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} className="rounded-pill mb-2.5">
-            <Pressable onPress={submit} className="py-4 items-center">
+            <Pressable testID="postgame-submit" onPress={submit} className="py-4 items-center">
               <Text className="font-body-extrabold text-[16.5px]" style={{ color: colors.base }}>
                 Submit ratings
               </Text>

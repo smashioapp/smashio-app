@@ -1,0 +1,43 @@
+appId: com.smashio.app
+---
+# C6 + C8 chained on …05 (test user organizer, 2 pending requests from bot5/bot6, no
+# approved players yet): approve bot5's request, roster grows, then remove bot5 again
+# via the roster avatar's remove control. One flow so the approve is a real precondition
+# for the remove control existing (canRemove players only render on an organizer's own
+# roster) rather than relying on a second seeded "already approved, testable organizer"
+# game.
+#
+# "JOIN REQUESTS (n)" is asserted uppercase on purpose: the label has Tailwind's
+# `uppercase` class, and on Android that CSS transform actually mutates the accessible
+# text UiAutomator reports (unlike iOS, which keeps the raw string) — a lowercase
+# assertion here silently never matches.
+- runFlow: login.yaml
+- tapOn:
+    id: "tab-my-games"
+- extendedWaitUntil:
+    visible:
+      id: "mygames-row-44444444-0000-0000-0000-000000000005"
+    timeout: 25000
+- tapOn:
+    id: "mygames-row-44444444-0000-0000-0000-000000000005"
+- waitForAnimationToEnd:
+    timeout: 5000
+- extendedWaitUntil:
+    visible: "JOIN REQUESTS (2)"
+    timeout: 25000
+- tapOn:
+    id: "game-approve-22222222-0000-0000-0000-000000000005"
+- waitForAnimationToEnd:
+    timeout: 5000
+- extendedWaitUntil:
+    visible: "JOIN REQUESTS (1)"
+    timeout: 20000
+- tapOn:
+    id: "game-remove-22222222-0000-0000-0000-000000000005"
+- assertVisible: "Remove Ella Wright?"
+- tapOn: "Remove"
+- waitForAnimationToEnd:
+    timeout: 5000
+- extendedWaitUntil:
+    notVisible: "Ella Wright"
+    timeout: 20000

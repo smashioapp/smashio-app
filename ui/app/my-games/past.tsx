@@ -160,7 +160,11 @@ export default function PastGames() {
                   </Text>
                   <View className="flex-row gap-2">
                     {rated ? (
-                      <View className="rounded-pill px-4 py-2 border-[1.5px] flex-row items-center gap-1.5" style={{ borderColor: "rgba(255,255,255,0.1)" }}>
+                      <View
+                        testID={`mygames-past-rated-${game.id}`}
+                        className="rounded-pill px-4 py-2 border-[1.5px] flex-row items-center gap-1.5"
+                        style={{ borderColor: "rgba(255,255,255,0.1)" }}
+                      >
                         <Ionicons name="checkmark-circle" size={14} color={colors.intermediate} />
                         <Text className="font-body-bold text-[13.5px]" style={{ color: colors.textDim }}>
                           Rated
@@ -168,6 +172,7 @@ export default function PastGames() {
                       </View>
                     ) : (
                       <Button
+                        testID={`mygames-past-rate-${game.id}`}
                         label={teammates.length > 0 ? `Rate ${teammates.length} ${teammates.length === 1 ? "player" : "players"}` : "Rate players"}
                         size="sm"
                         fullWidth={false}

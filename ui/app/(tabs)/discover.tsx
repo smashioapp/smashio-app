@@ -11,6 +11,7 @@ import { NAV, tabBarBottom, useTabBarSpace } from "../../lib/nav";
 import { useReduceMotion } from "../../lib/motion";
 import { makeScrollHideHandler, registerScrollToTop, unregisterScrollToTop } from "../../lib/navScroll";
 import { useDiscoverGames, useMyPastGames, useMyJoinedGames, useMyHostingGames } from "../../lib/queries/games";
+import { useDistanceUnits } from "../../lib/queries/settings";
 import { useVenuesForMap } from "../../lib/queries/venues";
 import { useCreateAlert } from "../../lib/queries/alerts";
 import { useProfileSports } from "../../lib/queries/profile";
@@ -202,6 +203,19 @@ function FiltersSheet({
           </View>
         </View>
 
+        <Pressable
+          onPress={() => {
+            onClose();
+            router.push("/venues");
+          }}
+          className="flex-row items-center gap-2 py-1"
+        >
+          <Ionicons name="business-outline" size={15} color={colors.textTertiary} />
+          <Text className="font-body-bold text-[13px]" style={{ color: colors.textTertiary }}>
+            Browse venues
+          </Text>
+        </Pressable>
+
         <View className="flex-row gap-2.5 mt-1">
           <Pressable
             onPress={() => {
@@ -339,27 +353,17 @@ function NotificationBell() {
   );
 }
 
-// v2 single filter row (docs/v2-design-plan.md §4.1) — collapses the old two chip rows +
-// Filters button + removable-token row into one line. Every chip opens the same FiltersSheet;
-// its label always reflects the live value so there's nothing to remove separately (backlog B2).
+// Filters button (badged with the active-filter count) + up to 2 active filters as removable
+// chips — matches the Discover redesign mock (claude.ai/design 23bc2cae…, "Filters" sheet
+// pattern). Badminton has no chip here anymore: the app is badminton-only, nothing to select.
 function FilterChipsRow({
-  whenLabel,
-  whenActive,
-  levelLabel,
-  levelActive,
-  radiusLabel,
-  radiusActive,
-  moreCount,
-  onPress,
+  activeCount,
+  chips,
+  onPressFilters,
 }: {
-  whenLabel: string;
-  whenActive: boolean;
-  levelLabel: string;
-  levelActive: boolean;
-  radiusLabel: string;
-  radiusActive: boolean;
-  moreCount: number;
-  onPress: () => void;
+  activeCount: number;
+  chips: { key: string; label: string; onClear: () => void }[];
+  onPressFilters: () => void;
 }) {
   return (
     <ScrollView
@@ -368,11 +372,36 @@ function FilterChipsRow({
       style={{ flexGrow: 0 }}
       contentContainerStyle={{ gap: 8, paddingHorizontal: LAYOUT.SCREEN_PAD, paddingBottom: 12, alignItems: "center" }}
     >
-      <Chip label="Badminton" active size="sm" />
-      <Chip label={whenLabel} active={whenActive} onPress={onPress} size="sm" />
-      <Chip label={levelLabel} active={levelActive} onPress={onPress} size="sm" />
-      <Chip label={radiusLabel} active={radiusActive} onPress={onPress} size="sm" />
-      <Chip label={moreCount > 0 ? `Filters · ${moreCount}` : "Filters"} active={moreCount > 0} onPress={onPress} size="sm" />
+      <Pressable
+        onPress={onPressFilters}
+        className="flex-row items-center gap-1.5 rounded-pill pl-3 pr-3.5 py-2 border"
+        style={{ backgroundColor: colors.surfaceAlt, borderColor: colors.cardBorder }}
+      >
+        <Ionicons name="options-outline" size={14} color={colors.text} />
+        <Text className="font-body-bold text-[12.5px]" style={{ color: colors.text }}>
+          Filters
+        </Text>
+        {activeCount > 0 && (
+          <View className="rounded-full items-center justify-center" style={{ width: 17, height: 17, backgroundColor: colors.accent }}>
+            <Text className="font-body-extrabold" style={{ fontSize: 10.5, color: colors.base }}>
+              {activeCount}
+            </Text>
+          </View>
+        )}
+      </Pressable>
+      {chips.slice(0, 2).map((c) => (
+        <Pressable
+          key={c.key}
+          onPress={c.onClear}
+          className="flex-row items-center gap-1.5 rounded-pill px-3 py-2"
+          style={{ backgroundColor: colors.accent }}
+        >
+          <Text className="font-body-bold text-[12.5px]" style={{ color: colors.base }}>
+            {c.label}
+          </Text>
+          <Ionicons name="close" size={13} color={colors.base} />
+        </Pressable>
+      ))}
     </ScrollView>
   );
 }
@@ -401,6 +430,7 @@ export default function Discover() {
   const { session } = useSession();
   const userLocation = useUserLocation();
   const locationLabel = useLocationLabel(userLocation);
+  const distanceUnits = useDistanceUnits();
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [headerCompact, setHeaderCompact] = useState(false);
@@ -495,7 +525,8 @@ export default function Discover() {
 
   const discoverQuery = useDiscoverGames(
     { tierSlugs: levelFilters, when: whenFilter, radiusKm: discoverRadiusKm, hasSpotsOnly, verifiedOnly, maxCostPerPlayerCents, sortBy },
-    userLocation
+    userLocation,
+    { units: distanceUnits }
   );
   const games = discoverQuery.data ?? [];
 
@@ -507,7 +538,7 @@ export default function Discover() {
   const mapQuery = useDiscoverGames(
     { tierSlugs: levelFilters, when: whenFilter, radiusKm: mapRadiusKm, hasSpotsOnly, verifiedOnly, maxCostPerPlayerCents, sortBy },
     mapCenter,
-    { enabled: discoverView === "map" }
+    { enabled: discoverView === "map", units: distanceUnits }
   );
   const mapPinnedGamesAll = (mapQuery.data ?? []).filter((g) => g.venueLat != null && g.venueLng != null);
 
@@ -649,6 +680,33 @@ export default function Discover() {
   ].filter(Boolean).length;
   const isFiltered = levelFilters.length > 0 || whenFilter !== "all" || advancedFilterCount > 0;
 
+  // Ordered so the two most-recognisable filters (when/level) surface first as removable chips
+  // in the header row — matches the Discover redesign mock's "top 2 active filters" pattern.
+  const activeFilterChips = [
+    whenFilter !== "all"
+      ? { key: "when", label: WHEN_FILTERS.find((w) => w.key === whenFilter)?.label ?? "When", onClear: () => setWhenFilter("all") }
+      : null,
+    levelFilters.length > 0
+      ? {
+          key: "level",
+          label: levelFilters.length === 1 ? LEVEL_FILTERS.find((l) => l.slug === levelFilters[0])?.label ?? "Level" : `${levelFilters.length} levels`,
+          onClear: () => {
+            levelTouched.current = true;
+            setLevelFilters([]);
+          },
+        }
+      : null,
+    discoverRadiusKm !== DEFAULT_DISCOVER_RADIUS_KM
+      ? { key: "radius", label: `${discoverRadiusKm}km`, onClear: () => setDiscoverRadiusKm(DEFAULT_DISCOVER_RADIUS_KM) }
+      : null,
+    sortBy !== "soonest" ? { key: "sort", label: SORT_OPTIONS.find((s) => s.key === sortBy)?.label ?? "Sort", onClear: () => setSortBy("soonest") } : null,
+    maxCostPerPlayerCents != null
+      ? { key: "price", label: priceCapLabel(maxCostPerPlayerCents), onClear: () => setMaxCostPerPlayerCents(null) }
+      : null,
+    hasSpotsOnly ? { key: "spots", label: "Has spots", onClear: () => setHasSpotsOnly(false) } : null,
+    verifiedOnly ? { key: "verified", label: "Verified", onClear: () => setVerifiedOnly(false) } : null,
+  ].filter((c): c is { key: string; label: string; onClear: () => void } => c !== null);
+
   // Fallback ladder (D5): only fires a second query once we know the primary one came back
   // empty under active filters — a relaxed pool (any level, any time, max radius) we diff
   // against the current filters to build honest, counted "try this instead" rungs.
@@ -656,7 +714,7 @@ export default function Discover() {
   const fallbackQuery = useDiscoverGames(
     { tierSlugs: [], when: "all", radiusKm: DEFAULT_DISCOVER_RADIUS_KM, hasSpotsOnly, verifiedOnly, maxCostPerPlayerCents, sortBy: "soonest" },
     userLocation,
-    { enabled: fallbackEnabled }
+    { enabled: fallbackEnabled, units: distanceUnits }
   );
   const ladderRungs = useMemo(() => {
     if (!fallbackEnabled || !fallbackQuery.data) return [];
@@ -867,41 +925,13 @@ export default function Discover() {
             </Text>
           )}
         </View>
-        <View className="flex-row items-center gap-2">
-          <Pressable
-            onPress={() => router.push("/venues")}
-            className="w-9 h-9 rounded-full items-center justify-center border"
-            style={{ backgroundColor: colors.surfaceAlt, borderColor: colors.cardBorder }}
-          >
-            <Ionicons name="business-outline" size={16} color={colors.textDim} />
-          </Pressable>
-          <NotificationBell />
-          <SegmentedToggle
-            options={[
-              { key: "list", label: "List" },
-              { key: "map", label: "Map" },
-            ]}
-            value={discoverView}
-            onChange={setDiscoverView}
-          />
-        </View>
+        <NotificationBell />
       </View>
 
       <FilterChipsRow
-        whenLabel={WHEN_FILTERS.find((w) => w.key === whenFilter)?.label ?? "Any time"}
-        whenActive={whenFilter !== "all"}
-        levelLabel={
-          levelFilters.length === 1
-            ? LEVEL_FILTERS.find((l) => l.slug === levelFilters[0])?.label ?? "Any level"
-            : levelFilters.length > 1
-            ? `${levelFilters.length} levels`
-            : "Any level"
-        }
-        levelActive={levelFilters.length > 0}
-        radiusLabel={`${discoverRadiusKm}km`}
-        radiusActive={discoverRadiusKm !== DEFAULT_DISCOVER_RADIUS_KM}
-        moreCount={[sortBy !== "soonest", maxCostPerPlayerCents != null, hasSpotsOnly, verifiedOnly].filter(Boolean).length}
-        onPress={() => setFiltersOpen(true)}
+        activeCount={activeFilterChips.length}
+        chips={activeFilterChips}
+        onPressFilters={() => setFiltersOpen(true)}
       />
 
       <FiltersSheet visible={filtersOpen} onClose={() => setFiltersOpen(false)} markLevelTouched={markLevelTouched} />
@@ -1193,7 +1223,7 @@ export default function Discover() {
                   </Text>
                   <Text className="text-[13px] text-center max-w-[260px]" style={{ color: colors.textSecondary }}>
                     {nearestVenue
-                      ? `${nearestVenues.length} badminton court${nearestVenues.length === 1 ? "" : "s"} within ${mapRadiusKm} km. Nearest: ${nearestVenue.name}, ${formatDistance(nearestVenue.distanceM)}.`
+                      ? `${nearestVenues.length} badminton court${nearestVenues.length === 1 ? "" : "s"} within ${mapRadiusKm} km. Nearest: ${nearestVenue.name}, ${formatDistance(nearestVenue.distanceM, distanceUnits)}.`
                       : "No courts on file for this area yet."}
                   </Text>
                 </View>
@@ -1262,7 +1292,7 @@ export default function Discover() {
                           {v.name}
                         </Text>
                         <Text className="font-body-semibold text-[12.5px] ml-2" style={{ color: colors.textTertiary }}>
-                          {formatDistance(v.distanceM)}
+                          {formatDistance(v.distanceM, distanceUnits)}
                         </Text>
                       </Pressable>
                     ))}
@@ -1274,6 +1304,28 @@ export default function Discover() {
           />
         </Animated.View>
       )}
+
+      {/* Floating list/map switch (Discover redesign mock) — replaces the old header segmented
+          toggle so row1 only carries the title + bell. Sits clear of the tab bar and create FAB. */}
+      <Pressable
+        onPress={() => setDiscoverView(discoverView === "map" ? "list" : "map")}
+        className="absolute right-5 rounded-pill px-4 flex-row items-center gap-1.5"
+        style={{
+          bottom: mapSheetBottomSpace + 16,
+          height: 44,
+          backgroundColor: colors.text,
+          shadowColor: "#000",
+          shadowOpacity: 0.35,
+          shadowRadius: 12,
+          shadowOffset: { width: 0, height: 6 },
+          elevation: 6,
+        }}
+      >
+        <Ionicons name={discoverView === "map" ? "list-outline" : "map-outline"} size={16} color={colors.base} />
+        <Text className="font-body-extrabold text-[13px]" style={{ color: colors.base }}>
+          {discoverView === "map" ? "List view" : "Map view"}
+        </Text>
+      </Pressable>
     </Screen>
   );
 }

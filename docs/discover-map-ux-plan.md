@@ -134,7 +134,7 @@ rule because it also lets Courts mode carry court-specific filters.
 | Pin | Meaning | Form |
 |---|---|---|
 | **Game** | An event you can join | Tier-coloured pill, label = start time (today) or `$x` (later). Dimmed at 45 % when full. Pulse when <2 h away. **Unchanged — this part works.** |
-| **Yours** | Your own game (D7) | Same pill, accent ring, label prefixed `You` — visually distinct, never counted in the results total |
+| **Yours** | Your own game (D7) | Same pill, accent ring, label prefixed `You` — visually distinct, never counted in the results total. **Refined 2026-08-22** ([discover-plan.md](discover-plan.md) §7): exempt from when/level, but scoped to the map's radius — an unscoped "Yours" pin rendered next to a sheet saying "No games here yet", and could sit 40km outside the radius ring the map draws. Also listed in the sheet under `Yours nearby`, and counted separately in the title row (`3 games · 1 yours`), so no visible pin is missing from the sheet. |
 | **Court** | A place, no game on it | Single neutral dot, one size, one colour. Venue name label at z≥14. |
 | **Cluster** | Collapsed group | Count + the noun: "12 courts", "3 games" — never a bare number |
 
@@ -155,6 +155,13 @@ Consequence for D8: one court pin size, 44×44 pt hit area via a transparent wra
 
 Cap and rank rather than render everything. Twenty undifferentiated dots over Sydney is exactly
 the failure Airbnb measured.
+
+> **Ownership corrected 2026-08-22** ([discover-plan.md](discover-plan.md) §7). The rule shipped
+> *inside* `GameMap`, so the sheet counted courts the map had silently dropped — "20 courts near
+> you" over a single dot. The rule now lives in exported `visibleCourtsFor` / `courtZoomBucket`;
+> `GameMap` reports a `"wide" | "mid" | "close"` bucket and renders exactly the array it is given,
+> while `discover.tsx` computes that array once for both the pins and the sheet. When the cap bites,
+> the sheet says `Zoom in to see all N` rather than counting what isn't drawn.
 
 ### 4.4 The empty state, rewritten
 

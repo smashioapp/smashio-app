@@ -1,7 +1,7 @@
 import { forwardRef } from "react";
 import { View, Text } from "react-native";
 import { colors } from "../lib/theme";
-import type { GameMapProps, GameMapHandle } from "./GameMap";
+import type { GameMapProps, GameMapHandle, CourtZoom, NoGameVenue } from "./GameMap";
 import type { Game } from "../lib/mockData";
 
 // Same venue, same coordinate — kept in sync with GameMap.tsx's venueKeyOf/venueKeyOfCoords
@@ -12,6 +12,12 @@ export function venueKeyOf(g: Game): string {
 
 export function venueKeyOfCoords(name: string, lat: number, lng: number): string {
   return `${name}@${lat.toFixed(4)},${lng.toFixed(4)}`;
+}
+
+// Discover imports the court-visibility rule from this platform-resolved module too. There is no
+// map (and so no zoom) on web, so every court is "visible" — the sheet's list is all there is.
+export function visibleCourtsFor<T extends NoGameVenue>(venues: T[], _center: { lat: number; lng: number }, _zoom: CourtZoom): T[] {
+  return venues;
 }
 
 // react-native-maps has no web-safe build (native codegen components crash react-native-web).

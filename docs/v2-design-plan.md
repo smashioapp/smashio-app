@@ -60,6 +60,11 @@ byte-for-byte. This is **not** a re-skin. Six composition rules carry the whole 
 3. **Density up.** List rows are single-line. Height is spent only on the 1–2 things that earn it.
 4. **Map is a mode, not a tab.** Full-bleed map with a drawer; the list/map switch is a
    segmented control in the header.
+   > **Superseded 2026-08-22** by [discover-plan.md](discover-plan.md) §7 (Discover v3 — list-first),
+   > second half only: the switch is no longer one control in the header (nor the floating pill that
+   > shipped in its place, which painted over the sheet). Entry is a `Map` button in the filter chip
+   > row; exit is a `List` chip inside `MapSheet`'s handle row. "Map is a mode, not a tab" **stands** —
+   > v3 explicitly re-rejected promoting the map to a route.
 5. **Lime is rationed.** `--accent` means *join / live / act here* and appears once per screen.
    Everything else uses tier colours (`beginner`/`intermediate`/`advanced`/`pro`) or neutral text.
 6. **Hierarchy from weight + colour + face, not size.** Display numbers (price, countdown,

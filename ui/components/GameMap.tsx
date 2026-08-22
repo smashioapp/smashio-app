@@ -36,6 +36,10 @@ export type GameMapProps = {
   noGameVenues?: NoGameVenue[];
   onSelectNoGameVenue?: (venue: NoGameVenue) => void;
   onSearchThisArea?: (region: { lat: number; lng: number; radiusKm: number }) => void;
+  // Zoom bucket, not the raw latitudeDelta: the owner of `noGameVenues` decides which courts
+  // are visible (visibleCourtsFor below) so the sheet can never count courts the map dropped.
+  // Bucketed because raw delta in the route's state would re-render Discover on every pan.
+  onZoomChange?: (zoom: CourtZoom) => void;
   // The viewer's own upcoming games (D7, discover-map-ux-plan.md) — excluded from `games` by
   // nearby_games' p_exclude_mine, but erasing them from the map entirely is disorienting, not
   // correct. Rendered as a visually distinct "Yours" pin, never folded into games/clustering.
@@ -275,16 +279,33 @@ const LABEL_ZOOM_DELTA = 0.006;
 // (roughly z11-13) courts are capped to the nearest COURT_CAP, ranked dedicated-badminton
 // venues first then distance. At LABEL_ZOOM_DELTA and below, every court in viewport renders
 // (existing behaviour, unchanged).
-const COURT_HIDE_DELTA = 0.05;
-const COURT_CAP = 15;
+export const COURT_HIDE_DELTA = 0.05;
+export const COURT_CAP = 15;
 
-function rankedCourts(venues: NoGameVenue[], center: { lat: number; lng: number }): NoGameVenue[] {
+export type CourtZoom = "wide" | "mid" | "close";
+
+export function courtZoomBucket(delta: number): CourtZoom {
+  if (delta > COURT_HIDE_DELTA) return "wide";
+  if (delta >= LABEL_ZOOM_DELTA) return "mid";
+  return "close";
+}
+
+function rankedCourts<T extends NoGameVenue>(venues: T[], center: { lat: number; lng: number }): T[] {
   return [...venues].sort((a, b) => {
     if (!!a.dedicated !== !!b.dedicated) return a.dedicated ? -1 : 1;
     const da = (a.lat - center.lat) ** 2 + (a.lng - center.lng) ** 2;
     const db = (b.lat - center.lat) ** 2 + (b.lng - center.lng) ** 2;
     return da - db;
   });
+}
+
+// The zoom rule lives here (it's a map concern) but is applied by the caller, so the same array
+// feeds the pins and the sheet's count. GameMap itself filters nothing — a map that silently
+// drops pins the sheet still counts is what made "20 courts near you" render as one dot.
+export function visibleCourtsFor<T extends NoGameVenue>(venues: T[], center: { lat: number; lng: number }, zoom: CourtZoom): T[] {
+  if (zoom === "wide") return [];
+  if (zoom === "mid") return rankedCourts(venues, center).slice(0, COURT_CAP);
+  return venues;
 }
 
 // "Yours" pin (D7) — the game pill's shape so it still reads as "a game", plus an accent ring
@@ -346,6 +367,7 @@ export const GameMap = forwardRef<GameMapHandle, GameMapProps>(function GameMap(
     onSelectNoGameVenue,
     onSearchThisArea,
     ownGames = [],
+    onZoomChange,
   },
   ref
 ) {
@@ -365,12 +387,13 @@ export const GameMap = forwardRef<GameMapHandle, GameMapProps>(function GameMap(
   const venueGroups = useMemo(() => groupByVenue(games), [games]);
   const clusters = useMemo(() => clusterVenues(venueGroups, delta), [venueGroups, delta]);
 
-  const visibleCourts = useMemo(() => {
-    if (delta > COURT_HIDE_DELTA) return [];
-    if (delta >= LABEL_ZOOM_DELTA) return rankedCourts(noGameVenues, center).slice(0, COURT_CAP);
-    return noGameVenues;
+  // Only the bucket crosses the component boundary, and only when it actually changes — a pan
+  // that stays within one bucket must not re-render the Discover route.
+  const zoom = courtZoomBucket(delta);
+  useEffect(() => {
+    onZoomChange?.(zoom);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [noGameVenues, delta, center.lat, center.lng]);
+  }, [zoom]);
 
   // Fit to results on open and whenever the result set actually changes (filters, refetch) —
   // not on every render, and not right after a "search this area" query the user just framed.
@@ -445,7 +468,7 @@ export const GameMap = forwardRef<GameMapHandle, GameMapProps>(function GameMap(
         </Marker>
       )}
 
-      {visibleCourts.map((v) => (
+      {noGameVenues.map((v) => (
         <NoGameVenuePin key={v.id} venue={v} onPress={() => onSelectNoGameVenue?.(v)} showLabel={delta < LABEL_ZOOM_DELTA} />
       ))}
 

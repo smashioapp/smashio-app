@@ -1,0 +1,31 @@
+appId: com.smashio.app
+---
+# Regression guard for the two overlap defects: the view switch used to be a floating pill
+# anchored to tab-bar clearance, so it painted over the map sheet's peek content at every snap.
+# Entry now lives in the filter row, exit inside the sheet's handle row — so the exit must stay
+# visible (and tappable) at peek AND after the sheet is dragged up.
+- runFlow: login.yaml
+- tapOn:
+    id: "tab-discover"
+- extendedWaitUntil:
+    visible:
+      id: "discover-card-44444444-0000-0000-0000-000000000001"
+    timeout: 25000
+- tapOn:
+    id: "discover-map-open"
+- extendedWaitUntil:
+    visible:
+      id: "discover-map-exit"
+    timeout: 15000
+- takeScreenshot: discover-map-peek
+- swipe:
+    from:
+      id: "discover-map-exit"
+    direction: UP
+- assertVisible:
+    id: "discover-map-exit"
+- takeScreenshot: discover-map-raised
+- tapOn:
+    id: "discover-map-exit"
+- assertVisible:
+    id: "discover-card-44444444-0000-0000-0000-000000000001"

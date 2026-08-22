@@ -170,7 +170,99 @@ Rationale: D0 stops the screen lying. D1 (host + fit + honest scarcity on the ca
 
 Two backend touchpoints, both small, both worth batching: the `nearby_games` projection + args (D1, D2), and `game_alerts` (D5).
 
-## 7. Not doing
+## 7. Discover v3 — list-first (2026-08-22)
+
+Written after prod iPhone screenshots of map mode. Supersedes D4's "map as a layer" *for the phone
+form factor* and the layout half of [v2-design-plan.md](v2-design-plan.md) §2 rule 4 — see the
+supersession note there. **No RPC, migration, or query-key change**: v2's §9 constraint still holds.
+
+### What the screenshots showed
+
+Six defects, all in code, none of them prod-data weirdness:
+
+1. Two `You · $8` pins rendered while the sheet said **"No games here yet"** — `ownMapGames` had no
+   geographic predicate while the sheet's emptiness came from the filtered map query.
+2. The floating **"List view"** pill was positioned off tab-bar clearance and rendered after the map
+   overlay, so it painted over the sheet's peek content at every snap.
+3. The empty ladder clipped its own heading and half its CTA: ~190px of content in a 168px peek,
+   plus a `ScrollView` offset that survived a full→peek drag.
+4. The header kicker churned to `SHOWING THIS AREA · 4KM`, where 4km was a viewport half-span, not
+   the filter radius — two numbers labelled KM meaning different things, and a header whose height
+   changed underneath the overlay anchored to it.
+5. Three stacked floating rows buried the map (search+filters, Games/Courts+Tonight, pin legend).
+6. Courts mode said "20 courts near you" over a map showing one dot — `GameMap` applied the zoom
+   cap internally while the sheet counted the uncapped array.
+
+### Principles
+
+1. **The list owns the query.** Filters, when, level, radius, sort are list concepts; the map reads
+   them and never invents its own.
+2. **The map owns geography only** — pan, zoom, search-this-area, venue search.
+3. **One array in, two renderers out.** Every pin and every sheet row derives from the same computed
+   array in `discover.tsx`; `GameMap` renders what it is given and filters nothing.
+4. **No control floats over the sheet.** Sheet affordances live inside the sheet.
+
+### IA
+
+The map stays an in-tab overlay driven by `discoverView` (not a route: the list stays mounted, and
+`nav-plan.md` defect #13 already resolved away from a map route). What changed is the affordance:
+
+- **Enter** — a `Map` button in `FilterChipsRow`, alongside Filters. A pinned row has no content to
+  overlap. Demoting entry to a row button is what "list-first" means here.
+- **Exit** — a `List` chip inside `MapSheet`'s handle row, structurally incapable of overlapping the
+  sheet and moving with it at every snap. The floating pill is deleted.
+- Recoverable middle ground if map entry collapses: a floating pill on the **list only**. Never one
+  pill serving both modes — that was the bug.
+
+### Chrome cull
+
+| Element | Fate |
+|---|---|
+| Search + Places predictions | Keep — geography, map-owned |
+| Filters icon button | Keep, badged with the active-filter count |
+| `Games \| Courts` toggle | Keep, own row |
+| `Tonight` chip | Deleted — a second mutation point for `whenFilter` the list chip row already owns |
+| Pin legend row | Deleted — in no design doc, and pins self-describe (`You ·` prefix, dim court ring, tier colour) |
+| Floating List/Map pill | Deleted, replaced above |
+
+### Header contract
+
+The kicker describes the query, never the viewport: `{SUBURB} · {radius}KM RADIUS` in every state.
+`Showing this area · Back to {suburb}` moved into the sheet's title row **with no km figure** — the
+viewport half-span stays internal as the query radius and is never rendered. This partially reverses
+§4.5 of [discover-map-ux-plan.md](discover-map-ux-plan.md): the affordance was right, the location
+and the second KM number were not.
+
+### Consistency invariant
+
+> The sheet's title row is a function of the exact arrays passed to `GameMap`.
+
+- **Own games** are exempt from when/level (D7 — "yours isn't a search result") but **not** from
+  geography: they are filtered by `haversineMeters(mapCenter, venue) <= mapRadiusKm * 1000`,
+  client-side. They are counted separately in the title (`3 games · 1 yours`) and listed under
+  `Yours nearby` in the empty state, whose heading is now `No open games here`.
+  Behaviour change worth noting: a far-away "You" pin the viewer used to see now disappears.
+- **Courts**: the zoom rule moved out of `GameMap` into exported `visibleCourtsFor` +
+  `courtZoomBucket`; `GameMap` reports a `"wide" | "mid" | "close"` bucket (not the raw delta, which
+  would re-render the route on every pan frame) and `discover.tsx` computes one array for both the
+  pins and the sheet. When the rule drops courts the sheet says `Zoom in to see all N` instead of
+  counting what isn't drawn.
+
+### Sheet contract
+
+Hand-rolled 3-snap sheet stays (no new dep). Title row is now unconditional — in the empty and
+Courts states it was the only thing anchoring the top edge. Peek is content-aware
+(`peekVariant`: carousel 168 / stack 236), recomputed only at a committed snap so map padding never
+jumps mid-drag. Scroll offset resets on snap commit and on `bodyKey` change. Loading and error are
+distinct sheet states (skeletons / Retry), not the empty ladder — a failed fetch rendering "no games
+here" is the same lie §3 already called out for the list.
+
+Nothing outside the sheet may use `mapSheetBottomSpace` for vertical placement: that constant is
+tab-bar clearance, not sheet clearance, and conflating the two is what produced defect 2.
+
+---
+
+## 8. Not doing
 
 - No algorithmic/ML ranking feed. Supply is small and local; recency + distance + level fit beats a black box, and an unexplainable order destroys trust in a marketplace this thin.
 - No engagement-bait mechanics — fake countdowns, fake "5 people viewing". Scarcity is shown only when the underlying data is real.

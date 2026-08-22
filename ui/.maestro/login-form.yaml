@@ -13,13 +13,15 @@ appId: com.smashio.app
 # cold-launch via openLink as the only start event so the intent actually lands.
 - stopApp
 - openLink: "smashio://?e2e_manual_login=1"
+# The landing screen IS the sign-in screen now — there is no second screen to push to.
+# Email lives behind a disclosure so the social providers stay one tap.
 - extendedWaitUntil:
-    visible: "Get Started"
+    visible: "Continue with email"
     timeout: 45000
 - tapOn:
-    id: "onboarding-get-started"
+    id: "auth-email-disclosure"
 - extendedWaitUntil:
-    visible: "Sign in to Smashio"
+    id: "login-email"
     timeout: 15000
 - tapOn:
     id: "login-email"

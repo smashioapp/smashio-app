@@ -37,7 +37,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           if (!error) {
             setSession(data.session);
             setIsLoading(false);
-            router.replace("/onboarding/profile-photo");
+            // Route through the index gate, not straight at profile setup — an existing
+            // user coming back through OAuth already has a profile and must not be
+            // walked through onboarding again.
+            router.replace("/");
             return;
           }
         }
@@ -45,8 +48,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
       const { data } = await supabase.auth.getSession();
       // login-form.yaml opts out via ?e2e_manual_login=1 on the cold-launch deep link —
-      // it exercises the typed sign-in form and needs the onboarding/login screens to
-      // actually render instead of being skipped by the shortcut below.
+      // it exercises the typed sign-in form and needs the onboarding screen to actually
+      // render instead of being skipped by the shortcut below.
       const initialUrl = __DEV__ ? await Linking.getInitialURL() : null;
       const manualLoginRequested = !!initialUrl && new URLSearchParams(initialUrl.split("?")[1]).get("e2e_manual_login") === "1";
       if (!data.session && __DEV__ && process.env.EXPO_PUBLIC_E2E_EMAIL && !manualLoginRequested) {

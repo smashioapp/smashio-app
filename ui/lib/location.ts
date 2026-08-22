@@ -4,6 +4,32 @@ import { DEFAULT_LAT, DEFAULT_LNG } from "./queries/games";
 
 type UserLocation = { lat: number; lng: number; isDeviceLocation: boolean };
 
+// The permission request + one coarse fix, as an explicit call. Pulled out of the hook so the
+// onboarding pre-prompt (app/onboarding/nearby.tsx) owns the moment the OS dialog appears —
+// a cold system prompt is a one-shot, and an explainer first is what earns the grant.
+// Returns null when denied or when no fix is available.
+export async function requestLocation(): Promise<{ lat: number; lng: number } | null> {
+  const { status } = await Location.requestForegroundPermissionsAsync();
+  if (status !== "granted") return null;
+  try {
+    const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+    return { lat: position.coords.latitude, lng: position.coords.longitude };
+  } catch {
+    return null;
+  }
+}
+
+// Reverse-geocodes a fix to a suburb name, using the same field precedence as the Discover
+// header. Null when the lookup fails — callers must treat the suburb as optional.
+export async function suburbForFix(lat: number, lng: number): Promise<string | null> {
+  try {
+    const [place] = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
+    return place?.district || place?.city || place?.subregion || null;
+  } catch {
+    return null;
+  }
+}
+
 // One-shot coarse fetch on mount — good enough for centering the discover map/RPC radius.
 // Falls back to the Sydney CBD default on denial, timeout, or simulators without a fix.
 export function useUserLocation(): UserLocation {
@@ -11,18 +37,9 @@ export function useUserLocation(): UserLocation {
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== "granted") return;
-      try {
-        const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        if (!cancelled) {
-          setLocation({ lat: position.coords.latitude, lng: position.coords.longitude, isDeviceLocation: true });
-        }
-      } catch {
-        // Keep the fallback center — no location fix available.
-      }
-    })();
+    requestLocation().then((fix) => {
+      if (fix && !cancelled) setLocation({ ...fix, isDeviceLocation: true });
+    });
     return () => {
       cancelled = true;
     };
@@ -43,15 +60,10 @@ export function useLocationLabel(location: UserLocation): string {
       return;
     }
     let cancelled = false;
-    (async () => {
-      try {
-        const [place] = await Location.reverseGeocodeAsync({ latitude: location.lat, longitude: location.lng });
-        const suburb = place?.district || place?.city || place?.subregion;
-        if (!cancelled && suburb) setLabel(suburb);
-      } catch {
-        // Keep "Near you" — a failed lookup shouldn't block the rest of the screen.
-      }
-    })();
+    // Keep "Near you" on a failed lookup — it shouldn't block the rest of the screen.
+    suburbForFix(location.lat, location.lng).then((suburb) => {
+      if (!cancelled && suburb) setLabel(suburb);
+    });
     return () => {
       cancelled = true;
     };

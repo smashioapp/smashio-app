@@ -1,7 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
-import { AccessibilityInfo, Image, Pressable, StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import {
+  AccessibilityInfo,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { router, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { savePendingReferral } from "../../lib/referral";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
@@ -16,7 +26,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { colors } from "../../lib/theme";
 import { haptics } from "../../lib/haptics";
-import { Button } from "../../components/Button";
+import { AuthPanel } from "../../components/AuthPanel";
 import { Screen } from "../../components/Screen";
 import { CourtBackdrop } from "../../components/CourtBackdrop";
 
@@ -28,9 +38,6 @@ import { CourtBackdrop } from "../../components/CourtBackdrop";
 const BOUNCE_MS = 620; // rough budget for the spring chain, used to time what follows
 
 export default function Splash() {
-  const goNext = () => {
-    router.push("/onboarding/login");
-  };
   const { height: h } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const { ref } = useLocalSearchParams<{ ref?: string }>();
@@ -141,14 +148,17 @@ export default function Splash() {
           pointerEvents="none"
         />
 
-        <View
-          style={{
-            flex: 1,
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <ScrollView
+          contentContainerStyle={{
+            flexGrow: 1,
             paddingHorizontal: 32,
             paddingTop: insets.top + 32,
             paddingBottom: 40,
             alignItems: "center",
           }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
           <View style={{ height: 8 }} />
 
@@ -222,17 +232,16 @@ export default function Splash() {
             </Text>
           </Animated.View>
 
-          <View style={{ flex: 1 }} />
+          <View style={{ flex: 1, minHeight: 28 }} />
 
-          <Animated.View style={[{ width: "100%", gap: 16 }, ctaStyle]}>
-            <Button label="Get Started" onPress={goNext} testID="onboarding-get-started" />
-            <Pressable onPress={goNext} hitSlop={10}>
-              <Text className="text-center font-body-bold text-[14.5px]" style={{ color: colors.textTertiary }}>
-                I already have an account
-              </Text>
-            </Pressable>
+          {/* The sign-in options ARE the landing screen — there is no second screen to push
+              to. "Get Started" and "I already have an account" both used to lead here, which
+              is the tell that the split was never real. */}
+          <Animated.View style={[{ width: "100%" }, ctaStyle]}>
+            <AuthPanel />
           </Animated.View>
-        </View>
+        </ScrollView>
+        </KeyboardAvoidingView>
       </View>
     </Screen>
   );

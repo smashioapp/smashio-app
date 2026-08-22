@@ -1,0 +1,43 @@
+appId: com.smashio.app
+---
+# Regression: an EXISTING user signing in must land in the app, never back in profile setup.
+#
+# The bug this locks down: onboarding/login.tsx used to push at /onboarding/profile-photo
+# unconditionally after any successful auth, so a returning user with a complete profile
+# was walked through "Set up your profile" every single time, with their saved display name
+# blanked by the OAuth-metadata prefill. Auth now routes through the index gate (app/index.tsx),
+# which is the only thing that decides Discover vs. setup.
+#
+# Uses the typed form rather than the __DEV__ auto-login shortcut — the shortcut bypasses
+# the post-auth navigation entirely, which is the exact code path under test.
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+# Same cold-launch dance as login-form.yaml: launchApp's stopApp races the deep-link intent
+# against RN's bridgeless context init, so settle once, then openLink as the only start event.
+- stopApp
+- openLink: "smashio://?e2e_manual_login=1"
+- extendedWaitUntil:
+    visible: "Continue with email"
+    timeout: 45000
+- tapOn:
+    id: "auth-email-disclosure"
+- extendedWaitUntil:
+    id: "login-email"
+    timeout: 15000
+- tapOn:
+    id: "login-email"
+- inputText: "test@smashio.dev"
+- tapOn:
+    id: "login-password"
+- inputText: "Test1234!"
+- hideKeyboard
+- tapOn:
+    id: "login-continue"
+- extendedWaitUntil:
+    visible: "Discover|My Games"
+    timeout: 45000
+# The point of the flow: setup must never have been shown on the way through.
+- assertNotVisible: "Set up your game"
+- assertNotVisible: "Games near you"

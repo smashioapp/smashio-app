@@ -357,7 +357,7 @@ function GamePreviewTeaser({ gameId }: { gameId: string }) {
 
   const goToLogin = () => {
     haptics.tap();
-    router.push("/onboarding/login");
+    router.push("/onboarding");
   };
 
   return (

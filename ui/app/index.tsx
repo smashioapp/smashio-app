@@ -28,5 +28,7 @@ export default function Index() {
   if (profileLoading || sportsLoading) return null;
   if (onboarded && !pendingGameChecked) return null;
 
-  return <Redirect href={onboarded ? "/(tabs)/discover" : "/onboarding"} />;
+  // Signed in but no profile yet goes to setup, not the landing screen — the landing screen
+  // is now the sign-in surface, and offering it to someone already signed in is a dead end.
+  return <Redirect href={onboarded ? "/(tabs)/discover" : "/onboarding/setup"} />;
 }

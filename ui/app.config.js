@@ -11,6 +11,9 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.smashio.app",
+      // Adds the Sign In with Apple entitlement — required by App Store guideline 4.8 and by
+      // the native AppleAuthentication.signInAsync path in lib/auth.ts.
+      usesAppleSignIn: true,
       buildNumber: process.env.BUILD_NUMBER ?? "1",
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
@@ -55,6 +58,15 @@ module.exports = {
       ],
       "expo-secure-store",
       "expo-audio",
+      "expo-apple-authentication",
+      [
+        // Reversed iOS OAuth client id. Blank until the Google Cloud iOS client exists —
+        // lib/auth.ts falls back to hosted OAuth while it is, so the app still signs in.
+        "@react-native-google-signin/google-signin",
+        {
+          iosUrlScheme: process.env.EXPO_PUBLIC_GOOGLE_IOS_URL_SCHEME ?? "com.googleusercontent.apps.placeholder",
+        },
+      ],
       [
         "expo-image-picker",
         {

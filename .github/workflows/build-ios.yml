@@ -7,7 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest
+    runs-on: macos-15-xlarge
     timeout-minutes: 45
     defaults:
       run:
@@ -54,9 +54,33 @@ jobs:
       - name: Prebuild native ios project
         run: npx expo prebuild --platform ios --no-install
 
+      - name: Cache CocoaPods
+        uses: actions/cache@v4
+        with:
+          path: |
+            ui/ios/Pods
+            ~/Library/Caches/CocoaPods
+          key: ${{ runner.os }}-pods-${{ hashFiles('ui/ios/Podfile.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-pods-
+
       - name: Install CocoaPods
         working-directory: ui/ios
         run: pod install
+
+      - name: Cache DerivedData
+        uses: actions/cache@v4
+        with:
+          path: ~/Library/Developer/Xcode/DerivedData
+          key: ${{ runner.os }}-deriveddata-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-deriveddata-
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: ui
 
       - name: Import signing cert + provisioning profile
         run: |
@@ -147,9 +171,9 @@ jobs:
 
       - name: Upload to TestFlight
         working-directory: ui/ios
+        env:
+          BUNDLE_GEMFILE: ${{ github.workspace }}/ui/Gemfile
         run: |
-          gem install fastlane -N
-
           # Sanity-check the secret's shape without echoing it.
           case "$ASC_API_KEY_P8" in
             *"BEGIN PRIVATE KEY"*) echo "ASC key: PEM header present" ;;
@@ -162,7 +186,23 @@ jobs:
           python3 -c "import json,os; json.dump({'key_id':os.environ['ASC_KEY_ID'],'issuer_id':os.environ['ASC_ISSUER_ID'],'key':os.environ['ASC_API_KEY_P8'],'in_house':False}, open('api_key.json','w'))"
 
           IPA=$(ls build/export/*.ipa | head -1)
-          fastlane pilot upload \
-            --api_key_path api_key.json \
-            --ipa "$IPA" \
-            --skip_waiting_for_build_processing true
+
+          # App Store Connect's finalize step ("CHANGE UPLOAD STATE TO
+          # COMPLETE") intermittently 500s after the ipa itself has already
+          # transferred successfully. Retry the whole upload -- Apple dedupes
+          # by build number/checksum, so a retry after a transfer-only
+          # failure is safe.
+          for attempt in 1 2 3; do
+            if bundle exec fastlane pilot upload \
+              --api_key_path api_key.json \
+              --ipa "$IPA" \
+              --skip_waiting_for_build_processing true; then
+              break
+            fi
+            if [ "$attempt" -eq 3 ]; then
+              echo "fastlane pilot upload failed after 3 attempts"
+              exit 1
+            fi
+            echo "Upload attempt $attempt failed, retrying in 30s..."
+            sleep 30
+          done

@@ -130,7 +130,7 @@ export default function Profile() {
           </Text>
           <View className="flex-row items-center gap-2.5">
             <Pressable
-              onPress={() => router.push("/notifications")}
+              onPress={() => router.push("/notification-settings")}
               hitSlop={8}
               className="w-9 h-9 rounded-full items-center justify-center border"
               style={{ backgroundColor: colors.surface, borderColor: colors.cardBorder }}

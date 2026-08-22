@@ -1,6 +1,6 @@
 # Auth & Onboarding Plan — SMASHIO
 
-Written 2026-08-22. **Status: shipped (P0–P4), pending external console config (P2/P3 native providers).** Scope: the launch → sign-in → profile-setup sequence only — [`ui/app/onboarding/`](../ui/app/onboarding/), [`ui/lib/auth.ts`](../ui/lib/auth.ts), the routing gate at [`ui/app/index.tsx`](../ui/app/index.tsx), and the location bootstrap in [`ui/lib/location.ts`](../ui/lib/location.ts). Native only, dark only, tokens unchanged.
+Written 2026-08-22. **Status: shipped (P0, P1, P4, P5), native providers code-complete but inert pending external console config (P2/P3) — Apple additionally gated off at build level, see §5.** Scope: the launch → sign-in → profile-setup sequence only — [`ui/app/onboarding/`](../ui/app/onboarding/), [`ui/lib/auth.ts`](../ui/lib/auth.ts), the routing gate at [`ui/app/index.tsx`](../ui/app/index.tsx), and the location bootstrap in [`ui/lib/location.ts`](../ui/lib/location.ts). Native only, dark only, tokens unchanged.
 
 This is the surface [v2-design-plan.md](v2-design-plan.md) explicitly excluded (§9: "No restyle of … onboarding"). It is now the last unredesigned screen set, and it carried a real bug.
 
@@ -59,9 +59,14 @@ Constraint worth recording: **Apple's button is not restylable.** The HIG ships 
 
 Native sign-in is code-complete but inert until these exist. Until then every attempt falls back to hosted OAuth, including the consent dialog.
 
+**Apple is deliberately shipped off.** `ios.usesAppleSignIn` and the `expo-apple-authentication` plugin are commented out of `app.config.js`: the entitlement they add cannot be signed by the provisioning profile stored in `IOS_PROVISIONING_PROFILE_BASE64`, which predates the capability, and the archive in `build-ios.yml` would fail codesign. Apple therefore runs on the hosted-OAuth path — still guideline 4.8 compliant, still showing the consent dialog. Turning it on is four steps: enable the capability, regenerate the profile into the secret, restore both config entries, set `EXPO_PUBLIC_APPLE_NATIVE_SIGNIN=1`.
+
 | What | Where |
 |---|---|
 | Sign In with Apple capability on App ID `com.smashio.app` | Apple Developer portal |
+| Regenerated distribution profile (with the entitlement) → `IOS_PROVISIONING_PROFILE_BASE64` | GitHub repo secrets |
+| `ios.usesAppleSignIn: true` + `"expo-apple-authentication"` plugin restored | `ui/app.config.js` |
+| `EXPO_PUBLIC_APPLE_NATIVE_SIGNIN=1` | `ui/.env.production` |
 | Bundle id `com.smashio.app` in Authorized Client IDs | Supabase → Auth → Providers → Apple |
 | OAuth clients: iOS (bundle id), Web, Android (package + SHA-1 for **both** debug and the release keystore used by `plugins/withAndroidReleaseSigning`) | Google Cloud console |
 | All three Google client IDs in Authorized Client IDs | Supabase → Auth → Providers → Google |

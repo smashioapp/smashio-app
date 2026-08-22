@@ -13,6 +13,12 @@ import { unregisterPushToken } from "./notifications";
 const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? "";
 const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? "";
 
+// Native Apple additionally needs the com.apple.developer.applesignin entitlement compiled
+// into the binary (app.config.js `usesAppleSignIn`), which the current CI provisioning
+// profile can't sign. Calling signInAsync without it fails at runtime, so the flag stays
+// off until the App ID capability and a regenerated profile exist.
+const APPLE_NATIVE_ENABLED = process.env.EXPO_PUBLIC_APPLE_NATIVE_SIGNIN === "1";
+
 // Single "Continue" flow: try signing in, and if there's no account yet, sign one up.
 // Keeps onboarding to one form instead of separate login/signup screens.
 export async function continueWithEmail(email: string, password: string) {
@@ -93,7 +99,11 @@ export async function continueWithGoogle() {
 // again, on any device. If it isn't persisted here it's gone, and the setup screen would
 // show an empty name for a user who never typed one.
 export async function continueWithApple() {
-  if (Platform.OS !== "ios" || !(await AppleAuthentication.isAvailableAsync().catch(() => false))) {
+  if (
+    !APPLE_NATIVE_ENABLED ||
+    Platform.OS !== "ios" ||
+    !(await AppleAuthentication.isAvailableAsync().catch(() => false))
+  ) {
     return hostedOAuth("apple");
   }
 

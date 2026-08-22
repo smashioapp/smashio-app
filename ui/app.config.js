@@ -11,9 +11,14 @@ module.exports = {
     ios: {
       supportsTablet: true,
       bundleIdentifier: "com.smashio.app",
-      // Adds the Sign In with Apple entitlement — required by App Store guideline 4.8 and by
-      // the native AppleAuthentication.signInAsync path in lib/auth.ts.
-      usesAppleSignIn: true,
+      // NOT setting usesAppleSignIn yet. It adds the com.apple.developer.applesignin
+      // entitlement, and build-ios.yml signs manually from a stored provisioning profile
+      // that predates the capability — the archive would fail codesign. Guideline 4.8 is
+      // still satisfied meanwhile by the hosted-OAuth Apple path in lib/auth.ts.
+      // To turn native Apple on: enable Sign In with Apple on the App ID, regenerate the
+      // distribution profile into IOS_PROVISIONING_PROFILE_BASE64, add usesAppleSignIn and
+      // the "expo-apple-authentication" plugin back, then set
+      // EXPO_PUBLIC_APPLE_NATIVE_SIGNIN=1. See docs/auth-onboarding-plan.md §5.
       buildNumber: process.env.BUILD_NUMBER ?? "1",
       infoPlist: {
         ITSAppUsesNonExemptEncryption: false,
@@ -58,7 +63,6 @@ module.exports = {
       ],
       "expo-secure-store",
       "expo-audio",
-      "expo-apple-authentication",
       [
         // Reversed iOS OAuth client id. Blank until the Google Cloud iOS client exists —
         // lib/auth.ts falls back to hosted OAuth while it is, so the app still signs in.

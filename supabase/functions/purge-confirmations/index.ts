@@ -14,8 +14,24 @@ const supabase = createClient(
   Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
 );
 
+// Pure cutoff math, pulled out so it's unit-testable without a network round trip. `now` is
+// injected (defaults to the real clock) so tests can pin a fixed instant instead of racing it.
+export function orphanCutoffIso(now: Date = new Date()): string {
+  return new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+}
+
+export function retentionCutoffIso(now: Date = new Date()): string {
+  return new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+}
+
+// Storage remove() is a no-op on an empty array, but skipping the call entirely avoids a wasted
+// round trip on the (common) sweep that finds nothing to purge.
+export function pathsToRemove(rows: { storage_path: string | null }[]): string[] {
+  return rows.map((r) => r.storage_path).filter((p): p is string => !!p);
+}
+
 async function purgeOrphans(): Promise<number> {
-  const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const cutoff = orphanCutoffIso();
   const { data: rows, error } = await supabase
     .from("game_confirmations")
     .select("id, storage_path")
@@ -24,7 +40,7 @@ async function purgeOrphans(): Promise<number> {
   if (error) throw error;
   if (!rows?.length) return 0;
 
-  const paths = rows.map((r) => r.storage_path).filter((p): p is string => !!p);
+  const paths = pathsToRemove(rows);
   if (paths.length) {
     const { error: removeErr } = await supabase.storage.from("confirmations").remove(paths);
     if (removeErr) throw removeErr;
@@ -38,7 +54,7 @@ async function purgeOrphans(): Promise<number> {
 }
 
 async function purgeRetention(): Promise<number> {
-  const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const cutoff = retentionCutoffIso();
   const { data: games, error: gamesErr } = await supabase
     .from("games")
     .select("id")
@@ -55,7 +71,7 @@ async function purgeRetention(): Promise<number> {
   if (error) throw error;
   if (!rows?.length) return 0;
 
-  const paths = rows.map((r) => r.storage_path).filter((p): p is string => !!p);
+  const paths = pathsToRemove(rows);
   if (paths.length) {
     const { error: removeErr } = await supabase.storage.from("confirmations").remove(paths);
     if (removeErr) throw removeErr;
@@ -68,25 +84,29 @@ async function purgeRetention(): Promise<number> {
   return rows.length;
 }
 
-Deno.serve(async (req) => {
-  const expectedKey = Deno.env.get("PURGE_CONFIRMATIONS_KEY");
-  const auth = req.headers.get("Authorization");
-  if (!expectedKey || auth !== `Bearer ${expectedKey}`) {
-    return new Response("Unauthorized", { status: 401 });
-  }
+// Guarded so `deno test` can import this module for its pure helpers (orphanCutoffIso etc.)
+// without binding a port — supabase serves this file directly, where import.meta.main is true.
+if (import.meta.main) {
+  Deno.serve(async (req) => {
+    const expectedKey = Deno.env.get("PURGE_CONFIRMATIONS_KEY");
+    const auth = req.headers.get("Authorization");
+    if (!expectedKey || auth !== `Bearer ${expectedKey}`) {
+      return new Response("Unauthorized", { status: 401 });
+    }
 
-  const { type } = (await req.json()) as { type?: "orphan" | "retention" };
-  try {
-    const count = type === "retention" ? await purgeRetention() : await purgeOrphans();
-    return new Response(JSON.stringify({ type: type ?? "orphan", purged: count }), {
-      status: 200,
-      headers: { "Content-Type": "application/json" },
-    });
-  } catch (e) {
-    console.error("purge-confirmations failed:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "purge failed" }), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-});
+    const { type } = (await req.json()) as { type?: "orphan" | "retention" };
+    try {
+      const count = type === "retention" ? await purgeRetention() : await purgeOrphans();
+      return new Response(JSON.stringify({ type: type ?? "orphan", purged: count }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    } catch (e) {
+      console.error("purge-confirmations failed:", e);
+      return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "purge failed" }), {
+        status: 500,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+  });
+}

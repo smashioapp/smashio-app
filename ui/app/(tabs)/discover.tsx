@@ -563,13 +563,6 @@ export default function Discover() {
   );
   const mapPinnedGamesAll = (mapQuery.data ?? []).filter((g) => g.venueLat != null && g.venueLng != null);
 
-  // Mode auto-select (§4.1) — games if any are in radius, courts otherwise. Waits for the
-  // query so a mid-fetch empty array can't flash Courts mode and then snap back to Games.
-  useEffect(() => {
-    if (discoverView !== "map" || mapQuery.isLoading || mapModeTouched.current) return;
-    setMapMode(mapPinnedGamesAll.length > 0 ? "games" : "courts");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [discoverView, mapQuery.isLoading, mapPinnedGamesAll.length]);
   const handleSetMapMode = (m: "games" | "courts") => {
     mapModeTouched.current = true;
     setMapMode(m);
@@ -636,6 +629,7 @@ export default function Discover() {
     if (discoverView !== "map") return [];
     return [...(myJoinedQuery.data ?? []), ...(myHostingQuery.data ?? [])].filter(
       (g) =>
+        g.status !== "cancelled" &&
         g.venueLat != null &&
         g.venueLng != null &&
         haversineMeters(mapCenter.lat, mapCenter.lng, g.venueLat, g.venueLng) <= mapRadiusKm * 1000

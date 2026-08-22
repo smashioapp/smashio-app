@@ -251,7 +251,7 @@ function NoGameVenuePin({ venue, onPress, showLabel }: { venue: NoGameVenue; onP
       <View style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}>
         <View
           className="rounded-full border"
-          style={{ width: 20, height: 20, backgroundColor: colors.surfaceAlt, borderColor: colors.textMuted, borderWidth: 2 }}
+          style={{ width: 20, height: 20, backgroundColor: colors.surfaceAlt, borderColor: colors.accent, borderWidth: 2 }}
         />
         {showLabel && (
           <View

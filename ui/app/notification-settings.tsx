@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { View, Text, Pressable, Linking, Platform, Switch } from "react-native";
+import { View, Text, Pressable, Linking, Platform, Switch, ScrollView } from "react-native";
 import { router, useFocusEffect } from "expo-router";
 import * as Notifications from "expo-notifications";
 import { Ionicons } from "@expo/vector-icons";
@@ -165,7 +165,7 @@ export default function NotificationSettings() {
           Notifications
         </Text>
       </View>
-      <View className="px-6 pt-4 gap-4">
+      <ScrollView contentContainerClassName="px-6 pt-4 pb-10 gap-4" showsVerticalScrollIndicator={false}>
         <View className="rounded-2xl p-4 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
           <Text className="font-body-bold text-[15.5px]" style={{ color: colors.text }}>
             Push notifications
@@ -199,7 +199,7 @@ export default function NotificationSettings() {
         )}
 
         <AlertsSection />
-      </View>
+      </ScrollView>
     </Screen>
   );
 }

@@ -15,6 +15,7 @@ import { SessionProvider } from "../lib/session";
 import { usePushRegistration, useTrackActiveRoute } from "../lib/notifications";
 import { useNotificationRealtimeSync } from "../lib/queries/notifications";
 import { AnimatedSplash } from "../components/AnimatedSplash";
+import { ErrorBoundary } from "../components/ErrorBoundary";
 import {
   useFonts as useSpaceGroteskFonts,
   SpaceGrotesk_500Medium,
@@ -64,29 +65,31 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
-      <QueryClientProvider client={queryClient}>
-        <SessionProvider>
-          <PushRegistration />
-          <SafeAreaProvider>
-            <StatusBar style="light" />
-            <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#0A0A0B" } }}>
-              <Stack.Screen name="index" />
-              <Stack.Screen name="onboarding" />
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen name="game/[id]" options={{ presentation: "card" }} />
-              <Stack.Screen name="venue/[id]" options={{ presentation: "card" }} />
-              <Stack.Screen name="venues/index" options={{ presentation: "card" }} />
-              <Stack.Screen name="game/edit/[id]" options={{ presentation: "modal" }} />
-              <Stack.Screen name="my-games/past" options={{ presentation: "card" }} />
-              <Stack.Screen name="chat/[id]" options={{ presentation: "card" }} />
-              <Stack.Screen name="post-game/[id]" options={{ presentation: "card" }} />
-              <Stack.Screen name="notifications" options={{ presentation: "card" }} />
-              <Stack.Screen name="wizard" options={{ presentation: "modal" }} />
-            </Stack>
-            {showSplash && <AnimatedSplash onFinish={() => setShowSplash(false)} />}
-          </SafeAreaProvider>
-        </SessionProvider>
-      </QueryClientProvider>
+      <ErrorBoundary>
+        <QueryClientProvider client={queryClient}>
+          <SessionProvider>
+            <PushRegistration />
+            <SafeAreaProvider>
+              <StatusBar style="light" />
+              <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#0A0A0B" } }}>
+                <Stack.Screen name="index" />
+                <Stack.Screen name="onboarding" />
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="game/[id]" options={{ presentation: "card" }} />
+                <Stack.Screen name="venue/[id]" options={{ presentation: "card" }} />
+                <Stack.Screen name="venues/index" options={{ presentation: "card" }} />
+                <Stack.Screen name="game/edit/[id]" options={{ presentation: "modal" }} />
+                <Stack.Screen name="my-games/past" options={{ presentation: "card" }} />
+                <Stack.Screen name="chat/[id]" options={{ presentation: "card" }} />
+                <Stack.Screen name="post-game/[id]" options={{ presentation: "card" }} />
+                <Stack.Screen name="notifications" options={{ presentation: "card" }} />
+                <Stack.Screen name="wizard" options={{ presentation: "modal" }} />
+              </Stack>
+              {showSplash && <AnimatedSplash onFinish={() => setShowSplash(false)} />}
+            </SafeAreaProvider>
+          </SessionProvider>
+        </QueryClientProvider>
+      </ErrorBoundary>
     </GestureHandlerRootView>
   );
 }

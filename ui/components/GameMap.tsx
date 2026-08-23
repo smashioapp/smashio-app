@@ -273,13 +273,15 @@ function NoGameVenuePin({ venue, onPress, showLabel }: { venue: NoGameVenue; onP
 // becomes a real question.
 const LABEL_ZOOM_DELTA = 0.006;
 
-// Progressive disclosure of court pins by zoom (§4.3). Above COURT_HIDE_DELTA (roughly z<11,
-// most of a metro area in frame) individual court dots are noise — Airbnb's finding that
+// Progressive disclosure of court pins by zoom (§4.3). Above COURT_HIDE_DELTA (roughly z<10,
+// wider than a metro area in frame) individual court dots are noise — Airbnb's finding that
 // showing every listing makes browsing harder, not easier. Between that and LABEL_ZOOM_DELTA
-// (roughly z11-13) courts are capped to the nearest COURT_CAP, ranked dedicated-badminton
+// (roughly z10-13) courts are capped to the nearest COURT_CAP, ranked dedicated-badminton
 // venues first then distance. At LABEL_ZOOM_DELTA and below, every court in viewport renders
 // (existing behaviour, unchanged).
-export const COURT_HIDE_DELTA = 0.05;
+// 0.1 (not 0.05): the device-location landing zoom is 0.08 (below) — must clear this threshold
+// so courts mode shows its capped top-15 on first paint instead of an empty "zoom in" state.
+export const COURT_HIDE_DELTA = 0.1;
 export const COURT_CAP = 15;
 
 export type CourtZoom = "wide" | "mid" | "close";

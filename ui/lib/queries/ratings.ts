@@ -90,7 +90,9 @@ export function useSubmitRatingTags() {
         tagIds.map((tag) => ({ game_id: gameId, rater_id: user.id, ratee_id: rateeId, tag }))
       );
       if (rows.length === 0) return;
-      const { error } = await supabase.from("rating_tags").upsert(rows, { onConflict: "game_id,rater_id,ratee_id,tag" });
+      const { error } = await supabase
+        .from("rating_tags")
+        .upsert(rows, { onConflict: "game_id,rater_id,ratee_id,tag", ignoreDuplicates: true });
       if (error) throw error;
     },
   });
@@ -108,7 +110,9 @@ export function useSubmitRatings() {
         .filter(([, n]) => n > 0)
         .map(([rateeId, n]) => ({ game_id: gameId, rater_id: user.id, ratee_id: rateeId, stars: n }));
       if (rows.length === 0) return;
-      const { error } = await supabase.from("ratings").upsert(rows, { onConflict: "game_id,rater_id,ratee_id" });
+      const { error } = await supabase
+        .from("ratings")
+        .upsert(rows, { onConflict: "game_id,rater_id,ratee_id", ignoreDuplicates: true });
       if (error) throw error;
     },
     onSuccess: () => {

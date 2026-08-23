@@ -187,17 +187,26 @@ function makeCache<T>(fetch: (key: string) => Promise<T>) {
 }
 
 const getGameSummary = makeCache(async (gameId: string) => {
-  const { data } = await supabase.rpc("push_game_summary", { p_game_id: gameId }).single();
+  const { data, error } = await supabase.rpc("push_game_summary", { p_game_id: gameId }).single();
+  // PGRST116 = zero rows from .single() — the game is genuinely gone, not an RPC hiccup. Any other
+  // error (network blip, timeout) must propagate so the row is left unsent for the retry sweep
+  // instead of getting permanently stamped with a null title (bug: 2026-08-22 nudge_underfilled row).
+  if (error) {
+    if (error.code === "PGRST116") return null;
+    throw error;
+  }
   return data as GameSummary | null;
 });
 
 const getActorName = makeCache(async (profileId: string) => {
-  const { data } = await supabase.rpc("push_actor_name", { p_profile_id: profileId });
+  const { data, error } = await supabase.rpc("push_actor_name", { p_profile_id: profileId });
+  if (error) throw error;
   return (data as string | null) ?? "A player";
 });
 
 const getUnreadCount = makeCache(async (profileId: string) => {
-  const { data } = await supabase.rpc("notification_unread_count", { p_profile_id: profileId });
+  const { data, error } = await supabase.rpc("notification_unread_count", { p_profile_id: profileId });
+  if (error) throw error;
   return (data as number | null) ?? 0;
 });
 
@@ -206,9 +215,13 @@ type Rendered = { body: PushBody; screen: string };
 // One row, one recipient — every notification type's individual (non-coalesced) copy.
 async function renderIndividual(row: NotificationRow): Promise<Rendered | null> {
   if (row.type === "message") {
-    const { data: msgSummary } = await supabase
+    const { data: msgSummary, error } = await supabase
       .rpc("push_message_summary", { p_message_id: row.params.message_id })
       .single();
+    if (error) {
+      if (error.code === "PGRST116") return null;
+      throw error;
+    }
     if (!msgSummary) return null;
     return { body: messageBody(msgSummary as MessageSummary), screen: "chat" };
   }
@@ -303,35 +316,43 @@ async function dispatchNotifications(ids: string[]): Promise<void> {
     let rendered: Rendered | null;
     let count = 1;
 
-    const threshold = row.collapse_key ? COALESCE_THRESHOLD[row.type] : undefined;
-    if (groupKey && threshold && row.game_id) {
-      const windowMin = COALESCE_WINDOW_MIN[row.type];
-      // Count every sibling in the window, sent or not — most rows get individually dispatched
-      // within milliseconds of being enqueued, so gating on "still unsent" almost never catches a
-      // real burst: by the time request #2 lands, #1 has usually already sent and been stamped.
-      // The count that matters is "how many of these has this recipient gotten in the window",
-      // which includes ones already pushed.
-      const { data: siblings } = await supabase
-        .from("notifications")
-        .select("id, sent_at")
-        .eq("profile_id", row.profile_id)
-        .eq("collapse_key", row.collapse_key)
-        .gt("created_at", new Date(Date.now() - windowMin * 60_000).toISOString());
-      const siblingRows = (siblings ?? []) as { id: string; sent_at: string | null }[];
-      count = siblingRows.length;
-      // Only ever stamp/send for rows still unsent — an already-sent sibling keeps its original
-      // individual copy; this pass just adds one more (now coalesced) push on top for whichever
-      // row(s) are new.
-      const unsent = siblingRows.filter((s) => s.sent_at === null).map((s) => s.id);
-      if (count >= threshold) {
-        idsToStamp = unsent.length > 0 ? unsent : [row.id];
-        rendered = await renderCoalesced(row.type, count, row.game_id);
+    try {
+      const threshold = row.collapse_key ? COALESCE_THRESHOLD[row.type] : undefined;
+      if (groupKey && threshold && row.game_id) {
+        const windowMin = COALESCE_WINDOW_MIN[row.type];
+        // Count every sibling in the window, sent or not — most rows get individually dispatched
+        // within milliseconds of being enqueued, so gating on "still unsent" almost never catches a
+        // real burst: by the time request #2 lands, #1 has usually already sent and been stamped.
+        // The count that matters is "how many of these has this recipient gotten in the window",
+        // which includes ones already pushed.
+        const { data: siblings } = await supabase
+          .from("notifications")
+          .select("id, sent_at")
+          .eq("profile_id", row.profile_id)
+          .eq("collapse_key", row.collapse_key)
+          .gt("created_at", new Date(Date.now() - windowMin * 60_000).toISOString());
+        const siblingRows = (siblings ?? []) as { id: string; sent_at: string | null }[];
+        count = siblingRows.length;
+        // Only ever stamp/send for rows still unsent — an already-sent sibling keeps its original
+        // individual copy; this pass just adds one more (now coalesced) push on top for whichever
+        // row(s) are new.
+        const unsent = siblingRows.filter((s) => s.sent_at === null).map((s) => s.id);
+        if (count >= threshold) {
+          idsToStamp = unsent.length > 0 ? unsent : [row.id];
+          rendered = await renderCoalesced(row.type, count, row.game_id);
+        } else {
+          rendered = await renderIndividual(row);
+        }
+        handledGroups.add(groupKey);
       } else {
         rendered = await renderIndividual(row);
       }
-      handledGroups.add(groupKey);
-    } else {
-      rendered = await renderIndividual(row);
+    } catch (err) {
+      // A real render failure (RPC error, network blip) — leave sent_at null so the retry sweep
+      // (dispatch_notification_retries, every 5 min) picks it back up instead of permanently
+      // stamping a blank title/body onto the row.
+      console.error(`renderIndividual failed for notification ${row.id}:`, err);
+      continue;
     }
 
     if (!rendered) {

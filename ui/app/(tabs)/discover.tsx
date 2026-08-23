@@ -14,6 +14,7 @@ import { useDiscoverGames, useMyPastGames, useMyJoinedGames, useMyHostingGames }
 import { useDistanceUnits } from "../../lib/queries/settings";
 import { useVenuesForMap } from "../../lib/queries/venues";
 import { useCreateAlert } from "../../lib/queries/alerts";
+import { useUnreadNotificationCount } from "../../lib/queries/notifications";
 import { useProfileSports } from "../../lib/queries/profile";
 import { useSession } from "../../lib/session";
 import { useUserLocation, useLocationLabel } from "../../lib/location";
@@ -328,11 +329,12 @@ function FallbackLadder({
 }
 
 function NotificationBell() {
-  const [granted, setGranted] = useState<boolean | null>(null);
+  const { data: unreadCount } = useUnreadNotificationCount();
+  const [permissionDenied, setPermissionDenied] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
-      Notifications.getPermissionsAsync().then((r) => setGranted(r.status === Notifications.PermissionStatus.GRANTED));
+      Notifications.getPermissionsAsync().then((r) => setPermissionDenied(r.status !== Notifications.PermissionStatus.GRANTED));
     }, [])
   );
 
@@ -342,8 +344,12 @@ function NotificationBell() {
       className="w-[38px] h-[38px] rounded-full items-center justify-center border"
       style={{ backgroundColor: "#17171A", borderColor: "rgba(255,255,255,0.08)" }}
     >
-      <Ionicons name="notifications-outline" size={16} color={colors.textSecondary} />
-      {granted === false && (
+      <Ionicons
+        name={permissionDenied ? "notifications-off-outline" : "notifications-outline"}
+        size={16}
+        color={permissionDenied ? colors.textTertiary : colors.textSecondary}
+      />
+      {!!unreadCount && (
         <View
           className="absolute rounded-full"
           style={{ width: 8, height: 8, top: 7, right: 8, backgroundColor: colors.danger, borderWidth: 1.5, borderColor: "#17171A" }}

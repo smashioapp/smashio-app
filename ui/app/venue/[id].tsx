@@ -23,6 +23,15 @@ const AMENITY_CATEGORY_LABELS: Record<string, string> = {
   access: "Access",
 };
 
+// Book link (item 2, 2026-08-23): prefer the venue's own booking_url, then its website, then a
+// Google Maps place page (via google_place_id) so there's always somewhere to go beyond Directions.
+function bookHref(venue: { google_place_id: string | null }, profile: { booking_url: string | null; website_url: string | null } | null): string | null {
+  if (profile?.booking_url) return profile.booking_url;
+  if (profile?.website_url) return profile.website_url;
+  if (venue.google_place_id) return `https://www.google.com/maps/place/?q=place_id:${venue.google_place_id}`;
+  return null;
+}
+
 function formatMoney(cents: number): string {
   return cents % 100 === 0 ? `$${cents / 100}` : `$${(cents / 100).toFixed(2)}`;
 }
@@ -72,6 +81,7 @@ export default function VenueScreen() {
 
   const profile = venue.profile;
   const bookable = profile?.bookability === "public";
+  const bookLink = bookHref(venue, profile);
   const restricted = profile?.bookability === "club_only" || profile?.bookability === "members_only";
   const confidence = confidenceState(profile);
   const confidenceTone = CONFIDENCE_TONE[confidence];
@@ -181,11 +191,11 @@ export default function VenueScreen() {
 
           <View className="flex-row gap-2 mt-3.5">
             <ActionButton icon="navigate" label="Directions" onPress={() => openDirections({ venue: venue.name, venueLat: venue.lat, venueLng: venue.lng, venueAddress: venue.address })} />
-            {bookable && profile?.booking_url && (
+            {bookable && bookLink && (
               <ActionButton
                 icon="calendar-outline"
                 label="Book"
-                onPress={() => Linking.openURL(profile.booking_url!).catch(() => Alert.alert("Couldn't open link"))}
+                onPress={() => Linking.openURL(bookLink).catch(() => Alert.alert("Couldn't open link"))}
               />
             )}
             {profile?.phone && (

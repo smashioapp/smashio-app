@@ -131,6 +131,7 @@ export function useDiscoverGames(
     hasSpotsOnly?: boolean;
     verifiedOnly?: boolean;
     maxCostPerPlayerCents?: number | null;
+    amenitySlugs?: string[];
     sortBy?: string;
   },
   center: { lat: number; lng: number } = { lat: DEFAULT_LAT, lng: DEFAULT_LNG },
@@ -142,6 +143,7 @@ export function useDiscoverGames(
   const hasSpotsOnly = filter.hasSpotsOnly ?? false;
   const verifiedOnly = filter.verifiedOnly ?? false;
   const maxCostPerPlayerCents = filter.maxCostPerPlayerCents ?? null;
+  const amenitySlugs = filter.amenitySlugs?.length ? filter.amenitySlugs : undefined;
   const sortBy = filter.sortBy ?? "soonest";
   const units = options.units ?? "km";
   return useQuery({
@@ -157,6 +159,7 @@ export function useDiscoverGames(
       hasSpotsOnly,
       verifiedOnly,
       maxCostPerPlayerCents,
+      amenitySlugs ?? null,
       sortBy,
       units,
     ],
@@ -174,6 +177,7 @@ export function useDiscoverGames(
         verified_only: verifiedOnly,
         max_cost_per_player_cents: maxCostPerPlayerCents ?? undefined,
         sort_by: sortBy,
+        p_amenity_slugs: amenitySlugs,
       });
       if (error) throw error;
       return (data ?? []).map((row) => toGame(row, units));

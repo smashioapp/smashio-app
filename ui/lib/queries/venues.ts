@@ -40,6 +40,14 @@ export type VenueProfile = {
   verified_at: string | null;
 } | null;
 
+export type AmenityType = {
+  slug: string;
+  label: string;
+  icon: string;
+  ordinal: number;
+  category: "essentials" | "gear" | "comfort" | "access";
+};
+
 export type VenueDetail = {
   id: string;
   name: string;
@@ -50,6 +58,7 @@ export type VenueDetail = {
   lng: number;
   region: string | null;
   slug: string | null;
+  google_place_id: string | null;
   profile: VenueProfile;
   amenities: VenueAmenity[];
   pricing_bands: VenuePricingBand[];
@@ -146,8 +155,23 @@ export type VenueDirectoryFilters = {
   minCourts?: number;
   dedicated?: boolean;
   bookableNow?: boolean;
-  amenitySlug?: string;
+  amenitySlugs?: string[];
 };
+
+// "Court amenities" filter section (item 1, 2026-08-23) — shared amenity_types list backing
+// both the venue directory and Discover's Filters sheet, so the chip set stays one source of
+// truth instead of duplicating the amenity_types seed (20260815000800) in the client.
+export function useAmenityTypes() {
+  return useQuery({
+    queryKey: ["amenityTypes"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("amenity_types").select("slug, label, icon, ordinal, category").order("ordinal");
+      if (error) throw error;
+      return data as AmenityType[];
+    },
+    staleTime: 60 * 60 * 1000,
+  });
+}
 
 // Venue Screen Redesign panel 6 ("Courts near me") — state-bound directory list, independent
 // of the Discover map's viewport-bound venues_near. Every seeded venue is NSW, so this is
@@ -162,7 +186,7 @@ export function useVenuesDirectory(filters: VenueDirectoryFilters) {
         p_min_courts: filters.minCourts ?? undefined,
         p_dedicated: filters.dedicated ?? undefined,
         p_bookable_now: filters.bookableNow ?? undefined,
-        p_amenity_slug: filters.amenitySlug ?? undefined,
+        p_amenity_slugs: filters.amenitySlugs?.length ? filters.amenitySlugs : undefined,
         p_limit: 100,
         p_offset: 0,
       });

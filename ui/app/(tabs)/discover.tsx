@@ -12,7 +12,7 @@ import { useReduceMotion } from "../../lib/motion";
 import { makeScrollHideHandler, registerScrollToTop, unregisterScrollToTop } from "../../lib/navScroll";
 import { useDiscoverGames, useMyPastGames, useMyJoinedGames, useMyHostingGames } from "../../lib/queries/games";
 import { useDistanceUnits } from "../../lib/queries/settings";
-import { useVenuesForMap } from "../../lib/queries/venues";
+import { useVenuesForMap, useAmenityTypes } from "../../lib/queries/venues";
 import { useCreateAlert } from "../../lib/queries/alerts";
 import { useUnreadNotificationCount } from "../../lib/queries/notifications";
 import { useProfileSports } from "../../lib/queries/profile";
@@ -108,8 +108,11 @@ function FiltersSheet({
     setVerifiedOnly,
     maxCostPerPlayerCents,
     setMaxCostPerPlayerCents,
+    amenityFilters,
+    toggleAmenityFilter,
     clearDiscoverFilters,
   } = useAppStore();
+  const amenityTypesQuery = useAmenityTypes();
 
   return (
     <Sheet visible={visible} onClose={onClose} title="Filters & sort">
@@ -203,6 +206,19 @@ function FiltersSheet({
             <Chip label="Verified" active={verifiedOnly} onPress={() => setVerifiedOnly(!verifiedOnly)} size="sm" />
           </View>
         </View>
+
+        {(amenityTypesQuery.data?.length ?? 0) > 0 && (
+          <View className="gap-2">
+            <Text className="text-[12.5px] font-body-bold" style={{ color: colors.textTertiary }}>
+              COURT AMENITIES
+            </Text>
+            <View className="flex-row flex-wrap gap-2">
+              {amenityTypesQuery.data!.map((a) => (
+                <Chip key={a.slug} label={a.label} active={amenityFilters.includes(a.slug)} onPress={() => toggleAmenityFilter(a.slug)} size="sm" />
+              ))}
+            </View>
+          </View>
+        )}
 
         <Pressable
           onPress={() => {
@@ -312,7 +328,9 @@ function FallbackLadder({
             <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
           </Pressable>
         ))}
-        <AlertMeRow state={alertState} onPress={onAlert} />
+        <View className="mt-2">
+          <AlertMeRow state={alertState} onPress={onAlert} />
+        </View>
         <Pressable
           onPress={onHost}
           className="flex-row items-center justify-between rounded-xl px-4 py-3.5"
@@ -459,6 +477,8 @@ export default function Discover() {
     setVerifiedOnly,
     maxCostPerPlayerCents,
     setMaxCostPerPlayerCents,
+    amenityFilters,
+    setAmenityFilters,
     sortBy,
     setSortBy,
   } = useAppStore();
@@ -562,7 +582,7 @@ export default function Discover() {
   }, [viewerTier?.slug]);
 
   const discoverQuery = useDiscoverGames(
-    { tierSlugs: levelFilters, when: whenFilter, radiusKm: discoverRadiusKm, hasSpotsOnly, verifiedOnly, maxCostPerPlayerCents, sortBy },
+    { tierSlugs: levelFilters, when: whenFilter, radiusKm: discoverRadiusKm, hasSpotsOnly, verifiedOnly, maxCostPerPlayerCents, amenitySlugs: amenityFilters, sortBy },
     userLocation,
     { units: distanceUnits }
   );
@@ -574,7 +594,7 @@ export default function Discover() {
   const mapCenter = mapAreaOverride ? { lat: mapAreaOverride.lat, lng: mapAreaOverride.lng } : userLocation;
   const mapRadiusKm = mapAreaOverride ? mapAreaOverride.radiusKm : discoverRadiusKm;
   const mapQuery = useDiscoverGames(
-    { tierSlugs: levelFilters, when: whenFilter, radiusKm: mapRadiusKm, hasSpotsOnly, verifiedOnly, maxCostPerPlayerCents, sortBy },
+    { tierSlugs: levelFilters, when: whenFilter, radiusKm: mapRadiusKm, hasSpotsOnly, verifiedOnly, maxCostPerPlayerCents, amenitySlugs: amenityFilters, sortBy },
     mapCenter,
     { enabled: discoverView === "map", units: distanceUnits }
   );
@@ -728,6 +748,7 @@ export default function Discover() {
     hasSpotsOnly,
     verifiedOnly,
     maxCostPerPlayerCents != null,
+    amenityFilters.length > 0,
     sortBy !== "soonest",
   ].filter(Boolean).length;
   const isFiltered = levelFilters.length > 0 || whenFilter !== "all" || advancedFilterCount > 0;
@@ -757,6 +778,9 @@ export default function Discover() {
       : null,
     hasSpotsOnly ? { key: "spots", label: "Has spots", onClear: () => setHasSpotsOnly(false) } : null,
     verifiedOnly ? { key: "verified", label: "Verified", onClear: () => setVerifiedOnly(false) } : null,
+    amenityFilters.length > 0
+      ? { key: "amenities", label: amenityFilters.length === 1 ? "1 amenity" : `${amenityFilters.length} amenities`, onClear: () => setAmenityFilters([]) }
+      : null,
   ].filter((c): c is { key: string; label: string; onClear: () => void } => c !== null);
 
   // Fallback ladder (D5): only fires a second query once we know the primary one came back
@@ -764,7 +788,7 @@ export default function Discover() {
   // against the current filters to build honest, counted "try this instead" rungs.
   const fallbackEnabled = !showInitialLoading && !showError && games.length === 0 && isFiltered;
   const fallbackQuery = useDiscoverGames(
-    { tierSlugs: [], when: "all", radiusKm: DEFAULT_DISCOVER_RADIUS_KM, hasSpotsOnly, verifiedOnly, maxCostPerPlayerCents, sortBy: "soonest" },
+    { tierSlugs: [], when: "all", radiusKm: DEFAULT_DISCOVER_RADIUS_KM, hasSpotsOnly, verifiedOnly, maxCostPerPlayerCents, amenitySlugs: amenityFilters, sortBy: "soonest" },
     userLocation,
     { enabled: fallbackEnabled, units: distanceUnits }
   );
@@ -944,7 +968,7 @@ export default function Discover() {
 
   // Keying the list wrapper to the active filter set turns a filter change into a cross-fade
   // (D6) instead of a hard swap — React remounts the subtree, playing exit/enter on each change.
-  const filterSignature = `${whenFilter}|${levelFilters.join(",")}|${sortBy}|${discoverRadiusKm}|${hasSpotsOnly}|${verifiedOnly}|${maxCostPerPlayerCents}`;
+  const filterSignature = `${whenFilter}|${levelFilters.join(",")}|${sortBy}|${discoverRadiusKm}|${hasSpotsOnly}|${verifiedOnly}|${maxCostPerPlayerCents}|${amenityFilters.join(",")}`;
 
   const pastGamesQuery = useMyPastGames();
 
@@ -1051,7 +1075,7 @@ export default function Discover() {
                         clearDiscoverFilters();
                       }}
                     />
-                    <View className="w-full px-6">
+                    <View className="w-full px-6 mt-4">
                       <AlertMeRow state={alertState} onPress={handleSetAlert} />
                     </View>
                   </View>

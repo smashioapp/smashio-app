@@ -93,6 +93,9 @@ type AppState = {
   setVerifiedOnly: (v: boolean) => void;
   maxCostPerPlayerCents: number | null;
   setMaxCostPerPlayerCents: (v: number | null) => void;
+  amenityFilters: string[];
+  toggleAmenityFilter: (slug: string) => void;
+  setAmenityFilters: (v: string[]) => void;
   sortBy: SortOption;
   setSortBy: (v: SortOption) => void;
   clearDiscoverFilters: () => void;
@@ -144,6 +147,10 @@ export const useAppStore = create<AppState>((set) => ({
   setVerifiedOnly: (v) => set({ verifiedOnly: v }),
   maxCostPerPlayerCents: null,
   setMaxCostPerPlayerCents: (v) => set({ maxCostPerPlayerCents: v }),
+  amenityFilters: [],
+  toggleAmenityFilter: (slug) =>
+    set((s) => ({ amenityFilters: s.amenityFilters.includes(slug) ? s.amenityFilters.filter((x) => x !== slug) : [...s.amenityFilters, slug] })),
+  setAmenityFilters: (v) => set({ amenityFilters: v }),
   sortBy: "soonest",
   setSortBy: (v) => set({ sortBy: v }),
   clearDiscoverFilters: () =>
@@ -154,6 +161,7 @@ export const useAppStore = create<AppState>((set) => ({
       hasSpotsOnly: false,
       verifiedOnly: false,
       maxCostPerPlayerCents: null,
+      amenityFilters: [],
       sortBy: "soonest",
     }),
 

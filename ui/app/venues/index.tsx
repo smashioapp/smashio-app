@@ -3,19 +3,18 @@ import { View, Text, TextInput, ActivityIndicator, ScrollView } from "react-nati
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../../lib/theme";
-import { useVenuesDirectory } from "../../lib/queries/venues";
+import { useVenuesDirectory, useAmenityTypes } from "../../lib/queries/venues";
 import { BackButton } from "../../components/BackButton";
 import { Chip } from "../../components/Chip";
 import { VenueCard } from "../../components/VenueCard";
 import { EmptyState } from "../../components/EmptyState";
 
-type FilterKey = "bookable" | "min4" | "dedicated" | "parking";
+type FilterKey = "bookable" | "min4" | "dedicated";
 
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "bookable", label: "Bookable now" },
   { key: "min4", label: "4+ courts" },
   { key: "dedicated", label: "Dedicated" },
-  { key: "parking", label: "Parking" },
 ];
 
 // Venue Screen Redesign panel 6 ("Courts near me") — the facility directory as its own
@@ -24,6 +23,8 @@ const FILTERS: { key: FilterKey; label: string }[] = [
 export default function VenuesDirectoryScreen() {
   const [search, setSearch] = useState("");
   const [active, setActive] = useState<Set<FilterKey>>(new Set());
+  const [activeAmenities, setActiveAmenities] = useState<Set<string>>(new Set());
+  const amenityTypesQuery = useAmenityTypes();
 
   const toggle = (key: FilterKey) => {
     setActive((prev) => {
@@ -33,12 +34,20 @@ export default function VenuesDirectoryScreen() {
     });
   };
 
+  const toggleAmenity = (slug: string) => {
+    setActiveAmenities((prev) => {
+      const next = new Set(prev);
+      next.has(slug) ? next.delete(slug) : next.add(slug);
+      return next;
+    });
+  };
+
   const query = useVenuesDirectory({
     search: search.trim() || undefined,
     bookableNow: active.has("bookable") || undefined,
     minCourts: active.has("min4") ? 4 : undefined,
     dedicated: active.has("dedicated") || undefined,
-    amenitySlug: active.has("parking") ? "parking" : undefined,
+    amenitySlugs: activeAmenities.size > 0 ? Array.from(activeAmenities) : undefined,
   });
 
   const venues = query.data ?? [];
@@ -78,6 +87,19 @@ export default function VenuesDirectoryScreen() {
             <Chip key={f.key} label={f.label} active={active.has(f.key)} onPress={() => toggle(f.key)} size="sm" />
           ))}
         </View>
+
+        {(amenityTypesQuery.data?.length ?? 0) > 0 && (
+          <>
+            <Text className="text-[11.5px] font-body-bold uppercase tracking-wide mt-4" style={{ color: colors.textSecondary }}>
+              Court amenities
+            </Text>
+            <View className="flex-row flex-wrap gap-2 mt-2">
+              {amenityTypesQuery.data!.map((a) => (
+                <Chip key={a.slug} label={a.label} active={activeAmenities.has(a.slug)} onPress={() => toggleAmenity(a.slug)} size="sm" />
+              ))}
+            </View>
+          </>
+        )}
       </View>
 
       {query.isLoading ? (
@@ -91,6 +113,7 @@ export default function VenuesDirectoryScreen() {
           ctaLabel="Clear filters"
           onCta={() => {
             setActive(new Set());
+            setActiveAmenities(new Set());
             setSearch("");
           }}
         />

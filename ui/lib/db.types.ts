@@ -1566,6 +1566,7 @@ export type Database = {
           lat: number
           lng: number
           max_cost_per_player_cents?: number
+          p_amenity_slugs?: string[]
           p_exclude_mine?: boolean
           radius_m: number
           sort_by?: string
@@ -1771,7 +1772,7 @@ export type Database = {
       venue_detail: { Args: { p_venue_id: string }; Returns: Json }
       venues_directory: {
         Args: {
-          p_amenity_slug?: string
+          p_amenity_slugs?: string[]
           p_bookable_now?: boolean
           p_dedicated?: boolean
           p_limit?: number

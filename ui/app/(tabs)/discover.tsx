@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { View, Text, Pressable, ScrollView, TextInput, Dimensions, FlatList, BackHandler, Alert, NativeSyntheticEvent, NativeScrollEvent } from "react-native";
+import { View, Text, Pressable, ScrollView, TextInput, Dimensions, FlatList, BackHandler, Alert, Linking, NativeSyntheticEvent, NativeScrollEvent } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useFocusEffect } from "expo-router";
@@ -340,7 +340,7 @@ function NotificationBell() {
 
   return (
     <Pressable
-      onPress={() => router.push("/notifications")}
+      onPress={() => (permissionDenied ? Linking.openSettings() : router.push("/notifications"))}
       className="w-[38px] h-[38px] rounded-full items-center justify-center border"
       style={{ backgroundColor: "#17171A", borderColor: "rgba(255,255,255,0.08)" }}
     >
@@ -349,12 +349,23 @@ function NotificationBell() {
         size={16}
         color={permissionDenied ? colors.textTertiary : colors.textSecondary}
       />
-      {!!unreadCount && (
+      {permissionDenied ? (
         <View
-          className="absolute rounded-full"
-          style={{ width: 8, height: 8, top: 7, right: 8, backgroundColor: colors.danger, borderWidth: 1.5, borderColor: "#17171A" }}
-        />
-      )}
+          className="absolute rounded-full items-center justify-center"
+          style={{ minWidth: 15, height: 15, top: -3, right: -3, paddingHorizontal: 2, backgroundColor: colors.danger, borderWidth: 1.5, borderColor: "#17171A" }}
+        >
+          <Ionicons name="close" size={9} color={colors.base} />
+        </View>
+      ) : !!unreadCount ? (
+        <View
+          className="absolute rounded-full items-center justify-center"
+          style={{ minWidth: 15, height: 15, top: -3, right: -3, paddingHorizontal: 2, backgroundColor: colors.danger, borderWidth: 1.5, borderColor: "#17171A" }}
+        >
+          <Text className="font-body-bold" style={{ fontSize: 9, color: colors.base, lineHeight: 11 }}>
+            {unreadCount > 99 ? "99+" : unreadCount}
+          </Text>
+        </View>
+      ) : null}
     </Pressable>
   );
 }

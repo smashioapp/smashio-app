@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import * as Notifications from "expo-notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../supabase";
 import { useSession } from "../session";
@@ -113,6 +114,17 @@ export function useUnreadNotificationCount() {
       return count ?? 0;
     },
   });
+}
+
+// Keeps the home-screen app icon badge in step with the in-app unread count (§ scenario 2 —
+// same number both places). Mounted once at the root alongside useNotificationRealtimeSync.
+export function useAppIconBadgeSync() {
+  const { data: unreadCount } = useUnreadNotificationCount();
+
+  useEffect(() => {
+    if (unreadCount === undefined) return;
+    Notifications.setBadgeCountAsync(unreadCount).catch(() => {});
+  }, [unreadCount]);
 }
 
 export function useMarkNotificationRead() {

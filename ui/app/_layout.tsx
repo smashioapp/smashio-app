@@ -13,7 +13,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "../lib/queryClient";
 import { SessionProvider } from "../lib/session";
 import { usePushRegistration, useTrackActiveRoute } from "../lib/notifications";
-import { useNotificationRealtimeSync } from "../lib/queries/notifications";
+import { useAppIconBadgeSync, useNotificationRealtimeSync } from "../lib/queries/notifications";
 import { AnimatedSplash } from "../components/AnimatedSplash";
 import { ErrorBoundary } from "../components/ErrorBoundary";
 import {
@@ -98,5 +98,6 @@ function PushRegistration() {
   usePushRegistration();
   useTrackActiveRoute();
   useNotificationRealtimeSync();
+  useAppIconBadgeSync();
   return null;
 }

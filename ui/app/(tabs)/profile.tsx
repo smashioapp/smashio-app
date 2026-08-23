@@ -22,7 +22,6 @@ import { buildWeekHeatmap } from "../../lib/format";
 import { useSession } from "../../lib/session";
 import { usePlayerCard, useLateLeaveCount, useProfileStreak, useProfileActivity } from "../../lib/queries/profile";
 import { usePeerPerceivedSkill } from "../../lib/queries/ratings";
-import { useUnreadNotificationCount } from "../../lib/queries/notifications";
 import { haptics } from "../../lib/haptics";
 import { supabase } from "../../lib/supabase";
 
@@ -45,7 +44,6 @@ export default function Profile() {
 
   const { data: card, isLoading: cardLoading, isError: cardError, refetch: refetchCard } = usePlayerCard(userId);
   const { data: lateLeaves } = useLateLeaveCount(userId);
-  const { data: unreadCount } = useUnreadNotificationCount();
   const { data: streak } = useProfileStreak(userId);
   const { data: activity } = useProfileActivity(userId);
   const { data: peerSkill } = usePeerPerceivedSkill(userId);
@@ -128,36 +126,15 @@ export default function Profile() {
           <Text className="font-display text-[26px]" style={{ color: colors.text }}>
             Profile
           </Text>
-          <View className="flex-row items-center gap-2.5">
-            <Pressable
-              onPress={() => router.push("/notification-settings")}
-              hitSlop={8}
-              className="w-9 h-9 rounded-full items-center justify-center border"
-              style={{ backgroundColor: colors.surface, borderColor: colors.cardBorder }}
-              testID="profile-notifications-bell"
-            >
-              <Ionicons name="notifications-outline" size={16} color={colors.textTertiary} />
-              {!!unreadCount && (
-                <View
-                  className="absolute rounded-full items-center justify-center"
-                  style={{ top: -2, right: -2, minWidth: 15, height: 15, paddingHorizontal: 3, backgroundColor: colors.accent }}
-                >
-                  <Text className="font-body-extrabold" style={{ fontSize: 9, color: colors.base }}>
-                    {unreadCount > 9 ? "9+" : unreadCount}
-                  </Text>
-                </View>
-              )}
-            </Pressable>
-            <Pressable
-              onPress={() => router.push("/settings")}
-              hitSlop={8}
-              className="w-9 h-9 rounded-full items-center justify-center border"
-              style={{ backgroundColor: colors.surface, borderColor: colors.cardBorder }}
-              testID="profile-settings-gear"
-            >
-              <Ionicons name="settings-outline" size={16} color={colors.textTertiary} />
-            </Pressable>
-          </View>
+          <Pressable
+            onPress={() => router.push("/settings")}
+            hitSlop={8}
+            className="w-9 h-9 rounded-full items-center justify-center border"
+            style={{ backgroundColor: colors.surface, borderColor: colors.cardBorder }}
+            testID="profile-settings-gear"
+          >
+            <Ionicons name="settings-outline" size={16} color={colors.textTertiary} />
+          </Pressable>
         </View>
 
         {cardLoading && (

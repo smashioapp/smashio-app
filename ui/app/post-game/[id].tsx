@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { View, Text, Pressable, ScrollView, Alert } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
+import * as Sentry from "@sentry/react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withDelay, withSequence, withSpring, withTiming } from "react-native-reanimated";
 import { colors, gradients, initial, reliabilityLabel, gamesPlayedTier } from "../../lib/theme";
 import { usePastGameDetail } from "../../lib/queries/games";
@@ -184,8 +185,10 @@ export default function PostGame() {
         await submitRatingTags.mutateAsync({ gameId: id ?? "", tags });
       }
       setRevealing(true);
-    } catch {
-      Alert.alert("Couldn't submit ratings", "Please try again.");
+    } catch (err) {
+      Sentry.captureException(err, { tags: { screen: "post-game-submit" }, extra: { gameId: id } });
+      const detail = err instanceof Error ? err.message : null;
+      Alert.alert("Couldn't submit ratings", detail ?? "Please try again.");
     }
   };
 

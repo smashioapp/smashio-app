@@ -43,12 +43,28 @@ module.exports = {
     web: {
       favicon: "./assets/favicon.png",
     },
+    owner: "smashios-team",
     extra: {
       eas: {
-        projectId: "ba1a8855-77c1-457a-b7ab-2a7920f5facc",
+        projectId: "e540e051-db0a-488c-82a6-1f917cbba5a5",
+      },
+    },
+    // OTA JS updates via EAS Update. runtimeVersion is tied to the native build (policy
+    // "appVersion") so an OTA bundle only ever targets binaries built from the same
+    // native code shape -- a JS-only fix ships instantly, a native dependency bump still
+    // needs a fresh TestFlight build. Channel is picked per build via EXPO_PUBLIC_UPDATE_CHANNEL
+    // so beta and production binaries never pull each other's updates.
+    runtimeVersion: {
+      policy: "appVersion",
+    },
+    updates: {
+      url: "https://u.expo.dev/e540e051-db0a-488c-82a6-1f917cbba5a5",
+      requestHeaders: {
+        "expo-channel-name": process.env.EXPO_PUBLIC_UPDATE_CHANNEL ?? "production",
       },
     },
     plugins: [
+      "expo-updates",
       "expo-router",
       "expo-status-bar",
       "expo-font",

@@ -139,6 +139,7 @@ module.exports = {
         },
       ],
       "./plugins/withAndroidReleaseSigning",
+      "./plugins/withAndroidGradleMemory",
       "expo-sharing",
       "@react-native-community/datetimepicker",
       "expo-document-picker",

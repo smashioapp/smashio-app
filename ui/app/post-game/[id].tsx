@@ -1,12 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { View, Text, Pressable, ScrollView, Alert } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
 import * as Sentry from "@sentry/react-native";
 import Animated, { useAnimatedStyle, useSharedValue, withDelay, withSequence, withSpring, withTiming } from "react-native-reanimated";
-import { colors, gradients, initial, reliabilityLabel, gamesPlayedTier } from "../../lib/theme";
-import { usePastGameDetail } from "../../lib/queries/games";
-import { useSubmitRatings, useSubmitRatingTags, RATING_TAGS } from "../../lib/queries/ratings";
+import { colors, gradients, initial, reliabilityLabel, gamesPlayedTier, tierColor } from "../../lib/theme";
+import { usePastGameDetail, SPORT_SLUG } from "../../lib/queries/games";
+import { useGameAttendance, useMarkAttendance } from "../../lib/queries/gamePlayers";
+import { useSubmitPostGameRatings, RATING_TAGS, HOST_RATING_TAGS } from "../../lib/queries/ratings";
+import { useSkillTiers } from "../../lib/queries/sports";
 import { useSession } from "../../lib/session";
 import { useProfile, useProfileStats, useProfileStreak } from "../../lib/queries/profile";
 import { useAppStore } from "../../lib/store";
@@ -70,6 +73,83 @@ function StarRow({ value, onChange }: { value: number; onChange: (n: number) => 
   );
 }
 
+function TagRow({
+  tags,
+  active,
+  onToggle,
+}: {
+  tags: { id: string; label: string }[];
+  active: string[];
+  onToggle: (tagId: string) => void;
+}) {
+  return (
+    <View className="flex-row flex-wrap gap-1.5">
+      {tags.map((t) => {
+        const on = active.includes(t.id);
+        return (
+          <Pressable
+            key={t.id}
+            onPress={() => onToggle(t.id)}
+            className="rounded-pill px-2.5 py-1 border"
+            style={{
+              backgroundColor: on ? "rgba(214,255,63,0.14)" : colors.surface,
+              borderColor: on ? colors.accent : colors.cardBorder,
+            }}
+          >
+            <Text className="font-body-bold text-[11.5px]" style={{ color: on ? colors.accent : colors.textTertiary }}>
+              {t.label}
+            </Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
+// post-game-plan.md D5. The player's own declared tier is shown as the pre-answer so the rater is
+// confirming or correcting a claim rather than guessing cold. Nothing here overwrites their
+// profile — they keep authority on their own tier; this is the signal we use to nudge them later.
+function SkillVoteRow({
+  declaredTier,
+  tiers,
+  selectedTierId,
+  onSelect,
+}: {
+  declaredTier: string | null;
+  tiers: { id: string; label: string }[];
+  selectedTierId: string | undefined;
+  onSelect: (tierId: string) => void;
+}) {
+  return (
+    <View className="gap-1.5">
+      <Text className="text-[11.5px] font-body-semibold" style={{ color: colors.textMuted }}>
+        {declaredTier ? `They play as ${declaredTier}. Right level?` : "What level do they play at?"}
+      </Text>
+      <View className="flex-row flex-wrap gap-1.5">
+        {tiers.map((t) => {
+          const on = selectedTierId === t.id;
+          const accent = tierColor(t.label);
+          return (
+            <Pressable
+              key={t.id}
+              onPress={() => {
+                haptics.tick();
+                onSelect(t.id);
+              }}
+              className="rounded-pill px-2.5 py-1 border"
+              style={{ backgroundColor: on ? colors.surfaceAlt : colors.surface, borderColor: on ? accent : colors.cardBorder }}
+            >
+              <Text className="font-body-bold text-[11.5px]" style={{ color: on ? accent : colors.textTertiary }}>
+                {t.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
 function StreakFlame({ streak, burst }: { streak: number; burst: boolean }) {
   const scale = useSharedValue(0.4);
 
@@ -125,22 +205,25 @@ function TierUpMoment({ tierId, color, burst }: { tierId: string; color: string;
 
 export default function PostGame() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const gameQuery = usePastGameDetail(id ?? "");
+  const gameId = id ?? "";
+  const gameQuery = usePastGameDetail(gameId);
   const game = gameQuery.data;
-  const [ratings, setRatings] = useState<Record<string, number>>({});
-  const rate = (playerId: string, n: number) => setRatings((r) => ({ ...r, [playerId]: n }));
-  const submitRatings = useSubmitRatings();
 
+  const [stars, setStars] = useState<Record<string, number>>({});
+  const [hostStars, setHostStars] = useState<Record<string, number>>({});
   const [tags, setTags] = useState<Record<string, string[]>>({});
-  const toggleTag = (playerId: string, tagId: string) => {
-    haptics.tick();
-    setTags((t) => {
-      const current = t[playerId] ?? [];
-      const next = current.includes(tagId) ? current.filter((x) => x !== tagId) : [...current, tagId];
-      return { ...t, [playerId]: next };
-    });
-  };
-  const submitRatingTags = useSubmitRatingTags();
+  const [hostTags, setHostTags] = useState<Record<string, string[]>>({});
+  const [skillVotes, setSkillVotes] = useState<Record<string, string>>({});
+  const submit_ = useSubmitPostGameRatings();
+
+  const { data: tiers } = useSkillTiers(SPORT_SLUG);
+
+  // The host is asked who turned up before anyone rates (post-game-plan.md D4). Marking is what
+  // releases the rating prompt to everyone else, so it sits above the rating list, not beside it.
+  const attendanceOpen = !!game?.viewerIsHost && !game?.attendanceMarkedAt;
+  const { data: attendance } = useGameAttendance(gameId, attendanceOpen);
+  const markAttendance = useMarkAttendance(gameId);
+  const [noShows, setNoShows] = useState<string[]>([]);
 
   const { session } = useSession();
   const userId = session?.user.id;
@@ -156,6 +239,23 @@ export default function PostGame() {
   const prevTier = gamesPlayedTier(Math.max(0, gamesPlayed - 1));
   const newTier = gamesPlayedTier(gamesPlayed);
   const tieredUp = gamesPlayed > 0 && prevTier.id !== newTier.id;
+
+  const tierOptions = useMemo(
+    () =>
+      (tiers ?? [])
+        .map((t) => ({ id: t.id, label: t.label, ordinal: t.ordinal }))
+        .sort((a, b) => a.ordinal - b.ordinal),
+    [tiers]
+  );
+
+  const toggleTag = (setter: typeof setTags, playerId: string, tagId: string) => {
+    haptics.tick();
+    setter((t) => {
+      const current = t[playerId] ?? [];
+      const next = current.includes(tagId) ? current.filter((x) => x !== tagId) : [...current, tagId];
+      return { ...t, [playerId]: next };
+    });
+  };
 
   // Same rebook path as the Past tab (my-games-plan.md §M4) — was `router.replace("/wizard")`
   // with an empty draft, which booked nothing, just opened the host flow.
@@ -177,16 +277,23 @@ export default function PostGame() {
     router.replace("/wizard");
   };
 
+  const confirmAttendance = async () => {
+    haptics.tap();
+    try {
+      await markAttendance.mutateAsync(noShows);
+    } catch (err) {
+      Sentry.captureException(err, { tags: { screen: "post-game-attendance" }, extra: { gameId } });
+      Alert.alert("Couldn't save attendance", err instanceof Error ? err.message : "Please try again.");
+    }
+  };
+
   const submit = async () => {
     haptics.success();
     try {
-      await submitRatings.mutateAsync({ gameId: id ?? "", stars: ratings });
-      if (Object.values(tags).some((t) => t.length > 0)) {
-        await submitRatingTags.mutateAsync({ gameId: id ?? "", tags });
-      }
+      await submit_.mutateAsync({ gameId, stars, hostStars, tags, hostTags, skillVotes });
       setRevealing(true);
     } catch (err) {
-      Sentry.captureException(err, { tags: { screen: "post-game-submit" }, extra: { gameId: id } });
+      Sentry.captureException(err, { tags: { screen: "post-game-submit" }, extra: { gameId } });
       const detail = err instanceof Error ? err.message : null;
       Alert.alert("Couldn't submit ratings", detail ?? "Please try again.");
     }
@@ -261,13 +368,15 @@ export default function PostGame() {
 
   if (!game) return null;
 
+  const nothingToRate = game.players.length === 0;
+
   return (
     <Screen>
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         <View className="flex-row items-center gap-3 px-5 pt-1.5 pb-3.5">
           <BackButton onPress={() => router.back()} />
           <Text className="font-display text-[19px]" style={{ color: colors.text }}>
-            Rate your match
+            {attendanceOpen ? "Who turned up?" : "Rate your match"}
           </Text>
         </View>
 
@@ -276,46 +385,143 @@ export default function PostGame() {
             {game.venue} · {game.date}
           </Text>
 
-          {game.players.map((p) => (
-            <View key={p.id} className="py-3 border-b gap-2.5" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-              <View className="flex-row items-center gap-3">
-                <Pressable
-                  className="flex-row items-center gap-3 flex-1"
-                  onPress={() => router.push(`/player/${p.id}`)}
-                >
-                  <View className="w-10 h-10 rounded-full items-center justify-center" style={{ backgroundColor: p.color }}>
-                    <Text style={{ color: colors.base, fontWeight: "800" }}>{initial(p.name)}</Text>
-                  </View>
-                  <Text className="flex-1 font-body-bold text-[15.5px]" style={{ color: colors.text }}>
-                    {p.name}
-                  </Text>
-                </Pressable>
-                <StarRow value={ratings[p.id] ?? 0} onChange={(n) => rate(p.id, n)} />
-              </View>
-              {(ratings[p.id] ?? 0) > 0 && (
-                <View className="flex-row flex-wrap gap-1.5 pl-[52px]">
-                  {RATING_TAGS.map((t) => {
-                    const active = (tags[p.id] ?? []).includes(t.id);
-                    return (
-                      <Pressable
-                        key={t.id}
-                        onPress={() => toggleTag(p.id, t.id)}
-                        className="rounded-pill px-2.5 py-1 border"
-                        style={{
-                          backgroundColor: active ? "rgba(214,255,63,0.14)" : colors.surface,
-                          borderColor: active ? colors.accent : colors.cardBorder,
-                        }}
-                      >
-                        <Text className="font-body-bold text-[11.5px]" style={{ color: active ? colors.accent : colors.textTertiary }}>
-                          {t.label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </View>
-              )}
+          {attendanceOpen && (
+            <View className="rounded-2xl p-4 mb-5 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
+              <Text className="font-body-extrabold text-[13px] uppercase mb-1" style={{ color: colors.textTertiary }}>
+                Mark no-shows
+              </Text>
+              <Text className="text-[12.5px] mb-3" style={{ color: colors.textMuted }}>
+                Only you can say who actually played. Anyone you mark drops out of everyone's rating list — and
+                can't rate anyone either.
+              </Text>
+              {(attendance ?? []).map((p) => {
+                const missing = noShows.includes(p.profileId);
+                return (
+                  <Pressable
+                    key={p.profileId}
+                    testID={`attendance-${p.profileId}`}
+                    onPress={() => {
+                      haptics.tick();
+                      setNoShows((n) => (missing ? n.filter((x) => x !== p.profileId) : [...n, p.profileId]));
+                    }}
+                    className="flex-row items-center gap-3 py-2.5"
+                  >
+                    <View className="w-9 h-9 rounded-full items-center justify-center" style={{ backgroundColor: p.color, opacity: missing ? 0.35 : 1 }}>
+                      <Text style={{ color: colors.base, fontWeight: "800" }}>{initial(p.name)}</Text>
+                    </View>
+                    <Text
+                      className="flex-1 font-body-bold text-[15px]"
+                      style={{ color: missing ? colors.textMuted : colors.text, textDecorationLine: missing ? "line-through" : "none" }}
+                    >
+                      {p.name}
+                    </Text>
+                    <View
+                      className="rounded-pill px-2.5 py-1 border"
+                      style={{
+                        backgroundColor: missing ? "rgba(255,255,255,0.04)" : colors.surface,
+                        borderColor: missing ? colors.cardBorder : "rgba(214,255,63,0.4)",
+                      }}
+                    >
+                      <Text className="font-body-bold text-[11.5px]" style={{ color: missing ? colors.textMuted : colors.accent }}>
+                        {missing ? "No-show" : "Played"}
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+              <Pressable
+                testID="attendance-confirm"
+                onPress={confirmAttendance}
+                disabled={markAttendance.isPending}
+                className="rounded-pill py-3 items-center mt-2 border-[1.5px]"
+                style={{ borderColor: colors.accent, opacity: markAttendance.isPending ? 0.5 : 1 }}
+              >
+                <Text className="font-body-extrabold text-[14.5px]" style={{ color: colors.accent }}>
+                  {noShows.length === 0 ? "Everyone played" : `Confirm — ${noShows.length} no-show${noShows.length === 1 ? "" : "s"}`}
+                </Text>
+              </Pressable>
             </View>
-          ))}
+          )}
+
+          {nothingToRate ? (
+            <View className="rounded-2xl p-4 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
+              <Text className="font-body-bold text-[14.5px]" style={{ color: colors.text }}>
+                Nobody to rate
+              </Text>
+              <Text className="text-[12.5px] mt-1" style={{ color: colors.textMuted }}>
+                Everyone else on this game was marked as a no-show.
+              </Text>
+            </View>
+          ) : (
+            game.players.map((p) => {
+              const playerStars = stars[p.id] ?? 0;
+              const started = playerStars > 0 || p.ratedPlayer;
+              return (
+                <View key={p.id} className="py-3 border-b gap-2.5" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                  <View className="flex-row items-center gap-3">
+                    <Pressable className="flex-row items-center gap-3 flex-1" onPress={() => router.push(`/player/${p.id}`)}>
+                      <View className="w-10 h-10 rounded-full items-center justify-center" style={{ backgroundColor: p.color }}>
+                        <Text style={{ color: colors.base, fontWeight: "800" }}>{initial(p.name)}</Text>
+                      </View>
+                      <View className="flex-1">
+                        <Text className="font-body-bold text-[15.5px]" style={{ color: colors.text }}>
+                          {p.name}
+                        </Text>
+                        {p.isHost && (
+                          <Text className="text-[11.5px] font-body-semibold" style={{ color: colors.accent }}>
+                            Host
+                          </Text>
+                        )}
+                      </View>
+                    </Pressable>
+                    {p.ratedPlayer ? (
+                      <View className="flex-row items-center gap-1">
+                        <Ionicons name="checkmark-circle" size={15} color={colors.accent} />
+                        <Text className="text-[12px] font-body-semibold" style={{ color: colors.textMuted }}>
+                          Rated
+                        </Text>
+                      </View>
+                    ) : (
+                      <StarRow value={playerStars} onChange={(n) => setStars((r) => ({ ...r, [p.id]: n }))} />
+                    )}
+                  </View>
+
+                  {started && !p.ratedPlayer && (
+                    <View className="gap-2.5 pl-[52px]">
+                      <TagRow tags={RATING_TAGS} active={tags[p.id] ?? []} onToggle={(tagId) => toggleTag(setTags, p.id, tagId)} />
+                    </View>
+                  )}
+
+                  {started && !p.skillVoted && tierOptions.length > 0 && (
+                    <View className="pl-[52px]">
+                      <SkillVoteRow
+                        declaredTier={p.declaredTier}
+                        tiers={tierOptions}
+                        selectedTierId={skillVotes[p.id]}
+                        onSelect={(tierId) => setSkillVotes((v) => ({ ...v, [p.id]: tierId }))}
+                      />
+                    </View>
+                  )}
+
+                  {/* D6: the host is rated twice. Their play is one question; whether the court,
+                      the price and the skill level matched what was advertised is another. */}
+                  {p.isHost && !p.ratedHost && (
+                    <View className="gap-2 pl-[52px] mt-1 pt-2.5 border-t" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                      <View className="flex-row items-center justify-between">
+                        <Text className="text-[12px] font-body-extrabold uppercase tracking-wide" style={{ color: colors.textTertiary }}>
+                          As host
+                        </Text>
+                        <StarRow value={hostStars[p.id] ?? 0} onChange={(n) => setHostStars((r) => ({ ...r, [p.id]: n }))} />
+                      </View>
+                      {(hostStars[p.id] ?? 0) > 0 && (
+                        <TagRow tags={HOST_RATING_TAGS} active={hostTags[p.id] ?? []} onToggle={(tagId) => toggleTag(setHostTags, p.id, tagId)} />
+                      )}
+                    </View>
+                  )}
+                </View>
+              );
+            })
+          )}
 
           <View className="rounded-2xl p-4 my-5 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
             <Text className="font-body-extrabold text-[13px] uppercase mb-2" style={{ color: colors.textTertiary }}>
@@ -349,13 +555,15 @@ export default function PostGame() {
             )}
           </View>
 
-          <LinearGradient colors={gradients.accent} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} className="rounded-pill mb-2.5">
-            <Pressable testID="postgame-submit" onPress={submit} className="py-4 items-center">
-              <Text className="font-body-extrabold text-[16.5px]" style={{ color: colors.base }}>
-                Submit ratings
-              </Text>
-            </Pressable>
-          </LinearGradient>
+          {!nothingToRate && (
+            <LinearGradient colors={gradients.accent} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} className="rounded-pill mb-2.5">
+              <Pressable testID="postgame-submit" onPress={submit} disabled={submit_.isPending} className="py-4 items-center">
+                <Text className="font-body-extrabold text-[16.5px]" style={{ color: colors.base }}>
+                  Submit ratings
+                </Text>
+              </Pressable>
+            </LinearGradient>
+          )}
           <Pressable
             onPress={handleRebook}
             className="rounded-pill py-3.5 items-center border-[1.5px]"

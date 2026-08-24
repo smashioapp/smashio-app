@@ -11,6 +11,7 @@ const game: CalendarGame = {
   joinedCount: 3,
   maxPlayers: 8,
   reservedSpots: 0,
+  reservedClaimed: 0,
 };
 
 describe("calendarLabel", () => {
@@ -45,7 +46,7 @@ describe("buildNotes", () => {
     const notes = buildNotes(game, "Alex");
     expect(notes).toContain("Hosted by Alex");
     expect(notes).toContain("$12/player");
-    expect(notes).toContain("5 spots left");
+    expect(notes).toContain("4 spots left");
     expect(notes).toContain("https://smashio.com.au/game/game-1");
   });
 

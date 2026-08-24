@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Ionicons } from "@expo/vector-icons";
 import ViewShot, { type ViewShotRef } from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
-import { colors, LAYOUT, gamesPlayedTier, nextGamesPlayedTier, reliabilityLedgerLabel, RELIABILITY_EXPLAINER, avatarColor } from "../../lib/theme";
+import { colors, LAYOUT, gamesPlayedTier, nextGamesPlayedTier, reliabilityLedgerLabel, RELIABILITY_EXPLAINER, avatarColor, type TierId } from "../../lib/theme";
 import { useTabBarSpace } from "../../lib/nav";
 import { makeScrollHideHandler, registerScrollToTop, unregisterScrollToTop } from "../../lib/navScroll";
 import { Screen } from "../../components/Screen";
@@ -21,7 +21,6 @@ import { ACHIEVEMENTS } from "../../lib/achievements";
 import { buildWeekHeatmap } from "../../lib/format";
 import { useSession } from "../../lib/session";
 import { usePlayerCard, useLateLeaveCount, useProfileStreak, useProfileActivity } from "../../lib/queries/profile";
-import { usePeerPerceivedSkill } from "../../lib/queries/ratings";
 import { haptics } from "../../lib/haptics";
 import { supabase } from "../../lib/supabase";
 
@@ -46,7 +45,6 @@ export default function Profile() {
   const { data: lateLeaves } = useLateLeaveCount(userId);
   const { data: streak } = useProfileStreak(userId);
   const { data: activity } = useProfileActivity(userId);
-  const { data: peerSkill } = usePeerPerceivedSkill(userId);
 
   const shotRef = useRef<ViewShotRef>(null);
   const tabBarSpace = useTabBarSpace();
@@ -65,7 +63,6 @@ export default function Profile() {
       queryClient.invalidateQueries({ queryKey: ["profile_late_leaves", userId] }),
       queryClient.invalidateQueries({ queryKey: ["profile_streak", userId] }),
       queryClient.invalidateQueries({ queryKey: ["profile_activity", userId] }),
-      queryClient.invalidateQueries({ queryKey: ["ratings", "peer_perceived", userId] }),
     ]);
 
   useFocusEffect(() => {
@@ -249,8 +246,8 @@ export default function Profile() {
                         ratingAvg={card.ratingAvg}
                         ratingCount={card.ratingCount}
                         showRating
-                        peerTier={peerSkill?.tier ?? null}
-                        peerVoteCount={peerSkill?.voteCount ?? 0}
+                        peerTier={(card.peerSkillLabel as TierId | null) ?? null}
+                        peerVoteCount={card.peerSkillVotes ?? 0}
                         badgeCounts={card.badgeCounts}
                         onReliabilityPress={() => setReliabilitySheetOpen(true)}
                       />

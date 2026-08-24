@@ -34,6 +34,8 @@ import { SwipeToDecide } from "../../components/SwipeToDecide";
 import { VettingStrip } from "../../components/VettingStrip";
 import { haptics } from "../../lib/haptics";
 import { shareGame } from "../../lib/share";
+import { ReservedSpots } from "../../components/ReservedSpots";
+import { useClaimReservedSpot, useRespondToGameInvite } from "../../lib/queries/reservedSpots";
 import { useReduceMotion } from "../../lib/motion";
 import { GameDetailSkeleton } from "../../components/Skeleton";
 
@@ -52,7 +54,7 @@ function goBack() {
 }
 
 export default function GameDetails() {
-  const { id, focus } = useLocalSearchParams<{ id: string; focus?: string }>();
+  const { id, focus, invite } = useLocalSearchParams<{ id: string; focus?: string; invite?: string }>();
   const gameId = id ?? "";
   const { session, isLoading: sessionLoading } = useSession();
   const gameQuery = useGameDetail(gameId, !!session);
@@ -63,6 +65,8 @@ export default function GameDetails() {
   const requestToJoin = useRequestToJoin(gameId);
   const leaveGame = useLeaveGame(gameId);
   const organizerCard = usePlayerCard(game?.organizerId);
+  const respondToInvite = useRespondToGameInvite(gameId);
+  const claimSpot = useClaimReservedSpot();
   const reduceMotion = useReduceMotion();
   const { width: windowWidth } = useWindowDimensions();
   const [onCalendar, setOnCalendar] = useState(false);
@@ -70,6 +74,20 @@ export default function GameDetails() {
   // A join_request push deep-links here with ?focus=requests (docs/notifications-plan.md §7):
   // the requests list sits well below the hero, so landing at the top hides the one thing the
   // notification asked the host to do. Scrolls once, after the section reports its position.
+  // A reserved-spot invite link lands on https://smashio.com.au/game/<id>?invite=<token>, which
+  // is the same Universal Link path a plain share uses — so the token is redeemed here, once,
+  // as soon as there's a session to redeem it with (post-game-plan.md D11).
+  const claimedInvite = useRef(false);
+  useEffect(() => {
+    if (!invite || !session || claimedInvite.current) return;
+    claimedInvite.current = true;
+    claimSpot.mutate(invite, {
+      onSuccess: () => haptics.success(),
+      onError: (err) =>
+        Alert.alert("Couldn't take that spot", err instanceof Error ? err.message : "That invite may have already been used."),
+    });
+  }, [invite, session]);
+
   const scrollRef = useRef<ScrollView>(null);
   const focusedRequests = useRef(false);
   const scrollToRequests = (y: number) => {
@@ -277,14 +295,20 @@ export default function GameDetails() {
 
           {isOrganizer && !cancelled && <JoinRequests gameId={gameId} full={full} onLayoutY={scrollToRequests} />}
 
+          {/* +1 for the host, who holds one of max_players but has no game_players row
+              (post-game-plan.md D1) — this read "2/4" for a game with 3 people in it. */}
           <Text className="font-body-extrabold text-[13px] uppercase tracking-wide mt-5.5 mb-2.5" style={{ color: colors.textTertiary }}>
-            Players joined ({game.joinedCount}/{game.maxPlayers})
+            Players joined ({game.joinedCount + 1}/{game.maxPlayers})
           </Text>
           <View className="flex-row flex-wrap gap-2.5">
             {joined.map((p) => (
               <RosterAvatar key={p.id} gameId={gameId} player={p} canRemove={isOrganizer && !cancelled} />
             ))}
           </View>
+
+          {!!session && (
+            <ReservedSpots gameId={gameId} isOrganizer={isOrganizer} reservedSpots={game.reservedSpots} cancelled={cancelled} />
+          )}
 
           <Text className="font-body-extrabold text-[13px] uppercase tracking-wide mt-5.5 mb-2.5" style={{ color: colors.textTertiary }}>
             Cost
@@ -327,6 +351,33 @@ export default function GameDetails() {
           <Button testID="game-cta" label="Manage this game" variant="secondary" onPress={() => router.push(`/game/edit/${game.id}`)} />
         ) : membership?.status === "approved" ? (
           <Button testID="game-cta" label="Leave game" variant="secondary" loading={leaveGame.isPending} onPress={confirmLeave} />
+        ) : membership?.status === "invited" ? (
+          // D10: the host held a spot with this player's name on it. They owe money for it, so
+          // they answer — nobody is silently enrolled.
+          <View className="flex-row gap-2.5">
+            <Button
+              testID="game-invite-decline"
+              label="Decline"
+              variant="secondary"
+              onPress={() =>
+                respondToInvite.mutate(false, {
+                  onError: (err) => Alert.alert("Couldn't decline", err instanceof Error ? err.message : "Please try again."),
+                })
+              }
+            />
+            <View className="flex-1">
+              <Button
+                testID="game-invite-accept"
+                label={`Take my spot · $${perPlayer}`}
+                loading={respondToInvite.isPending}
+                onPress={() =>
+                  respondToInvite.mutate(true, {
+                    onError: (err) => Alert.alert("Couldn't accept", err instanceof Error ? err.message : "Please try again."),
+                  })
+                }
+              />
+            </View>
+          </View>
         ) : membership?.status === "requested" ? (
           <Button testID="game-cta" label="Request sent" variant="secondary" disabled />
         ) : full ? (

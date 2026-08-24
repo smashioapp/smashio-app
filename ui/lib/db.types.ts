@@ -239,6 +239,7 @@ export type Database = {
       }
       game_players: {
         Row: {
+          attended: boolean | null
           chat_muted_at: string | null
           decided_at: string | null
           game_id: string
@@ -247,6 +248,7 @@ export type Database = {
           status: string
         }
         Insert: {
+          attended?: boolean | null
           chat_muted_at?: string | null
           decided_at?: string | null
           game_id: string
@@ -255,6 +257,7 @@ export type Database = {
           status?: string
         }
         Update: {
+          attended?: boolean | null
           chat_muted_at?: string | null
           decided_at?: string | null
           game_id?: string
@@ -286,8 +289,72 @@ export type Database = {
           },
         ]
       }
+      game_reserved_spots: {
+        Row: {
+          claimed_at: string | null
+          claimed_by: string | null
+          created_at: string
+          game_id: string
+          id: string
+          invite_token: string | null
+          invited_profile_id: string | null
+          label: string | null
+        }
+        Insert: {
+          claimed_at?: string | null
+          claimed_by?: string | null
+          created_at?: string
+          game_id: string
+          id?: string
+          invite_token?: string | null
+          invited_profile_id?: string | null
+          label?: string | null
+        }
+        Update: {
+          claimed_at?: string | null
+          claimed_by?: string | null
+          created_at?: string
+          game_id?: string
+          id?: string
+          invite_token?: string | null
+          invited_profile_id?: string | null
+          label?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_reserved_spots_claimed_by_fkey"
+            columns: ["claimed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "game_reserved_spots_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "game_reserved_spots_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "game_reserved_spots_invited_profile_id_fkey"
+            columns: ["invited_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       games: {
         Row: {
+          attendance_marked_at: string | null
+          attendance_prompted_at: string | null
           chat_closed_at: string | null
           chat_mode: string
           chat_pause_until: string | null
@@ -315,6 +382,8 @@ export type Database = {
           verification_status: string
         }
         Insert: {
+          attendance_marked_at?: string | null
+          attendance_prompted_at?: string | null
           chat_closed_at?: string | null
           chat_mode?: string
           chat_pause_until?: string | null
@@ -342,6 +411,8 @@ export type Database = {
           verification_status?: string
         }
         Update: {
+          attendance_marked_at?: string | null
+          attendance_prompted_at?: string | null
           chat_closed_at?: string | null
           chat_mode?: string
           chat_pause_until?: string | null
@@ -889,6 +960,7 @@ export type Database = {
       rating_tags: {
         Row: {
           created_at: string
+          dimension: string
           game_id: string
           ratee_id: string
           rater_id: string
@@ -896,6 +968,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          dimension?: string
           game_id: string
           ratee_id: string
           rater_id: string
@@ -903,6 +976,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          dimension?: string
           game_id?: string
           ratee_id?: string
           rater_id?: string
@@ -942,6 +1016,7 @@ export type Database = {
       ratings: {
         Row: {
           created_at: string
+          dimension: string
           game_id: string
           ratee_id: string
           rater_id: string
@@ -949,6 +1024,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          dimension?: string
           game_id: string
           ratee_id: string
           rater_id: string
@@ -956,6 +1032,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          dimension?: string
           game_id?: string
           ratee_id?: string
           rater_id?: string
@@ -1020,6 +1097,66 @@ export type Database = {
             columns: ["sport_id"]
             isOneToOne: false
             referencedRelation: "sports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      skill_votes: {
+        Row: {
+          created_at: string
+          game_id: string
+          ratee_id: string
+          rater_id: string
+          skill_tier_id: string
+        }
+        Insert: {
+          created_at?: string
+          game_id: string
+          ratee_id: string
+          rater_id: string
+          skill_tier_id: string
+        }
+        Update: {
+          created_at?: string
+          game_id?: string
+          ratee_id?: string
+          rater_id?: string
+          skill_tier_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "skill_votes_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "skill_votes_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "skill_votes_ratee_id_fkey"
+            columns: ["ratee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "skill_votes_rater_id_fkey"
+            columns: ["rater_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "skill_votes_skill_tier_id_fkey"
+            columns: ["skill_tier_id"]
+            isOneToOne: false
+            referencedRelation: "skill_tiers"
             referencedColumns: ["id"]
           },
         ]
@@ -1412,11 +1549,13 @@ export type Database = {
           ends_at: string | null
           id: string | null
           max_players: number | null
+          open_spots: number | null
           organizer_display_name: string | null
           organizer_hosted_count: number | null
           organizer_id: string | null
           organizer_photo_path: string | null
           organizer_reliability_score: number | null
+          reserved_claimed: number | null
           reserved_spots: number | null
           skill_tier_id: string | null
           skill_tier_label: string | null
@@ -1467,15 +1606,24 @@ export type Database = {
       }
     }
     Functions: {
+      add_reserved_spot: {
+        Args: { p_game_id: string; p_label?: string }
+        Returns: string
+      }
       approve_chat_photo: { Args: { p_message_id: string }; Returns: undefined }
       approve_join_action: {
         Args: { p_game_id: string; p_notification_id: string }
         Returns: undefined
       }
       approved_player_count: { Args: { p_game_id: string }; Returns: number }
+      assert_is_organizer: { Args: { p_game_id: string }; Returns: undefined }
       auto_close_stale_chats: { Args: never; Returns: undefined }
       blocked_between: { Args: { a: string; b: string }; Returns: boolean }
       can_post_in_chat: {
+        Args: { p_game_id: string; p_profile_id: string }
+        Returns: boolean
+      }
+      can_rate_in_game: {
         Args: { p_game_id: string; p_profile_id: string }
         Returns: boolean
       }
@@ -1501,8 +1649,14 @@ export type Database = {
           venue_name: string
         }[]
       }
+      claim_reserved_spot: { Args: { p_token: string }; Returns: string }
+      claimed_reserved_count: { Args: { p_game_id: string }; Returns: number }
       close_chat: { Args: { p_game_id: string }; Returns: undefined }
       complete_past_games: { Args: never; Returns: undefined }
+      create_reserved_spot_invite: {
+        Args: { p_spot_id: string }
+        Returns: string
+      }
       decide_join_request: {
         Args: { approve: boolean; p_game_id: string; p_profile_id: string }
         Returns: undefined
@@ -1518,6 +1672,7 @@ export type Database = {
         Returns: undefined
       }
       delete_push_token: { Args: { p_expo_token: string }; Returns: undefined }
+      dispatch_attendance_prompts: { Args: never; Returns: undefined }
       dispatch_game_reminders: { Args: never; Returns: undefined }
       dispatch_notification_retries: { Args: never; Returns: undefined }
       dispatch_nudge_pending_requests: { Args: never; Returns: undefined }
@@ -1533,6 +1688,10 @@ export type Database = {
           p_recipient_ids: string[]
           p_type: string
         }
+        Returns: undefined
+      }
+      enqueue_post_game_rate: {
+        Args: { p_game_id: string }
         Returns: undefined
       }
       filter_quiet_recipients: {
@@ -1554,11 +1713,19 @@ export type Database = {
           venue_suburb: string
         }[]
       }
+      invite_to_reserved_spot: {
+        Args: { p_profile_id: string; p_spot_id: string }
+        Returns: undefined
+      }
       is_approved_player: {
         Args: { p_game_id: string; p_profile_id: string }
         Returns: boolean
       }
       leave_game: { Args: { p_game_id: string }; Returns: undefined }
+      mark_attendance: {
+        Args: { p_game_id: string; p_no_shows?: string[] }
+        Returns: undefined
+      }
       nearby_games: {
         Args: {
           from_ts?: string
@@ -1585,11 +1752,13 @@ export type Database = {
           ends_at: string
           id: string
           max_players: number
+          open_spots: number
           organizer_display_name: string
           organizer_hosted_count: number
           organizer_id: string
           organizer_photo_path: string
           organizer_reliability_score: number
+          reserved_claimed: number
           reserved_spots: number
           skill_tier_label: string
           skill_tier_ordinal: number
@@ -1613,6 +1782,17 @@ export type Database = {
         Returns: number
       }
       notify_push: { Args: { p_payload: Json }; Returns: undefined }
+      open_rateable_count: { Args: { p_game_id: string }; Returns: number }
+      open_spots: { Args: { p_game_id: string }; Returns: number }
+      peer_skill_vote: {
+        Args: { p_profile_id: string; p_sport_slug?: string }
+        Returns: {
+          tier_label: string
+          tier_ordinal: number
+          tier_slug: string
+          vote_count: number
+        }[]
+      }
       player_card: {
         Args: { target_id: string }
         Returns: {
@@ -1622,8 +1802,13 @@ export type Database = {
           games_played: number
           games_together: number
           home_suburb: string
+          host_badge_counts: Json
+          host_rating_avg: number
+          host_rating_count: number
           id: string
           member_since: string
+          peer_skill_label: string
+          peer_skill_votes: number
           photo_path: string
           rating_avg: number
           rating_count: number
@@ -1631,6 +1816,20 @@ export type Database = {
           reliability_score: number
           restricted: boolean
           sports: Json
+        }[]
+      }
+      post_game_roster: {
+        Args: { p_game_id: string }
+        Returns: {
+          attended: boolean
+          declared_tier_label: string
+          display_name: string
+          is_host: boolean
+          photo_path: string
+          profile_id: string
+          rated_host: boolean
+          rated_player: boolean
+          skill_voted: boolean
         }[]
       }
       prune_ready_receipt_batch: {
@@ -1697,9 +1896,23 @@ export type Database = {
           profile_id: string
         }[]
       }
+      rating_summary: {
+        Args: { p_dimension?: string; p_profile_id: string }
+        Returns: {
+          badge_counts: Json
+          distribution: Json
+          rating_avg: number
+          rating_count: number
+        }[]
+      }
       recompute_reliability_scores: { Args: never; Returns: undefined }
       remove_player: {
         Args: { p_game_id: string; p_profile_id: string }
+        Returns: undefined
+      }
+      remove_reserved_spot: { Args: { p_spot_id: string }; Returns: undefined }
+      rename_reserved_spot: {
+        Args: { p_label: string; p_spot_id: string }
         Returns: undefined
       }
       report_user: {
@@ -1721,6 +1934,10 @@ export type Database = {
         Returns: string
       }
       request_to_join: { Args: { p_game_id: string }; Returns: undefined }
+      respond_to_game_invite: {
+        Args: { p_accept: boolean; p_game_id: string }
+        Returns: undefined
+      }
       send_chat_reply: {
         Args: { p_game_id: string; p_notification_id: string; p_text: string }
         Returns: undefined

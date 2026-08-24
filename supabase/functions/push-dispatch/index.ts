@@ -21,6 +21,7 @@ import {
   expoMessages,
   gameCancelledBody,
   gameFullBody,
+  gameInviteBody,
   type GameSummary,
   gameRescheduledBody,
   joinDecisionBody,
@@ -32,6 +33,7 @@ import {
   nudgePendingBody,
   nudgeUnderfilledBody,
   playerLeftBody,
+  postGameAttendanceBody,
   postGameRateBody,
   type PushBody,
   type PushChannel,
@@ -75,6 +77,8 @@ const CHANNEL_FOR_TYPE: Record<string, PushChannel> = {
   reminder_24h: "reminders",
   reminder_2h: "reminders",
   post_game_rate: "reminders",
+  post_game_attendance: "reminders",
+  game_invite: "requests",
   nudge_underfilled: "reminders",
   nudge_pending: "reminders",
   alert_match: "discovery",
@@ -264,6 +268,12 @@ async function renderIndividual(row: NotificationRow): Promise<Rendered | null> 
       return { body: reminder2hBody(summary), screen: "game" };
     case "post_game_rate":
       return { body: postGameRateBody(summary, row.params.rateable_count as number), screen: "post_game" };
+    case "post_game_attendance":
+      return { body: postGameAttendanceBody(summary, row.params.player_count as number), screen: "post_game" };
+    case "game_invite": {
+      const actor = row.actor_id ? await getActorName(row.actor_id) : "A host";
+      return { body: gameInviteBody(actor, summary), screen: "game" };
+    }
     case "alert_match":
       return { body: alertMatchBody(summary), screen: "game" };
     default:

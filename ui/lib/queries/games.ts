@@ -37,6 +37,7 @@ function toGame(row: NearbyGameRow, units: DistanceUnits = "km"): Game {
     courtsBooked: row.courts_booked,
     durationHours: row.duration_hours,
     reservedSpots: row.reserved_spots ?? 0,
+    reservedClaimed: row.reserved_claimed ?? 0,
     // Named roster is a separate fetch (useGameRoster), gated by RLS to organizer + approved
     // members — a discover card only ever gets the headcount.
     joined: [],
@@ -77,6 +78,7 @@ function toGameFromPublicRow(row: GamesPublicRow): Game {
     courtsBooked: row.courts_booked ?? 1,
     durationHours: row.duration_hours ?? 2,
     reservedSpots: row.reserved_spots ?? 0,
+    reservedClaimed: row.reserved_claimed ?? 0,
     joined: [],
     joinedCount: row.approved_count ?? 0,
     cost: (row.cost_per_player_cents ?? 0) / 100,
@@ -461,24 +463,35 @@ export function usePastGameDetail(gameId: string) {
       } = await supabase.auth.getUser();
       const { data: game, error: gErr } = await supabase.from("games_public").select("*").eq("id", gameId).single();
       if (gErr) throw gErr;
-      const { data: players, error: pErr } = await supabase
-        .from("game_players")
-        .select("profile_id, profiles(display_name)")
-        .eq("game_id", gameId)
-        .eq("status", "approved");
+      // Was a raw game_players select, which is why the host was never on anyone's rating screen
+      // — organizers have no game_players row (post-game-plan.md, diagnosis 1). post_game_roster
+      // unions the organizer in, drops anyone the host marked as a no-show, and reports what the
+      // viewer has already submitted so a partial rating session can be resumed.
+      const { data: roster, error: pErr } = await supabase.rpc("post_game_roster", { p_game_id: gameId });
       if (pErr) throw pErr;
+      const { data: attendance } = await supabase
+        .from("games")
+        .select("attendance_marked_at")
+        .eq("id", gameId)
+        .maybeSingle();
       return {
         id: game.id!,
         venue: game.venue_name!,
         date: formatDate(game.starts_at!),
         time: formatTimeRange(game.starts_at!, game.ends_at!),
-        players: (players ?? [])
-          .filter((p) => p.profile_id !== user?.id)
-          .map((p) => ({
-            id: p.profile_id,
-            name: (p.profiles as { display_name: string } | null)?.display_name || "Player",
-            color: avatarColor(p.profile_id),
-          })),
+        players: (roster ?? []).map((p) => ({
+          id: p.profile_id,
+          name: p.display_name || "Player",
+          color: avatarColor(p.profile_id),
+          photoPath: p.photo_path,
+          isHost: p.is_host,
+          declaredTier: p.declared_tier_label,
+          ratedPlayer: p.rated_player,
+          ratedHost: p.rated_host,
+          skillVoted: p.skill_voted,
+        })),
+        viewerIsHost: game.organizer_id === user?.id,
+        attendanceMarkedAt: attendance?.attendance_marked_at ?? null,
         venueId: game.venue_id ?? null,
         venueSuburb: game.venue_suburb!,
         venueAddress: game.venue_address,

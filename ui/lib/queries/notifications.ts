@@ -40,6 +40,10 @@ export function routeForNotification(item: NotificationItem): string | null {
       return `/game/${item.gameId}?focus=requests`;
     case "post_game_rate":
       return `/post-game/${item.gameId}`;
+    // Attendance is marked on the post-game screen too — it's the gate in front of the rating
+    // list, not a separate destination (post-game-plan.md D4).
+    case "post_game_attendance":
+      return `/post-game/${item.gameId}`;
     case "message":
       return `/chat/${item.gameId}`;
     case "join_decision":

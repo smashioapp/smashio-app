@@ -105,8 +105,17 @@ export type PlayerCard = {
   reliabilityBand: string | null;
   ratingAvg: number | null;
   ratingCount: number | null;
+  // How this player's *hosting* has been rated, kept apart from how they play (post-game-plan.md
+  // D6). Null until they've hosted a game somebody rated.
+  hostRatingAvg: number | null;
+  hostRatingCount: number | null;
   gamesTogether: number | null;
   badgeCounts: Record<string, number>;
+  hostBadgeCounts: Record<string, number>;
+  // What co-players voted this player's tier at, as opposed to what they call themselves. Null
+  // until anyone has voted (D5) — never inferred from stars, which is what it replaced.
+  peerSkillLabel: string | null;
+  peerSkillVotes: number | null;
   sports: { sportSlug: string; tierLabel: string; tierOrdinal: number }[];
   // true when the profile has gone players_only and the viewer hasn't earned a read (no shared
   // games, not a host this player has an open request with) — see player_card's is_restricted,
@@ -140,8 +149,13 @@ export function usePlayerCard(targetId: string | undefined) {
         reliabilityBand: data.reliability_band,
         ratingAvg: data.rating_avg,
         ratingCount: data.rating_count,
+        hostRatingAvg: data.host_rating_avg,
+        hostRatingCount: data.host_rating_count,
         gamesTogether: data.games_together,
         badgeCounts: (data.badge_counts as Record<string, number>) ?? {},
+        hostBadgeCounts: (data.host_badge_counts as Record<string, number>) ?? {},
+        peerSkillLabel: data.peer_skill_label,
+        peerSkillVotes: data.peer_skill_votes,
         sports: ((data.sports as { sport_slug: string; tier_label: string; tier_ordinal: number }[]) ?? []).map((s) => ({
           sportSlug: s.sport_slug,
           tierLabel: s.tier_label,

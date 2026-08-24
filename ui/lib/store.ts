@@ -173,12 +173,12 @@ export const useAppStore = create<AppState>((set) => ({
   incPlayers: () =>
     set((s) => {
       const maxPlayers = Math.min(MAX_PLAYERS, s.wizard.maxPlayers + 1);
-      return { wizard: { ...s.wizard, maxPlayers, reservedSpots: Math.min(s.wizard.reservedSpots, maxPlayers) } };
+      return { wizard: { ...s.wizard, maxPlayers, reservedSpots: Math.min(s.wizard.reservedSpots, maxPlayers - 1) } };
     }),
   decPlayers: () =>
     set((s) => {
       const maxPlayers = Math.max(MIN_PLAYERS, s.wizard.maxPlayers - 1);
-      return { wizard: { ...s.wizard, maxPlayers, reservedSpots: Math.min(s.wizard.reservedSpots, maxPlayers) } };
+      return { wizard: { ...s.wizard, maxPlayers, reservedSpots: Math.min(s.wizard.reservedSpots, maxPlayers - 1) } };
     }),
   incCourts: () => set((s) => ({ wizard: { ...s.wizard, courtsBooked: Math.min(MAX_COURTS_BOOKED, s.wizard.courtsBooked + 1) } })),
   decCourts: () => set((s) => ({ wizard: { ...s.wizard, courtsBooked: Math.max(MIN_COURTS_BOOKED, s.wizard.courtsBooked - 1) } })),
@@ -197,7 +197,9 @@ export const useAppStore = create<AppState>((set) => ({
   incCost: () =>
     set((s) => ({ wizard: { ...s.wizard, cost: Math.min(s.wizard.durationHours * MAX_COST_PER_PLAYER_PER_HOUR, s.wizard.cost + 1) } })),
   decCost: () => set((s) => ({ wizard: { ...s.wizard, cost: Math.max(1, s.wizard.cost - 1) } })),
-  incReservedSpots: () => set((s) => ({ wizard: { ...s.wizard, reservedSpots: Math.min(s.wizard.maxPlayers, s.wizard.reservedSpots + 1) } })),
+  // Ceiling is maxPlayers - 1: the host occupies one slot themselves and can't reserve it
+  // (post-game-plan.md D1, mirrored by games_reserved_spots_check).
+  incReservedSpots: () => set((s) => ({ wizard: { ...s.wizard, reservedSpots: Math.min(s.wizard.maxPlayers - 1, s.wizard.reservedSpots + 1) } })),
   decReservedSpots: () => set((s) => ({ wizard: { ...s.wizard, reservedSpots: Math.max(0, s.wizard.reservedSpots - 1) } })),
   setMaxPlayers: (n) => set((s) => ({ wizard: { ...s.wizard, maxPlayers: n, reservedSpots: Math.min(s.wizard.reservedSpots, n) } })),
   setCourtsBooked: (n) => set((s) => ({ wizard: { ...s.wizard, courtsBooked: n } })),

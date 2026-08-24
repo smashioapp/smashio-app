@@ -50,7 +50,11 @@ export default function EditGame() {
   // max_players can't drop below the roster — the DB rejects it, so don't let the stepper
   // walk into an error in the first place.
   const approvedCount = rosterQuery.data?.length ?? 0;
-  const minPlayers = Math.max(MIN_PLAYERS, approvedCount);
+  // Mirrors enforce_game_edit_rules: the floor is everything already committed — the host's own
+  // slot, the approved roster, and any reserved spot nobody has claimed (post-game-plan.md D1).
+  const reservedClaimed = game?.reservedClaimed ?? 0;
+  const heldForFriends = Math.max(0, reservedSpots - reservedClaimed);
+  const minPlayers = Math.max(MIN_PLAYERS, 1 + approvedCount + heldForFriends);
   const maxCost = durationHours * MAX_COST_PER_PLAYER_PER_HOUR;
 
   if (gameQuery.isLoading || !startsAt) {
@@ -222,7 +226,7 @@ export default function EditGame() {
             onPress={() => {
               const next = Math.max(minPlayers, maxPlayers - 1);
               setMaxPlayers(next);
-              setReservedSpots((r) => Math.min(r, next - approvedCount));
+              setReservedSpots((r) => Math.min(r, Math.max(reservedClaimed, next - 1 - approvedCount)));
             }}
           />
           <Text className="font-display text-[28px]" style={{ color: colors.accent }}>
@@ -235,8 +239,8 @@ export default function EditGame() {
           />
         </View>
         <Text className="text-[13px] mb-5" style={{ color: colors.textMuted }}>
-          {approvedCount > 0
-            ? `${approvedCount} already approved, so this can't go below ${minPlayers}.`
+          {minPlayers > MIN_PLAYERS
+            ? `You plus ${approvedCount} approved${heldForFriends > 0 ? ` and ${heldForFriends} held` : ""}, so this can't go below ${minPlayers}.`
             : "No one's joined yet, so you can still change this freely."}
         </Text>
 
@@ -245,18 +249,23 @@ export default function EditGame() {
           className="flex-row items-center justify-center gap-6 rounded-2xl p-4.5 mb-1.5 border"
           style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}
         >
-          <Stepper icon="remove" disabled={reservedSpots <= 0} onPress={() => setReservedSpots(Math.max(0, reservedSpots - 1))} />
+          <Stepper
+            icon="remove"
+            disabled={reservedSpots <= reservedClaimed}
+            onPress={() => setReservedSpots(Math.max(reservedClaimed, reservedSpots - 1))}
+          />
           <Text className="font-display text-[28px]" style={{ color: colors.accent }}>
             {reservedSpots}
           </Text>
           <Stepper
             icon="add"
-            disabled={reservedSpots >= maxPlayers - approvedCount}
-            onPress={() => setReservedSpots(Math.min(maxPlayers - approvedCount, reservedSpots + 1))}
+            disabled={reservedSpots >= maxPlayers - 1 - approvedCount}
+            onPress={() => setReservedSpots(Math.min(maxPlayers - 1 - approvedCount, reservedSpots + 1))}
           />
         </View>
         <Text className="text-[13px] mb-5" style={{ color: colors.textMuted }}>
-          Spots you're taking for people joining outside the app — held back from the {maxPlayers} above.
+          Spots held for friends of yours — held back from the {maxPlayers} above, which includes you.
+          {reservedClaimed > 0 ? ` ${reservedClaimed} already claimed, so it can't go below that.` : ""}
         </Text>
 
         <Label>Courts booked</Label>

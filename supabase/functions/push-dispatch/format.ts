@@ -243,7 +243,9 @@ export function reminder24hBody(s: GameSummary, now?: Date): PushBody {
 // C2.
 export function reminder2hBody(s: GameSummary): PushBody {
   const title = pick(["Starts in 2 hours", "Two hours out", "Nearly time"], s.game_id);
-  const playing = s.approved_count + s.reserved_spots;
+  // approved_count + reserved_spots left the host out of their own headcount (post-game-plan
+  // D1) — max_players minus what's still open is the whole room, host included.
+  const playing = s.max_players - s.spots_left;
   return {
     title,
     body: `${where(s)}, ${clockTime(s.starts_at)}${courtSuffix(s)} · ${playing} playing. Grab your gear.`,
@@ -258,6 +260,26 @@ export function postGameRateBody(s: GameSummary, rateableCount: number): PushBod
   return {
     title,
     body: `Rate ${who} from ${where(s)}. Ten seconds, and it's private.`,
+  };
+}
+
+// post-game-plan.md D9. Fires at ends_at + 30min, host only. Everyone else's rate prompt waits
+// on this, so the copy has to say why it matters rather than reading as admin.
+export function postGameAttendanceBody(s: GameSummary, playerCount: number): PushBody {
+  const title = pick(["Everyone turn up?", "Who made it?", "Quick one about the game"], s.game_id);
+  const who = playerCount === 1 ? "your player" : `all ${playerCount} players`;
+  return {
+    title,
+    body: `Confirm ${who} showed at ${where(s)}. Then everyone can rate each other.`,
+  };
+}
+
+// post-game-plan.md D10. The host held a spot and put this person's name on it — they owe money
+// for it, so the body leads with the cost, not the invitation.
+export function gameInviteBody(actor: string, s: GameSummary): PushBody {
+  return {
+    title: `${actor} saved you a spot`,
+    body: `${where(s)}, ${shortTime(s.starts_at)} · ${s.tier_name} · ${money(s.per_player_cents)}. Accept or decline.`,
   };
 }
 

@@ -148,6 +148,10 @@ export default function PastGames() {
             }
             const game = item.game;
             const teammates = (pastRosterQuery.data?.get(game.id) ?? []).filter((p) => p.id !== userId);
+            // The host holds a slot but has no game_players row, so they never appeared in this
+            // count — and they are rateable, twice over (post-game-plan.md D1/D6). Add them for
+            // everyone except the host themselves.
+            const rateableCount = teammates.length + (game.organizerId === userId ? 0 : 1);
             const rated = ratedGameIdsQuery.data?.has(game.id) ?? false;
             return (
               <View className="px-5 pb-3">
@@ -173,7 +177,7 @@ export default function PastGames() {
                     ) : (
                       <Button
                         testID={`mygames-past-rate-${game.id}`}
-                        label={teammates.length > 0 ? `Rate ${teammates.length} ${teammates.length === 1 ? "player" : "players"}` : "Rate players"}
+                        label={rateableCount > 0 ? `Rate ${rateableCount} ${rateableCount === 1 ? "player" : "players"}` : "Rate players"}
                         size="sm"
                         fullWidth={false}
                         onPress={() => router.push(`/post-game/${game.id}`)}

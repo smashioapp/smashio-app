@@ -42,12 +42,16 @@ export function useMyGamesRoster(gameIds: string[]) {
       if (sortedIds.length === 0) return new Map();
       const { data, error } = await supabase
         .from("game_players")
-        .select("game_id, profile_id, profiles(display_name)")
+        .select("game_id, profile_id, attended, profiles(display_name)")
         .in("game_id", sortedIds)
         .eq("status", "approved");
       if (error) throw error;
       const byGame = new Map<string, Player[]>();
       for (const row of data ?? []) {
+        // A host-marked no-show is off the roster for every downstream use — roster faces on the
+        // card, and the "Rate N players" count (post-game-plan.md D4). attended === null means
+        // the host never marked, so nobody is excluded.
+        if (row.attended === false) continue;
         const player: Player = {
           id: row.profile_id,
           name: (row.profiles as { display_name: string } | null)?.display_name || "Player",
@@ -61,7 +65,12 @@ export function useMyGamesRoster(gameIds: string[]) {
   });
 }
 
-export type Membership = { isOrganizer: boolean; status: "requested" | "approved" | "rejected" | "left" | "removed" | null };
+export type Membership = {
+  isOrganizer: boolean;
+  // 'invited' is the host direct-adding someone to a reserved spot; the player answers, not the
+  // host (post-game-plan.md D10). 'declined' is their no.
+  status: "requested" | "invited" | "approved" | "rejected" | "left" | "removed" | "declined" | null;
+};
 
 export function useMyMembership(gameId: string, organizerId: string | null | undefined) {
   return useQuery({
@@ -211,5 +220,48 @@ export function useDecideJoinRequest(gameId: string) {
       if (error) throw error;
     },
     onSuccess: () => invalidateGame(queryClient, gameId),
+  });
+}
+
+// Everyone on the roster the host can mark, regardless of whether they turned up — distinct from
+// post_game_roster, which is only who the *viewer* may rate. The host needs the whole list to
+// mark against; post_game_roster is the result of that marking.
+export type AttendanceRow = { profileId: string; name: string; color: string; attended: boolean | null };
+
+export function useGameAttendance(gameId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["game_players", "attendance", gameId],
+    queryFn: async (): Promise<AttendanceRow[]> => {
+      const { data, error } = await supabase
+        .from("game_players")
+        .select("profile_id, attended, profiles(display_name)")
+        .eq("game_id", gameId)
+        .eq("status", "approved");
+      if (error) throw error;
+      return (data ?? []).map((row) => ({
+        profileId: row.profile_id,
+        name: (row.profiles as { display_name: string } | null)?.display_name || "Player",
+        color: avatarColor(row.profile_id),
+        attended: row.attended,
+      }));
+    },
+    enabled: !!gameId && enabled,
+  });
+}
+
+// Host-only (post-game-plan.md D4). Marking is what releases the rating prompt to everyone else,
+// so this invalidates the post-game roster too: the people marked as no-shows have to disappear
+// from the rating list immediately, not on the next cold load.
+export function useMarkAttendance(gameId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (noShowIds: string[]) => {
+      const { error } = await supabase.rpc("mark_attendance", { p_game_id: gameId, p_no_shows: noShowIds });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["game_players", "attendance", gameId] });
+      queryClient.invalidateQueries({ queryKey: ["past_game_detail", gameId] });
+    },
   });
 }

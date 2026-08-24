@@ -1,0 +1,173 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "../supabase";
+import { avatarColor } from "../theme";
+
+// A reserved spot the host has put a name, an invite, or a link on (post-game-plan.md D2).
+// The remainder of games.reserved_spots is the plain anonymous count the wizard has always had —
+// there is no row for those, by design: the host doesn't know who they are yet either.
+export type ReservedSpot = {
+  id: string;
+  label: string | null;
+  invitedProfileId: string | null;
+  invitedName: string | null;
+  inviteToken: string | null;
+  claimedBy: string | null;
+  claimedName: string | null;
+  color: string;
+};
+
+export function useReservedSpots(gameId: string) {
+  return useQuery({
+    queryKey: ["reserved_spots", gameId],
+    queryFn: async (): Promise<ReservedSpot[]> => {
+      const { data, error } = await supabase
+        .from("game_reserved_spots")
+        // Two FKs point at profiles from this table, so PostgREST needs the constraint named
+        // explicitly or it refuses to embed either. Kept as one string literal — supabase-js
+        // parses the select at the type level and a concatenated expression defeats that.
+        .select(
+          "id, label, invited_profile_id, invite_token, claimed_by, created_at, invited:profiles!game_reserved_spots_invited_profile_id_fkey(display_name), claimer:profiles!game_reserved_spots_claimed_by_fkey(display_name)"
+        )
+        .eq("game_id", gameId)
+        .order("created_at");
+      if (error) throw error;
+      return (data ?? []).map((row) => ({
+        id: row.id,
+        label: row.label,
+        invitedProfileId: row.invited_profile_id,
+        invitedName: (row.invited as { display_name: string } | null)?.display_name ?? null,
+        inviteToken: row.invite_token,
+        claimedBy: row.claimed_by,
+        claimedName: (row.claimer as { display_name: string } | null)?.display_name ?? null,
+        color: avatarColor(row.id),
+      }));
+    },
+    enabled: !!gameId,
+  });
+}
+
+// Every mutation below invalidates the game itself as well as the spot list: a reserved spot is
+// capacity, so naming or releasing one moves "spots left" on every card showing this game.
+function invalidateSpots(queryClient: ReturnType<typeof useQueryClient>, gameId: string) {
+  queryClient.invalidateQueries({ queryKey: ["reserved_spots", gameId] });
+  queryClient.invalidateQueries({ queryKey: ["game", gameId] });
+  queryClient.invalidateQueries({ queryKey: ["games"] });
+  queryClient.invalidateQueries({ queryKey: ["game_players", "roster", gameId] });
+}
+
+export function useAddReservedSpot(gameId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (label: string | null) => {
+      const { data, error } = await supabase.rpc("add_reserved_spot", { p_game_id: gameId, p_label: label ?? undefined });
+      if (error) throw error;
+      return data as string;
+    },
+    onSuccess: () => invalidateSpots(queryClient, gameId),
+  });
+}
+
+export function useRenameReservedSpot(gameId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ spotId, label }: { spotId: string; label: string }) => {
+      const { error } = await supabase.rpc("rename_reserved_spot", { p_spot_id: spotId, p_label: label });
+      if (error) throw error;
+    },
+    onSuccess: () => invalidateSpots(queryClient, gameId),
+  });
+}
+
+// D3: releasing is the host's call and nobody else's — "my friend cancelled" is the only way a
+// held spot ever goes back on the market.
+export function useRemoveReservedSpot(gameId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (spotId: string) => {
+      const { error } = await supabase.rpc("remove_reserved_spot", { p_spot_id: spotId });
+      if (error) throw error;
+    },
+    onSuccess: () => invalidateSpots(queryClient, gameId),
+  });
+}
+
+export function useInviteToReservedSpot(gameId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ spotId, profileId }: { spotId: string; profileId: string }) => {
+      const { error } = await supabase.rpc("invite_to_reserved_spot", { p_spot_id: spotId, p_profile_id: profileId });
+      if (error) throw error;
+    },
+    onSuccess: () => invalidateSpots(queryClient, gameId),
+  });
+}
+
+// Returns the share URL, not the bare token — the token alone is useless to a caller and easy to
+// leak into the wrong string. Rides the existing /game/* Universal Link path, so no AASA or
+// assetlinks change is needed for invites to open the app.
+export function useCreateReservedSpotInvite(gameId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (spotId: string) => {
+      const { data, error } = await supabase.rpc("create_reserved_spot_invite", { p_spot_id: spotId });
+      if (error) throw error;
+      return `https://smashio.com.au/game/${gameId}?invite=${data as string}`;
+    },
+    onSuccess: () => invalidateSpots(queryClient, gameId),
+  });
+}
+
+// D11: single use. The second person to open the same link gets "already used", not a stolen
+// spot. Called from the game screen when it opens with an ?invite= param.
+export function useClaimReservedSpot() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (token: string) => {
+      const { data, error } = await supabase.rpc("claim_reserved_spot", { p_token: token });
+      if (error) throw error;
+      return data as string;
+    },
+    onSuccess: (gameId) => invalidateSpots(queryClient, gameId),
+  });
+}
+
+// D10's other half: the invitee decides. Declining hands the spot back to the host rather than
+// releasing it to the public — it was held for a friend, and the host may have another in mind.
+export function useRespondToGameInvite(gameId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (accept: boolean) => {
+      const { error } = await supabase.rpc("respond_to_game_invite", { p_game_id: gameId, p_accept: accept });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      invalidateSpots(queryClient, gameId);
+      queryClient.invalidateQueries({ queryKey: ["game_players", "membership", gameId] });
+    },
+  });
+}
+
+// Host-side people search for direct-add. Name prefix only, and deliberately not a full
+// directory: it exists to find someone you already know, not to browse the user base.
+export function usePlayerSearch(term: string) {
+  const query = term.trim();
+  return useQuery({
+    queryKey: ["player_search", query],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, display_name, photo_path")
+        .ilike("display_name", `${query}%`)
+        .is("deleted_at", null)
+        .limit(10);
+      if (error) throw error;
+      return (data ?? []).map((row) => ({
+        id: row.id,
+        name: row.display_name,
+        photoPath: row.photo_path,
+        color: avatarColor(row.id),
+      }));
+    },
+    enabled: query.length >= 2,
+  });
+}

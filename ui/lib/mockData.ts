@@ -21,8 +21,13 @@ export type Game = {
   courtsBooked: number;
   durationHours: number;
   // Spots the host has taken off max_players for people joining outside the app (own friends,
-  // teammates) — not named, just a count. See spotsLeft below.
+  // teammates). A subset may be *named* (game_reserved_spots rows) and invitable; the rest is a
+  // plain count. See spotsLeft below.
   reservedSpots: number;
+  // How many of those reserved spots a friend has actually claimed. A claimed spot has become an
+  // approved roster row, so it's already inside joinedCount — subtracting the raw reservedSpots
+  // would charge for it twice.
+  reservedClaimed: number;
   // Named roster — only populated where the viewer is allowed to see it (organizer/approved
   // member); everyone else sees `joinedCount` only. See useGameRoster's RLS-driven privacy.
   joined: Player[];
@@ -56,13 +61,35 @@ export type Game = {
   myStatus?: "approved" | "requested";
 };
 
-export type PastPlayer = { id: string; name: string; color: string };
+export type PastPlayer = {
+  id: string;
+  name: string;
+  color: string;
+  photoPath: string | null;
+  // The host is rated twice — as a player like anyone else, and as a host (post-game-plan.md D6).
+  isHost: boolean;
+  // What this player says their own tier is. Shown next to the skill vote so the rater is
+  // answering "is that right?" rather than guessing in a vacuum.
+  declaredTier: string | null;
+  // What the viewer has already submitted for this person. Ratings are immutable and there's no
+  // deadline (D7), so a half-finished screen has to come back showing what's already locked in.
+  ratedPlayer: boolean;
+  ratedHost: boolean;
+  skillVoted: boolean;
+};
 export type PastGame = {
   id: string;
   venue: string;
   date: string;
   time: string;
+  // Only people the viewer may rate: attendees, host included, viewer excluded. A no-show the
+  // host marked is absent from every copy of this list.
   players: PastPlayer[];
+  // Viewer is the organizer, so they get the attendance controls.
+  viewerIsHost: boolean;
+  // Null until the host marks who showed. While it's null nobody has been excluded, which is why
+  // the fallback prompt asks everyone to rate everyone (D4).
+  attendanceMarkedAt: string | null;
   // Rebook fields (M4) — post-game's "Rebook this game" needs the same source data as the
   // Past tab's card, not just what the ratings screen itself displays.
   venueId: string | null;
@@ -76,8 +103,13 @@ export type PastGame = {
   startsAtIso: string;
 };
 
-export function spotsLeft(game: Pick<Game, "joinedCount" | "maxPlayers" | "reservedSpots">): number {
-  return Math.max(0, game.maxPlayers - game.joinedCount - game.reservedSpots);
+// Mirrors public.open_spots (post-game-plan.md D1). The host always occupies one of max_players
+// — `4` means the host plus 3 others — and an unclaimed reserved spot is held back on top of
+// that. The DB projects this as `open_spots` on games_public/nearby_games; this is the same
+// formula for local/mock rows and for anything holding a Game built by hand.
+export function spotsLeft(game: Pick<Game, "joinedCount" | "maxPlayers" | "reservedSpots" | "reservedClaimed">): number {
+  const heldForFriends = Math.max(0, game.reservedSpots - game.reservedClaimed);
+  return Math.max(0, game.maxPlayers - 1 - game.joinedCount - heldForFriends);
 }
 
 export type LevelFit = "below" | "match" | "one-above" | "above";

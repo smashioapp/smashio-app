@@ -812,6 +812,10 @@ export default function Wizard() {
     </View>
   );
 
+  // post-game-plan.md D1: the host always occupies one of the total, so what strangers can
+  // actually join is total minus the host minus whatever is held for friends.
+  const openToOthers = Math.max(0, wizard.maxPlayers - 1 - wizard.reservedSpots);
+
   const renderTierAndPlayers = () => (
     <View>
       {TIERS.map((t) => {
@@ -830,7 +834,7 @@ export default function Wizard() {
           </Pressable>
         );
       })}
-      <Label style={{ marginTop: 8 }}>Max players</Label>
+      <Label style={{ marginTop: 8 }}>Total players (including you)</Label>
       <View className="flex-row items-center justify-center gap-6 rounded-2xl p-4.5 mb-5 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
         <Stepper onPress={decPlayers} icon="remove" />
         <Text className="font-display text-[28px]" style={{ color: colors.accent }}>
@@ -845,10 +849,14 @@ export default function Wizard() {
         <Text className="font-display text-[28px]" style={{ color: colors.accent }}>
           {wizard.reservedSpots}
         </Text>
-        <Stepper onPress={incReservedSpots} icon="add" disabled={wizard.reservedSpots >= wizard.maxPlayers} />
+        <Stepper onPress={incReservedSpots} icon="add" disabled={wizard.reservedSpots >= wizard.maxPlayers - 1} />
       </View>
       <Text className="text-[13px] mt-2" style={{ color: colors.textMuted }}>
-        Spots you're taking for people joining outside the app — held back from the {wizard.maxPlayers} above.
+        Spots held for friends of yours. You can name them and send an invite once the game is up.
+        {"\n"}
+        {openToOthers === 0
+          ? "Nothing left for anyone else to join."
+          : `${openToOthers} spot${openToOthers === 1 ? "" : "s"} open for other players.`}
       </Text>
     </View>
   );

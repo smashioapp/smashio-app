@@ -17,10 +17,9 @@ jobs:
       EXPO_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.EXPO_PUBLIC_SUPABASE_ANON_KEY }}
       EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
       EXPO_PUBLIC_SENTRY_DSN: ${{ secrets.EXPO_PUBLIC_SENTRY_DSN }}
-      # No SENTRY_ORG/PROJECT/AUTH_TOKEN in CI yet, so sentry-cli's debug-symbol
-      # upload phase fails the archive. Crash reports stay unsymbolicated until
-      # those secrets exist; drop this once they do.
-      SENTRY_DISABLE_AUTO_UPLOAD: "true"
+      SENTRY_ORG: smashio
+      SENTRY_PROJECT: smashio-sentry-app
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
       KEYCHAIN_PASSWORD: temporary-ci-keychain-password
       IOS_DIST_CERT_BASE64: ${{ secrets.IOS_DIST_CERT_BASE64 }}
       IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}

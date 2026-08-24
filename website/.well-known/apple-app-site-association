@@ -4,7 +4,7 @@
     "details": [
       {
         "appID": "Y2DMN58XW2.com.smashio.app",
-        "paths": ["/game/*"]
+        "paths": ["/game/*", "/venue/*", "/player/*"]
       }
     ]
   }

@@ -42,31 +42,40 @@ production don't cross-update.
 
 **Effort:** ~1h including CI. **Highest leverage item in this doc.**
 
-### 1.2 Android App Links — `assetlinks.json` missing
+### 1.2 Android App Links — `assetlinks.json` missing ✅ done 2026-08-24
 
 **Gap.** `website/.well-known/` contains only `apple-app-site-association`. No `assetlinks.json`.
+
+**Shipped.** `website/.well-known/assetlinks.json` added (package `com.smashio.app`), served with
+`Content-Type: application/json` via `website/vercel.json`. `android.intentFilters` (autoVerify,
+`smashio.com.au` host, `/game/*`, `/venue/*`, `/player/*` path patterns) added to
+`ui/app.config.js`. **Needs a one-time manual step before this works:** the
+`sha256_cert_fingerprints` value is a placeholder (`REPLACE_WITH_RELEASE_KEYSTORE_SHA256`) — the
+release keystore only exists as the `ANDROID_KEYSTORE_BASE64` GitHub secret
+(`.github/workflows/build-android.yml`), not checked into the repo, so it couldn't be derived
+locally. Decode that secret and run `keytool -list -v -keystore release.keystore` (password in
+`ANDROID_KEYSTORE_PASSWORD`), take the SHA256 line, and paste it into `assetlinks.json`.
 
 **Why it hurts.** Android is being added to the beta in batches. Every
 `https://smashio.com.au/game/<id>` link tapped on Android opens the browser instead of the app —
 the exact dead-end the AASA file was added to fix on iOS (see the comment in `app.config.js`).
 
-**Work.** Generate `assetlinks.json` with the release keystore's SHA-256 fingerprint (the one
-`ui/plugins/withAndroidReleaseSigning` uses), drop it in `website/.well-known/`, add
-`android.intentFilters` for `smashio.com.au` to `app.config.js`.
+**Effort:** ~20min (plus the manual fingerprint step above).
 
-**Effort:** ~20min.
-
-### 1.3 Universal Link paths are too narrow
+### 1.3 Universal Link paths are too narrow ✅ done 2026-08-24
 
 **Gap.** AASA `paths` is `["/game/*"]` only.
+
+**Shipped.** `/venue/*` and `/player/*` added to AASA `paths`
+(`website/.well-known/apple-app-site-association`) and to the same Android intent filters as 1.2.
+Static fallback pages `website/venue.html` and `website/player.html` added (dark-theme, matches
+`index.html` styling, TestFlight/Android-beta CTAs) with `website/vercel.json` rewrites
+`/venue/:id → /venue.html` and `/player/:id → /player.html`, mirroring the existing `/game/:id`
+rewrite.
 
 **Why it hurts.** There are 56 enriched venues and a real venue detail screen
 (`ui/app/venue/[id].tsx`, [venues-plan.md](venues-plan.md) A1–A6) plus `ui/app/player/[id].tsx`.
 Neither is linkable. Sharing a venue is free top-of-funnel and currently impossible.
-
-**Work.** Add `/venue/*` and `/player/*` to AASA paths, add matching Android intent filters, and
-make sure `website/` serves a sane fallback page for each (a link with no web fallback is worse
-than no link).
 
 **Effort:** ~30min plus whatever the web fallback pages cost.
 

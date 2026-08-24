@@ -39,6 +39,21 @@ module.exports = {
       },
       predictiveBackGestureEnabled: false,
       softwareKeyboardLayoutMode: "resize",
+      // Android equivalent of the iOS associatedDomains above: tapping
+      // https://smashio.com.au/game|venue|player/<id> opens the app instead of the
+      // browser. Verified via website/.well-known/assetlinks.json (autoVerify).
+      intentFilters: [
+        {
+          action: "VIEW",
+          autoVerify: true,
+          data: [
+            { scheme: "https", host: "smashio.com.au", pathPattern: "/game/.*" },
+            { scheme: "https", host: "smashio.com.au", pathPattern: "/venue/.*" },
+            { scheme: "https", host: "smashio.com.au", pathPattern: "/player/.*" },
+          ],
+          category: ["BROWSABLE", "DEFAULT"],
+        },
+      ],
     },
     web: {
       favicon: "./assets/favicon.png",

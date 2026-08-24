@@ -3,7 +3,15 @@
     {
       "source": "/.well-known/apple-app-site-association",
       "headers": [{ "key": "Content-Type", "value": "application/json" }]
+    },
+    {
+      "source": "/.well-known/assetlinks.json",
+      "headers": [{ "key": "Content-Type", "value": "application/json" }]
     }
   ],
-  "rewrites": [{ "source": "/game/:id", "destination": "/index.html" }]
+  "rewrites": [
+    { "source": "/game/:id", "destination": "/index.html" },
+    { "source": "/venue/:id", "destination": "/venue.html" },
+    { "source": "/player/:id", "destination": "/player.html" }
+  ]
 }

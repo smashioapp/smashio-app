@@ -34,4 +34,5 @@ jobs:
           EXPO_PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY }}
           EXPO_PUBLIC_SENTRY_DSN: ${{ secrets.EXPO_PUBLIC_SENTRY_DSN }}
           EXPO_PUBLIC_UPDATE_CHANNEL: production
-        run: npx eas-cli@latest update --branch production --message "${{ github.event.head_commit.message }}" --non-interactive
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: npx eas-cli@latest update --branch production --message "${COMMIT_MESSAGE%%$'\n'*}" --non-interactive

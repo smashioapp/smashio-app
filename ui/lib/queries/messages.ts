@@ -620,6 +620,7 @@ export type ChatMember = {
   id: string;
   name: string;
   photoUri: string | null;
+  avatarKey: string | null;
   color: string;
   isHost: boolean;
   muted: boolean;
@@ -632,17 +633,18 @@ export function useChatMembers(gameId: string, organizerId?: string) {
     queryFn: async (): Promise<ChatMember[]> => {
       const { data, error } = await supabase
         .from("game_players")
-        .select("profile_id, status, chat_muted_at, profiles(display_name, photo_path)")
+        .select("profile_id, status, chat_muted_at, profiles(display_name, photo_path, avatar_key)")
         .eq("game_id", gameId)
         .eq("status", "approved");
       if (error) throw error;
 
       const members: ChatMember[] = (data ?? []).map((r) => {
-        const profile = r.profiles as { display_name: string; photo_path: string | null } | null;
+        const profile = r.profiles as { display_name: string; photo_path: string | null; avatar_key: string | null } | null;
         return {
           id: r.profile_id,
           name: profile?.display_name || "Player",
           photoUri: avatarUrl(profile?.photo_path),
+          avatarKey: profile?.avatar_key ?? null,
           color: avatarColor(r.profile_id),
           isHost: r.profile_id === organizerId,
           muted: !!r.chat_muted_at,
@@ -651,11 +653,12 @@ export function useChatMembers(gameId: string, organizerId?: string) {
       });
 
       if (organizerId && !members.some((m) => m.id === organizerId)) {
-        const { data: org } = await supabase.from("profiles").select("display_name, photo_path").eq("id", organizerId).single();
+        const { data: org } = await supabase.from("profiles").select("display_name, photo_path, avatar_key").eq("id", organizerId).single();
         members.push({
           id: organizerId,
           name: org?.display_name || "Host",
           photoUri: avatarUrl(org?.photo_path),
+          avatarKey: org?.avatar_key ?? null,
           color: avatarColor(organizerId),
           isHost: true,
           muted: false,

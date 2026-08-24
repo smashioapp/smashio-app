@@ -208,7 +208,7 @@ export function ChatDetailsSheet({
               }}
               className="flex-row items-center gap-3 flex-1"
             >
-              <Avatar name={m.name} color={m.color} photoUri={m.photoUri} size={32} />
+              <Avatar id={m.id} name={m.name} color={m.color} photoUri={m.photoUri} avatarKey={m.avatarKey} size={32} />
               <View className="flex-1">
                 <Text className="font-body-bold text-[14px]" style={{ color: colors.text }}>
                   {m.name}

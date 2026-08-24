@@ -121,6 +121,7 @@ export type PlayerCard = {
   // games, not a host this player has an open request with) — see player_card's is_restricted,
   // 20260822000000. Reputation fields above are null in that case, never a fake zero.
   restricted: boolean;
+  avatarKey: string | null;
 };
 
 // The public player card (profile-plan.md P1) — security-definer RPC, not a view, because
@@ -162,6 +163,7 @@ export function usePlayerCard(targetId: string | undefined) {
           tierOrdinal: s.tier_ordinal,
         })),
         restricted: data.restricted,
+        avatarKey: data.avatar_key,
       };
     },
     enabled: !!targetId,

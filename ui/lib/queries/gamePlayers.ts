@@ -3,6 +3,10 @@ import { supabase } from "../supabase";
 import { avatarColor } from "../theme";
 import type { Player } from "../mockData";
 
+function photoUrl(path: string | null): string | null {
+  return path ? supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl : null;
+}
+
 async function requireUserId(): Promise<string> {
   const {
     data: { user },
@@ -17,15 +21,20 @@ export function useGameRoster(gameId: string) {
     queryFn: async (): Promise<Player[]> => {
       const { data, error } = await supabase
         .from("game_players")
-        .select("profile_id, profiles(display_name)")
+        .select("profile_id, profiles(display_name, photo_path, avatar_key)")
         .eq("game_id", gameId)
         .eq("status", "approved");
       if (error) throw error;
-      return (data ?? []).map((row) => ({
-        id: row.profile_id,
-        name: (row.profiles as { display_name: string } | null)?.display_name || "Player",
-        color: avatarColor(row.profile_id),
-      }));
+      return (data ?? []).map((row) => {
+        const profile = row.profiles as { display_name: string; photo_path: string | null; avatar_key: string | null } | null;
+        return {
+          id: row.profile_id,
+          name: profile?.display_name || "Player",
+          color: avatarColor(row.profile_id),
+          photoUri: photoUrl(profile?.photo_path ?? null),
+          avatarKey: profile?.avatar_key ?? null,
+        };
+      });
     },
     enabled: !!gameId,
   });
@@ -42,7 +51,7 @@ export function useMyGamesRoster(gameIds: string[]) {
       if (sortedIds.length === 0) return new Map();
       const { data, error } = await supabase
         .from("game_players")
-        .select("game_id, profile_id, attended, profiles(display_name)")
+        .select("game_id, profile_id, attended, profiles(display_name, photo_path, avatar_key)")
         .in("game_id", sortedIds)
         .eq("status", "approved");
       if (error) throw error;
@@ -52,10 +61,13 @@ export function useMyGamesRoster(gameIds: string[]) {
         // card, and the "Rate N players" count (post-game-plan.md D4). attended === null means
         // the host never marked, so nobody is excluded.
         if (row.attended === false) continue;
+        const profile = row.profiles as { display_name: string; photo_path: string | null; avatar_key: string | null } | null;
         const player: Player = {
           id: row.profile_id,
-          name: (row.profiles as { display_name: string } | null)?.display_name || "Player",
+          name: profile?.display_name || "Player",
           color: avatarColor(row.profile_id),
+          photoUri: photoUrl(profile?.photo_path ?? null),
+          avatarKey: profile?.avatar_key ?? null,
         };
         byGame.set(row.game_id, [...(byGame.get(row.game_id) ?? []), player]);
       }

@@ -1,16 +1,18 @@
 import { useEffect, useState } from "react";
-import { Image, Pressable, ScrollView, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { router } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
-import { LinearGradient } from "expo-linear-gradient";
 import Animated, { FadeIn, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
-import { colors, gradients, initial, TIERS, TierId } from "../../lib/theme";
+import { colors, TIERS, TierId } from "../../lib/theme";
 import { SPRING } from "../../lib/motion";
 import { haptics } from "../../lib/haptics";
 import { Button } from "../../components/Button";
 import { Field } from "../../components/Field";
 import { HoldButton } from "../../components/HoldButton";
 import { Screen } from "../../components/Screen";
+import { Avatar } from "../../components/Avatar";
+import { AvatarPicker } from "../../components/AvatarPicker";
+import { animalForId, type AnimalKey } from "../../lib/avatars";
 import { useSession } from "../../lib/session";
 import { useSports, useSkillTiers } from "../../lib/queries/sports";
 import { SPORT_SLUG } from "../../lib/queries/games";
@@ -75,6 +77,8 @@ export default function Setup() {
   const [seeded, setSeeded] = useState(false);
   const [skill, setSkill] = useState<TierId>("Intermediate");
   const [localPhotoUri, setLocalPhotoUri] = useState<string | null>(null);
+  const [avatarKeyChoice, setAvatarKeyChoice] = useState<AnimalKey | null>(null);
+  const [pickerVisible, setPickerVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const { data: sports } = useSports();
@@ -107,6 +111,7 @@ export default function Setup() {
     if (!result.canceled) {
       haptics.tap();
       setLocalPhotoUri(result.assets[0].uri);
+      setAvatarKeyChoice(null);
     }
   };
 
@@ -125,7 +130,12 @@ export default function Setup() {
       if (localPhotoUri) await uploadAvatar.mutateAsync(localPhotoUri).catch(() => {});
       else if (providerPhotoUrl) await uploadAvatarFromUrl.mutateAsync(providerPhotoUrl).catch(() => {});
 
-      await updateProfile.mutateAsync({ display_name: name.trim() });
+      // Keeping the pre-seeded id-hash animal (avatarKeyChoice still null) is zero taps — this
+      // is what unifies email and Google sign-ups (avatars-plan.md diagnosis 5).
+      await updateProfile.mutateAsync({
+        display_name: name.trim(),
+        avatar_key: avatarKeyChoice ?? animalForId(session!.user.id).key,
+      });
       await upsertProfileSport.mutateAsync({ sportId: sport.id, skillTierId: tierRow.id });
       router.replace("/onboarding/nearby");
     } catch (e) {
@@ -134,8 +144,31 @@ export default function Setup() {
   };
 
   const saving = updateProfile.isPending || upsertProfileSport.isPending;
-  const previewUri = localPhotoUri ?? providerPhotoUrl;
+  const previewUri = avatarKeyChoice ? null : localPhotoUri ?? providerPhotoUrl;
   const canFinish = !!name.trim() && !saving;
+
+  const takePhoto = async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      setError("Allow camera access to take a profile picture.");
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.8 });
+    if (!result.canceled) {
+      haptics.tap();
+      setLocalPhotoUri(result.assets[0].uri);
+      setAvatarKeyChoice(null);
+    }
+  };
+
+  const changeAvatar = () => {
+    Alert.alert("Change avatar", undefined, [
+      { text: "Take photo", onPress: takePhoto },
+      { text: "Choose photo", onPress: pickPhoto },
+      { text: "Pick a Smashimal", onPress: () => setPickerVisible(true) },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  };
 
   return (
     <Screen>
@@ -157,25 +190,19 @@ export default function Setup() {
           </Text>
         </View>
 
-        <Pressable onPress={pickPhoto} className="self-center items-center gap-2" testID="setup-photo">
-          <View className="w-28 h-28 rounded-full overflow-hidden items-center justify-center">
-            {previewUri ? (
-              <Image source={{ uri: previewUri }} className="w-28 h-28" />
-            ) : (
-              <LinearGradient
-                colors={gradients.accentDiagonal}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={{ width: "100%", height: "100%", alignItems: "center", justifyContent: "center" }}
-              >
-                <Text className="font-display text-[40px]" style={{ color: colors.base }}>
-                  {initial(name)}
-                </Text>
-              </LinearGradient>
-            )}
+        <Pressable onPress={changeAvatar} className="self-center items-center gap-2" testID="setup-photo">
+          <View style={{ width: 112, height: 112 }}>
+            <Avatar
+              id={session?.user.id}
+              name={name}
+              color={colors.surfaceAlt}
+              size={112}
+              photoUri={previewUri}
+              avatarKey={avatarKeyChoice}
+            />
           </View>
-          <Text className="font-body-bold text-[13px]" style={{ color: colors.textTertiary }}>
-            {previewUri ? "Change photo" : "Add a photo"}
+          <Text className="font-body-bold text-[13px] text-center" style={{ color: colors.textTertiary }}>
+            {previewUri ? "Change photo" : "This one's yours — want a different one?"}
           </Text>
         </Pressable>
 
@@ -212,6 +239,17 @@ export default function Setup() {
           {error && <Button label="Try again" variant="secondary" onPress={finish} disabled={!canFinish} />}
         </View>
       </ScrollView>
+
+      <AvatarPicker
+        visible={pickerVisible}
+        onClose={() => setPickerVisible(false)}
+        id={session?.user.id ?? ""}
+        selectedKey={avatarKeyChoice}
+        onSelect={(key) => {
+          setAvatarKeyChoice(key);
+          setLocalPhotoUri(null);
+        }}
+      />
     </Screen>
   );
 }

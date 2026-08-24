@@ -45,7 +45,7 @@ export function useBlockedPlayers() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("blocks")
-        .select("blocked_id, created_at, profiles!blocks_blocked_id_fkey(id, display_name, photo_path)")
+        .select("blocked_id, created_at, profiles!blocks_blocked_id_fkey(id, display_name, photo_path, avatar_key)")
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;

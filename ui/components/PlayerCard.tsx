@@ -26,6 +26,7 @@ function StatTile({ value, label, onPress }: { value: number; label: string; onP
 export function PlayerCardHeader({
   id,
   photoPath,
+  avatarKey,
   displayName,
   homeSuburb,
   memberSince,
@@ -35,6 +36,7 @@ export function PlayerCardHeader({
 }: {
   id: string;
   photoPath: string | null;
+  avatarKey?: string | null;
   displayName: string;
   homeSuburb: string | null;
   memberSince: string;
@@ -49,7 +51,7 @@ export function PlayerCardHeader({
   return (
     <View className="items-center gap-2 px-6 pt-2 pb-4">
       <View style={{ width: 84, height: 84 }}>
-        <Avatar name={displayName} color={avatarColor(id)} size={84} photoUri={photoUrl} />
+        <Avatar id={id} name={displayName} color={avatarColor(id)} size={84} photoUri={photoUrl} avatarKey={avatarKey} />
       </View>
       <View className="flex-row items-center gap-2">
         <Text className="font-display text-[20.5px]" style={{ color: colors.text }}>
@@ -146,6 +148,7 @@ export function PlayerCard({
       <PlayerCardHeader
         id={card.id}
         photoPath={card.photoPath}
+        avatarKey={card.avatarKey}
         displayName={card.displayName}
         homeSuburb={card.homeSuburb}
         memberSince={card.memberSince}

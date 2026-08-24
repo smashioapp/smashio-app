@@ -38,7 +38,7 @@ export function ShareCard({
           SMASHIO
         </Text>
         <View className="items-center" style={{ marginTop: 50 }}>
-          <Avatar name={card.displayName} color={avatarColor(card.id)} size={80} photoUri={photoUrl} />
+          <Avatar id={card.id} name={card.displayName} color={avatarColor(card.id)} size={80} photoUri={photoUrl} avatarKey={card.avatarKey} />
           <Text className="font-display-bold text-[22px] mt-3.5" style={{ color: colors.text }}>
             {card.displayName}
           </Text>
@@ -78,7 +78,7 @@ export function ShareCard({
         </Text>
       </View>
       <View className="flex-row items-center" style={{ position: "absolute", top: 70, left: 24, right: 24, gap: 14 }}>
-        <Avatar name={card.displayName} color={avatarColor(card.id)} size={56} photoUri={photoUrl} />
+        <Avatar id={card.id} name={card.displayName} color={avatarColor(card.id)} size={56} photoUri={photoUrl} avatarKey={card.avatarKey} />
         <View style={{ flex: 1 }}>
           <Text className="font-display-bold text-[19px]" style={{ color: colors.text }} numberOfLines={1}>
             {card.displayName}

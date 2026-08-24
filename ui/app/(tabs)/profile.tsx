@@ -164,7 +164,7 @@ export default function Profile() {
             <View className="flex-row items-center gap-3.5 mt-2" style={{ paddingHorizontal: LAYOUT.SCREEN_PAD }}>
               <Pressable onPress={() => router.push("/profile-edit")} accessibilityRole="button" accessibilityLabel="Edit profile">
                 <View style={{ width: 64, height: 64 }}>
-                  <Avatar name={card.displayName} color={avatarColor(userId)} size={64} photoUri={photoUrl} />
+                  <Avatar id={userId} name={card.displayName} color={avatarColor(userId)} size={64} photoUri={photoUrl} avatarKey={card.avatarKey} />
                   <View
                     className="absolute rounded-full items-center justify-center"
                     style={{ bottom: -3, right: -3, width: 24, height: 24, backgroundColor: colors.accent, borderWidth: 2, borderColor: colors.base }}

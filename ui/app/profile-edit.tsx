@@ -9,6 +9,8 @@ import { Button } from "../components/Button";
 import { Screen } from "../components/Screen";
 import { BackButton } from "../components/BackButton";
 import { Avatar } from "../components/Avatar";
+import { AvatarPicker } from "../components/AvatarPicker";
+import type { AnimalKey } from "../lib/avatars";
 import { useSession } from "../lib/session";
 import { useProfile, useProfileSports, useUpdateProfile, useUpsertProfileSport, useUploadAvatar, useSetHomePoint } from "../lib/queries/profile";
 import { useSports, useSkillTiers } from "../lib/queries/sports";
@@ -28,6 +30,8 @@ export default function ProfileEdit() {
   const [suburb, setSuburb] = useState(profile?.home_suburb ?? "");
   const [skill, setSkill] = useState<TierId>("Intermediate");
   const [localPhotoUri, setLocalPhotoUri] = useState<string | null>(null);
+  const [avatarKeyChoice, setAvatarKeyChoice] = useState<AnimalKey | null>(null);
+  const [pickerVisible, setPickerVisible] = useState(false);
   const [nameTouched, setNameTouched] = useState(false);
   const [suburbTouched, setSuburbTouched] = useState(false);
   const [skillTouched, setSkillTouched] = useState(false);
@@ -54,7 +58,32 @@ export default function ProfileEdit() {
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsEditing: true, aspect: [1, 1], quality: 0.8 });
-    if (!result.canceled) setLocalPhotoUri(result.assets[0].uri);
+    if (!result.canceled) {
+      setLocalPhotoUri(result.assets[0].uri);
+      setAvatarKeyChoice(null);
+    }
+  };
+
+  const takePhoto = async () => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Permission needed", "Allow camera access to take a profile picture.");
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.8 });
+    if (!result.canceled) {
+      setLocalPhotoUri(result.assets[0].uri);
+      setAvatarKeyChoice(null);
+    }
+  };
+
+  const changeAvatar = () => {
+    Alert.alert("Change avatar", undefined, [
+      { text: "Take photo", onPress: takePhoto },
+      { text: "Choose photo", onPress: pickPhoto },
+      { text: "Pick a Smashimal", onPress: () => setPickerVisible(true) },
+      { text: "Cancel", style: "cancel" },
+    ]);
   };
 
   const save = async () => {
@@ -63,7 +92,13 @@ export default function ProfileEdit() {
     try {
       if (localPhotoUri) await uploadAvatar.mutateAsync(localPhotoUri);
       const trimmedSuburb = suburb.trim();
-      await updateProfile.mutateAsync({ display_name: name.trim(), home_suburb: trimmedSuburb || null });
+      await updateProfile.mutateAsync({
+        display_name: name.trim(),
+        home_suburb: trimmedSuburb || null,
+        // Picking an animal clears photo_path; a fresh photo upload (above) leaves avatar_key
+        // intact underneath as the fallback (avatars-plan.md P2).
+        ...(avatarKeyChoice ? { avatar_key: avatarKeyChoice, photo_path: null } : {}),
+      });
       if (badminton && tierRow) await upsertProfileSport.mutateAsync({ sportId: badminton.id, skillTierId: tierRow.id });
       // Best-effort: a distance fallback for "near me" is a nice-to-have, not worth blocking
       // save over a flaky geocode (profile-plan.md P5).
@@ -88,7 +123,8 @@ export default function ProfileEdit() {
   const existingPhotoUrl = profile?.photo_path
     ? supabase.storage.from("avatars").getPublicUrl(profile.photo_path).data.publicUrl
     : null;
-  const previewUri = localPhotoUri ?? existingPhotoUrl;
+  const previewUri = avatarKeyChoice ? null : localPhotoUri ?? existingPhotoUrl;
+  const previewAvatarKey = avatarKeyChoice ?? profile?.avatar_key;
   const displayName = nameTouched ? name : profile?.display_name ?? name;
   const displaySuburb = suburbTouched ? suburb : profile?.home_suburb ?? suburb;
 
@@ -101,9 +137,16 @@ export default function ProfileEdit() {
         </Text>
       </View>
       <ScrollView className="flex-1 px-6 pt-4" contentContainerStyle={{ paddingBottom: 24, gap: 14 }}>
-        <Pressable onPress={pickPhoto} className="self-center mb-2" accessibilityRole="button" accessibilityLabel="Change photo">
+        <Pressable onPress={changeAvatar} className="self-center mb-2" accessibilityRole="button" accessibilityLabel="Change avatar">
           <View style={{ width: 88, height: 88 }}>
-            <Avatar name={displayName || "?"} color={avatarColor(userId ?? "")} size={88} photoUri={previewUri} />
+            <Avatar
+              id={userId}
+              name={displayName || "?"}
+              color={avatarColor(userId ?? "")}
+              size={88}
+              photoUri={previewUri}
+              avatarKey={previewAvatarKey}
+            />
             <View
               className="absolute rounded-full items-center justify-center"
               style={{ bottom: -2, right: -2, width: 30, height: 30, backgroundColor: colors.accent, borderWidth: 2, borderColor: colors.base }}
@@ -179,6 +222,17 @@ export default function ProfileEdit() {
       <View className="px-6 pb-2" style={{ paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.cardBorder }}>
         <Button label="Save changes" loading={saving} disabled={!displayName.trim() || !sportsLoaded} onPress={save} />
       </View>
+
+      <AvatarPicker
+        visible={pickerVisible}
+        onClose={() => setPickerVisible(false)}
+        id={userId ?? ""}
+        selectedKey={previewAvatarKey}
+        onSelect={(key) => {
+          setAvatarKeyChoice(key);
+          setLocalPhotoUri(null);
+        }}
+      />
     </Screen>
   );
 }

@@ -43,7 +43,7 @@ export default function BlockedPlayers() {
               className="flex-row items-center gap-3 py-3"
               style={{ borderBottomWidth: 1, borderBottomColor: colors.cardBorder }}
             >
-              <Avatar name={p.display_name} color={avatarColor(p.id)} size={38} photoUri={photoUrl} />
+              <Avatar id={p.id} name={p.display_name} color={avatarColor(p.id)} size={38} photoUri={photoUrl} avatarKey={p.avatar_key} />
               <Text className="flex-1 font-body-semibold text-[14px]" style={{ color: colors.text }} numberOfLines={1}>
                 {p.display_name}
               </Text>

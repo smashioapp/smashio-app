@@ -362,6 +362,7 @@ export type Database = {
           cost_per_player_cents: number
           court_label: string | null
           courts_booked: number
+          cover_key: string
           created_at: string
           duration_hours: number
           ends_at: string
@@ -391,6 +392,7 @@ export type Database = {
           cost_per_player_cents?: number
           court_label?: string | null
           courts_booked?: number
+          cover_key?: string
           created_at?: string
           duration_hours?: number
           ends_at: string
@@ -420,6 +422,7 @@ export type Database = {
           cost_per_player_cents?: number
           court_label?: string | null
           courts_booked?: number
+          cover_key?: string
           created_at?: string
           duration_hours?: number
           ends_at?: string
@@ -853,6 +856,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          avatar_key: string | null
           created_at: string
           deleted_at: string | null
           display_name: string
@@ -868,6 +872,7 @@ export type Database = {
           timezone: string
         }
         Insert: {
+          avatar_key?: string | null
           created_at?: string
           deleted_at?: string | null
           display_name?: string
@@ -883,6 +888,7 @@ export type Database = {
           timezone?: string
         }
         Update: {
+          avatar_key?: string | null
           created_at?: string
           deleted_at?: string | null
           display_name?: string
@@ -1544,12 +1550,14 @@ export type Database = {
           cost_per_player_cents: number | null
           court_label: string | null
           courts_booked: number | null
+          cover_key: string | null
           created_at: string | null
           duration_hours: number | null
           ends_at: string | null
           id: string | null
           max_players: number | null
           open_spots: number | null
+          organizer_avatar_key: string | null
           organizer_display_name: string | null
           organizer_hosted_count: number | null
           organizer_id: string | null
@@ -1747,12 +1755,14 @@ export type Database = {
           cost_per_player_cents: number
           court_label: string
           courts_booked: number
+          cover_key: string
           distance_m: number
           duration_hours: number
           ends_at: string
           id: string
           max_players: number
           open_spots: number
+          organizer_avatar_key: string
           organizer_display_name: string
           organizer_hosted_count: number
           organizer_id: string
@@ -1796,6 +1806,7 @@ export type Database = {
       player_card: {
         Args: { target_id: string }
         Returns: {
+          avatar_key: string
           badge_counts: Json
           display_name: string
           games_hosted: number
@@ -1822,6 +1833,7 @@ export type Database = {
         Args: { p_game_id: string }
         Returns: {
           attended: boolean
+          avatar_key: string
           declared_tier_label: string
           display_name: string
           is_host: boolean
@@ -1960,6 +1972,10 @@ export type Database = {
       }
       set_player_chat_mute: {
         Args: { p_game_id: string; p_muted: boolean; p_profile_id: string }
+        Returns: undefined
+      }
+      system_close_chat: {
+        Args: { p_actor_id: string; p_game_id: string }
         Returns: undefined
       }
       time_in_window: {

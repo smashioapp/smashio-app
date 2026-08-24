@@ -106,7 +106,7 @@ export function ChatComposer({
               className="flex-row items-center gap-1.5 rounded-pill pl-1 pr-3 py-1"
               style={{ backgroundColor: colors.surfaceAlt }}
             >
-              <Avatar name={m.name} color={m.color} photoUri={m.photoUri} size={22} />
+              <Avatar id={m.id} name={m.name} color={m.color} photoUri={m.photoUri} avatarKey={m.avatarKey} size={22} />
               <Text className="text-[12.5px] font-body-bold" style={{ color: colors.text }}>
                 {m.name}
               </Text>

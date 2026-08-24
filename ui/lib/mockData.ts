@@ -1,6 +1,6 @@
 import { TierId } from "./theme";
 
-export type Player = { id: string; name: string; color: string };
+export type Player = { id: string; name: string; color: string; photoUri?: string | null; avatarKey?: string | null };
 
 export type GameStatus = "published" | "cancelled" | "completed";
 
@@ -53,6 +53,7 @@ export type Game = {
   // profiles, so a card falls back to no host row rather than showing stale/wrong identity.
   organizerName?: string;
   organizerPhotoPath?: string | null;
+  organizerAvatarKey?: string | null;
   organizerReliabilityScore?: number;
   organizerHostedCount?: number;
   skillTierOrdinal?: number | null;

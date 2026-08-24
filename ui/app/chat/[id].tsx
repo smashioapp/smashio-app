@@ -458,7 +458,14 @@ export default function ChatThread() {
                     <View style={{ width: 28 }}>
                       {item.groupStart && (
                         <Pressable onPress={() => onAvatarPress(m.senderId)}>
-                          <Avatar name={member?.name ?? "Player"} color={member?.color ?? colors.textSecondary} photoUri={member?.photoUri} size={28} />
+                          <Avatar
+                            id={m.senderId ?? undefined}
+                            name={member?.name ?? "Player"}
+                            color={member?.color ?? colors.textSecondary}
+                            photoUri={member?.photoUri}
+                            avatarKey={member?.avatarKey}
+                            size={28}
+                          />
                         </Pressable>
                       )}
                     </View>

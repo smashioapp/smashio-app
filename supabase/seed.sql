@@ -128,7 +128,8 @@ update public.profiles set
   display_name = 'Test Player',
   home_suburb = 'Sydney',
   home_point = extensions.ST_SetSRID(extensions.ST_MakePoint(151.2093, -33.8688), 4326),
-  reliability_score = 100
+  reliability_score = 100,
+  avatar_key = 'kookaburra'
 where id = '11111111-1111-1111-1111-111111111111';
 
 insert into public.profile_sports (profile_id, sport_id, skill_tier_id)
@@ -136,16 +137,17 @@ select '11111111-1111-1111-1111-111111111111', s.id, st.id
 from public.sports s join public.skill_tiers st on st.sport_id = s.id
 where s.slug = 'badminton' and st.slug = 'intermediate';
 
--- Bot profiles, spread across tiers.
-update public.profiles set display_name = b.name, home_suburb = 'Sydney', reliability_score = 100
+-- Bot profiles, spread across tiers. Varied avatar_keys so local dev / e2e don't render a wall
+-- of one animal (avatars-plan.md P0).
+update public.profiles set display_name = b.name, home_suburb = 'Sydney', reliability_score = 100, avatar_key = b.avatar_key
 from (values
-  ('22222222-0000-0000-0000-000000000001'::uuid, 'Ava Chen'),
-  ('22222222-0000-0000-0000-000000000002'::uuid, 'Ben Ricci'),
-  ('22222222-0000-0000-0000-000000000003'::uuid, 'Chloe Nguyen'),
-  ('22222222-0000-0000-0000-000000000004'::uuid, 'Dev Patel'),
-  ('22222222-0000-0000-0000-000000000005'::uuid, 'Ella Wright'),
-  ('22222222-0000-0000-0000-000000000006'::uuid, 'Finn Okafor')
-) as b(id, name)
+  ('22222222-0000-0000-0000-000000000001'::uuid, 'Ava Chen', 'quokka'),
+  ('22222222-0000-0000-0000-000000000002'::uuid, 'Ben Ricci', 'wombat'),
+  ('22222222-0000-0000-0000-000000000003'::uuid, 'Chloe Nguyen', 'sugar-glider'),
+  ('22222222-0000-0000-0000-000000000004'::uuid, 'Dev Patel', 'dingo'),
+  ('22222222-0000-0000-0000-000000000005'::uuid, 'Ella Wright', 'lorikeet'),
+  ('22222222-0000-0000-0000-000000000006'::uuid, 'Finn Okafor', 'goanna')
+) as b(id, name, avatar_key)
 where public.profiles.id = b.id;
 
 insert into public.profile_sports (profile_id, sport_id, skill_tier_id)

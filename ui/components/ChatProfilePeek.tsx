@@ -42,7 +42,14 @@ export function ChatProfilePeek({
         <Pressable onPress={(e) => e.stopPropagation()}>
           <LinearGradient colors={gradients.card} className="rounded-[20px] p-4 border gap-3" style={{ borderColor: "rgba(255,255,255,0.12)" }}>
             <View className="flex-row items-center gap-3">
-              <Avatar name={member.name} color={member.color} photoUri={member.photoUri} size={52} />
+              <Avatar
+                id={member.id}
+                name={member.name}
+                color={member.color}
+                photoUri={member.photoUri}
+                avatarKey={card?.avatarKey ?? member.avatarKey}
+                size={52}
+              />
               <View className="flex-1 min-w-0">
                 <View className="flex-row items-center gap-1.5">
                   <Text numberOfLines={1} className="font-body-bold text-[16px]" style={{ color: colors.text }}>

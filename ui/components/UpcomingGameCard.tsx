@@ -164,7 +164,14 @@ export function UpcomingGameCard({
 
           {role !== "hosting" && game.organizerName && (
             <View className="flex-row items-center gap-2">
-              <Avatar name={game.organizerName} color={colors.surfaceAlt} size={24} photoUri={organizerPhotoUrl} />
+              <Avatar
+                id={game.organizerId}
+                name={game.organizerName}
+                color={colors.surfaceAlt}
+                size={24}
+                photoUri={organizerPhotoUrl}
+                avatarKey={game.organizerAvatarKey}
+              />
               <Text className="text-[13px] font-body-semibold flex-1" style={{ color: colors.textSecondary }} numberOfLines={1}>
                 {game.organizerName}
                 {game.organizerReliabilityScore != null && (
@@ -269,7 +276,7 @@ export function UpcomingGameCard({
                   }}
                 >
                   <View className="flex-row items-center gap-2.5 rounded-xl p-2.5" style={{ backgroundColor: colors.surfaceAlt }}>
-                    <Avatar name={r.name} color={r.color} size={26} />
+                    <Avatar id={r.profileId} name={r.name} color={r.color} size={26} />
                     <Text className="flex-1 text-[13.5px] font-body-semibold" style={{ color: colors.text }} numberOfLines={1}>
                       {r.name}
                     </Text>

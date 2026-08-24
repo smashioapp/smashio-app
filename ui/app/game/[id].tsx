@@ -3,7 +3,7 @@ import { View, Text, Pressable, ScrollView, Alert, useWindowDimensions } from "r
 import { router, useLocalSearchParams } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, LAYOUT, initial, reliabilityLabel } from "../../lib/theme";
+import { colors, LAYOUT, reliabilityLabel } from "../../lib/theme";
 import { spotsLeft, type Game } from "../../lib/mockData";
 import { openDirections } from "../../lib/directions";
 import { addGameToCalendar, hasCalendarEvent } from "../../lib/calendar";
@@ -29,7 +29,7 @@ import { CountdownChip } from "../../components/CountdownChip";
 import { CourtBackdrop } from "../../components/CourtBackdrop";
 import { StatTile, StatTileRow } from "../../components/StatTile";
 import { ListRow } from "../../components/ListRow";
-import { AvatarStack } from "../../components/Avatar";
+import { Avatar, AvatarStack } from "../../components/Avatar";
 import { SwipeToDecide } from "../../components/SwipeToDecide";
 import { VettingStrip } from "../../components/VettingStrip";
 import { haptics } from "../../lib/haptics";
@@ -243,9 +243,14 @@ export default function GameDetails() {
           <View className="mt-5">
             {organizer && !isOrganizer && (
               <View className="flex-row items-center gap-2.5" style={{ paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: LAYOUT.HAIRLINE }}>
-                <View className="w-9 h-9 rounded-full items-center justify-center overflow-hidden" style={{ backgroundColor: colors.surfaceAlt }}>
-                  <Text style={{ color: colors.text, fontSize: 12, fontWeight: "800" }}>{initial(organizer.displayName)}</Text>
-                </View>
+                <Avatar
+                  id={organizer.id}
+                  name={organizer.displayName}
+                  color={colors.surfaceAlt}
+                  photoUri={organizer.photoPath ? supabase.storage.from("avatars").getPublicUrl(organizer.photoPath).data.publicUrl : null}
+                  avatarKey={organizer.avatarKey}
+                  size={36}
+                />
                 <View className="flex-1 min-w-0">
                   <Text numberOfLines={1} className="font-body-semibold text-[13.5px]" style={{ color: colors.text }}>
                     {organizer.displayName} · Host
@@ -459,7 +464,7 @@ function RosterAvatar({
   canRemove,
 }: {
   gameId: string;
-  player: { id: string; name: string; color: string };
+  player: { id: string; name: string; color: string; photoUri?: string | null; avatarKey?: string | null };
   canRemove: boolean;
 }) {
   const removePlayer = useRemovePlayer(gameId);
@@ -489,9 +494,14 @@ function RosterAvatar({
       className="items-center gap-1.5"
       style={{ width: 52, opacity: removePlayer.isPending ? 0.4 : 1 }}
     >
-      <View className="w-[38px] h-[38px] rounded-full items-center justify-center" style={{ backgroundColor: player.color }}>
-        <Text style={{ color: colors.base, fontSize: 12, fontWeight: "800" }}>{initial(player.name)}</Text>
-      </View>
+      <Avatar
+        id={player.id}
+        name={player.name}
+        color={player.color}
+        photoUri={player.photoUri}
+        avatarKey={player.avatarKey}
+        size={38}
+      />
       <Text className="text-[12px] font-body-semibold" style={{ color: colors.textSecondary }} numberOfLines={1}>
         {player.name}
       </Text>
@@ -556,9 +566,7 @@ function JoinRequests({
               style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}
             >
               <Pressable onPress={() => router.push(`/player/${r.profileId}`)}>
-                <View className="w-9 h-9 rounded-full items-center justify-center" style={{ backgroundColor: r.color }}>
-                  <Text style={{ color: colors.base, fontSize: 12, fontWeight: "800" }}>{initial(r.name)}</Text>
-                </View>
+                <Avatar id={r.profileId} name={r.name} color={r.color} size={36} />
               </Pressable>
               <Pressable className="flex-1" onPress={() => router.push(`/player/${r.profileId}`)}>
                 <Text className="font-body-semibold text-[14.5px]" style={{ color: colors.text }}>

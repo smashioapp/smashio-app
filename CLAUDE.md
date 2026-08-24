@@ -50,4 +50,4 @@ Data flow: client → `supabase-js` for Postgres/Auth/Realtime/Storage directly 
 
 Sport is a config/data concern throughout (badminton ships first, schema and query layer assume more sports later) — don't hardcode sport-specific logic outside config.
 
-`ui/db.types.ts` mirrors the Postgres schema; regenerate rather than hand-edit after a migration changes shape.
+`ui/lib/db.types.ts` mirrors the Postgres schema; regenerate (`supabase gen types typescript --local > ui/lib/db.types.ts`) rather than hand-edit after a migration changes shape.

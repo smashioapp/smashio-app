@@ -605,7 +605,7 @@ export function useChatThreads() {
           : "No messages yet",
         unread: (row.unread_count ?? 0) > 0,
         unreadCount: row.unread_count ?? 0,
-        closed: !!row.chat_closed_at,
+        closed: !!row.chat_closed_at || row.game_status === "cancelled" || row.game_status === "completed",
       }));
     },
   });

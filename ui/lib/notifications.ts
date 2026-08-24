@@ -178,6 +178,7 @@ async function handleNotificationAction(response: Notifications.NotificationResp
   // notification read and update game state. On success, navigate to the game screen to show
   // the updated roster.
   if (actionId === "approve_join") {
+    if (!data.notification_id) return;
     try {
       await supabase.rpc("approve_join_action", {
         p_notification_id: data.notification_id,
@@ -191,6 +192,7 @@ async function handleNotificationAction(response: Notifications.NotificationResp
   }
 
   if (actionId === "decline_join") {
+    if (!data.notification_id) return;
     try {
       await supabase.rpc("decline_join_action", {
         p_notification_id: data.notification_id,

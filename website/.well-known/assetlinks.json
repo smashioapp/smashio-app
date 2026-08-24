@@ -4,7 +4,7 @@
     "target": {
       "namespace": "android_app",
       "package_name": "com.smashio.app",
-      "sha256_cert_fingerprints": ["REPLACE_WITH_RELEASE_KEYSTORE_SHA256"]
+      "sha256_cert_fingerprints": ["38:9D:21:95:42:99:61:6A:03:D1:4C:78:0F:71:EA:1C:49:2A:CF:29:68:DB:BB:A8:2C:E4:3A:7A:3A:60:52:CD"]
     }
   }
 ]

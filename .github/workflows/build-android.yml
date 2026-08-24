@@ -54,12 +54,6 @@ jobs:
       - name: Decode keystore
         run: echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/release.keystore
 
-      # TEMP — for quick-wins.md 1.2 (Android App Links assetlinks.json). Run this
-      # workflow once, copy the SHA256 line from this step's log into
-      # website/.well-known/assetlinks.json, then delete this step.
-      - name: Print release SHA256 fingerprint
-        run: keytool -list -v -keystore android/app/release.keystore -storepass "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" | grep SHA256
-
       - name: Build release
         working-directory: ui/android
         env:

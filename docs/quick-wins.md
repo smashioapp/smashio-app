@@ -49,12 +49,13 @@ production don't cross-update.
 **Shipped.** `website/.well-known/assetlinks.json` added (package `com.smashio.app`), served with
 `Content-Type: application/json` via `website/vercel.json`. `android.intentFilters` (autoVerify,
 `smashio.com.au` host, `/game/*`, `/venue/*`, `/player/*` path patterns) added to
-`ui/app.config.js`. **Needs a one-time manual step before this works:** the
-`sha256_cert_fingerprints` value is a placeholder (`REPLACE_WITH_RELEASE_KEYSTORE_SHA256`) — the
-release keystore only exists as the `ANDROID_KEYSTORE_BASE64` GitHub secret
-(`.github/workflows/build-android.yml`), not checked into the repo, so it couldn't be derived
-locally. Decode that secret and run `keytool -list -v -keystore release.keystore` (password in
-`ANDROID_KEYSTORE_PASSWORD`), take the SHA256 line, and paste it into `assetlinks.json`.
+`ui/app.config.js`. No release keystore existed at all before this — generated one
+(`smashio-upload` alias, PKCS12, 10000-day validity) and set it as the 4 GitHub secrets
+`build-android.yml` expects (`ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`,
+`ANDROID_KEY_ALIAS`, `ANDROID_KEY_PASSWORD`); `sha256_cert_fingerprints` in `assetlinks.json` is
+the real fingerprint of that keystore. **The keystore file and its password are not stored
+anywhere else** — back them up somewhere durable (password manager + encrypted backup); losing
+them means every future Play Store update needs a new app listing.
 
 **Why it hurts.** Android is being added to the beta in batches. Every
 `https://smashio.com.au/game/<id>` link tapped on Android opens the browser instead of the app —

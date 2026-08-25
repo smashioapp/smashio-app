@@ -7,6 +7,7 @@ import { formatDate, formatDistance, formatTimeRange, type DistanceUnits } from 
 import { durationMs } from "../schedule";
 import { avatarColor } from "../theme";
 import { prepareConfirmationImage } from "../imagePrep";
+import { randomCoverKey } from "../covers";
 
 // Sydney CBD — fallback center when device location is unavailable or denied. Sydney-only for launch.
 export const DEFAULT_LAT = -33.8688;
@@ -56,6 +57,7 @@ function toGame(row: NearbyGameRow, units: DistanceUnits = "km"): Game {
     organizerReliabilityScore: row.organizer_reliability_score,
     organizerHostedCount: row.organizer_hosted_count,
     skillTierOrdinal: row.skill_tier_ordinal,
+    coverKey: row.cover_key,
   };
 }
 
@@ -96,6 +98,7 @@ function toGameFromPublicRow(row: GamesPublicRow): Game {
     organizerReliabilityScore: row.organizer_reliability_score ?? undefined,
     organizerHostedCount: row.organizer_hosted_count ?? undefined,
     skillTierOrdinal: row.skill_tier_ordinal,
+    coverKey: row.cover_key,
   };
 }
 
@@ -246,6 +249,7 @@ export function useCreateGame() {
           duration_hours: input.durationHours,
           cost_per_player_cents: input.costPerPlayerCents,
           reserved_spots: input.reservedSpots ?? 0,
+          cover_key: randomCoverKey(),
         })
         .select("id")
         .single();

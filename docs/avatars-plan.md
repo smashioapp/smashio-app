@@ -325,42 +325,51 @@ roster stacks, which they never did before. ✅
 **Done when:** a fresh email signup reaches the home tab with a distinct avatar having made no
 decisions. ✅
 
-### P3 — covers — PARKED 2026-08-24
+### P3 — covers — unparked 2026-08-25, shipped as an AI-generated pack
 
-**Parked by decision (§6.4): avatars ship first, covers come later.** Scoped here so the design
-isn't re-derived. `games.cover_key` still lands in P0 — one nullable column costs nothing now and
-saves a second migration later — but nothing reads it until this phase is unparked.
+**Deviated from the original scope below.** The client-drawn SVG approach (gradient + glyph,
+deterministic from id/tier/hour) was superseded mid-thread by an AI-generated raster pack, same
+production model as the Smashimals avatars (§3): Gemini-generated, brand-recolored (near-black
+`#0A0A0B`/`#1F1F24` base, `#D6FF3F` lime as the only saturated accent), Bauhaus-style flat
+geometric compositions. Two rounds were rejected first — a 3D-render neon-glow set (photoreal
+bloom/lens-flare, broke the flat-vector rule) and a flat-icon set (technically on-brief but read
+as generic stock clipart, no personality) — before the geometric direction landed. Rejected/source
+sheets kept at `data/covers-source/` (mirrors `data/avatars/source/`, kept out of `ui/` for the
+same OTA-bundling reason as §3.2).
 
-Ordered before the chat list because the chat thumb depends on `GameCover`.
-
-- [ ] `ui/lib/covers.ts` — `coverFor(game)` → gradient + glyph + line pattern, deterministic from
-      `id`, `skill_tier`, `starts_at` hour. Reuses `HERO_TONE` so open / live / urgent stay
-      consistent with the rest of the app.
-- [ ] `ui/components/GameCover.tsx` — one component, three sizes: `thumb` (46), `card`, `hero` (300).
-      `expo-linear-gradient` + `react-native-svg`, both already installed.
-- [ ] Pack of ~10 keys (`pack:night-courts`, `pack:doubles`, `pack:social`, `pack:drills`,
-      `pack:beginners`, …) drawn by the same component from a fixed config — no new image assets.
-- [ ] [wizard.tsx:44](../ui/app/wizard.tsx): optional `cover` step inserted into
-      `MANUAL_STEP_KEYS` after `level` (and `RECEIPT_STEP_KEYS` after `level`). Defaults to `auto`,
-      skippable in one tap — hosting must not get longer.
-- [ ] Render in game detail hero, `GameCard`, `UpcomingGameCard`, `ShareCard`.
+- [x] `ui/lib/covers.ts` — static `COVERS` registry (`geo-1` … `geo-4`) + `randomCoverKey()`,
+      same shape as `avatars.ts`'s `ANIMALS`/`animalFor`. No FK/enum on `cover_key` — unrecognized
+      key renders nothing, caller supplies its own fallback (same pattern as avatars' id-hash).
+- [x] `ui/components/GameCover.tsx` — `thumb` (46), `card`, `hero` (300), `rail` (56), and `fill`
+      (parent-measured, for `Hero`'s dynamic-height card). Optional `scrim` prop (bottom gradient)
+      for text legibility over the busy pattern.
+- [x] Pack of 4 (`geo-1..4`), not the originally-scoped ~10 — grown later without a migration
+      (`cover_key` has no constraint).
+- [ ] `wizard.tsx` cover-picker step — not done. New games get `randomCoverKey()` at creation
+      ([games.ts](../ui/lib/queries/games.ts) `useCreateGame`); hosts can't choose yet.
+- [x] Rendered in: game detail hero, `GameCard` (featured), `RailCard`, `UpcomingGameCard`,
+      `NextUpHero`, and the chat list thumb (P4's cheap-unpark scope, done alongside this since it
+      needed the same `GameCover` component and `chat_threads()` change).
+- [ ] `ShareCard` — not done.
 
 **Done when:** every game — including all existing rows, which default to `auto` — has art, and the
 wizard is no slower for a host who doesn't care.
 
-### P4 — chat list identity — PARKED 2026-08-24
+### P4 — chat list identity — cover half unparked 2026-08-25
 
-**Parked with P3.** Worth stating plainly: *"show it on the messages screen to identify the event
-properly"* was the original brief, and parking covers parks that outcome —
-[chat.tsx:41](../ui/app/(tabs)/chat.tsx) keeps rendering the same `ShuttlecockGlyph` on every row
-(diagnosis 3) until this phase is unparked.
+**Cover art half shipped alongside P3** (the "cheap unpark option" below, plus the actual cover
+render since P3 landed anyway). `chat_threads()` now returns `cover_key`
+([migration](../supabase/migrations/20260825000100_chat_threads_cover_key.sql)) and
+[chat.tsx](../ui/app/(tabs)/chat.tsx) renders `<GameCover size="thumb">`, falling back to
+`ShuttlecockGlyph` for threads still on `cover_key = 'auto'`. The member Smashimal mini-stack is
+still not done.
 
-- [ ] `chat_threads()` returns `cover_key`, `organizer_avatar_key`, `organizer_photo_path`, and
-      `member_avatar_keys text[]` (top 3). All scalars — **no image URLs, no signed URLs, no extra
-      round trips.**
-- [ ] [chat.tsx:41](../ui/app/(tabs)/chat.tsx): replace the `ShuttlecockGlyph` tile with a
-      `<GameCover size="thumb">` plus a 3-up Smashimal mini-stack.
-- [ ] Closed threads desaturate the cover rather than only dimming the text.
+- [x] `chat_threads()` returns `cover_key`. `organizer_avatar_key` / `organizer_photo_path` /
+      `member_avatar_keys` — not added; only the cover half of this phase shipped.
+- [x] [chat.tsx](../ui/app/(tabs)/chat.tsx): `ShuttlecockGlyph` tile replaced with
+      `<GameCover size="thumb">` when a cover is set. No Smashimal mini-stack yet.
+- [ ] Closed threads desaturate the cover rather than only dimming the text — still just the
+      existing `opacity: 0.6` on the whole row.
 
 **Done when:** the chat list is scannable by picture.
 

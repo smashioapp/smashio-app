@@ -10,6 +10,7 @@ import { Screen } from "../../components/Screen";
 import { ChatRowSkeletonList } from "../../components/Skeleton";
 import { EmptyState } from "../../components/EmptyState";
 import { ShuttlecockGlyph, ShuttlecockSpinner } from "../../components/ShuttlecockSpinner";
+import { GameCover } from "../../components/GameCover";
 import type { ChatThread } from "../../lib/queries/messages";
 
 type Section = { title: string; data: ChatThread[] };
@@ -36,10 +37,14 @@ function ChatRow({ thread }: { thread: ChatThread }) {
       style={{ borderColor: "rgba(255,255,255,0.05)" }}
     >
       <View
-        className="w-[46px] h-[46px] rounded-2xl items-center justify-center"
+        className="w-[46px] h-[46px] rounded-2xl items-center justify-center overflow-hidden"
         style={{ backgroundColor: colors.surfaceAlt, opacity: thread.closed ? 0.6 : 1 }}
       >
-        <ShuttlecockGlyph size={20} />
+        {thread.coverKey ? (
+          <GameCover coverKey={thread.coverKey} size="thumb" />
+        ) : (
+          <ShuttlecockGlyph size={20} />
+        )}
       </View>
       <View className="flex-1">
         <View className="flex-row justify-between">

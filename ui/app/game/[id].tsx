@@ -27,6 +27,7 @@ import { Button } from "../../components/Button";
 import { HoldButton } from "../../components/HoldButton";
 import { CountdownChip } from "../../components/CountdownChip";
 import { CourtBackdrop } from "../../components/CourtBackdrop";
+import { GameCover } from "../../components/GameCover";
 import { StatTile, StatTileRow } from "../../components/StatTile";
 import { ListRow } from "../../components/ListRow";
 import { Avatar, AvatarStack } from "../../components/Avatar";
@@ -163,7 +164,11 @@ export default function GameDetails() {
         {/* Anchor (docs/v2-design-plan.md §4.3): the one hero on this screen. */}
         <View style={{ height: HERO_HEIGHT, backgroundColor: colors.surface, overflow: "hidden" }}>
           <View pointerEvents="none" style={{ position: "absolute", inset: 0 }}>
-            <CourtBackdrop reduceMotion={!!reduceMotion} size={{ width: windowWidth, height: HERO_HEIGHT }} />
+            {game.coverKey && game.coverKey !== "auto" ? (
+              <GameCover coverKey={game.coverKey} size="hero" scrim />
+            ) : (
+              <CourtBackdrop reduceMotion={!!reduceMotion} size={{ width: windowWidth, height: HERO_HEIGHT }} />
+            )}
           </View>
 
           <View className="px-4 flex-row justify-between items-center" style={{ paddingTop: 56 }}>

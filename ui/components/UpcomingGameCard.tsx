@@ -14,6 +14,7 @@ import { HoldButton } from "./HoldButton";
 import { RollingNumber } from "./RollingNumber";
 import { SwipeToDecide } from "./SwipeToDecide";
 import { VenueCourtHeader } from "./VenueCourtHeader";
+import { GameCover } from "./GameCover";
 import { Game, Player } from "../lib/mockData";
 import { haptics } from "../lib/haptics";
 import { supabase } from "../lib/supabase";
@@ -126,7 +127,14 @@ export function UpcomingGameCard({
           style={{ borderColor: colors.cardBorder }}
           onLayout={(e: LayoutChangeEvent) => setCardWidth(e.nativeEvent.layout.width)}
         >
-          {cardWidth > 0 && <VenueCourtHeader venueKey={game.venue + game.suburb} width={cardWidth - 32} />}
+          {cardWidth > 0 &&
+            (game.coverKey ? (
+              <View style={{ width: cardWidth - 32, height: 46, borderRadius: 14, overflow: "hidden" }}>
+                <GameCover coverKey={game.coverKey} size="fill" />
+              </View>
+            ) : (
+              <VenueCourtHeader venueKey={game.venue + game.suburb} width={cardWidth - 32} />
+            ))}
 
           <View className="flex-row justify-between items-start">
             <View className="flex-1 pr-2">

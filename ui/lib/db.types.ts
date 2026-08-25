@@ -1645,6 +1645,7 @@ export type Database = {
         Args: never
         Returns: {
           chat_closed_at: string
+          cover_key: string
           game_id: string
           game_status: string
           last_message_at: string

@@ -86,7 +86,7 @@ function FeaturedGameCard({
   const open = spotsLeft(game);
 
   return (
-    <Hero tone="accent">
+    <Hero tone="accent" coverKey={game.coverKey}>
       <View className="flex-row items-center justify-between">
         <CountdownChip startsAt={game.startsAt} />
         {game.verified && (

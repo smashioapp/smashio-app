@@ -585,6 +585,7 @@ export type ChatThread = {
   unread: boolean;
   unreadCount: number;
   closed: boolean;
+  coverKey: string | null;
 };
 
 export function useChatThreads() {
@@ -606,6 +607,7 @@ export function useChatThreads() {
         unread: (row.unread_count ?? 0) > 0,
         unreadCount: row.unread_count ?? 0,
         closed: !!row.chat_closed_at || row.game_status === "cancelled" || row.game_status === "completed",
+        coverKey: row.cover_key,
       }));
     },
   });

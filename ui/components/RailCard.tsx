@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import { colors, LAYOUT, tierColor } from "../lib/theme";
 import { formatTimeShort } from "../lib/format";
 import { haptics } from "../lib/haptics";
+import { GameCover } from "./GameCover";
 import type { Game } from "../lib/mockData";
 
 export const RAIL_CARD_WIDTH = 132;
@@ -23,11 +24,13 @@ export function RailCard({ game, onPress, dimmed = false }: { game: Game; onPres
         borderWidth: 1,
         borderColor: colors.cardBorder,
         borderRadius: LAYOUT.RADIUS.rail,
-        padding: 12,
+        overflow: "hidden",
         opacity: dimmed ? 0.6 : 1,
       }}
     >
-      <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: tierColor(game.skill) }} />
+      {game.coverKey && <GameCover coverKey={game.coverKey} size="rail" />}
+      <View style={{ padding: 12 }}>
+        <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: tierColor(game.skill) }} />
       <Text numberOfLines={2} className="font-body-bold text-[12.5px] mt-1.5" style={{ color: colors.text }}>
         {game.venue}
       </Text>
@@ -35,6 +38,7 @@ export function RailCard({ game, onPress, dimmed = false }: { game: Game; onPres
         {formatTimeShort(game.startsAt)}
         {game.distance ? ` · ${game.distance}` : ""}
       </Text>
+      </View>
     </Pressable>
   );
 }

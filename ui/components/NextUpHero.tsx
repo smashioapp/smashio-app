@@ -64,7 +64,7 @@ export function NextUpHero({
   const perPlayer = game.cost;
 
   return (
-    <Hero tone={tone} onPress={onPress}>
+    <Hero tone={tone} coverKey={game.coverKey} onPress={onPress}>
       <View className="flex-row items-center justify-between">
         <View className="flex-row items-center gap-1.5">
           {(live || urgent) && <Animated.View className="w-2 h-2 rounded-full" style={[{ backgroundColor: accentColor }, dotStyle]} />}

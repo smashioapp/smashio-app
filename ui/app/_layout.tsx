@@ -12,6 +12,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "../lib/queryClient";
 import { SessionProvider } from "../lib/session";
+import { sound } from "../lib/sound";
+import { loadSoundEnabled } from "../lib/soundPrefs";
 import { usePushRegistration, useTrackActiveRoute } from "../lib/notifications";
 import { useAppIconBadgeSync, useNotificationRealtimeSync } from "../lib/queries/notifications";
 import { AnimatedSplash } from "../components/AnimatedSplash";
@@ -58,6 +60,10 @@ export default function RootLayout() {
   useEffect(() => {
     if (fontsLoaded) SplashScreen.hideAsync().catch(() => {});
   }, [fontsLoaded]);
+
+  useEffect(() => {
+    loadSoundEnabled().then((enabled) => sound.setMuted(!enabled));
+  }, []);
 
   const onLayoutRootView = useCallback(() => {}, []);
 

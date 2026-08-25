@@ -69,21 +69,21 @@ function makePop() {
   for (let i = 0; i < buf.length; i++) {
     const t = i / SAMPLE_RATE;
     const freq = 380 + 900 * expDecay(t, 0.02); // quick downward chirp
-    buf[i] = sine(t, freq) * expDecay(t, 0.028) * 0.9;
+    buf[i] = sine(t, freq) * expDecay(t, 0.028) * 0.55;
   }
   return buf;
 }
 
-// --- whoosh: filtered noise sweep, ~260ms ---
+// --- whoosh: filtered noise sweep, ~220ms ---
 function makeWhoosh() {
-  const dur = 0.26;
+  const dur = 0.22;
   const buf = samplesFor(dur);
   for (let i = 0; i < buf.length; i++) buf[i] = noise();
-  lowpass(buf, 0.12);
+  lowpass(buf, 0.05);
   for (let i = 0; i < buf.length; i++) {
     const t = i / SAMPLE_RATE;
     const env = Math.sin((Math.PI * t) / dur); // rise then fall
-    buf[i] *= env * 0.6;
+    buf[i] *= env * 0.32;
   }
   return buf;
 }
@@ -97,7 +97,7 @@ function makeChime() {
   for (let i = 0; i < buf.length; i++) {
     const t = i / SAMPLE_RATE;
     const env = expDecay(t, 0.32);
-    buf[i] = (sine(t, f1) * 0.6 + sine(t, f2) * 0.4 + sine(t, f1 * 2) * 0.15) * env * 0.5;
+    buf[i] = (sine(t, f1) * 0.6 + sine(t, f2) * 0.4 + sine(t, f1 * 2) * 0.15) * env * 0.45;
   }
   return buf;
 }
@@ -112,7 +112,7 @@ function makeThunk() {
     const t = i / SAMPLE_RATE;
     const body = sine(t, 90) * expDecay(t, 0.045);
     const click = i < clickBuf.length ? clickBuf[i] * expDecay(t, 0.004) : 0;
-    buf[i] = (body * 0.85 + click * 0.5) * 0.9;
+    buf[i] = (body * 0.85 + click * 0.5) * 0.5;
   }
   return buf;
 }
@@ -132,7 +132,7 @@ function makeSparkle() {
     for (const b of blips) {
       if (t >= b.start) {
         const lt = t - b.start;
-        v += sine(lt, b.freq) * expDecay(lt, 0.05) * 0.35;
+        v += sine(lt, b.freq) * expDecay(lt, 0.05) * 0.28;
       }
     }
     v += noise() * expDecay(t, 0.08) * 0.05; // dust

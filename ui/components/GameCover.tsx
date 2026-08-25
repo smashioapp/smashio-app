@@ -36,8 +36,8 @@ export function GameCover({
       <Image source={cover.src} resizeMode="cover" style={{ width: "100%", height: "100%" }} />
       {scrim && (
         <LinearGradient
-          colors={["transparent", "rgba(10,10,11,0.85)"]}
-          style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: "65%" }}
+          colors={["transparent", "rgba(10,10,11,0.95)"]}
+          style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: "75%" }}
           pointerEvents="none"
         />
       )}

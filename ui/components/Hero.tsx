@@ -44,6 +44,9 @@ export function Hero({
       {!!coverKey && (
         <View style={StyleSheet.absoluteFill}>
           <GameCover coverKey={coverKey} size="fill" scrim />
+          {/* Flat scrim under the whole card — the bottom gradient inside GameCover only
+              darkens the lower ~75%, but hero content (badges, title) sits near the top too. */}
+          <View style={[StyleSheet.absoluteFill, { backgroundColor: "rgba(10,10,11,0.6)" }]} />
         </View>
       )}
       {/* The bloom the design puts behind the top-right corner. Was a vertical LinearGradient in

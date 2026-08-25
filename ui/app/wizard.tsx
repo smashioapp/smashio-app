@@ -25,6 +25,7 @@ import { StepProgress } from "../components/StepProgress";
 import { Burst } from "../components/Burst";
 import { Glow } from "../components/Glow";
 import { haptics } from "../lib/haptics";
+import { sound } from "../lib/sound";
 import { SPRING, useReduceMotion } from "../lib/motion";
 import Animated, {
   Easing,
@@ -108,6 +109,7 @@ function PublishStamp({ active, children }: { active: boolean; children: React.R
   useEffect(() => {
     if (!showBurst) return;
     haptics.burst();
+    sound.play("sparkle");
   }, [showBurst]);
 
   const lineLeftStyle = useAnimatedStyle(() => ({ transform: [{ scaleX: lineLeft.value }] }));
@@ -398,7 +400,7 @@ export default function Wizard() {
       sessionTokenRef.current = newSessionToken();
       markEdited("venue");
     } catch (e) {
-      Alert.alert("Couldn't load that venue", e instanceof Error ? e.message : "Try again.");
+      Alert.alert("Couldn't load that venue", e instanceof Error ? e.message : "Give it another go.");
     } finally {
       setVenueResolving(false);
     }
@@ -519,7 +521,7 @@ export default function Wizard() {
       // Failure ladder #2: parse errored or timed out — manual path, photo stays attached and
       // still verifies via the legacy upload-at-publish path (confirmationUri is already set).
       setParsing(false);
-      Alert.alert("Couldn't read that one", "Your photo's saved — type the details and we'll still verify.", [
+      Alert.alert("Couldn't read that one", "Your photo's saved, type the details and we'll still verify.", [
         {
           text: "OK",
           onPress: () => {
@@ -580,7 +582,7 @@ export default function Wizard() {
       });
     } catch (e) {
       haptics.error();
-      Alert.alert("Couldn't publish match", e instanceof Error ? e.message : "Try again.");
+      Alert.alert("Couldn't publish that match", e instanceof Error ? e.message : "Give it another go.");
       setPublishing(false);
       return;
     }
@@ -741,7 +743,7 @@ export default function Wizard() {
             </Pressable>
           ))}
           <Text className="text-[11.5px] mt-1" style={{ color: colors.textMuted }}>
-            From Google Places. Either row continues the same way — picking a new address just means you'll confirm a couple of extra details.
+            From Google Places. Either row works the same way, picking a new address just means confirming a couple of extra details.
           </Text>
         </View>
       )}
@@ -765,7 +767,7 @@ export default function Wizard() {
         <View className="rounded-2xl px-3.5 py-3 mb-3.5 border" style={{ backgroundColor: "rgba(255,182,72,0.1)", borderColor: "rgba(255,182,72,0.3)" }}>
           <Text className="text-[13px]" style={{ color: colors.advanced }}>
             Your confirmation said {formatDate(parsedSlot.toISOString())} at {formatTimeShort(parsedSlot.toISOString())}, but
-            that's already passed — pick a new time below.
+            that's already passed, pick a new time below.
           </Text>
         </View>
       )}
@@ -956,7 +958,7 @@ export default function Wizard() {
             {parsedData?.confidence === "low" && (
               <View className="rounded-2xl px-3.5 py-3 mb-3.5 border" style={{ backgroundColor: "rgba(255,182,72,0.1)", borderColor: "rgba(255,182,72,0.3)" }}>
                 <Text className="text-[13px]" style={{ color: colors.advanced }}>
-                  We're not totally sure we read this right — double check the details below.
+                  We're not totally sure we read this right, give the details below a quick check.
                 </Text>
               </View>
             )}
@@ -1016,11 +1018,11 @@ export default function Wizard() {
         {!parsing && currentKey === "price" && (
           <View>
             <StepIcon name="cash" />
-            <StepHeading title="Price per player" subtitle="Set what each player pays — your call, not an even split." />
+            <StepHeading title="Price per player" subtitle="Set what each player pays, your call, not an even split." />
             {entryMode === "receipt" && parsedData?.total_cost_aud != null && suggestedCost != null && (
               <View className="rounded-2xl p-3.5 mb-3.5 border" style={{ backgroundColor: "rgba(214,255,63,0.08)", borderColor: "rgba(214,255,63,0.2)" }}>
                 <Text className="text-[13.5px]" style={{ color: colors.textSecondary }}>
-                  Your booking was ${Math.round(parsedData.total_cost_aud)}. At {wizard.maxPlayers} players that's ${suggestedCost} each —
+                  Your booking was ${Math.round(parsedData.total_cost_aud)}. At {wizard.maxPlayers} players that's ${suggestedCost} each,
                   you'd cover it.
                 </Text>
               </View>
@@ -1166,7 +1168,7 @@ export default function Wizard() {
             )}
 
             <Text className="text-[11.5px] mt-4 text-center" style={{ color: colors.textMuted }}>
-              No confirmation? Totally fine — you can still publish, just without the checkmark.
+              No confirmation? Totally fine, you can still publish, just without the checkmark.
             </Text>
           </View>
         )}

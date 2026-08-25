@@ -15,7 +15,7 @@ const LOCKED_COPY: Partial<Record<ComposerState, string>> = {
   locked_announce: "🔒 Only the host can post here",
   locked_muted: "The host has turned off your messages for this game",
   locked_closed: "This chat is closed",
-  locked_paused: "🔒 Chat opens closer to the game — the host can still post",
+  locked_paused: "🔒 Chat opens closer to the game, host can still post",
   locked_not_member: "You're not part of this game",
 };
 

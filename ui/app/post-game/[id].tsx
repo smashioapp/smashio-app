@@ -20,6 +20,7 @@ import { Burst } from "../../components/Burst";
 import { Glow } from "../../components/Glow";
 import { RollingNumber } from "../../components/RollingNumber";
 import { haptics } from "../../lib/haptics";
+import { sound } from "../../lib/sound";
 import { SPRING } from "../../lib/motion";
 import { SkeletonBlock } from "../../components/Skeleton";
 
@@ -283,7 +284,7 @@ export default function PostGame() {
       await markAttendance.mutateAsync(noShows);
     } catch (err) {
       Sentry.captureException(err, { tags: { screen: "post-game-attendance" }, extra: { gameId } });
-      Alert.alert("Couldn't save attendance", err instanceof Error ? err.message : "Please try again.");
+      Alert.alert("Couldn't save attendance", err instanceof Error ? err.message : "Give it another go.");
     }
   };
 
@@ -295,7 +296,7 @@ export default function PostGame() {
     } catch (err) {
       Sentry.captureException(err, { tags: { screen: "post-game-submit" }, extra: { gameId } });
       const detail = err instanceof Error ? err.message : null;
-      Alert.alert("Couldn't submit ratings", detail ?? "Please try again.");
+      Alert.alert("Couldn't submit ratings", detail ?? "Give it another go.");
     }
   };
 
@@ -311,6 +312,7 @@ export default function PostGame() {
     const t = setTimeout(() => {
       setShowTierBurst(true);
       haptics.burst();
+      sound.play("chime");
     }, 900);
     return () => clearTimeout(t);
   }, [revealing, tieredUp]);
@@ -320,6 +322,7 @@ export default function PostGame() {
     const t = setTimeout(() => {
       setShowFlameBurst(true);
       haptics.burst();
+      sound.play("sparkle");
     }, 700);
     return () => clearTimeout(t);
   }, [revealing, hasStreak]);
@@ -391,8 +394,8 @@ export default function PostGame() {
                 Mark no-shows
               </Text>
               <Text className="text-[12.5px] mb-3" style={{ color: colors.textMuted }}>
-                Only you can say who actually played. Anyone you mark drops out of everyone's rating list — and
-                can't rate anyone either.
+                Only you can say who actually played. Anyone you mark drops out of everyone's rating list,
+                and can't rate anyone either.
               </Text>
               {(attendance ?? []).map((p) => {
                 const missing = noShows.includes(p.profileId);
@@ -437,7 +440,7 @@ export default function PostGame() {
                 style={{ borderColor: colors.accent, opacity: markAttendance.isPending ? 0.5 : 1 }}
               >
                 <Text className="font-body-extrabold text-[14.5px]" style={{ color: colors.accent }}>
-                  {noShows.length === 0 ? "Everyone played" : `Confirm — ${noShows.length} no-show${noShows.length === 1 ? "" : "s"}`}
+                  {noShows.length === 0 ? "Everyone played" : `Confirm, ${noShows.length} no-show${noShows.length === 1 ? "" : "s"}`}
                 </Text>
               </Pressable>
             </View>
@@ -449,7 +452,7 @@ export default function PostGame() {
                 Nobody to rate
               </Text>
               <Text className="text-[12.5px] mt-1" style={{ color: colors.textMuted }}>
-                Everyone else on this game was marked as a no-show.
+                Everyone else on this game got marked as a no-show.
               </Text>
             </View>
           ) : (

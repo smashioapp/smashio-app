@@ -83,7 +83,7 @@ export default function EditGame() {
   const save = () => {
     const tier = tiers.find((t) => t.label === skill);
     if (!tier) {
-      Alert.alert("Not ready yet", "Still loading skill levels, try again in a moment.");
+      Alert.alert("Not ready yet", "Still loading skill levels, give it a moment.");
       return;
     }
     if (startInPast) {
@@ -99,7 +99,7 @@ export default function EditGame() {
         },
         onError: (e) => {
           haptics.error();
-          Alert.alert("Couldn't save changes", e instanceof Error ? e.message : "Try again.");
+          Alert.alert("Couldn't save changes", e instanceof Error ? e.message : "Give it another go.");
         },
       }
     );
@@ -124,7 +124,7 @@ export default function EditGame() {
               },
               onError: (e) => {
                 haptics.error();
-                Alert.alert("Couldn't cancel", e instanceof Error ? e.message : "Try again.");
+                Alert.alert("Couldn't cancel", e instanceof Error ? e.message : "Give it another go.");
               },
             }),
         },
@@ -150,7 +150,7 @@ export default function EditGame() {
             {game.venueAddress ?? game.suburb}
           </Text>
           <Text className="text-[13px] mt-2" style={{ color: colors.textMuted }}>
-            Venue can't be changed — it's what your booking confirmation verifies.
+            Venue can't be changed, it's what your booking confirmation verifies.
           </Text>
         </View>
 
@@ -264,7 +264,7 @@ export default function EditGame() {
           />
         </View>
         <Text className="text-[13px] mb-5" style={{ color: colors.textMuted }}>
-          Spots held for friends of yours — held back from the {maxPlayers} above, which includes you.
+          Spots held for friends of yours, held back from the {maxPlayers} above, which includes you.
           {reservedClaimed > 0 ? ` ${reservedClaimed} already claimed, so it can't go below that.` : ""}
         </Text>
 

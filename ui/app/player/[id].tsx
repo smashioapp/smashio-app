@@ -35,7 +35,7 @@ export default function PlayerProfile() {
     setMenuOpen(false);
     Alert.alert(
       "Block this player?",
-      "They won't be able to see your profile or request to join your games, and their games disappear from your Discover.",
+      "They won't be able to see your profile or ask to join your games, and their games will disappear from your Discover.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -47,7 +47,7 @@ export default function PlayerProfile() {
               await blockPlayer.mutateAsync(id);
               router.back();
             } catch (e) {
-              Alert.alert("Couldn't block", e instanceof Error ? e.message : "Try again.");
+              Alert.alert("Couldn't block them", e instanceof Error ? e.message : "Give it another go.");
             }
           },
         },
@@ -60,7 +60,7 @@ export default function PlayerProfile() {
     if (!id) return;
     try {
       await reportUser.mutateAsync({ reportedId: id, reason });
-      Alert.alert("Report sent", "Thanks — a moderator will take a look.");
+      Alert.alert("Report sent", "Thanks, a moderator will take a look.");
     } catch (e) {
       Alert.alert("Couldn't send report", e instanceof Error ? e.message : "You may have already reported this player today.");
     }

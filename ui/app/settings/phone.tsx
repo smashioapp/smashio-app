@@ -24,7 +24,7 @@ export default function PhoneSettings() {
       await setPhone.mutateAsync(phone.trim() || null);
       router.back();
     } catch (e) {
-      Alert.alert("Couldn't save", e instanceof Error ? e.message : "Try again.");
+      Alert.alert("Couldn't save that", e instanceof Error ? e.message : "Give it another go.");
     }
   };
 
@@ -38,7 +38,7 @@ export default function PhoneSettings() {
       </View>
       <View className="px-5 pt-6 gap-3">
         <Text className="text-[12.5px]" style={{ color: colors.textTertiary }}>
-          Used only for game-day contact — never shown on your public profile.
+          Only used for game-day contact, never shown on your public profile.
         </Text>
         <TextInput
           value={phone}

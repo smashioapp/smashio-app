@@ -9,11 +9,11 @@ import { useSession } from "../../lib/session";
 import { useProfile, useUpdateProfile } from "../../lib/queries/profile";
 
 const OPTIONS: { value: "everyone" | "players_only"; label: string; description: string }[] = [
-  { value: "everyone", label: "Everyone", description: "Any signed-in player can open your full profile." },
+  { value: "everyone", label: "Everyone", description: "Any signed-in player can check out your full profile." },
   {
     value: "players_only",
     label: "Players I've played with",
-    description: "Your reliability, rating and badges are hidden from everyone else — except a host you've asked to join, while they're deciding.",
+    description: "Your reliability, rating and badges stay hidden from everyone else, except a host you've asked to join while they're deciding.",
   },
 ];
 
@@ -59,7 +59,7 @@ export default function VisibilitySettings() {
           );
         })}
         <Text className="text-[11.5px] mt-1 leading-4" style={{ color: colors.textTertiary }}>
-          This never hides your name, photo or that you exist — only the reputation numbers. A
+          This never hides your name, photo or the fact you exist, just the reputation numbers. A
           host deciding a join request from you can always see your full card while your request
           is open, no matter this setting.
         </Text>

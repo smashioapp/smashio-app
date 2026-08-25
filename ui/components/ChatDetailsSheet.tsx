@@ -132,7 +132,7 @@ export function ChatDetailsSheet({
                   Pause chat until 2h before start
                 </Text>
                 <Text className="text-[12.5px] mt-0.5" style={{ color: colors.textTertiary }}>
-                  You can still post — players can react and DM you
+                  You can still post, players can react and DM you
                 </Text>
               </View>
               <Switch
@@ -177,7 +177,7 @@ export function ChatDetailsSheet({
           {snoozed ? (
             <Pressable onPress={unsnooze} className="rounded-pill px-3 py-1.5" style={{ backgroundColor: "rgba(255,103,103,0.14)" }}>
               <Text className="text-[12.5px] font-body-bold" style={{ color: colors.danger }}>
-                Snoozed — tap to turn back on
+                Snoozed, tap to turn it back on
               </Text>
             </Pressable>
           ) : (

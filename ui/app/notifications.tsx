@@ -123,10 +123,10 @@ export default function NotificationsInbox() {
           !isLoading ? (
             <View className="flex-1 items-center justify-center px-8">
               <Text className="font-body-bold text-[15px]" style={{ color: colors.text }}>
-                Nothing yet
+                All quiet for now
               </Text>
               <Text className="text-[13.5px] mt-1.5 text-center" style={{ color: colors.textSecondary }}>
-                Join requests, game changes and reminders will show up here.
+                Join requests, game changes and reminders will pop up here.
               </Text>
             </View>
           ) : null

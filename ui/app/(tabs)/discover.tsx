@@ -274,7 +274,7 @@ function AlertMeRow({ state, onPress }: { state: AlertState; onPress: () => void
       >
         <Ionicons name="checkmark-circle" size={16} color={colors.intermediate} />
         <Text className="font-body-bold text-[14px]" style={{ color: colors.intermediate }}>
-          Alert set — we'll ping you
+          Alert set, we'll ping you
         </Text>
       </View>
     );
@@ -312,7 +312,7 @@ function FallbackLadder({
         Nothing matches right now
       </Text>
       <Text className="text-[14.5px] text-center max-w-[260px] leading-5" style={{ color: colors.textSecondary }}>
-        Try one of these instead.
+        Give one of these a go instead.
       </Text>
       <View className="w-full gap-2 mt-2">
         {rungs.map((r) => (
@@ -649,7 +649,7 @@ export default function Discover() {
       mapRef.current?.focusOn(details.lat, details.lng);
       mapSearchTokenRef.current = newSessionToken();
     } catch (e) {
-      Alert.alert("Couldn't find that place", e instanceof Error ? e.message : "Try again.");
+      Alert.alert("Couldn't find that place", e instanceof Error ? e.message : "Give it another go.");
     } finally {
       setMapSearchResolving(false);
     }
@@ -1058,7 +1058,7 @@ export default function Discover() {
                 showError ? (
                   <EmptyState
                     title="Couldn't load games"
-                    subtitle="Check your connection and try again."
+                    subtitle="Check your connection and give it another go."
                     ctaLabel="Retry"
                     onCta={() => discoverQuery.refetch()}
                   />
@@ -1068,7 +1068,7 @@ export default function Discover() {
                   <View className="items-center gap-3">
                     <EmptyState
                       title={`Nothing at ${filterSummary} right now`}
-                      subtitle="Try a different level, a wider time range, or check back later."
+                      subtitle="Try a different level, a wider time range, or check back a bit later."
                       ctaLabel="Clear filters"
                       onCta={() => {
                         levelTouched.current = true;
@@ -1082,7 +1082,7 @@ export default function Discover() {
                 ) : (
                   <EmptyState
                     title="Court's quiet right now"
-                    subtitle="Be the first to call a game this week — takes under a minute to set up."
+                    subtitle="Be the first to call a game this week, takes under a minute to set up."
                     ctaLabel="Host a game"
                     onCta={() => router.push("/wizard")}
                   />
@@ -1326,7 +1326,7 @@ export default function Discover() {
                     style={{ backgroundColor: colors.accent }}
                   >
                     <Text className="font-body-extrabold text-[14px]" style={{ color: colors.base }}>
-                      Try again
+                      Give it another go
                     </Text>
                   </Pressable>
                 </View>
@@ -1355,7 +1355,7 @@ export default function Discover() {
                   </Text>
                   <Text className="text-[13px] text-center max-w-[260px]" style={{ color: colors.textSecondary }}>
                     {nearestVenue
-                      ? `${nearestVenues.length} badminton court${nearestVenues.length === 1 ? "" : "s"} within ${mapRadiusKm} km. Nearest: ${nearestVenue.name}, ${formatDistance(nearestVenue.distanceM, distanceUnits)}.`
+                      ? `${nearestVenues.length} badminton court${nearestVenues.length === 1 ? "" : "s"} within ${mapRadiusKm} km. Nearest is ${nearestVenue.name}, ${formatDistance(nearestVenue.distanceM, distanceUnits)} away.`
                       : "No courts on file for this area yet."}
                   </Text>
                 </View>

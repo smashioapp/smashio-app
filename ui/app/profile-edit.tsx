@@ -54,7 +54,7 @@ export default function ProfileEdit() {
   const pickPhoto = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert("Permission needed", "Allow photo access to change your profile picture.");
+      Alert.alert("Permission needed", "Allow photo access so you can change your profile picture.");
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], allowsEditing: true, aspect: [1, 1], quality: 0.8 });
@@ -67,7 +67,7 @@ export default function ProfileEdit() {
   const takePhoto = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert("Permission needed", "Allow camera access to take a profile picture.");
+      Alert.alert("Permission needed", "Allow camera access so you can take a profile picture.");
       return;
     }
     const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.8 });
@@ -113,7 +113,8 @@ export default function ProfileEdit() {
         } catch {}
       }
     } catch (e) {
-      Alert.alert("Couldn't save profile", e instanceof Error ? e.message : "Try again.");
+      const message = e instanceof Error ? e.message : typeof e === "object" && e && "message" in e ? String((e as { message: unknown }).message) : "Give it another go.";
+      Alert.alert("Couldn't save your profile", message);
       return;
     }
     router.back();
@@ -185,7 +186,7 @@ export default function ProfileEdit() {
           style={{ backgroundColor: colors.surfaceAlt, borderColor: "rgba(255,255,255,0.1)", color: colors.text }}
         />
         <Text className="text-[11.5px] -mt-2.5" style={{ color: colors.textTertiary }}>
-          Shown as text only — never a map pin.
+          Shown as text only, never a map pin.
         </Text>
 
         <View className="mt-1.5">
@@ -193,7 +194,7 @@ export default function ProfileEdit() {
             Starting skill level
           </Text>
           <Text className="text-[11.5px] mt-1 mb-2" style={{ color: colors.textTertiary }}>
-            Co-players' ratings refine this after your first few games.
+            Your co-players' ratings will fine-tune this after your first few games.
           </Text>
           <View className="flex-row flex-wrap gap-2">
             {TIERS.map((t) => {

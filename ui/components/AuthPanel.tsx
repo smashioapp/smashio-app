@@ -113,7 +113,7 @@ export function AuthPanel() {
       router.replace("/");
     } catch (e) {
       haptics.error();
-      setError(e instanceof Error ? e.message : "Something went wrong.");
+      setError(e instanceof Error ? e.message : "Something went wrong there, give it another go.");
     } finally {
       setBusy(null);
     }

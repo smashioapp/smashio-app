@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { View } from "react-native";
+import { Text, View } from "react-native";
 import Animated, {
   Easing,
   runOnJS,
@@ -33,6 +33,7 @@ export function AnimatedSplash({ onFinish }: { onFinish: () => void }) {
   const wobble = useSharedValue(0);
   const bloom = useSharedValue(0);
   const overlayOpacity = useSharedValue(1);
+  const tagline = useSharedValue(0);
 
   useEffect(() => {
     // Hold on the native splash pose first, so the handoff reads as one image, then one
@@ -71,6 +72,8 @@ export function AnimatedSplash({ onFinish }: { onFinish: () => void }) {
       )
     );
 
+    tagline.value = withDelay(200, withTiming(1, { duration: 300 }));
+
     overlayOpacity.value = withDelay(
       1000,
       withTiming(0, { duration: 280 }, (finished) => {
@@ -101,6 +104,8 @@ export function AnimatedSplash({ onFinish }: { onFinish: () => void }) {
     opacity: bloom.value,
     transform: [{ scale: 0.7 + bloom.value * 0.55 }],
   }));
+
+  const taglineStyle = useAnimatedStyle(() => ({ opacity: tagline.value }));
 
   const overlayStyle = useAnimatedStyle(() => ({ opacity: overlayOpacity.value }));
 
@@ -134,6 +139,17 @@ export function AnimatedSplash({ onFinish }: { onFinish: () => void }) {
         resizeMode="contain"
         style={[{ position: "absolute", width: SIZE, height: SIZE }, logoStyle]}
       />
+
+      <Animated.View
+        style={[
+          { position: "absolute", bottom: 64, alignItems: "center" },
+          taglineStyle,
+        ]}
+      >
+        <Text style={{ color: colors.textSecondary, fontSize: 13, fontWeight: "500" }}>
+          Made with ❤️ in Australia
+        </Text>
+      </Animated.View>
     </Animated.View>
   );
 }

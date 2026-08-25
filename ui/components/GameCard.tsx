@@ -58,7 +58,7 @@ export function GameRow({
   return (
     <ListRow
       dotColor={tierColor(game.skill)}
-      title={`${game.venue} — ${formatTimeShort(game.startsAt)}`}
+      title={`${game.venue}, ${formatTimeShort(game.startsAt)}`}
       subtitle={[game.skill, game.distance, game.verified ? "Verified" : null, open === 0 ? "Full" : null]
         .filter(Boolean)
         .join(" · ")}

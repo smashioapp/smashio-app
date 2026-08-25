@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { View, Text, Pressable, Linking, Alert, ScrollView, Switch, Platform } from "react-native";
 import { router } from "expo-router";
 import * as StoreReview from "expo-store-review";
@@ -17,6 +17,8 @@ import { useProfile } from "../lib/queries/profile";
 import { useSetNotificationCategory, useNotificationPrefs } from "../lib/queries/notificationPrefs";
 import { useBlockedPlayers } from "../lib/queries/settings";
 import { shareReferral } from "../lib/share";
+import { sound } from "../lib/sound";
+import { loadSoundEnabled, saveSoundEnabled } from "../lib/soundPrefs";
 
 function providerLabel(provider: string | undefined): string {
   if (provider === "google") return "Google";
@@ -54,6 +56,17 @@ export default function Settings() {
   const provider = session?.user.app_metadata?.provider as string | undefined;
   const [resending, setResending] = useState(false);
   const [signInSheetOpen, setSignInSheetOpen] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+
+  useEffect(() => {
+    loadSoundEnabled().then(setSoundEnabled);
+  }, []);
+
+  const toggleSound = (v: boolean) => {
+    setSoundEnabled(v);
+    sound.setMuted(!v);
+    saveSoundEnabled(v);
+  };
 
   const { data: profile } = useProfile(userId);
   const { data: prefs } = useNotificationPrefs();
@@ -68,14 +81,14 @@ export default function Settings() {
       if (error) throw error;
       Alert.alert("Sent", `Check ${email} for a new verification link.`);
     } catch (e) {
-      Alert.alert("Couldn't resend", e instanceof Error ? e.message : "Try again.");
+      Alert.alert("Couldn't resend", e instanceof Error ? e.message : "Give it another go.");
     } finally {
       setResending(false);
     }
   };
 
   const handleLogout = () => {
-    Alert.alert("Log out?", "You can sign back in any time.", [
+    Alert.alert("Log out?", "You can jump back in any time.", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Log out",
@@ -95,7 +108,7 @@ export default function Settings() {
         return;
       }
     } catch {}
-    Alert.alert("Not on the store yet", "SMASHIO is in private beta — thanks for testing it early!");
+    Alert.alert("Not on the store yet", "SMASHIO is in private beta, thanks for testing it early!");
   };
 
   const buildLabel =
@@ -133,7 +146,7 @@ export default function Settings() {
               {!emailVerified && (
                 <View className="mt-1.5 gap-1.5">
                   <Text className="text-[12px] leading-4" style={{ color: colors.textTertiary }}>
-                    A verified email unlocks hosting games and password recovery.
+                    Verify your email to host games and recover your password.
                   </Text>
                   <Pressable onPress={resendVerification} disabled={resending} hitSlop={6}>
                     <Text className="text-[13px] font-body-bold" style={{ color: colors.accent }}>
@@ -216,7 +229,7 @@ export default function Settings() {
                   value={profile?.show_suburb ?? true}
                   onValueChange={async (v) => {
                     const { error } = await supabase.from("profiles").update({ show_suburb: v }).eq("id", userId!);
-                    if (error) Alert.alert("Couldn't save", error.message);
+                    if (error) Alert.alert("Couldn't save that", error.message);
                   }}
                 />
               }
@@ -240,7 +253,13 @@ export default function Settings() {
               accessory="chevron"
               onPress={() => router.push("/settings/units")}
             />
-            <ListRow title="Preferred sports" accessory="chevron" divider={false} onPress={() => router.push("/settings/sports")} />
+            <ListRow title="Preferred sports" accessory="chevron" onPress={() => router.push("/settings/sports")} />
+            <ListRow
+              title="Sound effects"
+              subtitle="Hero moments only — joining, publishing, streaks"
+              trailingNode={<ToggleSwitch value={soundEnabled} onValueChange={toggleSound} />}
+              divider={false}
+            />
           </Group>
         </View>
 
@@ -290,7 +309,7 @@ export default function Settings() {
       <Sheet visible={signInSheetOpen} onClose={() => setSignInSheetOpen(false)} title="Sign-in method">
         <Text className="text-[13.5px] leading-5" style={{ color: colors.textSecondary }}>
           You signed up with {providerLabel(provider)}. SMASHIO doesn't support switching sign-in
-          methods yet — contact support if you need a different one linked to this account.
+          methods yet, so get in touch with support if you need a different one linked to this account.
         </Text>
       </Sheet>
     </Screen>

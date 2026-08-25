@@ -85,7 +85,7 @@ export default function GameDetails() {
     claimSpot.mutate(invite, {
       onSuccess: () => haptics.success(),
       onError: (err) =>
-        Alert.alert("Couldn't take that spot", err instanceof Error ? err.message : "That invite may have already been used."),
+        Alert.alert("Couldn't take that spot", err instanceof Error ? err.message : "That invite might've already been used."),
     });
   }, [invite, session]);
 
@@ -140,7 +140,7 @@ export default function GameDetails() {
   const full = open === 0;
 
   const confirmLeave = () => {
-    Alert.alert("Leave this game?", "You'll lose your spot and may need to request to rejoin.", [
+    Alert.alert("Leave this game?", "You'll lose your spot, and might need to ask to rejoin.", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Leave game",
@@ -224,8 +224,8 @@ export default function GameDetails() {
               <Ionicons name="close-circle-outline" size={17} color={colors.danger} style={{ marginTop: 1 }} />
               <Text className="flex-1 text-[14px]" style={{ color: colors.danger }}>
                 {isOrganizer
-                  ? "You cancelled this game. Everyone who joined has been notified."
-                  : "The host cancelled this game. Your spot has been released."}
+                  ? "You cancelled this game. Everyone who joined has been let know."
+                  : "The host cancelled this game. Your spot's been freed up."}
               </Text>
             </View>
           )}
@@ -371,7 +371,7 @@ export default function GameDetails() {
               variant="secondary"
               onPress={() =>
                 respondToInvite.mutate(false, {
-                  onError: (err) => Alert.alert("Couldn't decline", err instanceof Error ? err.message : "Please try again."),
+                  onError: (err) => Alert.alert("Couldn't decline", err instanceof Error ? err.message : "Give it another go."),
                 })
               }
             />
@@ -382,7 +382,7 @@ export default function GameDetails() {
                 loading={respondToInvite.isPending}
                 onPress={() =>
                   respondToInvite.mutate(true, {
-                    onError: (err) => Alert.alert("Couldn't accept", err instanceof Error ? err.message : "Please try again."),
+                    onError: (err) => Alert.alert("Couldn't accept", err instanceof Error ? err.message : "Give it another go."),
                   })
                 }
               />
@@ -400,7 +400,7 @@ export default function GameDetails() {
             sfx="chime"
             onComplete={() => {
               requestToJoin.mutate(undefined, {
-                onError: () => Alert.alert("Couldn't send request", "Please try again."),
+                onError: () => Alert.alert("Couldn't send request", "Give it another go."),
               });
             }}
           />
@@ -450,7 +450,7 @@ function GamePreviewTeaser({ gameId }: { gameId: string }) {
             </StatTileRow>
 
             <Text className="text-[14.5px] mt-6" style={{ color: colors.textSecondary, lineHeight: 21 }}>
-              Log in or create an account to see who's playing, chat, and join this game.
+              Log in or create an account to see who's playing, chat, and join in.
             </Text>
           </>
         )}
@@ -476,7 +476,7 @@ function RosterAvatar({
 
   const confirmRemove = () => {
     if (!canRemove) return;
-    Alert.alert(`Remove ${player.name}?`, "They'll be notified and their spot opens back up.", [
+    Alert.alert(`Remove ${player.name}?`, "They'll be let know and their spot opens back up.", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Remove",
@@ -484,7 +484,7 @@ function RosterAvatar({
         onPress: () => {
           haptics.tap();
           removePlayer.mutate(player.id, {
-            onError: (e) => Alert.alert("Couldn't remove player", e instanceof Error ? e.message : "Try again."),
+            onError: (e) => Alert.alert("Couldn't remove player", e instanceof Error ? e.message : "Give it another go."),
           });
         },
       },
@@ -550,7 +550,7 @@ function JoinRequests({
       </Text>
       {full && (
         <Text className="text-[13.5px] mb-2.5" style={{ color: colors.advanced }}>
-          Your game is full. Raise max players in Edit, or decline these requests.
+          Your game's full. Raise max players in Edit, or decline these requests.
         </Text>
       )}
       <View className="gap-2.5">
@@ -561,7 +561,7 @@ function JoinRequests({
             onApprove={() =>
               decide.mutate(
                 { profileId: r.profileId, approve: true },
-                { onError: (e) => Alert.alert("Couldn't approve", e instanceof Error ? e.message : "Try again.") }
+                { onError: (e) => Alert.alert("Couldn't approve", e instanceof Error ? e.message : "Give it another go.") }
               )
             }
             onDecline={() => decide.mutate({ profileId: r.profileId, approve: false })}
@@ -583,13 +583,13 @@ function JoinRequests({
                 testID={`game-approve-${r.profileId}`}
                 onPress={() => {
                   if (full) {
-                    Alert.alert("Game is full", "Raise max players in Edit before approving anyone else.");
+                    Alert.alert("Game's full", "Raise max players in Edit before approving anyone else.");
                     return;
                   }
                   haptics.tap();
                   decide.mutate(
                     { profileId: r.profileId, approve: true },
-                    { onError: (e) => Alert.alert("Couldn't approve", e instanceof Error ? e.message : "Try again.") }
+                    { onError: (e) => Alert.alert("Couldn't approve", e instanceof Error ? e.message : "Give it another go.") }
                   );
                 }}
                 className="rounded-pill px-3.5 py-2"

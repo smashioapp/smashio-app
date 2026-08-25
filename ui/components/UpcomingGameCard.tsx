@@ -105,14 +105,14 @@ export function UpcomingGameCard({
     if (result.canceled) return;
     uploadConfirmation.mutate(
       { gameId: game.id, localUri: result.assets[0].uri },
-      { onError: (e) => Alert.alert("Upload failed", e instanceof Error ? e.message : "Try again.") }
+      { onError: (e) => Alert.alert("Upload failed", e instanceof Error ? e.message : "Give it another go.") }
     );
   };
 
   const handleCancelGame = () => {
     haptics.tick();
     cancelGame.mutate(undefined, {
-      onError: (e) => Alert.alert("Couldn't cancel game", e instanceof Error ? e.message : "Try again."),
+      onError: (e) => Alert.alert("Couldn't cancel game", e instanceof Error ? e.message : "Give it another go."),
     });
   };
 
@@ -327,7 +327,7 @@ export function UpcomingGameCard({
                 <HoldButton
                   label="Hold to cancel game"
                   completeLabel="Cancelling…"
-                  sfx="pop"
+                  sfx="thunk"
                   onComplete={handleCancelGame}
                 />
               </View>

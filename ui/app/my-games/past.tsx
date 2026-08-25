@@ -119,7 +119,7 @@ export default function PastGames() {
               <View className="px-5">
                 <EmptyState
                   title="Couldn't load your games"
-                  subtitle="Check your connection and try again."
+                  subtitle="Check your connection and give it another go."
                   ctaLabel="Retry"
                   onCta={() => pastQuery.refetch()}
                 />
@@ -128,7 +128,7 @@ export default function PastGames() {
               <View className="px-5">
                 <EmptyState
                   title="Your rally history starts here"
-                  subtitle="Play your first match and it'll show up right here — ratings, streaks, all of it."
+                  subtitle="Play your first match and it'll show up right here, ratings, streaks, all of it."
                   ctaLabel="Find a game"
                   onCta={() => router.push("/(tabs)/discover")}
                 />

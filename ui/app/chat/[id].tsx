@@ -281,7 +281,7 @@ export default function ChatThread() {
   const pickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert("Permission needed", "Allow photo access to share a photo.");
+      Alert.alert("Permission needed", "Turn on photo access so you can share a photo.");
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.8 });
@@ -294,7 +294,7 @@ export default function ChatThread() {
   const pickCamera = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert("Permission needed", "Allow camera access to take a photo.");
+      Alert.alert("Permission needed", "Turn on camera access so you can take a photo.");
       return;
     }
     const result = await ImagePicker.launchCameraAsync({ quality: 0.8 });
@@ -330,12 +330,12 @@ export default function ChatThread() {
           const submit = async () => {
             try {
               await reportUser.mutateAsync({ reportedId: senderId, reason: "other", detail: "Reported from a chat message", contextGameId: gameId });
-              Alert.alert("Reported", "Thanks — a moderator will take a look.");
+              Alert.alert("Reported", "Thanks, a moderator will take a look.");
             } catch (e) {
-              Alert.alert("Couldn't send report", e instanceof Error ? e.message : "You may have already reported this player today.");
+              Alert.alert("Couldn't send report", e instanceof Error ? e.message : "Looks like you've already reported this player today.");
             }
           };
-          Alert.alert("Report this message?", "We'll pass it to a moderator along with which game it's from.", [
+          Alert.alert("Report this message?", "We'll pass it on to a moderator along with which game it's from.", [
             { text: "Cancel", style: "cancel" },
             { text: "Report", style: "destructive", onPress: submit },
           ]);
@@ -421,13 +421,13 @@ export default function ChatThread() {
                     <View style={{ maxWidth: 240, alignItems: m.me ? "flex-end" : "flex-start" }}>
                       <GameShareCard
                         spotsLeft={game ? game.maxPlayers - game.joinedCount : null}
-                        venue={game ? [game.venue, game.courts].filter(Boolean).join(" — ") : "Game"}
+                        venue={game ? [game.venue, game.courts].filter(Boolean).join(", ") : "Game"}
                         time={game ? `${game.date} · ${game.time}` : ""}
                         onPress={() => router.push(`/game/${gameId}`)}
                       />
                       {item.groupEnd && (
                         <Text className="text-[11.5px] mt-0.5" style={{ color: colors.textMuted }}>
-                          {isFailed ? "Failed — tap to retry" : isPending ? "Sending…" : m.time}
+                          {isFailed ? "Didn't send, tap to retry" : isPending ? "Sending…" : m.time}
                         </Text>
                       )}
                     </View>
@@ -526,7 +526,7 @@ export default function ChatThread() {
 
                     {item.groupEnd && (
                       <Text className="text-[11.5px] mt-0.5" style={{ color: isFailed ? colors.danger : colors.textMuted }}>
-                        {isFailed ? "Failed — tap to retry" : isPending ? "Sending…" : m.time}
+                        {isFailed ? "Didn't send, tap to retry" : isPending ? "Sending…" : m.time}
                       </Text>
                     )}
                   </View>

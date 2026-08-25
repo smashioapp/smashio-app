@@ -124,7 +124,7 @@ export default function ChatList() {
             <TextInput
               value={search}
               onChangeText={setSearch}
-              placeholder="Search chats…"
+              placeholder="Search your chats…"
               placeholderTextColor={colors.textTertiary}
               className="flex-1 text-[14px]"
               style={{ color: colors.text }}
@@ -143,14 +143,14 @@ export default function ChatList() {
       ) : threads.length === 0 ? (
         <EmptyState
           title="Quiet in here"
-          subtitle="Join or host a game and the group chat opens up automatically."
+          subtitle="Join or host a game and the group chat opens up on its own."
           ctaLabel="Find a game"
           onCta={() => router.push("/(tabs)/discover")}
         />
       ) : sections.length === 0 ? (
         <View className="items-center pt-16 px-6">
           <Text className="text-[14.5px] text-center" style={{ color: colors.textSecondary }}>
-            No chats match "{search}"
+            Nothing matches "{search}"
           </Text>
         </View>
       ) : (

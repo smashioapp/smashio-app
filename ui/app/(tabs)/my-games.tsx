@@ -254,7 +254,7 @@ export default function MyGames() {
                 <View className="px-5">
                   <EmptyState
                     title="Couldn't load your games"
-                    subtitle="Check your connection and try again."
+                    subtitle="Check your connection and give it another go."
                     ctaLabel="Retry"
                     onCta={() => {
                       joinedQuery.refetch();
@@ -269,7 +269,7 @@ export default function MyGames() {
                       title={hostingOnly ? "You're not hosting anything upcoming" : "Nothing on your calendar"}
                       subtitle={
                         hostingOnly
-                          ? "Host a game to see it here."
+                          ? "Host a game and it'll show up here."
                           : "Find a match near you and lock in your spot before it fills up."
                       }
                       ctaLabel={hostingOnly ? "Host a game" : "Find a game"}
@@ -317,7 +317,7 @@ export default function MyGames() {
                           className="font-body-bold text-[14px]"
                           style={{ color: alertState === "saved" ? colors.intermediate : colors.textSecondary }}
                         >
-                          {alertState === "saved" ? "Alert set — we'll ping you" : alertState === "saving" ? "Saving…" : "Alert me when a game opens up"}
+                          {alertState === "saved" ? "Alert set, we'll ping you" : alertState === "saving" ? "Saving…" : "Alert me when a game opens up"}
                         </Text>
                       </Pressable>
                     </View>
@@ -355,7 +355,7 @@ export default function MyGames() {
                 <View style={{ paddingHorizontal: LAYOUT.SCREEN_PAD }}>
                   <ListRow
                     dotColor={tierColor(game.skill)}
-                    title={`${game.venue} — ${formatTimeShort(game.startsAt)}`}
+                    title={`${game.venue}, ${formatTimeShort(game.startsAt)}`}
                     subtitle={`${game.skill} · ${ROLE_LABEL[game.role]}`}
                     accessory="chevron"
                     onPress={() => router.push(`/game/${game.id}`)}
@@ -394,7 +394,7 @@ function CancelledCard({ game, role }: { game: Game; role: MyRole }) {
           {game.date} · {game.time}
         </Text>
         <Text className="text-[13.5px]" style={{ color: colors.danger }}>
-          {role === "hosting" ? "You cancelled this game." : "The host cancelled this game."}
+          {role === "hosting" ? "You cancelled this one." : "The host cancelled this one."}
         </Text>
         {role !== "hosting" && !showReplacements && (
           <Pressable
@@ -436,7 +436,7 @@ function ReplacementSuggestions({ cancelledGame }: { cancelledGame: Game }) {
   if (weekQuery.isLoading) {
     return (
       <Text className="text-[12.5px] mt-0.5" style={{ color: colors.textMuted }}>
-        Looking for a replacement…
+        Having a look for a replacement…
       </Text>
     );
   }
@@ -453,7 +453,7 @@ function ReplacementSuggestions({ cancelledGame }: { cancelledGame: Game }) {
       >
         <Ionicons name="search-outline" size={13} color={colors.text} />
         <Text className="font-body-bold text-[12.5px]" style={{ color: colors.text }}>
-          Nothing matches yet — browse Discover
+          Nothing matches yet, browse Discover
         </Text>
       </Pressable>
     );

@@ -146,10 +146,10 @@ export default function Profile() {
               <Ionicons name="alert" size={20} color={colors.textSecondary} />
             </View>
             <Text className="font-body-bold text-[14.5px] text-center" style={{ color: colors.text }}>
-              Couldn't load reputation
+              Couldn't load your reputation
             </Text>
             <Text className="text-[12.5px] text-center" style={{ color: colors.textSecondary }}>
-              Your numbers are safe — this is a connection issue, not a score.
+              Your numbers are safe, this is just a connection hiccup, not a score.
             </Text>
             <Pressable onPress={() => refetchCard()} className="rounded-pill px-5 py-2.5 mt-1" style={{ backgroundColor: colors.accent }}>
               <Text className="font-body-extrabold text-[13px]" style={{ color: colors.base }}>
@@ -220,10 +220,10 @@ export default function Profile() {
                       style={{ backgroundColor: "rgba(214,255,63,0.05)", borderColor: "rgba(214,255,63,0.3)", padding: 20 }}
                     >
                       <Text className="font-display-bold text-[17px] text-center" style={{ color: colors.text }}>
-                        Your reputation starts with game one
+                        Your reputation kicks off with game one
                       </Text>
                       <Text className="text-[12.5px] text-center mt-1.5" style={{ color: colors.textDim }}>
-                        Reliability, badges and how co-players see your skill all unlock the first time you play.
+                        Reliability, badges and how other players rate your skill all unlock once you've played.
                       </Text>
                       <Pressable
                         onPress={() => router.push("/(tabs)/discover")}

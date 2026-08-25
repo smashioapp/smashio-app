@@ -101,13 +101,13 @@ export default function Nearby() {
             className="text-center font-body-semibold text-[16px] mt-3"
             style={{ color: colors.textDim, lineHeight: 24, maxWidth: 320 }}
           >
-            Turn on location and Smashio sorts every game by how far it is from you — and fills in
+            Turn on location and Smashio sorts every game by how far it is from you, and fills in
             your suburb so you never have to type it.
           </Text>
 
           <View className="gap-3 mt-6" style={{ maxWidth: 320 }}>
             {[
-              "Only your suburb is ever shown to other players — never your exact location.",
+              "Only your suburb is ever shown to other players, never your exact location.",
               "You can hide it, or change it, any time in Settings.",
             ].map((line) => (
               <View key={line} className="flex-row gap-2.5">

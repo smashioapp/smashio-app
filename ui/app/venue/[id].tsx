@@ -74,7 +74,7 @@ export default function VenueScreen() {
   if (!venue) {
     return (
       <View className="flex-1 items-center justify-center" style={{ backgroundColor: colors.base }}>
-        <Text style={{ color: colors.textSecondary }}>Venue not found</Text>
+        <Text style={{ color: colors.textSecondary }}>Can't find that venue</Text>
       </View>
     );
   }
@@ -101,7 +101,7 @@ export default function VenueScreen() {
             { venueId: venue.id, field: "general", note: "Flagged from venue screen — see app for context." },
             {
               onSuccess: () => setReportSent(true),
-              onError: (e) => Alert.alert("Couldn't send report", e instanceof Error ? e.message : "Try again."),
+              onError: (e) => Alert.alert("Couldn't send that", e instanceof Error ? e.message : "Give it another go."),
             }
           );
         },
@@ -180,10 +180,10 @@ export default function VenueScreen() {
               <Ionicons name="lock-closed-outline" size={15} color={colors.advanced} />
               <Text className="flex-1 text-[13px]" style={{ color: colors.advanced }}>
                 {profile.bookability === "club_only"
-                  ? "Club-hired venue — you can't book this directly."
+                  ? "Club-hired venue, you can't book this one directly."
                   : profile.bookability === "members_only"
                     ? "Members-only venue."
-                    : "We don't yet know if this venue takes casual bookings."}
+                    : "We don't know yet if this venue takes casual bookings."}
                 {profile.club_contact ? ` Contact: ${profile.club_contact}` : ""}
               </Text>
             </View>
@@ -195,7 +195,7 @@ export default function VenueScreen() {
               <ActionButton
                 icon="calendar-outline"
                 label="Book"
-                onPress={() => Linking.openURL(bookLink).catch(() => Alert.alert("Couldn't open link"))}
+                onPress={() => Linking.openURL(bookLink).catch(() => Alert.alert("Couldn't open that link"))}
               />
             )}
             {profile?.phone && (
@@ -219,7 +219,7 @@ export default function VenueScreen() {
             <Text className="text-[14.5px]" style={{ color: colors.textSecondary }}>
               {venue.upcoming_game_count > 0
                 ? `${venue.upcoming_game_count} upcoming ${venue.upcoming_game_count === 1 ? "game" : "games"}${venue.next_game_at ? ` · next ${formatTimeShort(venue.next_game_at)}` : ""}`
-                : "No games scheduled here yet."}
+                : "No games on here yet."}
             </Text>
             <View className="mt-3">
               <Button label="Host a game here" size="md" onPress={handleHostHere} />
@@ -241,7 +241,7 @@ export default function VenueScreen() {
                     </Text>
                   </View>
                   <Text className="text-[12.5px] mt-2 italic" style={{ color: colors.textSecondary }}>
-                    Price hidden — may be out of date. Check with the venue before you head out.
+                    Price hidden, might be out of date. Check with the venue before you head out.
                   </Text>
                 </View>
               ) : (
@@ -271,7 +271,7 @@ export default function VenueScreen() {
                   </View>
                   {profile?.verified_at && (
                     <Text className="text-[11.5px] mt-2" style={{ color: colors.textMuted }}>
-                      As at {new Date(profile.verified_at).toLocaleDateString()}. Prices may change — check with the venue.
+                      As at {new Date(profile.verified_at).toLocaleDateString()}. Prices may change, so check with the venue.
                     </Text>
                   )}
                 </>
@@ -330,7 +330,7 @@ export default function VenueScreen() {
 
           <Pressable onPress={reportSent ? undefined : handleReport} className="mt-6 py-2" disabled={reportSent}>
             <Text className="text-[13px] text-center" style={{ color: colors.textMuted }}>
-              {reportSent ? "Thanks — we'll take a look." : "Something wrong here?"}
+              {reportSent ? "Thanks, we'll take a look." : "Something wrong here?"}
             </Text>
           </Pressable>
         </View>

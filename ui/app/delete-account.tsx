@@ -13,16 +13,16 @@ const POLICY_URL = "https://smashio.com.au/delete-account.html";
 // Kept in step with website/delete-account.html — Play's policy wants the in-app and web
 // answers to be the same answer.
 const DELETED = [
-  "Your account and sign-in credentials",
+  "Your account and sign-in details",
   "Your profile: name, photo, suburb, skill level and preferences",
   "Your reliability score and games-played record",
-  "Your join requests and your place in any upcoming game",
+  "Your join requests and your spot in any upcoming game",
   "Your device push token, so notifications stop",
   "Ratings other players gave you",
 ];
 
 const KEPT = [
-  "Chat messages you sent stay in the group, shown against a deleted user, so the rest of the conversation still reads.",
+  "Chat messages you sent stay in the group, shown against a deleted user, so the rest of the conversation still makes sense.",
   "Games that already happened stay in other players' history, without your name attached.",
   "Ratings you gave other players stay, unlinked from you, so their score doesn't move.",
 ];
@@ -55,7 +55,7 @@ export default function DeleteAccount() {
       "Delete your account?",
       hostedCount > 0
         ? `This can't be undone. Your ${hostedCount === 1 ? "upcoming game" : `${hostedCount} upcoming games`} will be cancelled and the players notified.`
-        : "This can't be undone. Your profile and history are removed straight away.",
+        : "This can't be undone. Your profile and history are gone straight away.",
       [
         { text: "Keep my account", style: "cancel" },
         {
@@ -71,7 +71,7 @@ export default function DeleteAccount() {
                 haptics.error();
                 Alert.alert(
                   "Couldn't delete your account",
-                  e instanceof Error ? e.message : "Try again, or email hello@smashio.com.au."
+                  e instanceof Error ? e.message : "Give it another go, or email hello@smashio.com.au."
                 );
               },
             }),
@@ -99,7 +99,7 @@ export default function DeleteAccount() {
           </Text>
           <Text className="text-[14.5px] leading-5" style={{ color: colors.textSecondary }}>
             Deleting your account can't be undone. You'll be signed out, and signing up again
-            starts from scratch — no history, no reliability score.
+            starts from scratch, no history, no reliability score.
           </Text>
         </View>
 
@@ -113,8 +113,8 @@ export default function DeleteAccount() {
             </Text>
             <Text className="text-[14.5px] leading-5" style={{ color: colors.textSecondary }}>
               {hostedCount === 1 ? "It" : "They"} will be cancelled and everyone who joined gets
-              notified. If you'd rather hand the game over, cancel the deletion and sort that
-              first — a cancelled game can't be brought back.
+              notified. If you'd rather hand the game over first, cancel the deletion and sort
+              that out, a cancelled game can't be brought back.
             </Text>
           </View>
         )}
@@ -146,7 +146,7 @@ export default function DeleteAccount() {
             ))}
           </View>
           <Text className="text-[13.5px] leading-5" style={{ color: colors.textTertiary }}>
-            Want your chat messages removed too? Email hello@smashio.com.au and we'll do it.
+            Want your chat messages gone too? Email hello@smashio.com.au and we'll sort it.
             Backups roll off within 30 days.
           </Text>
         </View>

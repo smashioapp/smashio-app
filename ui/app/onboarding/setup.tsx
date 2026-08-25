@@ -99,7 +99,7 @@ export default function Setup() {
   const pickPhoto = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      setError("Allow photo access to set a profile picture.");
+      setError("We'll need photo access to set a profile picture.");
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -120,7 +120,7 @@ export default function Setup() {
     const sport = sports?.find((s) => s.slug === SPORT_SLUG);
     const tierRow = tiers?.find((t) => t.label === skill);
     if (!sport || !tierRow) {
-      setError("Still loading — give it a second and try again.");
+      setError("Still loading, give it a second and try again.");
       return;
     }
 
@@ -139,7 +139,7 @@ export default function Setup() {
       await upsertProfileSport.mutateAsync({ sportId: sport.id, skillTierId: tierRow.id });
       router.replace("/onboarding/nearby");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Couldn't save that. Try again.");
+      setError(e instanceof Error ? e.message : "Couldn't save that, give it another go.");
     }
   };
 
@@ -150,7 +150,7 @@ export default function Setup() {
   const takePhoto = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
-      setError("Allow camera access to take a profile picture.");
+      setError("We'll need camera access to take a profile picture.");
       return;
     }
     const result = await ImagePicker.launchCameraAsync({ allowsEditing: true, aspect: [1, 1], quality: 0.8 });
@@ -202,7 +202,7 @@ export default function Setup() {
             />
           </View>
           <Text className="font-body-bold text-[13px] text-center" style={{ color: colors.textTertiary }}>
-            {previewUri ? "Change photo" : "This one's yours — want a different one?"}
+            {previewUri ? "Change photo" : "This one's yours, want a different one?"}
           </Text>
         </Pressable>
 

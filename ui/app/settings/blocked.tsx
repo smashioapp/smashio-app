@@ -13,7 +13,7 @@ export default function BlockedPlayers() {
   const unblock = useUnblockPlayer();
 
   const confirmUnblock = (id: string, name: string) => {
-    Alert.alert(`Unblock ${name}?`, "They'll be able to see your profile and request to join your games again.", [
+    Alert.alert(`Unblock ${name}?`, "They'll be able to see your profile and ask to join your games again.", [
       { text: "Cancel", style: "cancel" },
       { text: "Unblock", onPress: () => unblock.mutate(id) },
     ]);
@@ -30,7 +30,7 @@ export default function BlockedPlayers() {
       <View className="px-5 pt-4 gap-1">
         {!isLoading && (blocked?.length ?? 0) === 0 && (
           <Text className="text-[13.5px] mt-6 text-center" style={{ color: colors.textTertiary }}>
-            You haven't blocked anyone.
+            You haven't blocked anyone, nice and quiet in here.
           </Text>
         )}
         {blocked?.map((row) => {

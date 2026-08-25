@@ -41,7 +41,7 @@ export function ChatEventHeader({
 
       <Pressable onPress={onPress} className="flex-1 min-w-0">
         <Text numberOfLines={1} className="font-body-bold text-[14.5px]" style={{ color: colors.text }}>
-          {[game.venue, game.courts].filter(Boolean).join(" — ")}
+          {[game.venue, game.courts].filter(Boolean).join(", ")}
         </Text>
         {!collapsed && (
           <View className="flex-row items-center gap-1.5 mt-0.5">

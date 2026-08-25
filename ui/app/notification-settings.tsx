@@ -18,12 +18,12 @@ import {
 // §6.3 — one row per category, in the order the plan's table lists them (§4). Description lines
 // name the events that category covers so a toggle doesn't read as a mystery switch.
 const CATEGORIES: { key: NotificationCategory; label: string; description: string }[] = [
-  { key: "join_requests", label: "Join requests", description: "Someone wants to join your game" },
-  { key: "roster_changes", label: "Roster changes", description: "A player drops out or your game fills up" },
+  { key: "join_requests", label: "Join requests", description: "Someone wants in on your game" },
+  { key: "roster_changes", label: "Roster changes", description: "A player pulls out or your game fills up" },
   { key: "chat", label: "Chat messages", description: "New messages in your games' chats" },
   { key: "game_changes", label: "Game changes", description: "Cancellations, reschedules, and edits to games you're in" },
-  { key: "reminders", label: "Reminders", description: "Upcoming games and post-game rating prompts" },
-  { key: "alerts", label: "Discover alerts", description: "New games matching your saved alerts" },
+  { key: "reminders", label: "Reminders", description: "Upcoming games and post-game rating nudges" },
+  { key: "alerts", label: "Discover alerts", description: "New games matching what you're after" },
 ];
 
 function CategoryToggles() {
@@ -92,8 +92,8 @@ function QuietHoursRow() {
             Quiet hours
           </Text>
           <Text className="text-[13px] mt-1" style={{ color: colors.textSecondary }}>
-            Hold non-urgent notifications between {prefs?.quietStart ?? "22:00"} and {prefs?.quietEnd ?? "07:00"}.
-            Join requests and cancellations still come through.
+            We'll hold off on non-urgent pings between {prefs?.quietStart ?? "22:00"} and {prefs?.quietEnd ?? "07:00"}.
+            Join requests and cancellations still get through.
           </Text>
         </View>
         <Switch
@@ -171,7 +171,7 @@ export default function NotificationSettings() {
             Push notifications
           </Text>
           <Text className="text-[14.5px] mt-1.5" style={{ color: colors.textSecondary }}>
-            Get notified about join requests, chat messages, and match updates.
+            Get pinged about join requests, chat messages, and match updates.
           </Text>
           <View className="rounded-pill self-start px-2.5 py-1.5 mt-3" style={{ backgroundColor: granted ? "rgba(53,214,166,0.15)" : "rgba(255,182,72,0.15)" }}>
             <Text className="font-body-extrabold text-[11.5px] uppercase" style={{ color: granted ? colors.intermediate : colors.advanced }}>

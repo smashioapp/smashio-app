@@ -24,7 +24,7 @@ function venueInfoText(venue: ReturnType<typeof useVenueDetail>["data"]): string
   if (!venue) return "";
   const parking = venue.amenities.find((a) => a.slug === "parking");
   const lines = [venue.name, [venue.address, venue.suburb].filter(Boolean).join(", ")];
-  if (parking) lines.push(`Parking: ${parking.availability === "yes" ? "Available" : parking.availability}${parking.note ? ` — ${parking.note}` : ""}`);
+  if (parking) lines.push(`Parking: ${parking.availability === "yes" ? "Available" : parking.availability}${parking.note ? ` (${parking.note})` : ""}`);
   if (venue.profile?.access_notes) lines.push(venue.profile.access_notes);
   return lines.filter(Boolean).join("\n");
 }

@@ -51,3 +51,7 @@ Data flow: client → `supabase-js` for Postgres/Auth/Realtime/Storage directly 
 Sport is a config/data concern throughout (badminton ships first, schema and query layer assume more sports later) — don't hardcode sport-specific logic outside config.
 
 `ui/lib/db.types.ts` mirrors the Postgres schema; regenerate (`supabase gen types typescript --local > ui/lib/db.types.ts`) rather than hand-edit after a migration changes shape.
+
+## Copy / user-facing text tone
+
+All user-facing strings (screen text, buttons, alerts, errors, empty states, placeholders) should read casually Australian and human, not corporate or robotic. Contractions are fine ("you're", "don't"), light Aussie phrasing where it fits naturally ("no worries", "keen", "reckon", "sorted"), but don't overdo the slang to the point copy gets unclear, clarity beats personality. Avoid stiff phrasing like "An error has occurred" or "Please try again later", prefer plain warm phrasing like "Something's gone wrong, give it another go." Never use em dashes in user-facing text, use a comma or full stop instead. Formal/legal text (privacy, terms, account deletion) stays accurate first, warmed up second. This does not apply to code comments, log messages, or internal/dev-facing strings.

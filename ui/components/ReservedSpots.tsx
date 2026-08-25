@@ -53,7 +53,7 @@ export function ReservedSpots({
           text: "Hold spot",
           onPress: (name?: string) =>
             addSpot.mutate(name?.trim() || null, {
-              onError: (err) => Alert.alert("Couldn't hold a spot", err instanceof Error ? err.message : "Please try again."),
+              onError: (err) => Alert.alert("Couldn't hold a spot", err instanceof Error ? err.message : "Give it another go."),
             }),
         },
       ],
@@ -61,7 +61,7 @@ export function ReservedSpots({
     ) ??
       // Alert.prompt is iOS-only; Android gets an unnamed spot it can rename from the row.
       addSpot.mutate(null, {
-        onError: (err) => Alert.alert("Couldn't hold a spot", err instanceof Error ? err.message : "Please try again."),
+        onError: (err) => Alert.alert("Couldn't hold a spot", err instanceof Error ? err.message : "Give it another go."),
       });
   };
 
@@ -71,7 +71,7 @@ export function ReservedSpots({
       onSuccess: async (url) => {
         await Share.share({ message: `Here's your spot: ${url}` }).catch(() => {});
       },
-      onError: (err) => Alert.alert("Couldn't make an invite", err instanceof Error ? err.message : "Please try again."),
+      onError: (err) => Alert.alert("Couldn't make an invite", err instanceof Error ? err.message : "Give it another go."),
     });
   };
 
@@ -86,7 +86,7 @@ export function ReservedSpots({
           style: "destructive",
           onPress: () =>
             removeSpot.mutate(spot.id, {
-              onError: (err) => Alert.alert("Couldn't release", err instanceof Error ? err.message : "Please try again."),
+              onError: (err) => Alert.alert("Couldn't release", err instanceof Error ? err.message : "Give it another go."),
             }),
         },
       ]
@@ -120,7 +120,7 @@ export function ReservedSpots({
               {spot.claimedBy
                 ? "In the game"
                 : spot.invitedProfileId
-                  ? "Invited — waiting on them"
+                  ? "Invited, waiting on them"
                   : spot.inviteToken
                     ? "Link sent"
                     : "Held, not invited yet"}
@@ -165,7 +165,7 @@ export function ReservedSpots({
         <View className="rounded-2xl px-3.5 py-3 mb-2 border" style={{ backgroundColor: colors.surface, borderColor: colors.cardBorder }}>
           <Text className="text-[13.5px]" style={{ color: colors.textSecondary }}>
             {anonymous} more spot{anonymous === 1 ? "" : "s"} held without a name
-            {isOrganizer ? " — tap Hold a spot to name one." : "."}
+            {isOrganizer ? ", tap Hold a spot to name one." : "."}
           </Text>
         </View>
       )}
@@ -225,7 +225,7 @@ function InvitePicker({ gameId, spotId, onDone }: { gameId: string; spotId: stri
         <ActivityIndicator color={colors.accent} style={{ marginTop: 10 }} />
       ) : (results ?? []).length === 0 ? (
         <Text className="text-[12px] mt-2" style={{ color: colors.textMuted }}>
-          Nobody by that name. They may not be on Smashio yet — send a link instead.
+          Nobody by that name. They may not be on Smashio yet, try sending a link instead.
         </Text>
       ) : (
         (results ?? []).map((p) => (
@@ -237,7 +237,7 @@ function InvitePicker({ gameId, spotId, onDone }: { gameId: string; spotId: stri
                 { spotId, profileId: p.id },
                 {
                   onSuccess: onDone,
-                  onError: (err) => Alert.alert("Couldn't invite", err instanceof Error ? err.message : "Please try again."),
+                  onError: (err) => Alert.alert("Couldn't invite", err instanceof Error ? err.message : "Give it another go."),
                 }
               );
             }}

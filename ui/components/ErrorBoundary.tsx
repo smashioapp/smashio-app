@@ -31,12 +31,12 @@ export class ErrorBoundary extends Component<Props, State> {
 
     return (
       <View style={{ flex: 1, backgroundColor: colors.base, alignItems: "center", justifyContent: "center", padding: 24, gap: 16 }}>
-        <Text style={{ color: colors.text, fontSize: 17, fontWeight: "700", textAlign: "center" }}>Something went wrong</Text>
+        <Text style={{ color: colors.text, fontSize: 17, fontWeight: "700", textAlign: "center" }}>Something's gone wrong</Text>
         <Text style={{ color: colors.textSecondary, fontSize: 13, textAlign: "center" }} numberOfLines={4}>
           {error.message}
         </Text>
         <Pressable onPress={this.reset} style={{ backgroundColor: colors.accent, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12 }}>
-          <Text style={{ color: colors.base, fontWeight: "700" }}>Try again</Text>
+          <Text style={{ color: colors.base, fontWeight: "700" }}>Give it another go</Text>
         </Pressable>
       </View>
     );

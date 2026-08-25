@@ -71,7 +71,7 @@ export default function VenuesDirectoryScreen() {
           <TextInput
             value={search}
             onChangeText={setSearch}
-            placeholder="Search venues, suburbs…"
+            placeholder="Search venues, suburbs..."
             placeholderTextColor={colors.textTertiary}
             className="flex-1 text-[14px]"
             style={{ color: colors.text }}
@@ -109,7 +109,7 @@ export default function VenuesDirectoryScreen() {
       ) : venues.length === 0 ? (
         <EmptyState
           title="No venues match"
-          subtitle="Try clearing a filter or searching a different suburb."
+          subtitle="Try clearing a filter, or search a different suburb."
           ctaLabel="Clear filters"
           onCta={() => {
             setActive(new Set());

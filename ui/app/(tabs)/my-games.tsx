@@ -253,6 +253,7 @@ export default function MyGames() {
               isError ? (
                 <View className="px-5">
                   <EmptyState
+                    character="galah-net"
                     title="Couldn't load your games"
                     subtitle="Check your connection and give it another go."
                     ctaLabel="Retry"
@@ -266,6 +267,7 @@ export default function MyGames() {
                 <View>
                   <View className="px-5">
                     <EmptyState
+                      character="wombat-racquet"
                       title={hostingOnly ? "You're not hosting anything upcoming" : "Nothing on your calendar"}
                       subtitle={
                         hostingOnly

@@ -1057,6 +1057,7 @@ export default function Discover() {
               ListEmptyComponent={
                 showError ? (
                   <EmptyState
+                    character="galah-net"
                     title="Couldn't load games"
                     subtitle="Check your connection and give it another go."
                     ctaLabel="Retry"
@@ -1067,6 +1068,7 @@ export default function Discover() {
                 ) : isFiltered ? (
                   <View className="items-center gap-3">
                     <EmptyState
+                      character="kookaburra-shade"
                       title={`Nothing at ${filterSummary} right now`}
                       subtitle="Try a different level, a wider time range, or check back a bit later."
                       ctaLabel="Clear filters"
@@ -1081,6 +1083,7 @@ export default function Discover() {
                   </View>
                 ) : (
                   <EmptyState
+                    character="kookaburra-shade"
                     title="Court's quiet right now"
                     subtitle="Be the first to call a game this week, takes under a minute to set up."
                     ctaLabel="Host a game"

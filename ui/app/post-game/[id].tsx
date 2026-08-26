@@ -18,6 +18,8 @@ import { Screen } from "../../components/Screen";
 import { BackButton } from "../../components/BackButton";
 import { Burst } from "../../components/Burst";
 import { Glow } from "../../components/Glow";
+import { PropOverlay } from "../../components/PropOverlay";
+import { animalFor } from "../../lib/avatars";
 import { RollingNumber } from "../../components/RollingNumber";
 import { haptics } from "../../lib/haptics";
 import { sound } from "../../lib/sound";
@@ -151,7 +153,7 @@ function SkillVoteRow({
   );
 }
 
-function StreakFlame({ streak, burst }: { streak: number; burst: boolean }) {
+function StreakFlame({ streak, burst, animalSrc }: { streak: number; burst: boolean; animalSrc: number }) {
   const scale = useSharedValue(0.4);
 
   // Longer streaks get a bigger flame, a bigger overshoot, and a denser burst —
@@ -168,6 +170,7 @@ function StreakFlame({ streak, burst }: { streak: number; burst: boolean }) {
 
   return (
     <View className="items-center" style={{ position: "relative" }}>
+      <PropOverlay animalSrc={animalSrc} prop="trophy" size={92} />
       <Animated.Text style={[{ fontSize }, style]}>🔥</Animated.Text>
       <Text className="text-[14px] font-body-semibold mt-1" style={{ color: colors.accent }}>
         {streak} week streak
@@ -231,6 +234,7 @@ export default function PostGame() {
   const { data: profile } = useProfile(userId);
   const { data: stats } = useProfileStats(userId);
   const { data: streak } = useProfileStreak(userId);
+  const animal = animalFor(profile?.avatar_key, userId ?? "");
 
   const [revealing, setRevealing] = useState(false);
   const [showFlameBurst, setShowFlameBurst] = useState(false);
@@ -342,7 +346,7 @@ export default function PostGame() {
           {tieredUp ? (
             <TierUpMoment tierId={newTier.id} color={newTier.color} burst={showTierBurst} />
           ) : (
-            hasStreak && <StreakFlame streak={streak!} burst={showFlameBurst} />
+            hasStreak && <StreakFlame streak={streak!} burst={showFlameBurst} animalSrc={animal.src} />
           )}
         </View>
       </Screen>

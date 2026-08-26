@@ -12,6 +12,7 @@ import { HoldButton } from "../../components/HoldButton";
 import { Screen } from "../../components/Screen";
 import { Avatar } from "../../components/Avatar";
 import { AvatarPicker } from "../../components/AvatarPicker";
+import { SmashimalRig, hasRig } from "../../components/SmashimalRig";
 import { animalForId, type AnimalKey } from "../../lib/avatars";
 import { useSession } from "../../lib/session";
 import { useSports, useSkillTiers } from "../../lib/queries/sports";
@@ -147,6 +148,9 @@ export default function Setup() {
   const previewUri = avatarKeyChoice ? null : localPhotoUri ?? providerPhotoUrl;
   const canFinish = !!name.trim() && !saving;
 
+  const resolvedAnimalKey = avatarKeyChoice ?? (session ? animalForId(session.user.id).key : null);
+  const showRig = !previewUri && hasRig(resolvedAnimalKey);
+
   const takePhoto = async () => {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
     if (!permission.granted) {
@@ -191,15 +195,19 @@ export default function Setup() {
         </View>
 
         <Pressable onPress={changeAvatar} className="self-center items-center gap-2" testID="setup-photo">
-          <View style={{ width: 112, height: 112 }}>
-            <Avatar
-              id={session?.user.id}
-              name={name}
-              color={colors.surfaceAlt}
-              size={112}
-              photoUri={previewUri}
-              avatarKey={avatarKeyChoice}
-            />
+          <View style={{ width: 112, height: 112, alignItems: "center", justifyContent: "center" }}>
+            {showRig ? (
+              <SmashimalRig animal={resolvedAnimalKey!} height={112} />
+            ) : (
+              <Avatar
+                id={session?.user.id}
+                name={name}
+                color={colors.surfaceAlt}
+                size={112}
+                photoUri={previewUri}
+                avatarKey={avatarKeyChoice}
+              />
+            )}
           </View>
           <Text className="font-body-bold text-[13px] text-center" style={{ color: colors.textTertiary }}>
             {previewUri ? "Change photo" : "This one's yours, want a different one?"}

@@ -118,6 +118,7 @@ export default function PastGames() {
             pastQuery.isError ? (
               <View className="px-5">
                 <EmptyState
+                  character="galah-net"
                   title="Couldn't load your games"
                   subtitle="Check your connection and give it another go."
                   ctaLabel="Retry"
@@ -127,6 +128,7 @@ export default function PastGames() {
             ) : (
               <View className="px-5">
                 <EmptyState
+                  character="quokka-shelf"
                   title="Your rally history starts here"
                   subtitle="Play your first match and it'll show up right here, ratings, streaks, all of it."
                   ctaLabel="Find a game"

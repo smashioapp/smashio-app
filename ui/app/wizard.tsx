@@ -24,6 +24,10 @@ import { newSessionToken, searchPlaces, getPlaceDetails, type PlacePrediction } 
 import { StepProgress } from "../components/StepProgress";
 import { Burst } from "../components/Burst";
 import { Glow } from "../components/Glow";
+import { PropOverlay } from "../components/PropOverlay";
+import { animalFor } from "../lib/avatars";
+import { useSession } from "../lib/session";
+import { useProfile } from "../lib/queries/profile";
 import { haptics } from "../lib/haptics";
 import { sound } from "../lib/sound";
 import { SPRING, useReduceMotion } from "../lib/motion";
@@ -61,7 +65,7 @@ function sharesToken(a: string, b: string): boolean {
 // Layers the publish moment: two lines sweep in from the edges, the checkmark stamps
 // with an overshoot + rotation whip, a burst fires at peak, then the summary card
 // slides up from underneath rather than fading in. Runs once when `active` flips true.
-function PublishStamp({ active, children }: { active: boolean; children: React.ReactNode }) {
+function PublishStamp({ active, animalSrc, children }: { active: boolean; animalSrc: number; children: React.ReactNode }) {
   const reduceMotion = useReduceMotion();
   const lineLeft = useSharedValue(0);
   const lineRight = useSharedValue(0);
@@ -167,6 +171,10 @@ function PublishStamp({ active, children }: { active: boolean; children: React.R
         You're hosting!
       </Animated.Text>
 
+      <Animated.View entering={FadeInUp.delay(450).duration(340)}>
+        <PropOverlay animalSrc={animalSrc} prop="banner" label="Game on." size={112} />
+      </Animated.View>
+
       <Animated.View style={[{ width: "100%" }, cardStyle]}>{children}</Animated.View>
     </View>
   );
@@ -194,6 +202,10 @@ export default function Wizard() {
     setCost,
     setReservedSpots,
   } = useAppStore();
+
+  const { session } = useSession();
+  const { data: profile } = useProfile(session?.user.id);
+  const animal = animalFor(profile?.avatar_key, session?.user.id ?? "");
 
   const { data: sports = [] } = useSports();
   const { data: tiers = [] } = useSkillTiers(SPORT_SLUG);
@@ -1174,7 +1186,7 @@ export default function Wizard() {
         )}
 
         {!parsing && currentKey === "success" && (
-          <PublishStamp active={currentKey === "success"}>
+          <PublishStamp active={currentKey === "success"} animalSrc={animal.src}>
             <View className="items-center gap-3.5">
               <Text className="text-[14.5px] text-center max-w-[230px]" style={{ color: colors.textSecondary }}>
                 Your match at {venue?.name ?? "your venue"} is live. Players will start joining any moment.

@@ -142,6 +142,7 @@ export default function ChatList() {
         <ChatRowSkeletonList />
       ) : threads.length === 0 ? (
         <EmptyState
+          character="kookaburra-asleep"
           title="Quiet in here"
           subtitle="Join or host a game and the group chat opens up on its own."
           ctaLabel="Find a game"

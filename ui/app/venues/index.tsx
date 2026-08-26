@@ -108,6 +108,7 @@ export default function VenuesDirectoryScreen() {
         </View>
       ) : venues.length === 0 ? (
         <EmptyState
+          character="quokka-map"
           title="No venues match"
           subtitle="Try clearing a filter, or search a different suburb."
           ctaLabel="Clear filters"

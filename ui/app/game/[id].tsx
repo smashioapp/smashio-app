@@ -234,7 +234,7 @@ export default function GameDetails() {
             {joined.length > 0 ? <AvatarStack people={joined} max={5} /> : <View />}
             {!cancelled && (
               <Text className="font-body-bold text-[13px]" style={{ color: full ? colors.danger : colors.textSecondary }}>
-                {full ? "Full" : `${open} ${open === 1 ? "spot" : "spots"} left`} · {game.joinedCount}/{game.maxPlayers} joined
+                {full ? "Full" : `${open} ${open === 1 ? "spot" : "spots"} left`} · {game.joinedCount + 1}/{game.maxPlayers} joined
               </Text>
             )}
           </View>
@@ -365,16 +365,18 @@ export default function GameDetails() {
           // D10: the host held a spot with this player's name on it. They owe money for it, so
           // they answer — nobody is silently enrolled.
           <View className="flex-row gap-2.5">
-            <Button
-              testID="game-invite-decline"
-              label="Decline"
-              variant="secondary"
-              onPress={() =>
-                respondToInvite.mutate(false, {
-                  onError: (err) => Alert.alert("Couldn't decline", err instanceof Error ? err.message : "Give it another go."),
-                })
-              }
-            />
+            <View className="flex-1">
+              <Button
+                testID="game-invite-decline"
+                label="Decline"
+                variant="secondary"
+                onPress={() =>
+                  respondToInvite.mutate(false, {
+                    onError: (err) => Alert.alert("Couldn't decline", err instanceof Error ? err.message : "Give it another go."),
+                  })
+                }
+              />
+            </View>
             <View className="flex-1">
               <Button
                 testID="game-invite-accept"

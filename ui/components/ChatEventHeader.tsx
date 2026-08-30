@@ -56,7 +56,7 @@ export function ChatEventHeader({
       {!collapsed && (
         <View className="rounded-pill px-2.5 py-1" style={{ backgroundColor: colors.surfaceAlt }}>
           <Text className="font-body-bold text-[12px]" style={{ color: colors.textDim }}>
-            {game.joinedCount}/{game.maxPlayers}
+            {game.joinedCount + 1}/{game.maxPlayers}
           </Text>
         </View>
       )}

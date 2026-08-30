@@ -120,7 +120,7 @@ function FeaturedGameCard({
             </Text>
           </Text>
           <Text className="text-[11.5px]" style={{ color: colors.textSecondary }}>
-            {game.joinedCount}/{game.maxPlayers} joined · {game.skill}
+            {game.joinedCount + 1}/{game.maxPlayers} joined · {game.skill}
           </Text>
         </View>
       </View>

@@ -43,7 +43,7 @@ export function MapCarouselCard({
                   {[g.courts, formatTimeShort(g.startsAt)].filter(Boolean).join(" · ")}
                 </Text>
                 <Text numberOfLines={1} className="text-[11.5px] mt-0.5" style={{ color: colors.textSecondary }}>
-                  {g.skill} · {open === 0 ? "Full" : `${g.joinedCount}/${g.maxPlayers} joined`}
+                  {g.skill} · {open === 0 ? "Full" : `${g.joinedCount + 1}/${g.maxPlayers} joined`}
                 </Text>
               </View>
               <Text className="font-display-bold text-[12.5px]" style={{ color: colors.textDim }}>

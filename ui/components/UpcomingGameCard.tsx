@@ -15,7 +15,7 @@ import { RollingNumber } from "./RollingNumber";
 import { SwipeToDecide } from "./SwipeToDecide";
 import { VenueCourtHeader } from "./VenueCourtHeader";
 import { GameCover } from "./GameCover";
-import { Game, Player } from "../lib/mockData";
+import { Game, Player, spotsLeft } from "../lib/mockData";
 import { haptics } from "../lib/haptics";
 import { supabase } from "../lib/supabase";
 import { openDirections } from "../lib/directions";
@@ -57,14 +57,15 @@ export function UpcomingGameCard({
 
   // Success burst the moment an approval fills the last spot (my-games-plan.md §M6) — the
   // reward lands on the card the host is already looking at, not buried in a toast.
-  const prevJoinedCountRef = useRef(game.joinedCount);
+  const inCount = game.joinedCount + 1;
+  const prevInCountRef = useRef(inCount);
   useEffect(() => {
-    if (role === "hosting" && prevJoinedCountRef.current < game.maxPlayers && game.joinedCount >= game.maxPlayers) {
+    if (role === "hosting" && prevInCountRef.current < game.maxPlayers && inCount >= game.maxPlayers) {
       haptics.burst();
       setShowFullBurst(true);
     }
-    prevJoinedCountRef.current = game.joinedCount;
-  }, [game.joinedCount, game.maxPlayers, role]);
+    prevInCountRef.current = inCount;
+  }, [inCount, game.maxPlayers, role]);
 
   const organizerPhotoUrl = game.organizerPhotoPath
     ? supabase.storage.from("avatars").getPublicUrl(game.organizerPhotoPath).data.publicUrl
@@ -89,8 +90,8 @@ export function UpcomingGameCard({
     );
   };
 
-  const fillFraction = Math.min(1, game.joinedCount / game.maxPlayers);
-  const spotsOpen = game.maxPlayers - game.joinedCount;
+  const fillFraction = Math.min(1, inCount / game.maxPlayers);
+  const spotsOpen = spotsLeft(game);
   const hoursToGo = Math.max(0, Math.round((new Date(game.startsAt).getTime() - Date.now()) / (60 * 60 * 1000)));
   const showFillHealth =
     role === "hosting" && game.status !== "cancelled" && spotsOpen > 0 && new Date(game.startsAt).getTime() - Date.now() <= FILL_HEALTH_WINDOW_MS;
@@ -198,8 +199,8 @@ export function UpcomingGameCard({
             {role === "hosting" ? (
               <View className="flex-row items-center">
                 <RollingNumber
-                  from={Math.max(0, game.joinedCount - 1)}
-                  to={game.joinedCount}
+                  from={Math.max(0, inCount - 1)}
+                  to={inCount}
                   className="text-[13px] font-body-bold"
                   style={{ color: colors.textMuted }}
                 />
@@ -209,7 +210,7 @@ export function UpcomingGameCard({
               </View>
             ) : (
               <Text className="text-[13px] font-body-bold" style={{ color: colors.textMuted }}>
-                You're in · {game.joinedCount} going
+                You're in · {inCount} going
               </Text>
             )}
             {showFullBurst && (

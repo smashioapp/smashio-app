@@ -587,6 +587,18 @@ as a bug rather than as moderation. **Instrument classification latency from day
 exceeds ~1.5 s the trade flips, and the upgrade path is an author-visible-only `pending` status
 rather than true optimistic publish.
 
+**Enforcement point — corrected 2026-09-01.** As first shipped, item 4 lived entirely in the
+composer client (it called `ai-proxy` classify, then `create_post`). Testing found that skipped
+the filter completely for anyone calling `create_post` directly with a valid session JWT — no
+`ai-proxy` call, no `moderation_flags` trail, nothing; the RPC itself never checked. `create_post`
+now calls `ai-proxy` itself via Postgres's `http` extension, authenticated by a shared secret in
+Vault (`ai_proxy_service_key`) rather than a user JWT — same pattern as `push_dispatch_key`
+(backend-plan.md). The composer's own pre-call was removed (redundant, was double-billing Gemini).
+**The 2-second timeout above is `ai-proxy`'s internal Gemini budget only** — the RPC's own HTTP
+timeout to `ai-proxy` is 8 s, wide margin over that 2 s so Postgres doesn't give up on a slow-but-
+real classification before it lands (a 3 s RPC timeout raced ai-proxy's 2 s and fail-opened a
+Gemini-flagged spam post through once during testing — this is why the margin is wide, not tight).
+
 **Owner — DECIDED 2026-08-31: Ajay, daily, 24-hour response SLA.** Realistic at private-beta volume
 in one city, and it is a named commitment rather than a role to be filled later. **Hand-off
 trigger:** if the queue exceeds ~10 open items in any week, or a day is missed twice in a month,

@@ -132,7 +132,15 @@ users into an app whose reminders don't fire is buying churn. **Blocker.**
 `/onboarding`. With G3 the share funnel is: link → generic site → store → install → sign up →
 onboarding → *then* the game. Six gates. The spec's "download required for any action" survives
 intact if the **web page** previews the game read-only and the **app** allows browsing Discover
-pre-signup with the wall at join/host. Recommend both. **NEW — ~1 day.**
+pre-signup with the wall at join/host. Recommend both. **Shipped 2026-08-31.** Web preview
+(`game/[id].tsx`'s `GamePreviewTeaser`, backed by the anon `game_preview` RPC) already shipped
+2026-08-20. App side: `index.tsx` now sends a session-less user to `/(tabs)/discover` instead of
+onboarding; Discover runs off a new anon-safe `nearby_games_public` RPC (no organizer PII, no
+exact address — same rule `game_preview` already followed) instead of `nearby_games`, which
+403s without a session. Map, alerts, and the amenities filter stay authenticated-only (their
+backing RPCs/tables are authenticated-only grants not worth widening for this slice) and wall to
+`/onboarding`, same as Host and every tab but Discover in the tab bar. Join still walls via the
+existing `GamePreviewTeaser` on the game screen.
 
 **G6. No waitlist for full games.** [quick-wins.md](quick-wins.md) §3.1. "Full" is the state a
 *popular* game reaches, and popular games are the ones that get shared. A share that lands after

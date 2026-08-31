@@ -17,6 +17,7 @@ const DEFAULT_RADIUS_M = 50_000;
 export const SPORT_SLUG = "badminton"; // MVP ships badminton only; sport stays data, not code, once a picker exists.
 
 type NearbyGameRow = Database["public"]["Functions"]["nearby_games"]["Returns"][number];
+type NearbyGamePublicRow = Database["public"]["Functions"]["nearby_games_public"]["Returns"][number];
 type GamesPublicRow = Database["public"]["Views"]["games_public"]["Row"];
 
 function toGame(row: NearbyGameRow, units: DistanceUnits = "km"): Game {
@@ -103,6 +104,43 @@ function toGameFromPublicRow(row: GamesPublicRow): Game {
   };
 }
 
+// G5 (gtm-plan.md §3.2): the session-less Discover browse. No organizer_id/name/photo/address —
+// nearby_games_public doesn't project them (no PII for a stranger with no account), so this
+// deliberately doesn't reuse toGame's field list.
+function toAnonGame(row: NearbyGamePublicRow, units: DistanceUnits = "km"): Game {
+  return {
+    id: row.id,
+    organizerId: "",
+    venue: row.venue_name,
+    suburb: row.venue_suburb,
+    courts: row.court_label ?? "",
+    date: formatDate(row.starts_at),
+    time: formatTimeRange(row.starts_at, row.ends_at),
+    startsAt: row.starts_at,
+    endsAt: row.ends_at,
+    status: (row.status as Game["status"]) ?? "published",
+    skill: row.skill_tier_label as Game["skill"],
+    skillTierId: "",
+    maxPlayers: row.max_players,
+    courtsBooked: row.courts_booked,
+    durationHours: row.duration_hours,
+    reservedSpots: row.reserved_spots ?? 0,
+    reservedClaimed: row.reserved_claimed ?? 0,
+    joined: [],
+    joinedCount: row.approved_count ?? 0,
+    cost: row.cost_per_player_cents / 100,
+    verified: row.verification_status === "verified",
+    verificationStatus: (row.verification_status as Game["verificationStatus"]) ?? "none",
+    distance: formatDistance(row.distance_m, units),
+    distanceM: row.distance_m,
+    venueAddress: null,
+    venueLat: row.venue_lat,
+    venueLng: row.venue_lng,
+    skillTierOrdinal: row.skill_tier_ordinal,
+    coverKey: row.cover_key,
+  };
+}
+
 export type WhenFilter = "tonight" | "tomorrow" | "week" | "all";
 
 // "week" and "all" share the same lower bound (now) — only the upper bound differs — so the
@@ -143,7 +181,7 @@ export function useDiscoverGames(
     sortBy?: string;
   },
   center: { lat: number; lng: number } = { lat: DEFAULT_LAT, lng: DEFAULT_LNG },
-  options: { enabled?: boolean; units?: DistanceUnits } = {}
+  options: { enabled?: boolean; units?: DistanceUnits; anon?: boolean } = {}
 ) {
   const tierSlugs = filter.tierSlugs?.length ? filter.tierSlugs : undefined;
   const when = filter.when ?? "all";
@@ -154,10 +192,11 @@ export function useDiscoverGames(
   const amenitySlugs = filter.amenitySlugs?.length ? filter.amenitySlugs : undefined;
   const sortBy = filter.sortBy ?? "soonest";
   const units = options.units ?? "km";
+  const anon = options.anon ?? false;
   return useQuery({
     enabled: options.enabled ?? true,
     queryKey: [
-      "nearby_games",
+      anon ? "nearby_games_public" : "nearby_games",
       SPORT_SLUG,
       tierSlugs ?? null,
       when,
@@ -173,6 +212,26 @@ export function useDiscoverGames(
     ],
     queryFn: async () => {
       const { fromTs, toTs } = whenFilterRange(when);
+      // G5 (gtm-plan.md §3.2): a session-less viewer hits the anon-safe RPC (no organizer PII,
+      // no exact address) instead of nearby_games, which 403s without a session.
+      if (anon) {
+        const { data, error } = await supabase.rpc("nearby_games_public", {
+          lat: center.lat,
+          lng: center.lng,
+          radius_m: radiusM,
+          sport_slug: SPORT_SLUG,
+          from_ts: fromTs,
+          to_ts: toTs,
+          tier_slugs: tierSlugs,
+          has_spots_only: hasSpotsOnly,
+          verified_only: verifiedOnly,
+          max_cost_per_player_cents: maxCostPerPlayerCents ?? undefined,
+          sort_by: sortBy,
+          p_amenity_slugs: amenitySlugs,
+        });
+        if (error) throw error;
+        return (data ?? []).map((row) => toAnonGame(row, units));
+      }
       const { data, error } = await supabase.rpc("nearby_games", {
         lat: center.lat,
         lng: center.lng,

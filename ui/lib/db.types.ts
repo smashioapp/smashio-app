@@ -1784,6 +1784,47 @@ export type Database = {
           verification_status: string
         }[]
       }
+      nearby_games_public: {
+        Args: {
+          from_ts?: string
+          has_spots_only?: boolean
+          lat: number
+          lng: number
+          max_cost_per_player_cents?: number
+          p_amenity_slugs?: string[]
+          radius_m: number
+          sort_by?: string
+          sport_slug: string
+          tier_slugs?: string[]
+          to_ts?: string
+          verified_only?: boolean
+        }
+        Returns: {
+          approved_count: number
+          cost_per_player_cents: number
+          court_label: string
+          courts_booked: number
+          cover_key: string
+          distance_m: number
+          duration_hours: number
+          ends_at: string
+          id: string
+          max_players: number
+          open_spots: number
+          reserved_claimed: number
+          reserved_spots: number
+          skill_tier_label: string
+          skill_tier_ordinal: number
+          skill_tier_slug: string
+          starts_at: string
+          status: string
+          venue_lat: number
+          venue_lng: number
+          venue_name: string
+          venue_suburb: string
+          verification_status: string
+        }[]
+      }
       notification_pref_enabled: {
         Args: { p_pref_key: string; p_profile_id: string }
         Returns: boolean

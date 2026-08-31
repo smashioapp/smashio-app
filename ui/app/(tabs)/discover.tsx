@@ -113,7 +113,10 @@ function FiltersSheet({
     toggleAmenityFilter,
     clearDiscoverFilters,
   } = useAppStore();
-  const amenityTypesQuery = useAmenityTypes();
+  const { session } = useSession();
+  // amenity_types RLS is authenticated-only (reference table, not PII, just not worth a new
+  // grant for this slice) — a session-less viewer just doesn't see the amenities section.
+  const amenityTypesQuery = useAmenityTypes({ enabled: !!session });
 
   return (
     <Sheet visible={visible} onClose={onClose} title="Filters & sort">
@@ -224,7 +227,7 @@ function FiltersSheet({
         <Pressable
           onPress={() => {
             onClose();
-            router.push("/venues");
+            router.push(session ? "/venues" : "/onboarding");
           }}
           className="flex-row items-center gap-2 py-1"
         >
@@ -348,6 +351,7 @@ function FallbackLadder({
 }
 
 function NotificationBell() {
+  const { session } = useSession();
   const { data: unreadCount } = useUnreadNotificationCount();
   const [permissionDenied, setPermissionDenied] = useState(false);
 
@@ -356,6 +360,9 @@ function NotificationBell() {
       Notifications.getPermissionsAsync().then((r) => setPermissionDenied(r.status !== Notifications.PermissionStatus.GRANTED));
     }, [])
   );
+
+  // Nothing to notify a session-less viewer about, and /notifications is auth-gated data.
+  if (!session) return null;
 
   return (
     <Pressable
@@ -585,7 +592,7 @@ export default function Discover() {
   const discoverQuery = useDiscoverGames(
     { tierSlugs: levelFilters, when: whenFilter, radiusKm: discoverRadiusKm, hasSpotsOnly, verifiedOnly, maxCostPerPlayerCents, amenitySlugs: amenityFilters, sortBy },
     userLocation,
-    { units: distanceUnits }
+    { units: distanceUnits, anon: !session }
   );
   const games = discoverQuery.data ?? [];
 
@@ -602,7 +609,7 @@ export default function Discover() {
   const mapQuery = useDiscoverGames(
     { tierSlugs: levelFilters, when: whenFilter, radiusKm: mapRadiusKm, hasSpotsOnly, verifiedOnly, maxCostPerPlayerCents, amenitySlugs: amenityFilters, sortBy },
     mapCenter,
-    { enabled: discoverView === "map", units: distanceUnits }
+    { enabled: discoverView === "map", units: distanceUnits, anon: !session }
   );
   const mapPinnedGamesAll = (mapQuery.data ?? []).filter((g) => g.venueLat != null && g.venueLng != null);
 
@@ -796,7 +803,7 @@ export default function Discover() {
   const fallbackQuery = useDiscoverGames(
     { tierSlugs: [], when: "all", radiusKm: DEFAULT_DISCOVER_RADIUS_KM, hasSpotsOnly, verifiedOnly, maxCostPerPlayerCents, amenitySlugs: amenityFilters, sortBy: "soonest" },
     userLocation,
-    { enabled: fallbackEnabled, units: distanceUnits }
+    { enabled: fallbackEnabled, units: distanceUnits, anon: !session }
   );
   const ladderRungs = useMemo(() => {
     if (!fallbackEnabled || !fallbackQuery.data) return [];
@@ -838,7 +845,21 @@ export default function Discover() {
   useEffect(() => {
     setAlertState("idle");
   }, [levelFilters, discoverRadiusKm]);
+  // G5 (gtm-plan.md §3.2): host is one of the two things the wall still gates for a session-less
+  // viewer (join is the other, handled by GamePreviewTeaser on the game screen itself).
+  const handleHost = () => {
+    if (!session) {
+      router.push("/onboarding");
+      return;
+    }
+    router.push("/wizard");
+  };
+
   const handleSetAlert = () => {
+    if (!session) {
+      router.push("/onboarding");
+      return;
+    }
     setAlertState("saving");
     createAlert.mutate(
       { tierSlugs: levelFilters, radiusKm: discoverRadiusKm, center: userLocation },
@@ -1040,7 +1061,7 @@ export default function Discover() {
         activeCount={activeFilterChips.length}
         chips={activeFilterChips}
         onPressFilters={() => setFiltersOpen(true)}
-        onPressMap={() => setDiscoverView("map")}
+        onPressMap={() => (session ? setDiscoverView("map") : router.push("/onboarding"))}
       />
 
       <FiltersSheet visible={filtersOpen} onClose={() => setFiltersOpen(false)} markLevelTouched={markLevelTouched} />
@@ -1070,7 +1091,7 @@ export default function Discover() {
                     onCta={() => discoverQuery.refetch()}
                   />
                 ) : isFiltered && ladderRungs.length > 0 ? (
-                  <FallbackLadder rungs={ladderRungs} onHost={() => router.push("/wizard")} alertState={alertState} onAlert={handleSetAlert} />
+                  <FallbackLadder rungs={ladderRungs} onHost={handleHost} alertState={alertState} onAlert={handleSetAlert} />
                 ) : isFiltered ? (
                   <View className="items-center gap-3">
                     <EmptyState
@@ -1093,7 +1114,7 @@ export default function Discover() {
                     title="Court's quiet right now"
                     subtitle="Be the first to call a game this week, takes under a minute to set up."
                     ctaLabel="Host a game"
-                    onCta={() => router.push("/wizard")}
+                    onCta={handleHost}
                   />
                 )
               }

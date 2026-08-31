@@ -161,7 +161,7 @@ export type VenueDirectoryFilters = {
 // "Court amenities" filter section (item 1, 2026-08-23) — shared amenity_types list backing
 // both the venue directory and Discover's Filters sheet, so the chip set stays one source of
 // truth instead of duplicating the amenity_types seed (20260815000800) in the client.
-export function useAmenityTypes() {
+export function useAmenityTypes(options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: ["amenityTypes"],
     queryFn: async () => {
@@ -170,6 +170,7 @@ export function useAmenityTypes() {
       return data as AmenityType[];
     },
     staleTime: 60 * 60 * 1000,
+    enabled: options.enabled ?? true,
   });
 }
 

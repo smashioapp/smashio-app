@@ -127,7 +127,7 @@ export function useJoinRequests(gameId: string) {
 }
 
 // Badge count for the tab bar — total pending join requests across every game this user organizes.
-export function useMyPendingRequestsCount() {
+export function useMyPendingRequestsCount(options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: ["game_players", "pending_requests_count"],
     queryFn: async (): Promise<number> => {
@@ -144,6 +144,7 @@ export function useMyPendingRequestsCount() {
       if (error) throw error;
       return count ?? 0;
     },
+    enabled: options.enabled ?? true,
   });
 }
 

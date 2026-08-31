@@ -18,6 +18,7 @@ import { NAV, tabBarBottom } from "../lib/nav";
 import { navMinimize, scrollRouteToTop } from "../lib/navScroll";
 import { useChatThreads } from "../lib/queries/messages";
 import { useMyPendingRequestsCount } from "../lib/queries/gamePlayers";
+import { useSession } from "../lib/session";
 import { haptics } from "../lib/haptics";
 import { sound } from "../lib/sound";
 import { SPRING } from "../lib/motion";
@@ -129,6 +130,7 @@ function TabButton({
 // on two screens only; in v2 it's the middle of the bar and reachable from every tab. It is a
 // button, not a tab route — nothing in (tabs)/ backs it.
 function HostButton() {
+  const { session } = useSession();
   const scale = useSharedValue(1);
   const rotate = useSharedValue(0);
   const pressStyle = useAnimatedStyle(() => ({
@@ -141,6 +143,11 @@ function HostButton() {
       accessibilityLabel="Host a game"
       onPress={() => {
         haptics.tap();
+        // G5 (gtm-plan.md §3.2): host is walled for a session-less viewer, same as join.
+        if (!session) {
+          router.push("/onboarding");
+          return;
+        }
         sound.play("whoosh");
         router.push("/wizard");
       }}
@@ -184,9 +191,10 @@ export function TabBar({ state, navigation }: TabBarProps) {
   // Discover map already carries its own primary CTA in the sheet (discover-map-ux-plan.md
   // D4) — showing the global host FAB on top of it is two competing primary actions.
   const discoverView = useAppStore((s) => s.discoverView);
-  const { data: threads = [] } = useChatThreads();
+  const { session } = useSession();
+  const { data: threads = [] } = useChatThreads({ enabled: !!session });
   const unreadChatCount = threads.filter((t) => t.unread).length;
-  const { data: pendingRequests = 0 } = useMyPendingRequestsCount();
+  const { data: pendingRequests = 0 } = useMyPendingRequestsCount({ enabled: !!session });
   const hasPendingRequests = pendingRequests > 0;
 
   // My Games owns this dot — Profile pointed at pending requests but rendered nothing about
@@ -211,6 +219,12 @@ export function TabBar({ state, navigation }: TabBarProps) {
         showDot={dotFor(route.name)}
         badgeCount={badgeFor(route.name)}
         onPress={() => {
+          // G5: My Games/Chat/Profile all need a session (they're a viewer's own data) — wall
+          // to onboarding instead of navigating into a tab that would just error on its queries.
+          if (!session && route.name !== "discover") {
+            router.push("/onboarding");
+            return;
+          }
           if (state.index === i) scrollRouteToTop(route.name);
           else navigation.navigate(route.name);
         }}

@@ -588,7 +588,7 @@ export type ChatThread = {
   coverKey: string | null;
 };
 
-export function useChatThreads() {
+export function useChatThreads(options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: ["chat_threads"],
     queryFn: async (): Promise<ChatThread[]> => {
@@ -610,6 +610,7 @@ export function useChatThreads() {
         coverKey: row.cover_key,
       }));
     },
+    enabled: options.enabled ?? true,
   });
 }
 

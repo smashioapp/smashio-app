@@ -24,7 +24,10 @@ export default function Index() {
   }, [onboarded]);
 
   if (sessionLoading) return null;
-  if (!session) return <Redirect href="/onboarding" />;
+  // G5 (gtm-plan.md §3.2): a session-less viewer browses Discover read-only instead of hitting
+  // the onboarding wall immediately — join/host still gate to login (game/[id].tsx's
+  // GamePreviewTeaser, and the host CTAs in Discover/TabBar).
+  if (!session) return <Redirect href="/(tabs)/discover" />;
   if (profileLoading || sportsLoading) return null;
   if (onboarded && !pendingGameChecked) return null;
 

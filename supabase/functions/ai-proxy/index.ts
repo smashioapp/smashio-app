@@ -40,6 +40,10 @@ const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 const serviceClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+// Lets create_post (20260901070000_server_side_moderation.sql) call classify directly from
+// Postgres via the http extension, so the pre-publish filter can't be skipped by calling the
+// RPC without going through the app. Same shared-secret pattern as push_dispatch_key.
+const AI_PROXY_SERVICE_KEY = Deno.env.get("AI_PROXY_SERVICE_KEY");
 
 export type ParsedBooking = {
   is_booking_confirmation: boolean;
@@ -233,6 +237,37 @@ async function classifyWithTimeout(text: string, ms: number): Promise<ClassifyRe
   }
 }
 
+// Shared by both classify entry points (server-to-server and client-facing). Fails open with a
+// queue entry in `moderation_flags` — timeout or any Gemini error still lets the post through,
+// it just gets a row a human can review, per the "fail open, never silently eat a post" rule.
+async function classifyAndRespond(
+  authorId: string,
+  rawText: string,
+  json: (data: unknown, status?: number) => Response
+): Promise<Response> {
+  const text = rawText.trim();
+  if (!text) return json({ flagged: false, category: null, reason: null, degraded: false });
+
+  const result = await classifyWithTimeout(text, 2000);
+  if (result === "timeout" || result === "error") {
+    await serviceClient.from("moderation_flags").insert({
+      author_id: authorId,
+      text,
+      reason: result === "timeout" ? "classify_timeout" : "classify_error",
+    });
+    return json({ flagged: false, category: null, reason: null, degraded: true });
+  }
+  if (result.flagged) {
+    await serviceClient.from("moderation_flags").insert({
+      author_id: authorId,
+      text,
+      reason: result.reason,
+      category: result.category,
+    });
+  }
+  return json({ ...result, degraded: false });
+}
+
 export function reviewStatusFor(parsed: ParsedBooking): "verified" | "rejected" {
   // Verification decision (host-flow-plan.md §Verification): receipt present = verified. The
   // one gate is is_booking_confirmation — a photo of a wall is not a trust signal. Everything
@@ -274,6 +309,27 @@ async function downloadImage(path: string): Promise<{ bytes: Uint8Array; mediaTy
 // without binding a port — supabase serves this file directly, where import.meta.main is true.
 if (import.meta.main) {
   Deno.serve(async (req) => {
+  const body = (await req.json()) as {
+    mode?: "parse" | "attach" | "classify";
+    game_id?: string;
+    storage_path?: string;
+    confirmation_id?: string;
+    text?: string;
+    author_id?: string;
+  };
+
+  const json = (data: unknown, status = 200) =>
+    new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } });
+
+  // --- classify, server-to-server: create_post (Postgres, via the http extension) calls this
+  // with a shared secret instead of a user JWT, so the pre-publish filter is enforced no matter
+  // how a post reaches the table — calling create_post directly can no longer skip it.
+  const serviceKeyHeader = req.headers.get("x-service-key");
+  if (body.mode === "classify" && AI_PROXY_SERVICE_KEY && serviceKeyHeader === AI_PROXY_SERVICE_KEY) {
+    if (!body.author_id) return json({ error: "author_id is required" }, 400);
+    return classifyAndRespond(body.author_id, body.text ?? "", json);
+  }
+
   const authHeader = req.headers.get("Authorization") ?? "";
   const callerClient = createClient(supabaseUrl, anonKey, {
     global: { headers: { Authorization: authHeader } },
@@ -283,42 +339,10 @@ if (import.meta.main) {
   } = await callerClient.auth.getUser();
   if (!user) return new Response("Unauthorized", { status: 401 });
 
-  const body = (await req.json()) as {
-    mode?: "parse" | "attach" | "classify";
-    game_id?: string;
-    storage_path?: string;
-    confirmation_id?: string;
-    text?: string;
-  };
-
-  const json = (data: unknown, status = 200) =>
-    new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json" } });
-
-  // --- classify: pre-publish text filter (social-plan.md §10 item 4, B5). Fails open with a
-  // queue entry in `moderation_flags` — timeout or any Gemini error still lets the post through,
-  // it just gets a row a human can review, per the "fail open, never silently eat a post" rule.
+  // --- classify, client-facing: kept for any other caller that still wants a pre-submit check
+  // (e.g. inline validation), but create_post no longer trusts this path alone — see above.
   if (body.mode === "classify") {
-    const text = (body.text ?? "").trim();
-    if (!text) return json({ flagged: false, category: null, reason: null, degraded: false });
-
-    const result = await classifyWithTimeout(text, 2000);
-    if (result === "timeout" || result === "error") {
-      await serviceClient.from("moderation_flags").insert({
-        author_id: user.id,
-        text,
-        reason: result === "timeout" ? "classify_timeout" : "classify_error",
-      });
-      return json({ flagged: false, category: null, reason: null, degraded: true });
-    }
-    if (result.flagged) {
-      await serviceClient.from("moderation_flags").insert({
-        author_id: user.id,
-        text,
-        reason: result.reason,
-        category: result.category,
-      });
-    }
-    return json({ ...result, degraded: false });
+    return classifyAndRespond(user.id, body.text ?? "", json);
   }
 
   // --- attach: claim a draft confirmation onto a game the caller just created. No LLM call. ---

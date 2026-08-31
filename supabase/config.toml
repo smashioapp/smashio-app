@@ -54,9 +54,11 @@ enabled = true
 verify_jwt = false
 
 [functions.ai-proxy]
-# Client-facing — called with the caller's own session JWT. Default verify_jwt (true) is fine
-# here; the function does its own organizer check on top before writing anything.
-verify_jwt = true
+# Client-facing for parse/attach — the function still requires a valid session JWT via
+# auth.getUser() for those, checked in the function body. verify_jwt is off at the gateway so
+# create_post (20260901070000) can also reach classify server-to-server with a shared secret
+# instead of a user JWT, same pattern as push-dispatch/purge-confirmations.
+verify_jwt = false
 
 [functions.delete-account]
 # Client-facing and destructive — the JWT is the whole authorization story. The function reads

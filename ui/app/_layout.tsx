@@ -97,6 +97,7 @@ export default function RootLayout() {
                 <Stack.Screen name="post-game/[id]" options={{ presentation: "card" }} />
                 <Stack.Screen name="notifications" options={{ presentation: "card" }} />
                 <Stack.Screen name="wizard" options={{ presentation: "modal" }} />
+                <Stack.Screen name="compose" options={{ presentation: "modal" }} />
               </Stack>
               {showSplash && <AnimatedSplash onFinish={() => setShowSplash(false)} />}
             </SafeAreaProvider>

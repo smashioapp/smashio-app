@@ -8,8 +8,8 @@ export default function TabsLayout() {
       screenOptions={{ headerShown: false }}
     >
       <Tabs.Screen name="discover" />
-      <Tabs.Screen name="my-games" />
       <Tabs.Screen name="feed" />
+      <Tabs.Screen name="my-games" />
       <Tabs.Screen name="profile" />
     </Tabs>
   );

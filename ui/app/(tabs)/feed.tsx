@@ -40,8 +40,8 @@ function turnIntoGame(post: FeedPost) {
 }
 
 // social-plan.md B1/N1 — the feed's own tab, mounted once feed_home has real data behind it
-// (§13.6 step 4). Text-only, system posts for now; the composer (B2) hasn't shipped. No
-// Realtime (§13.6: "pull-to-refresh and query invalidation only, same as Discover").
+// (§13.6 step 4). No Realtime (§13.6: "pull-to-refresh and query invalidation only, same as
+// Discover").
 function systemPostCopy(post: FeedPost): { title: string; subtitle: string } {
   const payload = (post.payload ?? {}) as Record<string, string | number | undefined>;
   const venue = (payload.venue_name as string) ?? post.venueName ?? "a venue";

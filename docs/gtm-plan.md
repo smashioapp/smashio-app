@@ -126,7 +126,11 @@ image + "Open in app / Get the app" CTA. NEW — ~half a day.** `website/venue.h
 on the live project, so `ai-proxy` and two branches of `push-dispatch` 403 in production
 ([store-readiness-plan.md](store-readiness-plan.md)). Push *is* the retention channel — game
 reminders, join approvals, chat. Sentry is also inert (no DSN secret, no symbol upload). Acquiring
-users into an app whose reminders don't fire is buying churn. **Blocker.**
+users into an app whose reminders don't fire is buying churn. **Blocker. Shipped, confirmed
+2026-08-31** — both halves already fixed and just undocumented: the grants migration
+(`20260815000400_service_role_grants.sql`) is live on the remote project (`supabase migration
+list` shows it applied), and `EXPO_PUBLIC_SENTRY_DSN`/`SENTRY_AUTH_TOKEN` exist as GitHub secrets
+(added 2026-08-24) with no `SENTRY_DISABLE_AUTO_UPLOAD` left in either build workflow.
 
 ### 3.2 P1 — conversion amplifiers, ship inside the first 30 days
 
@@ -151,7 +155,7 @@ capacity converts to nothing today. **~half a day. Shipped 2026-08-31.**
 **G7. Referrals invisible.** `shareReferral` exists and `?ref=` attribution is captured
 (`ui/lib/referral.ts`, `20260815000300_profile_referred_by.sql`), but nothing shows a count, a
 standing, or a reward. An unrewarded, uncounted referral link is a button, not a loop.
-**Fix: surface count + a real reward (§4.6). ~half a day.**
+**Fix: surface count + a real reward (§4.6). ~half a day. Shipped 2026-08-31.**
 
 **G8. No recurring / duplicate game.** Sydney social badminton is overwhelmingly *weekly*. A host
 who must re-key the wizard every Tuesday drifts back to WhatsApp within a month — precisely the
@@ -300,6 +304,15 @@ Reward must be something Smashio can give free that a group chat can't:
 
 Avoid cash or credit rewards: no wallet exists, it invites fraud, and it drags positioning toward
 the booking app §1 rejects.
+
+**Shipped mechanic (2026-08-31, `20260831010000_referral_priority.sql`):** priority spot, scoped
+to the waitlist queue rather than reserved spots (those stay host-named/invited/token-only, no
+public self-claim path exists to reward into). Each successful referral
+(`profiles.referred_by` set for the first time) banks one credit on the referrer
+(`profiles.referral_priority_credits`). The credit is spent automatically, one-time, the next time
+that referrer's `request_to_join` lands them on a full game's waitlist — `game_players
+.priority_waitlist` is stamped true and `promote_waitlist`/`waitlist_position` sort priority rows
+ahead of the existing FIFO queue. Not a skip-to-approved: still a queue, just a shorter one.
 
 ### 4.7 Tier B — content engine
 

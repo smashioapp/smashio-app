@@ -4,6 +4,7 @@ import { Linking, Platform } from "react-native";
 import { router } from "expo-router";
 import { supabase } from "./supabase";
 import { consumePendingReferral } from "./referral";
+import { identify, resetAnalytics } from "./analytics";
 
 // Best-effort, once per captured link (profile-plan.md P5) — consumePendingReferral clears the
 // stored code itself, so this can safely run on every SIGNED_IN without re-attributing.
@@ -85,7 +86,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
     const { data: subscription } = supabase.auth.onAuthStateChange((event, nextSession) => {
       setSession(nextSession);
-      if (event === "SIGNED_IN" && nextSession) attributeReferral(nextSession.user.id).catch(() => {});
+      if (event === "SIGNED_IN" && nextSession) {
+        identify(nextSession.user.id);
+        attributeReferral(nextSession.user.id).catch(() => {});
+      }
+      if (event === "SIGNED_OUT") resetAnalytics();
     });
 
     return () => subscription.subscription.unsubscribe();

@@ -1,6 +1,7 @@
 import { Platform, Share } from "react-native";
 import * as Linking from "expo-linking";
 import type { Game } from "./mockData";
+import { track } from "./analytics";
 
 // https://smashio.com.au/game/<id> — Universal Link, not smashio:// custom scheme.
 // Custom schemes aren't reliably tappable in share targets and dead-end with no app installed.
@@ -15,9 +16,10 @@ export async function shareGame(game: Game) {
   const url = `https://smashio.com.au/game/${game.id}`;
   const text = `Join me for badminton at ${game.venue} · ${game.date} ${game.time}`;
   try {
-    await Share.share(
+    const result = await Share.share(
       Platform.OS === "ios" ? { message: text, url } : { message: `${text} — ${url}` }
     );
+    if (result.action === Share.sharedAction) track("share_sent", { kind: "game", game_id: game.id });
   } catch {}
 }
 
@@ -27,8 +29,9 @@ export async function shareReferral(referrerId: string) {
   const url = Linking.createURL("onboarding", { queryParams: { ref: referrerId } });
   const text = "Come play badminton with me on Smashio — join here:";
   try {
-    await Share.share(
+    const result = await Share.share(
       Platform.OS === "ios" ? { message: text, url } : { message: `${text} ${url}` }
     );
+    if (result.action === Share.sharedAction) track("share_sent", { kind: "referral" });
   } catch {}
 }

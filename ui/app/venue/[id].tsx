@@ -13,6 +13,7 @@ import { HatchPattern } from "../../components/HatchPattern";
 import { haptics } from "../../lib/haptics";
 import { formatTimeShort } from "../../lib/format";
 import { useAppStore } from "../../lib/store";
+import { track } from "../../lib/analytics";
 import { Share } from "react-native";
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -45,7 +46,8 @@ function unitLabel(unit: string): string {
 async function shareVenue(id: string, name: string) {
   const url = `https://smashio.com.au/venue/${id}`;
   try {
-    await Share.share({ message: `Check out ${name} on Smashio`, url });
+    const result = await Share.share({ message: `Check out ${name} on Smashio`, url });
+    if (result.action === Share.sharedAction) track("share_sent", { kind: "venue", venue_id: id });
   } catch {}
 }
 

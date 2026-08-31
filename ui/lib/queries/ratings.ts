@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../supabase";
+import { track } from "../analytics";
 
 // A rating is either about how someone played or about how they ran the game (post-game-plan.md
 // D6). Only the organizer ever collects a 'host' row.
@@ -167,6 +168,7 @@ export function useSubmitPostGameRatings() {
       }
     },
     onSuccess: (_data, { gameId }) => {
+      track("rating_submitted", { game_id: gameId });
       queryClient.invalidateQueries({ queryKey: ["profile_stats"] });
       queryClient.invalidateQueries({ queryKey: ["ratings", "rated_game_ids"] });
       queryClient.invalidateQueries({ queryKey: ["past_game_detail", gameId] });

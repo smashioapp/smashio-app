@@ -24,6 +24,7 @@ import {
   useUploadAvatarFromUrl,
   useUpsertProfileSport,
 } from "../../lib/queries/profile";
+import { track } from "../../lib/analytics";
 
 function TierCard({ tier, active, onPress }: { tier: (typeof TIERS)[number]; active: boolean; onPress: () => void }) {
   const scale = useSharedValue(1);
@@ -81,6 +82,10 @@ export default function Setup() {
   const [avatarKeyChoice, setAvatarKeyChoice] = useState<AnimalKey | null>(null);
   const [pickerVisible, setPickerVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    track("onboarding_step_completed", { step: "setup" });
+  }, []);
 
   const { data: sports } = useSports();
   const { data: tiers } = useSkillTiers(SPORT_SLUG);

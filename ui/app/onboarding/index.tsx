@@ -13,6 +13,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams } from "expo-router";
 import { savePendingReferral } from "../../lib/referral";
+import { track } from "../../lib/analytics";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
   Easing,
@@ -45,6 +46,10 @@ export default function Splash() {
   useEffect(() => {
     if (typeof ref === "string" && ref) savePendingReferral(ref);
   }, [ref]);
+
+  useEffect(() => {
+    track("onboarding_step_completed", { step: "splash" });
+  }, []);
 
   const [reduceMotion, setReduceMotion] = useState<boolean | null>(null);
 

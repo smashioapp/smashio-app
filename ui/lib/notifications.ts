@@ -6,6 +6,7 @@ import Constants from "expo-constants";
 import { router, usePathname } from "expo-router";
 import { supabase } from "./supabase";
 import { useSession } from "./session";
+import { track } from "./analytics";
 
 // The screen currently on top, so a push about the chat you're already looking at doesn't bank a
 // banner over it. Module-level (like currentToken below) because the notification handler is
@@ -163,6 +164,7 @@ type PushData = { screen?: string; game_id?: string; type?: string; notification
 async function handleNotificationAction(response: Notifications.NotificationResponse) {
   const data = response.notification.request.content.data as PushData;
   const actionId = response.actionIdentifier;
+  track("push_opened", { category: data.type, action: actionId });
 
   // Mark the triggering notification as read (best-effort).
   if (data.notification_id) {
@@ -214,6 +216,7 @@ async function handleNotificationAction(response: Notifications.NotificationResp
 
 function handleNotificationTap(response: Notifications.NotificationResponse) {
   const data = response.notification.request.content.data as PushData;
+  track("push_opened", { category: data.type });
 
   // Best-effort — a tap should navigate regardless of whether this write lands. A coalesced push
   // (P2 §6.2) carries only its triggering row's id, so opening from a coalesced tap marks that

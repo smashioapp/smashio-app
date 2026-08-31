@@ -1,6 +1,7 @@
 import "../global.css";
 import "../lib/silenceExpoGoWarnings";
 import "../lib/sentry";
+import "../lib/analytics";
 import { useCallback, useEffect, useState } from "react";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -12,8 +13,10 @@ import { LinearGradient } from "expo-linear-gradient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "../lib/queryClient";
 import { SessionProvider } from "../lib/session";
+import * as Linking from "expo-linking";
 import { sound } from "../lib/sound";
 import { loadSoundEnabled } from "../lib/soundPrefs";
+import { trackAppOpenFirst } from "../lib/analytics";
 import { usePushRegistration, useTrackActiveRoute } from "../lib/notifications";
 import { useAppIconBadgeSync, useNotificationRealtimeSync } from "../lib/queries/notifications";
 import { AnimatedSplash } from "../components/AnimatedSplash";
@@ -63,6 +66,10 @@ export default function RootLayout() {
 
   useEffect(() => {
     loadSoundEnabled().then((enabled) => sound.setMuted(!enabled));
+  }, []);
+
+  useEffect(() => {
+    Linking.getInitialURL().then(trackAppOpenFirst).catch(() => {});
   }, []);
 
   const onLayoutRootView = useCallback(() => {}, []);

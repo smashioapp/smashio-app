@@ -19,6 +19,7 @@ import { Screen } from "../../components/Screen";
 import { CourtBackdrop } from "../../components/CourtBackdrop";
 import { requestLocation, suburbForFix } from "../../lib/location";
 import { useSetHomePoint, useUpdateProfile } from "../../lib/queries/profile";
+import { track } from "../../lib/analytics";
 
 function PulsePin({ reduceMotion }: { reduceMotion: boolean }) {
   const ring = useSharedValue(0);
@@ -61,6 +62,10 @@ function PulsePin({ reduceMotion }: { reduceMotion: boolean }) {
 export default function Nearby() {
   const reduceMotion = useReduceMotion();
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    track("onboarding_step_completed", { step: "nearby" });
+  }, []);
   const updateProfile = useUpdateProfile();
   const setHomePoint = useSetHomePoint();
 

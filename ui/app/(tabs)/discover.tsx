@@ -35,6 +35,7 @@ import { Rail } from "../../components/RailCard";
 import { DayHeader } from "../../components/DayHeader";
 import { SegmentedToggle } from "../../components/SegmentedToggle";
 import { Game, spotsLeft, levelFit } from "../../lib/mockData";
+import { track } from "../../lib/analytics";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const CAROUSEL_GAP = 12;
@@ -587,6 +588,11 @@ export default function Discover() {
     { units: distanceUnits }
   );
   const games = discoverQuery.data ?? [];
+
+  useEffect(() => {
+    if (discoverQuery.data) track("discover_viewed", { games_visible_count: discoverQuery.data.length });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [discoverQuery.data]);
 
   // Same queryKey as discoverQuery when there's no area override, so react-query dedupes them
   // into one fetch — a "search this area" pan only costs an extra request once it actually

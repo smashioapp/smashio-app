@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { File } from "expo-file-system";
 import { supabase } from "../supabase";
+import { track } from "../analytics";
 import type { Database } from "../db.types";
 import type { Game, PastGame } from "../mockData";
 import { formatDate, formatDistance, formatTimeRange, type DistanceUnits } from "../format";
@@ -256,7 +257,8 @@ export function useCreateGame() {
       if (error) throw error;
       return data.id;
     },
-    onSuccess: () => {
+    onSuccess: (gameId) => {
+      track("game_published", { game_id: gameId });
       queryClient.invalidateQueries({ queryKey: ["nearby_games"] });
       queryClient.invalidateQueries({ queryKey: ["my_games"] });
     },

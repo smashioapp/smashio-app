@@ -13,6 +13,7 @@ import {
   usePlayerSearch,
   type ReservedSpot,
 } from "../lib/queries/reservedSpots";
+import { track } from "../lib/analytics";
 
 // post-game-plan.md D2/D3/D10/D11. The host holds N spots off max_players; a subset can carry a
 // friend's name, a direct invite, or a share link. Members see the named ones so the headcount
@@ -69,7 +70,8 @@ export function ReservedSpots({
     haptics.tap();
     createInvite.mutate(spot.id, {
       onSuccess: async (url) => {
-        await Share.share({ message: `Here's your spot: ${url}` }).catch(() => {});
+        const result = await Share.share({ message: `Here's your spot: ${url}` }).catch(() => null);
+        if (result?.action === Share.sharedAction) track("share_sent", { kind: "invite" });
       },
       onError: (err) => Alert.alert("Couldn't make an invite", err instanceof Error ? err.message : "Give it another go."),
     });

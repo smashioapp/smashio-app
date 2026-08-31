@@ -55,14 +55,38 @@ Found while testing, unrelated and unfixed: **`service_role` has no PostgREST ta
 - [ ] Play Console **Data Safety** form — declare what's collected (location, email, photos) and why.
 - [ ] App Store Connect **App Privacy** nutrition label — same data categories, Apple's format.
 - [ ] Privacy policy + support URLs for both listings (not in-app config, pure store metadata).
-- [ ] **New with host-flow-plan.md (2026-08-15): booking-confirmation photos are now sent to a
-      third-party model provider (Anthropic) for parsing, and stored for up to 7 days after the
-      game completes** (`purge-confirmations` retention purge — see host-flow-plan.md
-      §Backend changes). Neither the privacy policy nor the store data-safety forms have been
-      updated to say so. Photos can carry the host's full name, email, sometimes card last-4,
-      and a home address, so this needs new privacy-policy copy plus new Data Safety /
-      App Privacy answers (third-party processing, retention window) before the next submission —
-      flagged in host-flow-plan.md, not yet written.
+- [x] Booking-confirmation photos are sent to **Google Gemini** (`gemini-flash-latest`, see
+      `supabase/functions/ai-proxy/index.ts`) for parsing, and stored for up to 7 days after the
+      game completes (`purge-confirmations-cron` — `supabase/migrations/20260815000600_purge_confirmations_cron.sql`).
+      `website/privacy.html` updated 2026-08-31 to disclose this (What we collect / Who we share
+      it with / Data retention sections). Store console answers still need to be pasted in by
+      hand — ready-to-paste copy below.
+
+  **Play Console → Data Safety** (paste as-is):
+  - Data type: **Photos**
+  - Collected: **Yes**
+  - Shared: **Yes** — with Google Gemini, for processing only (not for advertising or any purpose
+    outside the app's function).
+  - Purpose: **App functionality** — "Used to auto-fill game details (venue, time, cost) from a
+    booking confirmation screenshot the host uploads."
+  - Is data processing ephemeral: **No** (the photo itself persists up to 7 days, so answer No —
+    Play's "ephemeral" checkbox is for data never written to disk/DB, which doesn't apply here).
+  - Data retention: **Yes, can request deletion earlier** is not applicable; use "Data deleted
+    after X" → **7 days**, and add a comment: "Photo is auto-deleted 7 days after the game
+    completes. The extracted booking details (venue, time, cost) are retained as part of normal
+    game history."
+  - Is this data required or optional: **Optional** — hosts can fill in game details manually
+    instead of uploading a confirmation.
+
+  **App Store Connect → App Privacy nutrition label** (paste as-is):
+  - Data type: **Photos or Videos**
+  - Used to Track You: **No**
+  - Linked to You: **Yes** (linked to the host's account/game)
+  - Purpose: **App Functionality**
+  - Third-party disclosure note (in the "Data Use" description field, optional but recommended):
+    "Booking confirmation photos are sent to Google Gemini for one-time parsing to auto-fill game
+    details. The photo is deleted 7 days after the game ends; the extracted text (venue, time,
+    cost) is kept as part of the game's history."
 
 ## Next session — pick up here
 

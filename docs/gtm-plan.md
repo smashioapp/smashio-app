@@ -186,7 +186,9 @@ full feed. **NEW — needs a decision before scoping.**
 photos go to a third-party model provider and are retained up to 7 days
 ([host-flow-plan.md](host-flow-plan.md)); neither `website/privacy.html` nor the store data-safety
 answers say so, and those photos carry names, emails, sometimes card last-4. Any press or
-community attention will find this. **Fix before public launch.**
+community attention will find this. **Fix before public launch. Shipped 2026-08-31** — privacy
+policy updated (Google Gemini disclosed, 7-day photo retention), store-console answers drafted in
+[store-readiness-plan.md](store-readiness-plan.md).
 
 **G14. Cold-start empty state.** A user in a suburb with no games is the most common bad first
 session during a launch. Discover has `EmptyState` wired ([smashimals-plan.md](smashimals-plan.md)

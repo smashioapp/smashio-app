@@ -1,13 +1,17 @@
 import { View, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../lib/theme";
-import { ACHIEVEMENTS, type AchievementContext } from "../lib/achievements";
+import { ACHIEVEMENTS } from "../lib/achievements";
 
 // Medallions, not flat 50%-opacity chips (design/23bc2cae "trophy case"): earned achievements
 // get a lime ring and fill, locked ones a dashed outline — and whichever's closest to unlocking
 // leads as a "next up" banner so the case stays alive even near-complete.
-export function TrophyCase({ ctx }: { ctx: AchievementContext }) {
-  const withStatus = ACHIEVEMENTS.map((a) => ({ ...a, unlocked: a.check(ctx) }));
+//
+// Unlocked status comes from the server's achievement_awards (social-plan.md B0.5), not a
+// client-side check() — two independent computations of "10 games hosted" drift, and the
+// visible failure is a trophy case ahead of what a system post would say.
+export function TrophyCase({ earnedIds }: { earnedIds: Set<string> }) {
+  const withStatus = ACHIEVEMENTS.map((a) => ({ ...a, unlocked: earnedIds.has(a.id) }));
   const earnedCount = withStatus.filter((a) => a.unlocked).length;
   const nextUp = withStatus.find((a) => !a.unlocked);
 

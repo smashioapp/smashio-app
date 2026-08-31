@@ -21,6 +21,7 @@ import { ACHIEVEMENTS } from "../../lib/achievements";
 import { buildWeekHeatmap } from "../../lib/format";
 import { useSession } from "../../lib/session";
 import { usePlayerCard, useLateLeaveCount, useProfileStreak, useProfileActivity } from "../../lib/queries/profile";
+import { useAchievementAwards } from "../../lib/queries/achievements";
 import { haptics } from "../../lib/haptics";
 import { supabase } from "../../lib/supabase";
 
@@ -63,6 +64,7 @@ export default function Profile() {
       queryClient.invalidateQueries({ queryKey: ["profile_late_leaves", userId] }),
       queryClient.invalidateQueries({ queryKey: ["profile_streak", userId] }),
       queryClient.invalidateQueries({ queryKey: ["profile_activity", userId] }),
+      queryClient.invalidateQueries({ queryKey: ["achievement_awards", userId] }),
     ]);
 
   useFocusEffect(() => {
@@ -87,14 +89,8 @@ export default function Profile() {
   const tierFraction = next ? Math.min(1, Math.max(0, (gamesPlayed - currentMin) / (next.min - currentMin))) : 1;
 
   const heatmapGrid = buildWeekHeatmap(activity?.heatmapDates ?? []);
-  const achievementCtx = {
-    gamesPlayed,
-    gamesHosted,
-    weekStreak: streak ?? 0,
-    distinctVenueCount: activity?.distinctVenueCount ?? 0,
-    hasFiveStarRating: false,
-  };
-  const achievementsEarned = ACHIEVEMENTS.filter((a) => a.check(achievementCtx)).length;
+  const { data: earnedAchievementIds } = useAchievementAwards(userId);
+  const achievementsEarned = earnedAchievementIds?.size ?? 0;
 
   const shareCard = async () => {
     haptics.tap();
@@ -435,7 +431,7 @@ export default function Profile() {
                 </View>
               )}
 
-              {tab === "trophy" && hasPlayedAnything && <TrophyCase ctx={achievementCtx} />}
+              {tab === "trophy" && hasPlayedAnything && <TrophyCase earnedIds={earnedAchievementIds ?? new Set()} />}
             </View>
           </>
         )}

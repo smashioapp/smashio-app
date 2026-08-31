@@ -34,6 +34,32 @@ export type Database = {
   }
   public: {
     Tables: {
+      achievement_awards: {
+        Row: {
+          achievement_id: string
+          awarded_at: string
+          profile_id: string
+        }
+        Insert: {
+          achievement_id: string
+          awarded_at?: string
+          profile_id: string
+        }
+        Update: {
+          achievement_id?: string
+          awarded_at?: string
+          profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "achievement_awards_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       amenity_types: {
         Row: {
           category: string
@@ -1698,6 +1724,10 @@ export type Database = {
       }
     }
     Functions: {
+      achievement_week_streak: {
+        Args: { p_profile_id: string }
+        Returns: number
+      }
       add_reserved_spot: {
         Args: { p_game_id: string; p_label?: string }
         Returns: string
@@ -2077,6 +2107,10 @@ export type Database = {
           rating_avg: number
           rating_count: number
         }[]
+      }
+      recompute_achievements: {
+        Args: { p_profile_id: string }
+        Returns: undefined
       }
       recompute_reliability_scores: { Args: never; Returns: undefined }
       remove_player: {

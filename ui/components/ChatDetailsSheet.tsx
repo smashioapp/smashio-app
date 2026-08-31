@@ -83,7 +83,7 @@ export function ChatDetailsSheet({
         onPress: () => {
           leaveGame.mutate();
           onClose();
-          router.replace("/(tabs)/chat");
+          router.replace("/chat");
         },
       },
     ]);

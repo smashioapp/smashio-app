@@ -31,7 +31,7 @@ type TabBarProps = {
 const ICONS: Record<string, { active: keyof typeof Ionicons.glyphMap; inactive: keyof typeof Ionicons.glyphMap }> = {
   discover: { active: "search", inactive: "search-outline" },
   "my-games": { active: "calendar", inactive: "calendar-outline" },
-  chat: { active: "chatbubble-ellipses", inactive: "chatbubble-ellipses-outline" },
+  feed: { active: "newspaper", inactive: "newspaper-outline" },
   profile: { active: "person", inactive: "person-outline" },
 };
 
@@ -40,7 +40,7 @@ const ICONS: Record<string, { active: keyof typeof Ionicons.glyphMap; inactive: 
 const LABELS: Record<string, string> = {
   discover: "Discover",
   "my-games": "My Games",
-  chat: "Chat",
+  feed: "Feed",
   profile: "Profile",
 };
 
@@ -200,7 +200,9 @@ export function TabBar({ state, navigation }: TabBarProps) {
   // My Games owns this dot — Profile pointed at pending requests but rendered nothing about
   // them, a dead end for anyone who tapped it (profile-plan.md P0).
   const dotFor = (name: string) => (name === "my-games" ? hasPendingRequests : false);
-  const badgeFor = (name: string) => (name === "chat" ? unreadChatCount : undefined);
+  // Chat's own tab badge moved here on the merge (social-plan.md N1) — a per-row badge on each
+  // My Games thread plus this tab-level rollup, since Chat no longer has a tab of its own.
+  const badgeFor = (name: string) => (name === "my-games" ? unreadChatCount : undefined);
 
   const barStyle = useAnimatedStyle(() => ({
     height: NAV.BAR_HEIGHT - navMinimize.value * (NAV.BAR_HEIGHT - NAV.MINI_BAR_HEIGHT),

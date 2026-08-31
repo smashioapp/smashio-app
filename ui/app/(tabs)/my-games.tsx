@@ -353,12 +353,35 @@ export default function MyGames() {
                   </View>
                 );
               }
+              const unread = unreadGameIds.has(game.id);
               return (
                 <View style={{ paddingHorizontal: LAYOUT.SCREEN_PAD }}>
                   <ListRow
                     dotColor={tierColor(game.skill)}
                     title={`${game.venue}, ${formatTimeShort(game.startsAt)}`}
                     subtitle={`${game.skill} · ${ROLE_LABEL[game.role]}`}
+                    trailingNode={
+                      // social-plan.md N1: the per-row chat entry point Chat's tab used to be —
+                      // every game row is a thread reachable straight from the agenda now.
+                      <Pressable
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          router.push(`/chat/${game.id}`);
+                        }}
+                        hitSlop={8}
+                        className="w-7 h-7 items-center justify-center"
+                      >
+                        <View>
+                          <Ionicons name="chatbubble-ellipses-outline" size={16} color={unread ? colors.accent : colors.textTertiary} />
+                          {unread && (
+                            <View
+                              className="absolute rounded-full"
+                              style={{ top: -1, right: -1, width: 7, height: 7, backgroundColor: colors.accent, borderWidth: 1.5, borderColor: colors.base }}
+                            />
+                          )}
+                        </View>
+                      </Pressable>
+                    }
                     accessory="chevron"
                     onPress={() => router.push(`/game/${game.id}`)}
                     testID={`mygames-row-${game.id}`}

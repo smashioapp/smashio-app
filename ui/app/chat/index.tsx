@@ -7,6 +7,7 @@ import { useTabBarSpace } from "../../lib/nav";
 import { makeScrollHideHandler, registerScrollToTop, unregisterScrollToTop } from "../../lib/navScroll";
 import { useChatThreads } from "../../lib/queries/messages";
 import { Screen } from "../../components/Screen";
+import { BackButton } from "../../components/BackButton";
 import { ChatRowSkeletonList } from "../../components/Skeleton";
 import { EmptyState } from "../../components/EmptyState";
 import { ShuttlecockGlyph, ShuttlecockSpinner } from "../../components/ShuttlecockSpinner";
@@ -78,6 +79,9 @@ function SectionHeader({ title, count }: { title: string; count: number }) {
   );
 }
 
+// social-plan.md N1: Chat's own tab is gone (my-games-plan §6.1, nav-plan 2026-08-31 amendment)
+// — this is the same screen, reached from a My Games row or a game card's thread entry point,
+// not a bottom-bar destination. chat/[id].tsx is untouched.
 export default function ChatList() {
   const threadsQuery = useChatThreads();
   const threads = threadsQuery.data ?? [];
@@ -110,9 +114,12 @@ export default function ChatList() {
 
   return (
     <Screen>
-      <Text className="font-display text-[26px] px-5 pt-3 pb-3.5" style={{ color: colors.text }}>
-        Chat
-      </Text>
+      <View className="flex-row items-center gap-3 px-5 pt-3 pb-3.5">
+        <BackButton onPress={() => router.back()} />
+        <Text className="font-display text-[22px]" style={{ color: colors.text }}>
+          Chat
+        </Text>
+      </View>
 
       {threads.length > 0 && (
         <View className="px-5 pb-3">

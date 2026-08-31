@@ -128,6 +128,12 @@ skill tier, and max players; falls back to a generic "open in app" card for a ba
 cancelled id. The `og:image` itself is still the one static image (dynamic per-game images need
 an image-generation pipeline — bigger scope, not attempted here). `website/venue.html` and
 `player.html` are still 31-line stubs with the same problem, not fixed by this pass.
+Restyled 2026-08-31 to match `index.html`'s dark/lime brand (radial background blooms, pulsing
+live badge, homepage-style countdown chip, skill-tier colours, staggered fade-up entrance,
+gradient CTA + QR block) instead of the plain `venue.html`/`player.html` card it launched with.
+A completed game (`games.status = 'completed'`) now gets a muted non-pulsing badge, an "Already
+played" chip instead of a countdown, and past-tense body/OG copy instead of a join CTA that no
+longer applies — verified live against a real hosted game id.
 
 **G4. Production push and AI are silently failing.** `service_role` has no PostgREST table grants
 on the live project, so `ai-proxy` and two branches of `push-dispatch` 403 in production

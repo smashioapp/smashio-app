@@ -205,15 +205,22 @@ function notFoundHero({ heading, body }) {
 }
 
 function gameHero(preview) {
+  const isPast = preview.status === "completed";
   const when = fmtWhen(preview.starts_at);
-  const chip = countdownChip(preview.starts_at);
+  const chip = isPast ? { label: "Already played", bg: "rgba(255,255,255,.06)", fg: "#7A7A82" } : countdownChip(preview.starts_at);
   const cost = preview.cost_per_player_cents != null ? `$${(preview.cost_per_player_cents / 100).toFixed(0)}` : null;
   const tier = tierColor(preview.skill_tier_label);
+  const badgeDot = isPast
+    ? `<span style="width:6px; height:6px; border-radius:50%; background:#7A7A82"></span>`
+    : `<span style="width:6px; height:6px; border-radius:50%; background:#D6FF3F; animation:smash-pulse 1.6s ease-in-out infinite"></span>`;
+  const bodyCopy = isPast
+    ? "This game's already been played. Smashio finds badminton games happening near you tonight — take a look."
+    : "Log in or create an account to see who's playing, chat, and join in.";
 
   return `
-    <div class="rise rise-1" style="display:flex; align-items:center; gap:8px; background:rgba(214,255,63,.10); border:1px solid rgba(214,255,63,.22); padding:7px 14px; border-radius:100px">
-      <span style="width:6px; height:6px; border-radius:50%; background:#D6FF3F; animation:smash-pulse 1.6s ease-in-out infinite"></span>
-      <span style="font-size:11px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:#D6FF3F">Badminton · ${esc(preview.venue_suburb)}</span>
+    <div class="rise rise-1" style="display:flex; align-items:center; gap:8px; background:${isPast ? "rgba(255,255,255,.06)" : "rgba(214,255,63,.10)"}; border:1px solid ${isPast ? "rgba(255,255,255,.10)" : "rgba(214,255,63,.22)"}; padding:7px 14px; border-radius:100px">
+      ${badgeDot}
+      <span style="font-size:11px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:${isPast ? "#96969E" : "#D6FF3F"}">Badminton · ${esc(preview.venue_suburb)}</span>
     </div>
 
     <span class="rise rise-2" style="background:${chip.bg}; color:${chip.fg}; font-size:10.5px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; padding:5px 12px; border-radius:100px">${esc(chip.label)}</span>
@@ -234,7 +241,7 @@ function gameHero(preview) {
       <span class="stat"><ion-icon name="podium-outline" style="font-size:14px; color:${tier}"></ion-icon><span style="color:${tier}">${esc(preview.skill_tier_label)}</span></span>
     </div>
 
-    <p class="rise rise-3" style="margin:6px 0 0; max-width:42ch; font-size:14.5px; line-height:1.6; color:#96969E">Log in or create an account to see who's playing, chat, and join in.</p>
+    <p class="rise rise-3" style="margin:6px 0 0; max-width:42ch; font-size:14.5px; line-height:1.6; color:#96969E">${esc(bodyCopy)}</p>
 
     ${ctaButtons()}`;
 }
@@ -292,13 +299,16 @@ module.exports = async function handler(req, res) {
     }));
   }
 
+  const isPast = preview.status === "completed";
   const when = fmtWhen(preview.starts_at);
   const cost = preview.cost_per_player_cents != null ? `$${(preview.cost_per_player_cents / 100).toFixed(0)}` : null;
-  const ogTitle = `Badminton at ${preview.venue_name}`;
-  const ogDescription = `${when} · ${preview.venue_suburb} · ${preview.skill_tier_label}${cost ? ` · ${cost}/player` : ""}. Join on Smashio.`;
+  const ogTitle = isPast ? `A badminton game at ${preview.venue_name}` : `Badminton at ${preview.venue_name}`;
+  const ogDescription = isPast
+    ? `This session at ${preview.venue_name}, ${preview.venue_suburb} already happened (${when}). Smashio finds badminton games happening near you tonight in Sydney.`
+    : `${when} · ${preview.venue_suburb} · ${preview.skill_tier_label}${cost ? ` · ${cost}/player` : ""}. Join on Smashio.`;
 
   return res.status(200).send(shell({
-    title: `Smashio - Badminton at ${preview.venue_name}`,
+    title: isPast ? `Smashio - A badminton game at ${preview.venue_name}` : `Smashio - Badminton at ${preview.venue_name}`,
     ogTitle,
     ogDescription,
     ogUrl: canonicalUrl,

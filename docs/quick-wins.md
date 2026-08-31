@@ -154,6 +154,27 @@ releases a waitlisted spot. UI: `game/[id].tsx` swaps the disabled "Game full" b
 join waitlist", shows queue position (`waitlist_position` RPC) once on it, and the host sees a
 "N on waitlist" count next to the roster.
 
+### 3.1b Past games are rendered twice — retire `/my-games/past`
+
+**Gap.** Completed games are built by two different queries feeding two different screens:
+`useProfileActivity` behind Profile's `history` segment ([profile.tsx:27](../ui/app/(tabs)/profile.tsx#L27)),
+and `useMyPastGames` behind the `/my-games/past` route. Same data, two implementations, two places
+to fix a bug.
+
+**Why it hurts.** Beyond the duplication, they can disagree — `useMyPastGames` had a documented
+status-filter bug ([my-games-plan.md](my-games-plan.md) §3: games you were rejected from or removed
+from landing in your history) that `useProfileActivity` does not share, since it filters
+`status = 'approved'` explicitly. Two sources of "what have I played" is one too many.
+
+**Work.** Retire `/my-games/past`, keep Profile's `history` segment as the single surface, and point
+any remaining links at it. my-games-plan §2's own reading of Strava is the argument for which one
+survives: *"past isn't a receipt list, it's an identity"* — history belongs on Profile.
+
+**Note.** Surfaced while deciding social-plan §13.5's nav change; **unrelated to it**, and should not
+be bundled into that slice. Not approved.
+
+**Effort:** ~1–2h.
+
 ### 3.2 Recurring games — start with "Duplicate" — **cheap half shipped 2026-08-31**
 
 **Gap.** No `recurring` / `repeat` column in the schema.

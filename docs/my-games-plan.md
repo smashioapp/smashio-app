@@ -170,6 +170,39 @@ M0 stops the screen lying and unblocks nothing else — it's cheap and it's all 
 
 **Backend touchpoints — one:** `games_public` joins `profiles` for organizer identity (M1). Everything else (roster batch, grouped pending counts, ratings read, stats) is existing tables under existing policies.
 
+## 6.1 Amendment 2026-08-31 — Chat merges into this screen (social-plan N1)
+
+Approved as part of [social-plan.md](social-plan.md) §13.5. The bottom-bar tab set becomes
+`Discover | Feed | My Games | Profile`; `(tabs)/chat.tsx` becomes a `/chat` route reached from this
+screen, and the freed slot goes to the social feed. `chat/[id].tsx` is untouched.
+
+**Why this screen and not another.** Threads are per-game and joined-players-only, there are no DMs
+and social-plan §16 says there never will be, and `20260824000200_close_chat_on_cancel_complete.sql`
+closes threads on cancel and completion — so the set of live threads is very nearly the set of games
+already on this agenda. The merge is an overlap, not a compromise.
+
+It is also something §2 already asked for and §3 recorded as missing: *"every commitment shows a
+human (host, faces, thread)"* and *"actions live on the card, not one screen deeper"* are two of the
+five things the benchmark screens share, and M1's commitment card still has no thread affordance.
+
+**Work:** a thread entry point with an unread badge on each agenda row, a tab-level unread rollup
+replacing the Chat tab badge, and `/chat` kept as the full list for threads whose game has scrolled
+out of the immediate agenda. `useTabBarSpace()` and `BottomRail` are unaffected — `HostFab` stays
+mounted here per [nav-plan.md](nav-plan.md) 2a.
+
+**Rejected: moving My Games under Profile** to free the slot instead. §1 is the reason — this screen
+is ~95% future-facing (Attendee 55%, Day-of 20%, Host 20%, Returner 5%), so burying it costs the
+day-of cohort the "zero taps to navigate" criterion in §1, orphans the pending-request badge, and
+strands `HostFab` on a surface nav-plan calls noise.
+
+**Past games are a different question, and there the suggestion was right.** Completed games are
+currently rendered twice from two queries: Profile's `history` segment (`useProfileActivity`,
+[profile.tsx:27](../ui/app/(tabs)/profile.tsx#L27)) and the `/my-games/past` route
+(`useMyPastGames`). §2's own Strava reading — *"past isn't a receipt list, it's an identity"* —
+argues history belongs on Profile, which means `/my-games/past` is the copy to retire. **Not
+approved, logged in [quick-wins.md](quick-wins.md)**; it is unrelated to N1 and should not be
+bundled into it.
+
 ## 7. Not doing
 
 - No payment tracking or "who's paid" ledger. Cost split stays informational; money in the app is a separate product decision.

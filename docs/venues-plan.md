@@ -279,7 +279,7 @@ create table public.venue_corrections (
 
 Photos are the fix for `VenueCourtHeader`'s procedural gradient. They stay `pending` until
 approved — an unmoderated photo bucket is the same App Store UGC problem as the feed
-(see [social-plan.md](social-plan.md) §7), just earlier.
+(see [social-plan.md](social-plan.md) §10), just earlier.
 
 ### 4.6 RLS
 
@@ -436,8 +436,12 @@ migrating a real booking's venue reference, which needs a human decision, not an
 
 ## 10. Not doing
 
-- In-app court booking or payment.
+- In-app court booking or payment. Now has a home: [social-plan.md](social-plan.md) §12 sizes it as
+  a four-rung ladder and argues rung 3 (Smashio takes payment) may correctly never be climbed.
 - Real-time court availability (needs per-operator integrations; revisit only with partners).
+  That is §12 rung 1, and the `booking_platform` / `booking_url` columns this doc already populates
+  are what makes it tractable — the Sydney booking layer turns out to be concentrated, not
+  fragmented.
 - Venue ratings/reviews in Phase A — reviews are UGC and belong with the moderation stack in
-  [social-plan.md](social-plan.md) §7.
+  [social-plan.md](social-plan.md) §10.
 - Cities beyond Sydney. Schema is city-agnostic; the data is not.

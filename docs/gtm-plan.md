@@ -114,6 +114,12 @@ real key/CI secret in prod, project 586186 US Cloud).
 Marketing a Sydney badminton audience iOS-only loses roughly half the clicks, and worse in
 Clusters A and C. **Blocker. Nothing else here matters more.**
 
+**Scope of that claim, clarified 2026-08-31:** it is a blocker on **public launch and every channel
+in §4**, not on feature work. The app is in private beta on iOS TestFlight and features can be built
+and measured there — see [social-plan.md](social-plan.md) §17.1, which settles this for the feed
+work. The one thing to carry forward is that any beta metric is an **iOS-only read** of a market
+where Android skews toward the exact cohorts §2.1 identifies.
+
 **G3. Shared game links dead-end.** `website/vercel.json` rewrites `/game/:id → /index.html`, so a
 shared game resolves to the generic homepage: no venue, no time, no spots-left, same static
 `og:image` for every game. `ui/lib/share.ts` generates those links and `game/[id].tsx` already
@@ -221,7 +227,14 @@ won't get a real page until enriched.
 **G12. No club / group entity.** Sydney plays as named groups ("Sky Hawks"), not atomised
 individuals. A recruited host's group has no object to own, so it can't bring its identity across.
 [social-plan.md](social-plan.md) covers adjacent ground and is unapproved. **Deferred — out of
-scope for this GTM pass, captured under social-plan.md instead.**
+scope for this GTM pass, captured under social-plan.md instead.** Updated 2026-08-31: social-plan
+§7 now *designs* it (`clubs`, `club_members`, a nullable `games.club_id`, `feed_club`, a claim
+flow), and **the seed half is approved** — social-plan §13.2 slice C0 lands the `clubs` table, all
+56 Badminton NSW clubs seeded unclaimed, and a server-rendered `/club/:slug` page reusing this doc's
+G11 venue-page pattern. ~1 day, and it exists specifically to serve §4.1 recruiting *now*: a
+recruiter can say "your club already has a page, claim it" before the in-app entity exists. The full
+club entity (C1) stays gated on social-plan §1's liquidity trigger. **G12 is therefore half-closed,
+not deferred.**
 
 **G13. Privacy policy out of date — a marketing risk, not just a store risk.** Booking-confirmation
 photos go to a third-party model provider and are retained up to 7 days
@@ -476,7 +489,7 @@ beats the host-recruiting calls in §4.1.
 | Multi-sport marketing | Schema stays multi-sport; the *message* stays badminton until Sydney badminton is liquid. |
 | Paid installs pre-liquidity | ~$27 CPI into an empty map. |
 | Influencer mega-deals | Micro-creators out-convert them 3–5x here at a fraction of the price. |
-| Court booking / payments | Contradicts positioning ([business-context.md](business-context.md)) and picks a fight with the venues who are supposed to be partners. |
+| Court booking / payments *as a marketing message* | Picks a fight with the venues who are supposed to be partners, and loses the comparison to their own booking page. The long-run roadmap does include booking ([social-plan.md](social-plan.md) §12), but as a partner integration and never as the pitch — see business-context.md's category-ambition line. |
 | A generic social feed as a launch feature | [social-plan.md](social-plan.md) is unapproved, and an empty feed makes a young app look dead. |
 | Paying users to install | Attracts non-players, and one no-show poisons a real game for 7 other people. |
 

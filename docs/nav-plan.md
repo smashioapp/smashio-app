@@ -1,5 +1,14 @@
 # Navigation Plan — SMASHIO bottom bar
 
+> **Amendment 2026-08-31 — the tab set changes, the layout does not.** [social-plan.md](social-plan.md)
+> §13.5 (slice N1) merges Chat into My Games and gives the freed slot to the social feed:
+> `Discover | Feed | My Games | Profile`. Still **four** items, so everything measured and validated
+> below — 56×52 targets, 24px icons, always-visible labels, the active pill, the 375 pt / fontScale
+> 1.3 truncation pass — holds unchanged. Two things to carry over when it lands: the Chat **count
+> badge** (§Phase 1, `9+` cap) becomes a rollup on My Games alongside its existing pending-requests
+> dot, and `HostFab` stays mounted on Discover and My Games only (2a), i.e. **not** on the new Feed
+> tab. Icon pair for Feed follows the same filled/outline convention as the other four.
+
 Written 2026-08-12. **Status: shipped** — phases 0–4 landed same day (labelled/sized tab bar with active-pill morph and a11y, `useTabBarSpace()` + `BottomRail` so `HostFab` and the Discover map toggle stop hand-positioning and colliding, a symmetric Map↔List toggle with Android back handling, and scroll-aware bar minimise + scroll-to-top-on-repress). Scope: the bottom navigation bar only ([TabBar.tsx](../ui/components/TabBar.tsx), [(tabs)/_layout.tsx](../ui/app/(tabs)/_layout.tsx)) plus the content padding it forces on the four tab screens. Native only, matches [ux-plan.md](ux-plan.md).
 
 Problem statement: bar reads as small, ambiguous and cramped. Icons are undersized, nothing is labelled, the centre `+` collides with screen content, and nothing accounts for the device's bottom inset.

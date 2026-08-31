@@ -145,7 +145,7 @@ this doc's scope — take them one at a time.
 **Why it hurts.** Social badminton is capacity-bound by court size. "Full" is the single most
 common state a popular game reaches, and today it converts an interested player into nothing.
 
-**Work.** Added a `waitlisted` status to `game_players` (`20260831000000_waitlist.sql`).
+**Work.** Added a `waitlisted` status to `game_players` (`20260830235900_waitlist.sql`).
 `request_to_join` routes there instead of `requested` once `open_spots` hits zero, skipping host
 review entirely. A new `promote_waitlist` trigger auto-promotes the longest-waiting row the moment
 an approved spot frees up (`leave_game`/`remove_player`), which re-fires the existing
@@ -209,8 +209,10 @@ on leave or cancellation. Store the created event id against the membership so r
   extend to a result card from `ui/app/post-game/[id].tsx`.
 - **Chat tab empty state.** Discover's empty-state spacing was fixed in `a2d73a3`; Chat still has
   no CTA when there are no threads.
-- **Surface referrals.** The `?ref=` deep link already exists (`ui/lib/share.ts`,
-  `20260815000300_profile_referred_by.sql`) and nothing in the app shows a count or a reward.
+- ~~**Surface referrals.**~~ **Shipped 2026-08-31** (gtm-plan.md G7,
+  `20260831010000_referral_priority.sql`). Settings' Invite friends row now shows a referral
+  count and remaining priority-waitlist credits; each referral banks one credit, spent
+  automatically to jump the FIFO queue the next time that referrer waitlists on a full game.
 - **`expo-localization`** for locale-aware time and number formatting. The distance-units setting
   exists (`ui/app/settings/units.tsx`) but times are not locale-formatted.
 

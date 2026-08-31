@@ -13,12 +13,20 @@ import { ListRow, RowSectionLabel } from "../components/ListRow";
 import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
 import { signOut } from "../lib/auth";
-import { useProfile } from "../lib/queries/profile";
+import { useProfile, useReferralStats } from "../lib/queries/profile";
 import { useSetNotificationCategory, useNotificationPrefs } from "../lib/queries/notificationPrefs";
 import { useBlockedPlayers } from "../lib/queries/settings";
 import { shareReferral } from "../lib/share";
 import { sound } from "../lib/sound";
 import { loadSoundEnabled, saveSoundEnabled } from "../lib/soundPrefs";
+
+function referralSubtitle(referrals: { count: number; credits: number } | undefined): string | undefined {
+  if (!referrals) return undefined;
+  const { count, credits } = referrals;
+  const friends = count === 0 ? "No friends joined yet" : count === 1 ? "1 friend joined" : `${count} friends joined`;
+  if (credits > 0) return `${friends} · ${credits} priority spot${credits > 1 ? "s" : ""} ready to use`;
+  return friends;
+}
 
 function providerLabel(provider: string | undefined): string {
   if (provider === "google") return "Google";
@@ -72,6 +80,7 @@ export default function Settings() {
   const { data: prefs } = useNotificationPrefs();
   const setCategory = useSetNotificationCategory();
   const { data: blocked } = useBlockedPlayers();
+  const { data: referrals } = useReferralStats(userId);
 
   const resendVerification = async () => {
     if (!email) return;
@@ -268,7 +277,12 @@ export default function Settings() {
           <Group>
             <ListRow title="Help centre" accessory="chevron" onPress={() => Linking.openURL("https://smashio.com.au/support.html")} />
             <ListRow title="Contact us" accessory="chevron" onPress={() => Linking.openURL("mailto:hello@smashio.com.au")} />
-            <ListRow title="Invite friends" accessory="chevron" onPress={() => userId && shareReferral(userId)} />
+            <ListRow
+              title="Invite friends"
+              subtitle={referralSubtitle(referrals)}
+              accessory="chevron"
+              onPress={() => userId && shareReferral(userId)}
+            />
             <ListRow title="Rate SMASHIO" accessory="chevron" divider={false} onPress={rateApp} />
           </Group>
         </View>

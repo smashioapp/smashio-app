@@ -53,6 +53,25 @@ export function useProfileStats(profileId: string | undefined) {
   });
 }
 
+// gtm-plan.md G7: referred_by attribution existed but nothing counted it. count is every
+// profile crediting this user as their referrer (lifetime); credits is priority_credits still
+// unspent, banked one-per-referral and spent automatically on the next full-game waitlist join.
+export function useReferralStats(profileId: string | undefined) {
+  return useQuery({
+    queryKey: ["referral_stats", profileId],
+    queryFn: async () => {
+      const [count, profile] = await Promise.all([
+        supabase.from("profiles").select("id", { count: "exact", head: true }).eq("referred_by", profileId!),
+        supabase.from("profiles").select("referral_priority_credits").eq("id", profileId!).single(),
+      ]);
+      if (count.error) throw count.error;
+      if (profile.error) throw profile.error;
+      return { count: count.count ?? 0, credits: profile.data.referral_priority_credits };
+    },
+    enabled: !!profileId,
+  });
+}
+
 export function useProfileStreak(profileId: string | undefined) {
   return useQuery({
     queryKey: ["profile_streak", profileId],

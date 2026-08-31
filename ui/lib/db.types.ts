@@ -243,6 +243,7 @@ export type Database = {
           chat_muted_at: string | null
           decided_at: string | null
           game_id: string
+          priority_waitlist: boolean
           profile_id: string
           requested_at: string
           status: string
@@ -252,6 +253,7 @@ export type Database = {
           chat_muted_at?: string | null
           decided_at?: string | null
           game_id: string
+          priority_waitlist?: boolean
           profile_id: string
           requested_at?: string
           status?: string
@@ -261,6 +263,7 @@ export type Database = {
           chat_muted_at?: string | null
           decided_at?: string | null
           game_id?: string
+          priority_waitlist?: boolean
           profile_id?: string
           requested_at?: string
           status?: string
@@ -866,6 +869,7 @@ export type Database = {
           id: string
           photo_path: string | null
           profile_visibility: string
+          referral_priority_credits: number
           referred_by: string | null
           reliability_score: number
           show_suburb: boolean
@@ -882,6 +886,7 @@ export type Database = {
           id: string
           photo_path?: string | null
           profile_visibility?: string
+          referral_priority_credits?: number
           referred_by?: string | null
           reliability_score?: number
           show_suburb?: boolean
@@ -898,6 +903,7 @@ export type Database = {
           id?: string
           photo_path?: string | null
           profile_visibility?: string
+          referral_priority_credits?: number
           referred_by?: string | null
           reliability_score?: number
           show_suburb?: boolean

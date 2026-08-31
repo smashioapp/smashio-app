@@ -196,12 +196,25 @@ the consoles, not the repo:
 
 ### 3.3 P2 — compounding, start inside 90 days
 
-**G11. Zero organic search surface.** `website/sitemap.xml` has five URLs. The DB holds 56 enriched
+**G11. Zero organic search surface.** `website/sitemap.xml` had five URLs. The DB holds 56 enriched
 venues (amenities, pricing, photos) — genuinely unique data, the one thing that still makes
 programmatic local pages rank in 2026. "badminton courts near me sydney" / "badminton auburn" is
 high-intent, permanent, free traffic currently going to badmintoncourt.au and venue Facebook
 pages. **Fix: static `/venue/:slug` pages generated from `venue_detail`, a `/sydney` hub, and a
-real sitemap. NEW — ~1–2 days, highest long-run ROI in this doc.**
+real sitemap. NEW — ~1–2 days, highest long-run ROI in this doc. First slice shipped 2026-08-31.**
+Two new anon-safe RPCs (`venue_seo_detail`, `venue_seo_directory`,
+`20260831020000_venue_seo_pages.sql`) — `venue_detail` itself is authenticated-only and a crawler
+never logs in. `website/api/venue/[slug].js` server-renders a real, indexable page per venue
+(courts, hours, pricing, amenities, JSON-LD `SportsActivityLocation`), replacing the old
+`noindex` placeholder `venue.html`; it also resolves the existing uuid-based `shareVenue` links
+(`ui/app/venue/[id].tsx`) so those get real content too, canonicalised to the slug URL.
+`website/api/sydney.js` is the hub page linking every indexable venue, grouped by suburb — added
+to the homepage nav for internal linking. `website/api/sitemap.js` replaces the static sitemap,
+listing the hub plus every venue with a slug and a profile (unenriched venues stay `noindex` and
+out of the sitemap — venues-plan.md's P2 queue, thin pages hurt more than they help). Not done:
+photos (private bucket, needs a signed URL a stateless function can't cheaply get — same
+omission `game_preview` made), and the venue directory's P2 unenriched queue (51 venues) still
+won't get a real page until enriched.
 
 **G12. No club / group entity.** Sydney plays as named groups ("Sky Hawks"), not atomised
 individuals. A recruited host's group has no object to own, so it can't bring its identity across.
@@ -224,7 +237,8 @@ me when a game appears in <suburb>", and "host one, we'll help fill it". **~half
 launch.**
 
 **G15. Website has no capture.** No email/waitlist capture, no Android-beta signup. Every
-pre-launch impression not ready to install is lost. **~2h.**
+pre-launch impression not ready to install is lost. **~2h. Not required — Android ships next
+week (2026-09-07 target), so no Android-beta waitlist needed.**
 
 ### 3.4 Fix order
 
@@ -395,7 +409,9 @@ end-to-end on both platforms.** Do not launch into an empty map.
 - [ ] G5 preview, G7 referral reward, G9 search.
 - [ ] First ladder/tournament in Cluster A or inter-uni.
 - [ ] Hand 2 Smashio-run sessions to Founding Hosts; measure whether they survive handover.
-- [ ] Start G11 venue SEO pages — long lead time, start before you need the traffic.
+- [x] Start G11 venue SEO pages — long lead time, start before you need the traffic. First slice
+      shipped 2026-08-31 (67 venue pages + hub + sitemap); photos and the P2 enrichment queue
+      remain.
 - [ ] First capped paid test, only in already-liquid clusters.
 
 ### Phase 3 — weeks 9–12 (prove the loop, then expand)

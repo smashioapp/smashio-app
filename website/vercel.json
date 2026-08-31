@@ -11,7 +11,9 @@
   ],
   "rewrites": [
     { "source": "/game/:id", "destination": "/api/game/:id" },
-    { "source": "/venue/:id", "destination": "/venue.html" },
+    { "source": "/venue/:slug", "destination": "/api/venue/:slug" },
+    { "source": "/sydney", "destination": "/api/sydney" },
+    { "source": "/sitemap.xml", "destination": "/api/sitemap" },
     { "source": "/player/:id", "destination": "/player.html" }
   ]
 }

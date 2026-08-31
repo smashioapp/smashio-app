@@ -117,3 +117,18 @@ nothing without styling.
   regenerated — see the fresh-clone setup note in the base skill's
   Troubleshooting section (`ln -sfn`/junction recreation is part of that,
   not automated by any sync script here).
+
+## 2026-09-01 re-sync (social slice)
+
+76 → 77 components: `FollowList` added, nothing removed. `changed` came back
+empty even though `TabBar`/`PlayerCard`/`TrophyCase` really did change — the
+per-component `.jsx` in the bundle is a one-line re-export stub, so its hash
+holds while the edits ride `_ds_bundle.js` (`8bc1d54` → `6ca69ee`). Empty
+`changed` + `bundle: true` is the expected shape for an edit-only re-sync.
+
+Bundle size 7.53 MB (was 7.5 MB) — still clear of the 12 MB cap.
+
+Render check: `bad`/`thin` set unchanged from the list above, no new warns.
+
+The feed and composer screens (`app/(tabs)/feed.tsx`, `app/compose.tsx`) are
+app routes, not `components/`, so they are outside `srcDir` and did not sync.

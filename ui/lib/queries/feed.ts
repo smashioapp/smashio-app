@@ -75,7 +75,7 @@ export function useFeedHome(center: { lat: number; lng: number } = { lat: DEFAUL
 }
 
 export type CreatePostInput = {
-  kind: "text" | "looking_for_players";
+  kind: "text" | "question" | "looking_for_players";
   body: string;
   venueId?: string;
   startsAt?: Date;

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { View, Text, TextInput, Pressable, ScrollView, Alert, ActivityIndicator, Platform } from "react-native";
 import { router } from "expo-router";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -6,13 +6,13 @@ import { colors, tierColor } from "../lib/theme";
 import { Screen } from "../components/Screen";
 import { BackButton } from "../components/BackButton";
 import { SegmentedToggle } from "../components/SegmentedToggle";
-import { useVenues } from "../lib/queries/venues";
+import { useVenuesDirectory } from "../lib/queries/venues";
 import { useSkillTiers } from "../lib/queries/sports";
 import { useCreatePost } from "../lib/queries/feed";
 import { SPORT_SLUG } from "../lib/queries/games";
 import { haptics } from "../lib/haptics";
 
-type Kind = "looking_for_players" | "text";
+type Kind = "looking_for_players" | "question";
 
 const BODY_LIMIT = 280;
 
@@ -30,13 +30,20 @@ export default function Compose() {
   });
   const [showPicker, setShowPicker] = useState(false);
   const [tierLabel, setTierLabel] = useState<string | null>(null);
+  const [venueQuery, setVenueQuery] = useState("");
+  const [debouncedVenueQuery, setDebouncedVenueQuery] = useState("");
+  const [selectedVenueName, setSelectedVenueName] = useState<string | null>(null);
 
-  const venuesQuery = useVenues();
+  useEffect(() => {
+    const handle = setTimeout(() => setDebouncedVenueQuery(venueQuery.trim()), 350);
+    return () => clearTimeout(handle);
+  }, [venueQuery]);
+
+  const venuesQuery = useVenuesDirectory({ search: debouncedVenueQuery || undefined });
   const tiersQuery = useSkillTiers(SPORT_SLUG);
   const createPost = useCreatePost();
 
-  const venue = venuesQuery.data?.find((v) => v.id === venueId);
-  const canSubmit = body.trim().length > 0 && (kind === "text" || !!venueId) && !createPost.isPending;
+  const canSubmit = body.trim().length > 0 && (kind === "question" || !!venueId) && !createPost.isPending;
 
   const submit = async () => {
     haptics.tap();
@@ -86,7 +93,7 @@ export default function Compose() {
             onChange={setKind}
             options={[
               { key: "looking_for_players" as const, label: "Looking for players" },
-              { key: "text" as const, label: "Text" },
+              { key: "question" as const, label: "Ask a question" },
             ]}
           />
         </View>
@@ -95,7 +102,7 @@ export default function Compose() {
           <TextInput
             value={body}
             onChangeText={(t) => setBody(t.slice(0, BODY_LIMIT))}
-            placeholder={kind === "looking_for_players" ? "Anyone free at NBC Thursday 8pm?" : "What's on your mind?"}
+            placeholder={kind === "looking_for_players" ? "Anyone free at NBC Thursday 8pm?" : "Best stringing tension for a beginner racquet?"}
             placeholderTextColor={colors.textTertiary}
             multiline
             className="rounded-2xl p-4 border text-[15px]"
@@ -112,27 +119,65 @@ export default function Compose() {
               <Text className="font-body-bold text-[12px] uppercase mb-2" style={{ color: colors.textTertiary, letterSpacing: 0.5 }}>
                 Venue
               </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
-                {(venuesQuery.data ?? []).map((v) => (
-                  <Pressable
-                    key={v.id}
-                    onPress={() => setVenueId(v.id)}
-                    className="rounded-pill px-3.5 py-2 border"
-                    style={{
-                      backgroundColor: venueId === v.id ? colors.accent : colors.surface,
-                      borderColor: venueId === v.id ? colors.accent : colors.cardBorder,
-                    }}
-                  >
-                    <Text className="font-body-bold text-[13px]" style={{ color: venueId === v.id ? colors.base : colors.text }}>
-                      {v.name}
-                    </Text>
-                  </Pressable>
-                ))}
-              </ScrollView>
-              {!venueId && (
-                <Text className="text-[11.5px] mt-1.5" style={{ color: colors.textMuted }}>
-                  Pick a venue so hosts nearby can find this.
-                </Text>
+              {venueId ? (
+                <Pressable
+                  onPress={() => {
+                    setVenueId(null);
+                    setSelectedVenueName(null);
+                    setVenueQuery("");
+                  }}
+                  className="rounded-pill self-start px-3.5 py-2 border flex-row items-center gap-1.5"
+                  style={{ backgroundColor: colors.accent, borderColor: colors.accent }}
+                >
+                  <Text className="font-body-bold text-[13px]" style={{ color: colors.base }}>
+                    {selectedVenueName}
+                  </Text>
+                  <Text className="font-body-bold text-[13px]" style={{ color: colors.base }}>
+                    ×
+                  </Text>
+                </Pressable>
+              ) : (
+                <>
+                  <TextInput
+                    value={venueQuery}
+                    onChangeText={setVenueQuery}
+                    placeholder="Search venues (e.g. NBC, Homebush)"
+                    placeholderTextColor={colors.textTertiary}
+                    className="rounded-2xl px-4 py-3 border text-[14px]"
+                    style={{ backgroundColor: colors.surface, borderColor: colors.cardBorder, color: colors.text }}
+                  />
+                  <View className="mt-2 gap-1.5">
+                    {(venuesQuery.data ?? []).slice(0, 8).map((v) => (
+                      <Pressable
+                        key={v.id}
+                        onPress={() => {
+                          setVenueId(v.id);
+                          setSelectedVenueName(v.name);
+                        }}
+                        className="rounded-xl px-3.5 py-2.5 border"
+                        style={{ backgroundColor: colors.surface, borderColor: colors.cardBorder }}
+                      >
+                        <Text className="font-body-bold text-[13.5px]" style={{ color: colors.text }}>
+                          {v.name}
+                        </Text>
+                        <Text className="text-[11.5px] mt-0.5" style={{ color: colors.textMuted }}>
+                          {v.suburb}
+                        </Text>
+                      </Pressable>
+                    ))}
+                    {venuesQuery.isFetching && (venuesQuery.data ?? []).length === 0 && (
+                      <ActivityIndicator size="small" color={colors.accent} style={{ marginTop: 8 }} />
+                    )}
+                    {!venuesQuery.isFetching && debouncedVenueQuery.length > 0 && (venuesQuery.data ?? []).length === 0 && (
+                      <Text className="text-[11.5px] mt-1" style={{ color: colors.textMuted }}>
+                        No venues match "{debouncedVenueQuery}".
+                      </Text>
+                    )}
+                  </View>
+                  <Text className="text-[11.5px] mt-1.5" style={{ color: colors.textMuted }}>
+                    Pick a venue so hosts nearby can find this.
+                  </Text>
+                </>
               )}
             </View>
 
@@ -188,10 +233,10 @@ export default function Compose() {
           </>
         )}
 
-        {venue && kind === "looking_for_players" && (
+        {venueId && kind === "looking_for_players" && (
           <View className="mx-5 rounded-2xl p-3.5 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
             <Text className="text-[12px]" style={{ color: colors.textSecondary }}>
-              This posts to the local feed near {venue.suburb}. Anyone can reply "I'm in" by turning it into a game.
+              This posts to the local feed. Anyone can reply "I'm in" by turning it into a game.
             </Text>
           </View>
         )}

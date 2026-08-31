@@ -94,9 +94,18 @@ function FeedRow({ post }: { post: FeedPost }) {
           </>
         ) : (
           <>
-            <Text className="font-body-bold text-[13.5px]" style={{ color: colors.text }}>
-              {post.authorDisplayName}
-            </Text>
+            <View className="flex-row items-center gap-1.5">
+              <Text className="font-body-bold text-[13.5px]" style={{ color: colors.text }}>
+                {post.authorDisplayName}
+              </Text>
+              {post.kind === "question" && (
+                <View className="rounded-pill px-1.5 py-0.5" style={{ backgroundColor: colors.surfaceAlt }}>
+                  <Text className="font-body-bold text-[10px]" style={{ color: colors.accent }}>
+                    Q&A
+                  </Text>
+                </View>
+              )}
+            </View>
             <Text className="text-[14px] mt-0.5" style={{ color: colors.textSecondary }}>
               {post.body}
             </Text>

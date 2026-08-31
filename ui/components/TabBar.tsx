@@ -31,7 +31,7 @@ type TabBarProps = {
 const ICONS: Record<string, { active: keyof typeof Ionicons.glyphMap; inactive: keyof typeof Ionicons.glyphMap }> = {
   discover: { active: "search", inactive: "search-outline" },
   "my-games": { active: "calendar", inactive: "calendar-outline" },
-  feed: { active: "newspaper", inactive: "newspaper-outline" },
+  feed: { active: "people", inactive: "people-outline" },
   profile: { active: "person", inactive: "person-outline" },
 };
 

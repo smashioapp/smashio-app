@@ -889,6 +889,106 @@ export type Database = {
           },
         ]
       }
+      posts: {
+        Row: {
+          accepted_answer_id: string | null
+          author_id: string | null
+          body: string | null
+          club_id: string | null
+          created_at: string
+          edited_at: string | null
+          game_id: string | null
+          id: string
+          kind: string
+          payload: Json | null
+          point: unknown
+          reaction_count: number
+          reply_count: number
+          sport_id: string | null
+          status: string
+          venue_id: string | null
+        }
+        Insert: {
+          accepted_answer_id?: string | null
+          author_id?: string | null
+          body?: string | null
+          club_id?: string | null
+          created_at?: string
+          edited_at?: string | null
+          game_id?: string | null
+          id?: string
+          kind: string
+          payload?: Json | null
+          point?: unknown
+          reaction_count?: number
+          reply_count?: number
+          sport_id?: string | null
+          status?: string
+          venue_id?: string | null
+        }
+        Update: {
+          accepted_answer_id?: string | null
+          author_id?: string | null
+          body?: string | null
+          club_id?: string | null
+          created_at?: string
+          edited_at?: string | null
+          game_id?: string | null
+          id?: string
+          kind?: string
+          payload?: Json | null
+          point?: unknown
+          reaction_count?: number
+          reply_count?: number
+          sport_id?: string | null
+          status?: string
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "posts_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "posts_club_id_fkey"
+            columns: ["club_id"]
+            isOneToOne: false
+            referencedRelation: "clubs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "posts_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "posts_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games_public"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "posts_sport_id_fkey"
+            columns: ["sport_id"]
+            isOneToOne: false
+            referencedRelation: "sports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "posts_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profile_private: {
         Row: {
           phone: string | null
@@ -1826,6 +1926,36 @@ export type Database = {
       enqueue_post_game_rate: {
         Args: { p_game_id: string }
         Returns: undefined
+      }
+      feed_home: {
+        Args: {
+          p_cursor_created_at?: string
+          p_cursor_id?: string
+          p_lat: number
+          p_limit?: number
+          p_lng: number
+          p_radius_m: number
+          p_sport_slug: string
+        }
+        Returns: {
+          author_avatar_key: string
+          author_display_name: string
+          author_id: string
+          author_photo_path: string
+          body: string
+          club_id: string
+          created_at: string
+          distance_bucket: string
+          game_id: string
+          id: string
+          is_followed_author: boolean
+          kind: string
+          payload: Json
+          reaction_count: number
+          reply_count: number
+          venue_id: string
+          venue_name: string
+        }[]
       }
       filter_quiet_recipients: {
         Args: { p_profile_ids: string[] }

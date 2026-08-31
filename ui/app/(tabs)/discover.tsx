@@ -407,11 +407,13 @@ function FilterChipsRow({
   chips,
   onPressFilters,
   onPressMap,
+  onPressSearch,
 }: {
   activeCount: number;
   chips: { key: string; label: string; onClear: () => void }[];
   onPressFilters: () => void;
   onPressMap: () => void;
+  onPressSearch: () => void;
 }) {
   return (
     <ScrollView
@@ -420,6 +422,21 @@ function FilterChipsRow({
       style={{ flexGrow: 0 }}
       contentContainerStyle={{ gap: 8, paddingHorizontal: LAYOUT.SCREEN_PAD, paddingBottom: 12, alignItems: "center" }}
     >
+      {/* gtm-plan.md G9: the list view had no way to type a venue name at all — venues_directory
+          (search-backed) only existed one tap into the map or three deep in the filters sheet. */}
+      <Pressable
+        testID="discover-search-open"
+        accessibilityRole="button"
+        accessibilityLabel="Search venues and suburbs"
+        onPress={onPressSearch}
+        className="flex-row items-center gap-1.5 rounded-pill pl-3 pr-3.5 py-2 border"
+        style={{ backgroundColor: colors.surfaceAlt, borderColor: colors.cardBorder }}
+      >
+        <Ionicons name="search" size={14} color={colors.text} />
+        <Text className="font-body-bold text-[12.5px]" style={{ color: colors.text }}>
+          Search
+        </Text>
+      </Pressable>
       <Pressable
         testID="discover-map-open"
         accessibilityRole="button"
@@ -1062,6 +1079,7 @@ export default function Discover() {
         chips={activeFilterChips}
         onPressFilters={() => setFiltersOpen(true)}
         onPressMap={() => (session ? setDiscoverView("map") : router.push("/onboarding"))}
+        onPressSearch={() => router.push(session ? "/venues" : "/onboarding")}
       />
 
       <FiltersSheet visible={filtersOpen} onClose={() => setFiltersOpen(false)} markLevelTouched={markLevelTouched} />

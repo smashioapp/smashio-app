@@ -170,7 +170,15 @@ churn that kills a supply-seeded launch. Ship the cheap half (Duplicate, prefill
 per [quick-wins.md](quick-wins.md) §3.2. **~1h. Shipped 2026-08-31.**
 
 **G9. No search.** 56 venues and no way to type "Alpha Auburn". Every flyer, poster and RED post
-naming a venue creates a search intent the app cannot serve. **~2h for venue search.**
+naming a venue creates a search intent the app cannot serve. **~2h for venue search. Shipped
+2026-08-31.** The venue-search RPC and screen (`venues_directory`, `ui/app/venues/index.tsx`)
+already existed but had no visible entry point from Discover's default list view — reaching it
+took Filters sheet → scroll → "Browse venues", three taps deep. Added a **Search** pill to the
+List view's chip row (`ui/app/(tabs)/discover.tsx`), same session-gated pattern as the existing
+Map pill (anon users route to onboarding, matching G5's documented boundary — `venues_directory`
+stays authenticated-only, not worth widening for this). Single-keyword queries ("Auburn") match
+fine; multi-word literal queries ("Alpha Auburn") don't — `venues_directory`'s search predicate is
+a pre-existing gap, not touched here.
 
 **G10. ASO untouched.** App name is bare `Smashio` (`ui/app.config.js`), no keyword-bearing
 subtitle, no localised listings. Store search is the cheapest install channel that exists. Fix in

@@ -178,15 +178,19 @@ point on the player profile and the roster's empty slots.
 
 **Effort:** ~2–3h.
 
-### 3.4 Search
+### 3.4 Search — **shipped 2026-08-31**
 
 **Gap.** No search route exists at all.
 
 **Why it hurts.** 56 venues in the directory and no way to type a venue name. Discover is
 map/proximity-first, which is correct, but "I know where I want to play" has no path.
 
-**Work.** Start with venue text search off the existing `venues` table — trivial. Player search
-needs a decision against the existing Profile visibility setting before it ships.
+**Work.** The search itself (`venues_directory` RPC + `ui/app/venues/index.tsx`) turned out to
+already exist from the earlier venue-directory build — the actual gap was discoverability: it was
+three taps deep (Filters sheet → scroll → "Browse venues") and Discover's default List view had no
+search affordance at all (only the map view did, via a client-side pin filter). Added a **Search**
+pill to List view's chip row, routing to `/venues` for signed-in users. Player search still needs
+a decision against the existing Profile visibility setting before it ships — untouched.
 
 **Effort:** ~2h for venues.
 

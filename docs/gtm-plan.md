@@ -104,7 +104,9 @@ Audited against the repo 2026-08-26. Ordered by marketing damage, not by effort.
 
 **G1. No product analytics.** No PostHog/Amplitude/Firebase in `ui/package.json`; Sentry only
 catches crashes. Every campaign below is unmeasurable and the install→first-game funnel is
-invisible. Already logged as [quick-wins.md](quick-wins.md) §1.4. **~1h. Item zero.**
+invisible. Already logged as [quick-wins.md](quick-wins.md) §1.4. **~1h. Item zero. Shipped
+2026-08-31** — PostHog wired, ten-event funnel, gated on `EXPO_PUBLIC_POSTHOG_KEY` (blank locally,
+real key/CI secret in prod, project 586186 US Cloud).
 
 **G2. Android cannot ship.** No Play Console, release path never run in CI
 ([store-readiness-plan.md](store-readiness-plan.md)). Android is ~40–45% of AU handsets and skews

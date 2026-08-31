@@ -141,6 +141,9 @@ export type PlayerCard = {
   // 20260822000000. Reputation fields above are null in that case, never a fake zero.
   restricted: boolean;
   avatarKey: string | null;
+  followerCount: number;
+  followingCount: number;
+  isFollowing: boolean;
 };
 
 // The public player card (profile-plan.md P1) — security-definer RPC, not a view, because
@@ -183,6 +186,9 @@ export function usePlayerCard(targetId: string | undefined) {
         })),
         restricted: data.restricted,
         avatarKey: data.avatar_key,
+        followerCount: data.follower_count,
+        followingCount: data.following_count,
+        isFollowing: data.is_following,
       };
     },
     enabled: !!targetId,

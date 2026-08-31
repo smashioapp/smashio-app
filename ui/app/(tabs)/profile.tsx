@@ -198,6 +198,19 @@ export default function Profile() {
               </View>
             </View>
 
+            <View className="flex-row gap-5 mt-4" style={{ paddingHorizontal: LAYOUT.SCREEN_PAD }}>
+              <Pressable onPress={() => router.push(`/player-followers/${userId}`)}>
+                <Text className="font-body-bold text-[13.5px]" style={{ color: colors.text }}>
+                  {card.followerCount} <Text style={{ color: colors.textTertiary }}>followers</Text>
+                </Text>
+              </Pressable>
+              <Pressable onPress={() => router.push(`/player-following/${userId}`)}>
+                <Text className="font-body-bold text-[13.5px]" style={{ color: colors.text }}>
+                  {card.followingCount} <Text style={{ color: colors.textTertiary }}>following</Text>
+                </Text>
+              </Pressable>
+            </View>
+
             <View className="mt-6" style={{ paddingHorizontal: LAYOUT.SCREEN_PAD }}>
               <SegmentedToggle
                 fullWidth

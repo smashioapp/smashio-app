@@ -1,4 +1,5 @@
-import { View, Text, Pressable, ActivityIndicator } from "react-native";
+import { View, Text, Pressable, ActivityIndicator, Alert } from "react-native";
+import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { colors, gradients, tierColor, reliabilityLabel, reliabilityColor, avatarColor } from "../lib/theme";
@@ -7,6 +8,7 @@ import { RollingNumber } from "./RollingNumber";
 import { ReliabilityGauge } from "./ReliabilityGauge";
 import { BehaviourBadges } from "./BehaviourBadges";
 import { usePlayerCard } from "../lib/queries/profile";
+import { useFollowPlayer, useUnfollowPlayer } from "../lib/queries/follows";
 import { supabase } from "../lib/supabase";
 
 function StatTile({ value, label, onPress }: { value: number; label: string; onPress?: () => void }) {
@@ -100,6 +102,8 @@ export function PlayerCard({
   verified?: boolean;
 }) {
   const { data: card, isLoading, isError, refetch } = usePlayerCard(profileId);
+  const followPlayer = useFollowPlayer();
+  const unfollowPlayer = useUnfollowPlayer();
 
   if (isLoading) {
     return (
@@ -142,6 +146,16 @@ export function PlayerCard({
   // restricted is only ever true in "them" mode — player_card never restricts a viewer from
   // their own row (20260822000000: `c.vid <> c.id` in is_restricted).
   const restricted = mode === "them" && card.restricted;
+  const followBusy = followPlayer.isPending || unfollowPlayer.isPending;
+
+  const toggleFollow = async () => {
+    try {
+      if (card.isFollowing) await unfollowPlayer.mutateAsync(card.id);
+      else await followPlayer.mutateAsync(card.id);
+    } catch (e) {
+      Alert.alert("Couldn't do that", e instanceof Error ? e.message : "Give it another go.");
+    }
+  };
 
   return (
     <View>
@@ -156,6 +170,44 @@ export function PlayerCard({
         onEditPress={onEditPress}
         verified={mode === "me" ? verified : undefined}
       />
+
+      <View className="flex-row items-center justify-center gap-6 -mt-1 mb-3">
+        <Pressable onPress={() => router.push(`/player-followers/${card.id}`)} className="items-center">
+          <Text className="font-display-bold text-[15px]" style={{ color: colors.text }}>
+            {card.followerCount}
+          </Text>
+          <Text className="text-[11.5px] font-body-bold" style={{ color: colors.textTertiary }}>
+            Followers
+          </Text>
+        </Pressable>
+        <Pressable onPress={() => router.push(`/player-following/${card.id}`)} className="items-center">
+          <Text className="font-display-bold text-[15px]" style={{ color: colors.text }}>
+            {card.followingCount}
+          </Text>
+          <Text className="text-[11.5px] font-body-bold" style={{ color: colors.textTertiary }}>
+            Following
+          </Text>
+        </Pressable>
+      </View>
+
+      {mode === "them" && (
+        <View className="px-5 mb-3">
+          <Pressable
+            onPress={toggleFollow}
+            disabled={followBusy}
+            className="rounded-pill py-2.5 items-center border"
+            style={{
+              backgroundColor: card.isFollowing ? "transparent" : colors.accent,
+              borderColor: card.isFollowing ? colors.cardBorder : colors.accent,
+              opacity: followBusy ? 0.6 : 1,
+            }}
+          >
+            <Text className="font-body-extrabold text-[13.5px]" style={{ color: card.isFollowing ? colors.textSecondary : colors.base }}>
+              {card.isFollowing ? "Following" : "Follow"}
+            </Text>
+          </Pressable>
+        </View>
+      )}
 
       {mode === "them" && card.gamesTogether != null && card.gamesTogether > 0 && (
         <View className="mx-5 mb-3 rounded-2xl px-3.5 py-2.5 flex-row items-center gap-2" style={{ backgroundColor: "rgba(214,255,63,0.08)" }}>

@@ -134,6 +134,78 @@ export type Database = {
           },
         ]
       }
+      clubs: {
+        Row: {
+          created_at: string
+          hall_name: string | null
+          hall_suburb: string | null
+          id: string
+          last_checked_at: string
+          name: string
+          session_note: string | null
+          slug: string
+          source_note: string | null
+          source_url: string
+        }
+        Insert: {
+          created_at?: string
+          hall_name?: string | null
+          hall_suburb?: string | null
+          id?: string
+          last_checked_at?: string
+          name: string
+          session_note?: string | null
+          slug: string
+          source_note?: string | null
+          source_url?: string
+        }
+        Update: {
+          created_at?: string
+          hall_name?: string | null
+          hall_suburb?: string | null
+          id?: string
+          last_checked_at?: string
+          name?: string
+          session_note?: string | null
+          slug?: string
+          source_note?: string | null
+          source_url?: string
+        }
+        Relationships: []
+      }
+      follows: {
+        Row: {
+          created_at: string
+          followee_id: string
+          follower_id: string
+        }
+        Insert: {
+          created_at?: string
+          followee_id: string
+          follower_id: string
+        }
+        Update: {
+          created_at?: string
+          followee_id?: string
+          follower_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "follows_followee_id_fkey"
+            columns: ["followee_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "follows_follower_id_fkey"
+            columns: ["follower_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       game_alerts: {
         Row: {
           center_lat: number
@@ -864,6 +936,8 @@ export type Database = {
           deleted_at: string | null
           display_name: string
           distance_units: string
+          follower_count: number
+          following_count: number
           home_point: unknown
           home_suburb: string | null
           id: string
@@ -881,6 +955,8 @@ export type Database = {
           deleted_at?: string | null
           display_name?: string
           distance_units?: string
+          follower_count?: number
+          following_count?: number
           home_point?: unknown
           home_suburb?: string | null
           id: string
@@ -898,6 +974,8 @@ export type Database = {
           deleted_at?: string | null
           display_name?: string
           distance_units?: string
+          follower_count?: number
+          following_count?: number
           home_point?: unknown
           home_suburb?: string | null
           id?: string
@@ -1667,6 +1745,16 @@ export type Database = {
       claim_reserved_spot: { Args: { p_token: string }; Returns: string }
       claimed_reserved_count: { Args: { p_game_id: string }; Returns: number }
       close_chat: { Args: { p_game_id: string }; Returns: undefined }
+      club_seo_detail: { Args: { p_slug: string }; Returns: Json }
+      club_seo_directory: {
+        Args: never
+        Returns: {
+          hall_suburb: string
+          indexable: boolean
+          name: string
+          slug: string
+        }[]
+      }
       complete_past_games: { Args: never; Returns: undefined }
       create_reserved_spot_invite: {
         Args: { p_spot_id: string }
@@ -1712,6 +1800,28 @@ export type Database = {
       filter_quiet_recipients: {
         Args: { p_profile_ids: string[] }
         Returns: string[]
+      }
+      followers_of: {
+        Args: { target_id: string }
+        Returns: {
+          avatar_key: string
+          display_name: string
+          home_suburb: string
+          id: string
+          is_following: boolean
+          photo_path: string
+        }[]
+      }
+      following_of: {
+        Args: { target_id: string }
+        Returns: {
+          avatar_key: string
+          display_name: string
+          home_suburb: string
+          id: string
+          is_following: boolean
+          photo_path: string
+        }[]
       }
       game_preview: {
         Args: { p_game_id: string }
@@ -1857,6 +1967,8 @@ export type Database = {
           avatar_key: string
           badge_counts: Json
           display_name: string
+          follower_count: number
+          following_count: number
           games_hosted: number
           games_played: number
           games_together: number
@@ -1865,6 +1977,7 @@ export type Database = {
           host_rating_avg: number
           host_rating_count: number
           id: string
+          is_following: boolean
           member_since: string
           peer_skill_label: string
           peer_skill_votes: number
@@ -2051,6 +2164,18 @@ export type Database = {
         Returns: string
       }
       venue_detail: { Args: { p_venue_id: string }; Returns: Json }
+      venue_seo_detail: { Args: { p_identifier: string }; Returns: Json }
+      venue_seo_directory: {
+        Args: never
+        Returns: {
+          courts_total: number
+          dedicated: boolean
+          name: string
+          region: string
+          slug: string
+          suburb: string
+        }[]
+      }
       venues_directory: {
         Args: {
           p_amenity_slugs?: string[]

@@ -2,6 +2,9 @@
 // pages a crawlable network instead of orphans. Groups venue_seo_directory by suburb; only
 // venues with a slug + a profile show up there (see 20260831020000_venue_seo_pages.sql), so this
 // only ever links to pages that are themselves indexable.
+// Club rows (social-plan.md C0) are appended below the venue grid, linking every /club/:slug page
+// — indexed or not, since it's still real internal linking for a page that resolves — grouped the
+// same way by suburb, with clubs missing a hall bucketed under "No confirmed venue".
 const { esc, callRpc, shell, ctaButtons } = require("./_venue-lib");
 
 module.exports = async function handler(req, res) {
@@ -13,6 +16,13 @@ module.exports = async function handler(req, res) {
     venues = await callRpc("venue_seo_directory", {});
   } catch {
     venues = [];
+  }
+
+  let clubs = [];
+  try {
+    clubs = await callRpc("club_seo_directory", {});
+  } catch {
+    clubs = [];
   }
 
   const bySuburb = new Map();
@@ -58,12 +68,44 @@ module.exports = async function handler(req, res) {
             .join("")}
         </div>`;
 
+  const clubsBySuburb = new Map();
+  for (const c of clubs) {
+    const key = c.hall_suburb || "No confirmed venue";
+    if (!clubsBySuburb.has(key)) clubsBySuburb.set(key, []);
+    clubsBySuburb.get(key).push(c);
+  }
+  const clubSuburbs = [...clubsBySuburb.keys()].sort((a, b) => (a === "No confirmed venue" ? 1 : b === "No confirmed venue" ? -1 : a.localeCompare(b)));
+
+  const clubsSection =
+    clubs.length === 0
+      ? ""
+      : `<div class="rise rise-4" style="display:flex; flex-direction:column; gap:32px; padding-top:32px; margin-top:32px; border-top:1px solid rgba(255,255,255,.06)">
+          <div>
+            <h2 style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:19px; margin:0 0 4px; color:#F5F5F7">Sydney badminton clubs</h2>
+            <p style="margin:0; font-size:12.5px; color:#7A7A82">Pulled from Badminton NSW's club directory. Run one of these? <a href="mailto:hello@smashio.com.au?subject=Claim%20our%20club%20page">Get in touch</a> to claim your page.</p>
+          </div>
+          ${clubSuburbs
+            .map(
+              (suburb) => `
+            <div>
+              <h3 style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:14px; margin:0 0 12px; color:#F5F5F7">${esc(suburb)}</h3>
+              <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:10px">
+                ${clubsBySuburb
+                  .get(suburb)
+                  .map((c) => `<a class="venue-card" href="/club/${esc(c.slug)}"><div style="font-size:13.5px; font-weight:700; color:#F5F5F7">${esc(c.name)}</div></a>`)
+                  .join("")}
+              </div>
+            </div>`
+            )
+            .join("")}
+        </div>`;
+
   return res.status(200).send(shell({
     title: "Badminton Courts in Sydney | Smashio",
     description: `${venues.length} badminton venues across Sydney with courts, opening hours and pricing — find where to play and see games happening there on Smashio.`,
     canonicalUrl: "https://smashio.com.au/sydney",
     indexable: true,
     heroContent,
-    bodyContent,
+    bodyContent: bodyContent + clubsSection,
   }));
 };

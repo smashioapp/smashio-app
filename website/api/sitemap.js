@@ -1,6 +1,7 @@
 // Dynamic sitemap (gtm-plan.md G11) — replaces the static 5-url sitemap.xml with one that
 // includes every indexable venue page plus the /sydney hub. Rewritten from /sitemap.xml so the
-// URL crawlers already know about keeps working.
+// URL crawlers already know about keeps working. Club pages (social-plan.md C0) joined in the same
+// way — only club_seo_directory rows with indexable=true, same thin-page rule as venues.
 const { callRpc } = require("./_venue-lib");
 
 const STATIC_URLS = [
@@ -27,13 +28,28 @@ module.exports = async function handler(req, res) {
     venues = [];
   }
 
+  let clubs = [];
+  try {
+    clubs = await callRpc("club_seo_directory", {});
+  } catch {
+    clubs = [];
+  }
+
   const venueUrls = venues.map((v) => ({
     loc: `https://smashio.com.au/venue/${v.slug}`,
     changefreq: "weekly",
     priority: "0.7",
   }));
 
-  const urls = [...STATIC_URLS, ...venueUrls]
+  const clubUrls = clubs
+    .filter((c) => c.indexable)
+    .map((c) => ({
+      loc: `https://smashio.com.au/club/${c.slug}`,
+      changefreq: "monthly",
+      priority: "0.5",
+    }));
+
+  const urls = [...STATIC_URLS, ...venueUrls, ...clubUrls]
     .map((u) => `  <url>\n    <loc>${xmlEsc(u.loc)}</loc>\n    <changefreq>${u.changefreq}</changefreq>\n    <priority>${u.priority}</priority>\n  </url>`)
     .join("\n");
 

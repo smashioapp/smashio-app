@@ -739,8 +739,10 @@ being comfortable if the beta widens faster than the hand-off trigger in §10 ge
 Approved as the cheap way out of the circularity in §17 decision 4: full clubs are gated on
 liquidity, but the host recruiting that *creates* liquidity is the thing clubs would help most.
 
-Scope: the `clubs` table and the 56-row seed from
-[data/venues/clubs-badminton-nsw.json](../data/venues/clubs-badminton-nsw.json), plus anon-safe
+Scope: the `clubs` table and the seed from
+[data/venues/clubs-badminton-nsw.json](../data/venues/clubs-badminton-nsw.json) — 41 unique clubs
+plus 2 venue-only rows with no club name attached (43 rows; the doc's earlier "56-row" figure did
+not match the source file), plus anon-safe
 `club_seo_detail` / `club_seo_directory` RPCs and `website/api/club/[slug].js`, reusing the exact
 pattern `website/api/venue/[slug].js` already established (gtm G11). Sitemap and the `/sydney` hub
 pick them up.

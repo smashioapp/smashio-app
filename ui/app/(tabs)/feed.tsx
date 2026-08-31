@@ -1,8 +1,8 @@
 import { useMemo } from "react";
-import { View, Text, FlatList, ActivityIndicator, RefreshControl } from "react-native";
+import { View, Text, FlatList, ActivityIndicator, RefreshControl, Pressable } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, avatarColor } from "../../lib/theme";
+import { colors, avatarColor, type TierId } from "../../lib/theme";
 import { useTabBarSpace } from "../../lib/nav";
 import { useUserLocation } from "../../lib/location";
 import { useFeedHome, type FeedPost } from "../../lib/queries/feed";
@@ -10,6 +10,34 @@ import { Screen } from "../../components/Screen";
 import { EmptyState } from "../../components/EmptyState";
 import { Avatar } from "../../components/Avatar";
 import { supabase } from "../../lib/supabase";
+import { useAppStore } from "../../lib/store";
+import { useSession } from "../../lib/session";
+import { haptics } from "../../lib/haptics";
+
+const VALID_TIERS: TierId[] = ["Beginner", "Intermediate", "Advanced", "Pro"];
+
+// "Turn this into a game" (§5.2) — the point of looking_for_players. Reuses the same deferred
+// wizard-prefill mechanism Rebook already established (useAppStore.rebookSeed) rather than
+// inventing a second one.
+function turnIntoGame(post: FeedPost) {
+  const payload = (post.payload ?? {}) as Record<string, string | number | undefined>;
+  if (!post.venueId) return;
+  const label = payload.skill_tier_label as string | undefined;
+  const skill = (VALID_TIERS.includes(label as TierId) ? label : "Intermediate") as TierId;
+  useAppStore.getState().setRebookSeed({
+    venueId: post.venueId,
+    venueName: post.venueName ?? (payload.venue_name as string) ?? "",
+    venueSuburb: (payload.venue_suburb as string) ?? "",
+    venueAddress: "",
+    skill,
+    maxPlayers: (payload.max_players as number) ?? 4,
+    courtsBooked: 1,
+    durationHours: 1,
+    cost: 8,
+    startsAt: payload.starts_at ? new Date(payload.starts_at as string) : new Date(Date.now() + 3 * 60 * 60 * 1000),
+  });
+  router.push("/wizard");
+}
 
 // social-plan.md B1/N1 — the feed's own tab, mounted once feed_home has real data behind it
 // (§13.6 step 4). Text-only, system posts for now; the composer (B2) hasn't shipped. No
@@ -75,6 +103,21 @@ function FeedRow({ post }: { post: FeedPost }) {
         <Text className="text-[11px] mt-1.5" style={{ color: colors.textMuted }}>
           {post.distanceBucket ? post.distanceBucket.replace("_", "–").replace("km", " km") : ""}
         </Text>
+        {post.kind === "looking_for_players" && (
+          <Pressable
+            onPress={() => {
+              haptics.tap();
+              turnIntoGame(post);
+            }}
+            className="self-start rounded-pill px-3 py-1.5 mt-2 flex-row items-center gap-1.5"
+            style={{ backgroundColor: colors.accent }}
+          >
+            <Ionicons name="add-circle-outline" size={14} color={colors.base} />
+            <Text className="font-body-bold text-[12px]" style={{ color: colors.base }}>
+              Turn this into a game
+            </Text>
+          </Pressable>
+        )}
       </View>
     </View>
   );
@@ -85,12 +128,28 @@ export default function Feed() {
   const location = useUserLocation();
   const feedQuery = useFeedHome({ lat: location.lat, lng: location.lng });
   const posts = useMemo(() => feedQuery.data?.pages.flat() ?? [], [feedQuery.data]);
+  const { session } = useSession();
 
   return (
     <Screen>
-      <Text className="font-display text-[26px] px-5 pt-3 pb-3.5" style={{ color: colors.text }}>
-        Feed
-      </Text>
+      <View className="flex-row items-center justify-between px-5 pt-3 pb-3.5">
+        <Text className="font-display text-[26px]" style={{ color: colors.text }}>
+          Feed
+        </Text>
+        {session && (
+          <Pressable
+            onPress={() => {
+              haptics.tap();
+              router.push("/compose");
+            }}
+            className="w-9 h-9 rounded-full items-center justify-center"
+            style={{ backgroundColor: colors.accent }}
+            testID="feed-compose"
+          >
+            <Ionicons name="add" size={20} color={colors.base} />
+          </Pressable>
+        )}
+      </View>
 
       {feedQuery.isLoading ? (
         <View className="items-center justify-center py-16">

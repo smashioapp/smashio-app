@@ -1944,6 +1944,17 @@ export type Database = {
         }[]
       }
       complete_past_games: { Args: never; Returns: undefined }
+      create_post: {
+        Args: {
+          p_body?: string
+          p_kind: string
+          p_max_players?: number
+          p_skill_tier_label?: string
+          p_starts_at?: string
+          p_venue_id?: string
+        }
+        Returns: string
+      }
       create_reserved_spot_invite: {
         Args: { p_spot_id: string }
         Returns: string

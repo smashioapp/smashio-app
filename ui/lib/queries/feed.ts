@@ -1,4 +1,4 @@
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../supabase";
 import { DEFAULT_LAT, DEFAULT_LNG, SPORT_SLUG } from "./games";
 
@@ -70,5 +70,51 @@ export function useFeedHome(center: { lat: number; lng: number } = { lat: DEFAUL
       const last = lastPage[lastPage.length - 1];
       return { createdAt: last.createdAt, id: last.id };
     },
+  });
+}
+
+export type ClassifyResult = { flagged: boolean; category: string | null; reason: string | null; degraded: boolean };
+
+// social-plan.md §10 — the composer blocks on this before create_post is ever called. A post is
+// never visible to anyone before it's cleared; on timeout/error it fails open (degraded: true)
+// and the RPC still proceeds, per the "never silently eat a post" rule.
+async function classifyText(text: string): Promise<ClassifyResult> {
+  const { data, error } = await supabase.functions.invoke("ai-proxy", { body: { mode: "classify", text } });
+  if (error) throw error;
+  return data as ClassifyResult;
+}
+
+export type CreatePostInput = {
+  kind: "text" | "looking_for_players";
+  body: string;
+  venueId?: string;
+  startsAt?: Date;
+  skillTierLabel?: string;
+  maxPlayers?: number;
+};
+
+// B2 composer — text only, looking_for_players first (§13.1). Classify, then write; if the
+// classifier flags the text, this throws before create_post is ever called.
+export function useCreatePost() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: CreatePostInput) => {
+      const classification = await classifyText(input.body);
+      if (classification.flagged) {
+        throw new Error("That doesn't look like it fits our community guidelines, give it another go.");
+      }
+
+      const { data, error } = await supabase.rpc("create_post", {
+        p_kind: input.kind,
+        p_body: input.body,
+        p_venue_id: input.venueId,
+        p_starts_at: input.startsAt?.toISOString(),
+        p_skill_tier_label: input.skillTierLabel,
+        p_max_players: input.maxPlayers,
+      });
+      if (error) throw error;
+      return data as string;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["feed_home"] }),
   });
 }

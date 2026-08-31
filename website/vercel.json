@@ -10,7 +10,7 @@
     }
   ],
   "rewrites": [
-    { "source": "/game/:id", "destination": "/index.html" },
+    { "source": "/game/:id", "destination": "/api/game/:id" },
     { "source": "/venue/:id", "destination": "/venue.html" },
     { "source": "/player/:id", "destination": "/player.html" }
   ]

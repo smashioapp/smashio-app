@@ -119,8 +119,15 @@ shared game resolves to the generic homepage: no venue, no time, no spots-left, 
 `og:image` for every game. `ui/lib/share.ts` generates those links and `game/[id].tsx` already
 handles the post-install resume — the viral loop is built on both ends and broken in the middle.
 **Fix: a real `/game/:id` page (build-time or edge-rendered from a public read) + per-game OG
-image + "Open in app / Get the app" CTA. NEW — ~half a day.** `website/venue.html` and
-`player.html` are 31-line stubs with the same problem.
+image + "Open in app / Get the app" CTA. NEW — ~half a day. Shipped 2026-08-31** — real per-game
+OG title/description now render server-side: `website/api/game/[id].js` is a single Vercel
+serverless function (no bundler, matches the rest of `website/`'s no-build-step setup) that calls
+the same anon-safe `game_preview` RPC the app's `GamePreviewTeaser` uses, and `vercel.json` now
+routes `/game/:id` there instead of the static homepage. Shows venue, suburb, date/time, cost,
+skill tier, and max players; falls back to a generic "open in app" card for a bad/unknown/
+cancelled id. The `og:image` itself is still the one static image (dynamic per-game images need
+an image-generation pipeline — bigger scope, not attempted here). `website/venue.html` and
+`player.html` are still 31-line stubs with the same problem, not fixed by this pass.
 
 **G4. Production push and AI are silently failing.** `service_role` has no PostgREST table grants
 on the live project, so `ai-proxy` and two branches of `push-dispatch` 403 in production

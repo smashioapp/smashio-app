@@ -291,6 +291,7 @@ export default function Settings() {
           <RowSectionLabel label="Legal" />
           <Group>
             <ListRow title="Terms of service" accessory="chevron" onPress={() => Linking.openURL("https://smashio.com.au/terms.html")} />
+            <ListRow title="Community guidelines" accessory="chevron" onPress={() => Linking.openURL("https://smashio.com.au/community-guidelines.html")} />
             <ListRow title="Privacy policy" accessory="chevron" divider={false} onPress={() => Linking.openURL("https://smashio.com.au/privacy.html")} />
           </Group>
         </View>

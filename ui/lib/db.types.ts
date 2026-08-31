@@ -753,6 +753,44 @@ export type Database = {
           },
         ]
       }
+      moderation_flags: {
+        Row: {
+          author_id: string
+          category: string | null
+          created_at: string
+          id: string
+          reason: string | null
+          status: string
+          text: string
+        }
+        Insert: {
+          author_id: string
+          category?: string | null
+          created_at?: string
+          id?: string
+          reason?: string | null
+          status?: string
+          text: string
+        }
+        Update: {
+          author_id?: string
+          category?: string | null
+          created_at?: string
+          id?: string
+          reason?: string | null
+          status?: string
+          text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "moderation_flags_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notification_prefs: {
         Row: {
           alerts: boolean
@@ -1405,9 +1443,11 @@ export type Database = {
           detail: string | null
           id: string
           reason: string
-          reported_id: string
+          reported_id: string | null
           reporter_id: string
           status: string
+          subject_id: string | null
+          subject_type: string
         }
         Insert: {
           context_game_id?: string | null
@@ -1415,9 +1455,11 @@ export type Database = {
           detail?: string | null
           id?: string
           reason: string
-          reported_id: string
+          reported_id?: string | null
           reporter_id: string
           status?: string
+          subject_id?: string | null
+          subject_type?: string
         }
         Update: {
           context_game_id?: string | null
@@ -1425,9 +1467,11 @@ export type Database = {
           detail?: string | null
           id?: string
           reason?: string
-          reported_id?: string
+          reported_id?: string | null
           reporter_id?: string
           status?: string
+          subject_id?: string | null
+          subject_type?: string
         }
         Relationships: [
           {
@@ -1821,6 +1865,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      moderation_queue: {
+        Row: {
+          author_id: string | null
+          created_at: string | null
+          detail: string | null
+          id: string | null
+          reason: string | null
+          source: string | null
+          status: string | null
+          subject_id: string | null
+          subject_type: string | null
+        }
+        Relationships: []
       }
     }
     Functions: {
@@ -2251,6 +2309,16 @@ export type Database = {
       rename_reserved_spot: {
         Args: { p_label: string; p_spot_id: string }
         Returns: undefined
+      }
+      report_content: {
+        Args: {
+          p_detail?: string
+          p_reason: string
+          p_reported_id: string
+          p_subject_id: string
+          p_subject_type: string
+        }
+        Returns: string
       }
       report_user: {
         Args: {

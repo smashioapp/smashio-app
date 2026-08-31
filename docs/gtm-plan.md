@@ -146,7 +146,7 @@ standing, or a reward. An unrewarded, uncounted referral link is a button, not a
 **G8. No recurring / duplicate game.** Sydney social badminton is overwhelmingly *weekly*. A host
 who must re-key the wizard every Tuesday drifts back to WhatsApp within a month — precisely the
 churn that kills a supply-seeded launch. Ship the cheap half (Duplicate, prefilled, date bumped)
-per [quick-wins.md](quick-wins.md) §3.2. **~1h.**
+per [quick-wins.md](quick-wins.md) §3.2. **~1h. Shipped 2026-08-31.**
 
 **G9. No search.** 56 venues and no way to type "Alpha Auburn". Every flyer, poster and RED post
 naming a venue creates a search intent the app cannot serve. **~2h for venue search.**

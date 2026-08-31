@@ -154,17 +154,19 @@ releases a waitlisted spot. UI: `game/[id].tsx` swaps the disabled "Game full" b
 join waitlist", shows queue position (`waitlist_position` RPC) once on it, and the host sees a
 "N on waitlist" count next to the roster.
 
-### 3.2 Recurring games — start with "Duplicate"
+### 3.2 Recurring games — start with "Duplicate" — **cheap half shipped 2026-08-31**
 
 **Gap.** No `recurring` / `repeat` column in the schema.
 
 **Why it hurts.** Weekly social sessions are the dominant real-world pattern. Hosts re-key the
 same game every week through the wizard.
 
-**Work.** Ship the cheap half first: a **Duplicate this game** button that prefills
-`ui/app/wizard.tsx` from a past game, with the date bumped forward. No schema change, ~1h. True
-recurrence (RRULE, series cancellation semantics, per-instance rosters) is a real design problem —
-give it its own doc if the duplicate button proves demand.
+**Work.** Shipped the cheap half: `game/[id].tsx` adds a **Duplicate this game** ListRow
+(organizer, non-cancelled) that reuses the exact `RebookSeed`/`nextRebookSlot` plumbing
+`my-games/past.tsx`'s Rebook button already had — only the entry point moved from a past game to
+a live/upcoming one. No schema change, no new store or schedule code. True recurrence (RRULE,
+series cancellation semantics, per-instance rosters) is still a real design problem — give it its
+own doc if the duplicate button proves demand.
 
 ### 3.3 Invite a specific player to a game
 

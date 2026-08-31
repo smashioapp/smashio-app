@@ -6,6 +6,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { colors, LAYOUT, reliabilityLabel } from "../../lib/theme";
 import { spotsLeft, type Game } from "../../lib/mockData";
 import { openDirections } from "../../lib/directions";
+import { useAppStore } from "../../lib/store";
+import { nextRebookSlot } from "../../lib/schedule";
 import { addGameToCalendar, hasCalendarEvent } from "../../lib/calendar";
 import { useGameDetail, useGamePreview } from "../../lib/queries/games";
 import { useSession } from "../../lib/session";
@@ -163,6 +165,28 @@ export default function GameDetails() {
         },
       },
     ]);
+  };
+
+  // G8 (quick-wins.md §3.2): reuses Rebook's exact seed shape (my-games/past.tsx handleRebook)
+  // so hosts don't re-key a weekly game by hand — only the entry point (an upcoming/live game
+  // instead of a past one) and the "duplicate" framing differ.
+  const handleDuplicate = () => {
+    haptics.tap();
+    if (game.venueId) {
+      useAppStore.getState().setRebookSeed({
+        venueId: game.venueId,
+        venueName: game.venue,
+        venueSuburb: game.suburb,
+        venueAddress: game.venueAddress ?? "",
+        skill: game.skill,
+        maxPlayers: game.maxPlayers,
+        courtsBooked: game.courtsBooked,
+        durationHours: game.durationHours,
+        cost: game.cost,
+        startsAt: nextRebookSlot(new Date(game.startsAt)),
+      });
+    }
+    router.push("/wizard");
   };
 
   const confirmLeaveWaitlist = () => {
@@ -326,7 +350,10 @@ export default function GameDetails() {
                 }}
               />
             )}
-            <ListRow title="Share game link" accessory="chevron" divider={false} onPress={() => shareGame(game)} />
+            <ListRow title="Share game link" accessory="chevron" divider={isOrganizer && !cancelled} onPress={() => shareGame(game)} />
+            {isOrganizer && !cancelled && (
+              <ListRow title="Duplicate this game" accessory="chevron" divider={false} onPress={handleDuplicate} />
+            )}
           </View>
 
           {isOrganizer && !cancelled && <JoinRequests gameId={gameId} full={full} onLayoutY={scrollToRequests} />}

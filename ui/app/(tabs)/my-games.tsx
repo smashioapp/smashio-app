@@ -96,6 +96,7 @@ export default function MyGames() {
     () => new Set((chatThreadsQuery.data ?? []).filter((t) => t.unread).map((t) => t.id)),
     [chatThreadsQuery.data]
   );
+  const unreadThreadCount = useMemo(() => (chatThreadsQuery.data ?? []).filter((t) => t.unread).length, [chatThreadsQuery.data]);
 
   const heroGame = useMemo(
     () => upcoming.find((g) => g.status !== "cancelled" && isHeroWorthy(g, now)),
@@ -204,20 +205,45 @@ export default function MyGames() {
         <Text className="font-display text-[30px]" style={{ color: colors.text }}>
           My Games
         </Text>
-        {hostingCount > 0 && (
+        <View className="flex-row items-center gap-2">
+          {hostingCount > 0 && (
+            <Pressable
+              onPress={() => {
+                haptics.tick();
+                setHostingOnly((v) => !v);
+              }}
+              className="rounded-pill px-3.5 py-2"
+              style={{ backgroundColor: hostingOnly ? colors.accent : "rgba(214,255,63,0.12)" }}
+            >
+              <Text className="font-body-extrabold text-[12.5px]" style={{ color: hostingOnly ? colors.base : colors.accent }}>
+                Hosting {hostingCount} ›
+              </Text>
+            </Pressable>
+          )}
+          {/* Always-visible chat entry point — the per-row icon only exists once a game is on
+              the agenda, so an empty calendar (or a thread whose game scrolled off it) had no
+              way back to /chat at all. Found in testing. */}
           <Pressable
-            onPress={() => {
-              haptics.tick();
-              setHostingOnly((v) => !v);
-            }}
-            className="rounded-pill px-3.5 py-2"
-            style={{ backgroundColor: hostingOnly ? colors.accent : "rgba(214,255,63,0.12)" }}
+            testID="mygames-chat-link"
+            onPress={() => router.push("/chat")}
+            hitSlop={8}
+            className="w-9 h-9 items-center justify-center"
           >
-            <Text className="font-body-extrabold text-[12.5px]" style={{ color: hostingOnly ? colors.base : colors.accent }}>
-              Hosting {hostingCount} ›
-            </Text>
+            <View>
+              <Ionicons name="chatbubble-ellipses-outline" size={22} color={colors.text} />
+              {unreadThreadCount > 0 && (
+                <View
+                  className="absolute rounded-full items-center justify-center px-1"
+                  style={{ top: -4, right: -6, minWidth: 16, height: 16, backgroundColor: colors.accent, borderWidth: 1.5, borderColor: colors.base }}
+                >
+                  <Text className="font-body-bold" style={{ fontSize: 9, color: colors.base }}>
+                    {unreadThreadCount > 9 ? "9+" : unreadThreadCount}
+                  </Text>
+                </View>
+              )}
+            </View>
           </Pressable>
-        )}
+        </View>
       </View>
 
       <Animated.View entering={FadeIn.duration(180)} exiting={FadeOut.duration(120)} style={{ flex: 1 }}>

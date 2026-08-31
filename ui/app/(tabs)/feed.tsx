@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { View, Text, FlatList, ActivityIndicator, RefreshControl, Pressable } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -13,6 +13,7 @@ import { supabase } from "../../lib/supabase";
 import { useAppStore } from "../../lib/store";
 import { useSession } from "../../lib/session";
 import { haptics } from "../../lib/haptics";
+import { track } from "../../lib/analytics";
 
 const VALID_TIERS: TierId[] = ["Beginner", "Intermediate", "Advanced", "Pro"];
 
@@ -22,6 +23,7 @@ const VALID_TIERS: TierId[] = ["Beginner", "Intermediate", "Advanced", "Pro"];
 function turnIntoGame(post: FeedPost) {
   const payload = (post.payload ?? {}) as Record<string, string | number | undefined>;
   if (!post.venueId) return;
+  useAppStore.getState().setWizardFromPost(true);
   const label = payload.skill_tier_label as string | undefined;
   const skill = (VALID_TIERS.includes(label as TierId) ? label : "Intermediate") as TierId;
   useAppStore.getState().setRebookSeed({
@@ -129,6 +131,10 @@ export default function Feed() {
   const feedQuery = useFeedHome({ lat: location.lat, lng: location.lng });
   const posts = useMemo(() => feedQuery.data?.pages.flat() ?? [], [feedQuery.data]);
   const { session } = useSession();
+
+  useEffect(() => {
+    track("feed_viewed");
+  }, []);
 
   return (
     <Screen>

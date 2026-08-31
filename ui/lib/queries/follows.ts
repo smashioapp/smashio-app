@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../supabase";
+import { track } from "../analytics";
 
 async function currentUserId() {
   const {
@@ -63,6 +64,7 @@ export function useFollowPlayer() {
       return followeeId;
     },
     onSuccess: (followeeId) => {
+      track("follow_added", { followee_id: followeeId });
       queryClient.invalidateQueries({ queryKey: ["player_card", followeeId] });
       queryClient.invalidateQueries({ queryKey: ["followers_of", followeeId] });
       queryClient.invalidateQueries({ queryKey: ["following_of"] });

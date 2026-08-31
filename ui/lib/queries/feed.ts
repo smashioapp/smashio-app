@@ -1,5 +1,6 @@
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../supabase";
+import { track } from "../analytics";
 import { DEFAULT_LAT, DEFAULT_LNG, SPORT_SLUG } from "./games";
 
 const RADIUS_M = 20000;
@@ -101,6 +102,9 @@ export function useCreatePost() {
       if (error) throw error;
       return data as string;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["feed_home"] }),
+    onSuccess: (postId, input) => {
+      track("post_created", { post_id: postId, kind: input.kind });
+      queryClient.invalidateQueries({ queryKey: ["feed_home"] });
+    },
   });
 }

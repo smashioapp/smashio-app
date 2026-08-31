@@ -9,6 +9,7 @@ import { durationMs } from "../schedule";
 import { avatarColor } from "../theme";
 import { prepareConfirmationImage } from "../imagePrep";
 import { randomCoverKey } from "../covers";
+import { useAppStore } from "../store";
 
 // Sydney CBD — fallback center when device location is unavailable or denied. Sydney-only for launch.
 export const DEFAULT_LAT = -33.8688;
@@ -318,6 +319,10 @@ export function useCreateGame() {
     },
     onSuccess: (gameId) => {
       track("game_published", { game_id: gameId });
+      if (useAppStore.getState().wizardFromPost) {
+        track("post_to_game_converted", { game_id: gameId });
+        useAppStore.getState().clearWizardFromPost();
+      }
       queryClient.invalidateQueries({ queryKey: ["nearby_games"] });
       queryClient.invalidateQueries({ queryKey: ["my_games"] });
     },

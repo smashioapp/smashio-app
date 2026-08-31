@@ -23,7 +23,16 @@ export type AnalyticsEvent =
   | "game_published"
   | "share_sent"
   | "rating_submitted"
-  | "push_opened";
+  | "push_opened"
+  // social-plan.md §14 — feed release's own funnel, tracked separately from the ten above.
+  // club_joined / club_game_published have no call site yet: C0 clubs are seed-only directory
+  // pages with no membership feature (§13.3), add the tracking when a full club entity ships.
+  | "feed_viewed"
+  | "post_created"
+  | "post_to_game_converted"
+  | "follow_added"
+  | "club_joined"
+  | "club_game_published";
 
 type EventProperties = Record<string, string | number | boolean | undefined>;
 

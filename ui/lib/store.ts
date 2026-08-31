@@ -128,6 +128,13 @@ type AppState = {
   hostHereSeed: HostHereSeed | null;
   setHostHereSeed: (seed: HostHereSeed) => void;
   clearHostHereSeed: () => void;
+
+  // social-plan.md §14 metric: post→game conversion. Set alongside rebookSeed by the feed's
+  // "Turn this into a game", read once by useCreateGame's onSuccess (games.ts), then cleared —
+  // rebookSeed itself is consumed on wizard mount, too early to still be there at publish time.
+  wizardFromPost: boolean;
+  setWizardFromPost: (v: boolean) => void;
+  clearWizardFromPost: () => void;
 };
 
 export const useAppStore = create<AppState>((set) => ({
@@ -214,4 +221,8 @@ export const useAppStore = create<AppState>((set) => ({
   hostHereSeed: null,
   setHostHereSeed: (seed) => set({ hostHereSeed: seed }),
   clearHostHereSeed: () => set({ hostHereSeed: null }),
+
+  wizardFromPost: false,
+  setWizardFromPost: (v) => set({ wizardFromPost: v }),
+  clearWizardFromPost: () => set({ wizardFromPost: false }),
 }));

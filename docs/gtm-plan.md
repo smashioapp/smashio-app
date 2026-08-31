@@ -186,13 +186,15 @@ stays authenticated-only, not worth widening for this). Single-keyword queries (
 fine; multi-word literal queries ("Alpha Auburn") don't — `venues_directory`'s search predicate is
 a pre-existing gap, not touched here.
 
-**G10. ASO untouched.** App name is bare `Smashio` (`ui/app.config.js`), no keyword-bearing
-subtitle, no localised listings. Store search is the cheapest install channel that exists. Fix in
-the consoles, not the repo:
-- iOS name `Smashio: Badminton Games` (30 chars), subtitle `Find players & courts near you`
+**G10. ASO. Shipped 2026-08-31** — App Store Connect (console-only, no repo change):
+- iOS name `Smashio: Badminton Games` (was bare `Smashio`), subtitle `Find players & courts near you`
 - Keywords: `badminton,shuttle,social sport,pickup,courts,players near me,doubles,sydney,club,racquet`
-- Screenshots must show a *filled roster with real suburb names*, never empty UI.
-- Localised listings for `zh-Hans` / `zh-Hant` at minimum — free, and it is the whole Cluster C thesis.
+- Screenshots already showed a filled roster with real suburb names (Sydney Olympic Park, Chatswood
+  Sports Hall), no empty UI — no change needed.
+- `zh-Hans` (Simplified Chinese) localisation added: name `Smashio: 羽毛球找搭子`, subtitle
+  `找羽毛球搭子，就在你身边`, keywords `羽毛球,球局,球友,搭子,悉尼羽毛球,双打,球馆,附近球局,社交运动,约球,羽毛球俱乐部`,
+  promotional text and description translated. `zh-Hant` not added — evaluate demand before
+  doubling localisation maintenance.
 
 ### 3.3 P2 — compounding, start inside 90 days
 
@@ -218,9 +220,8 @@ won't get a real page until enriched.
 
 **G12. No club / group entity.** Sydney plays as named groups ("Sky Hawks"), not atomised
 individuals. A recruited host's group has no object to own, so it can't bring its identity across.
-[social-plan.md](social-plan.md) covers adjacent ground and is unapproved; a minimal `groups`
-table (name, home venue, members, publish-to-group) may be a smaller, higher-value cut than the
-full feed. **NEW — needs a decision before scoping.**
+[social-plan.md](social-plan.md) covers adjacent ground and is unapproved. **Deferred — out of
+scope for this GTM pass, captured under social-plan.md instead.**
 
 **G13. Privacy policy out of date — a marketing risk, not just a store risk.** Booking-confirmation
 photos go to a third-party model provider and are retained up to 7 days
@@ -230,11 +231,15 @@ community attention will find this. **Fix before public launch. Shipped 2026-08-
 policy updated (Google Gemini disclosed, 7-day photo retention), store-console answers drafted in
 [store-readiness-plan.md](store-readiness-plan.md).
 
-**G14. Cold-start empty state.** A user in a suburb with no games is the most common bad first
-session during a launch. Discover has `EmptyState` wired ([smashimals-plan.md](smashimals-plan.md)
-cast lands here) but the *content* must convert, not shrug: nearest 3 games with distance, "tell
-me when a game appears in <suburb>", and "host one, we'll help fill it". **~half a day, ships with
-launch.**
+**G14. Cold-start empty state. Shipped 2026-08-31.** A user in a suburb with no games is the most
+common bad first session during a launch. Discover's default (unfiltered) empty state
+(`ui/app/(tabs)/discover.tsx`'s new `ColdStartEmpty`) now widens silently to the max radius option
+(50km, closest-first, via the existing `useDiscoverGames`/`nearby_games(_public)` — no new RPC)
+and shows the nearest 3 games with distance, an "Alert me" row reused from the D5 fallback ladder
+but relabelled "Tell me when a game appears in `<suburb>`", and "Host one, we'll help fill it".
+Only falls back to the bare kookaburra "Court's quiet right now" state when the 50km pool is also
+empty. The isFiltered branches (D5 ladder, radius-relaxed) are untouched — this only fires on the
+true no-filter cold start.
 
 **G15. Website has no capture.** No email/waitlist capture, no Android-beta signup. Every
 pre-launch impression not ready to install is lost. **~2h. Not required — Android ships next
@@ -245,8 +250,10 @@ week (2026-09-07 target), so no Android-beta waitlist needed.**
 ```
 G1 analytics → G2 Android → G4 push/Sentry → G3 share pages → G14 empty state → G10 ASO
   → G6 waitlist → G8 duplicate → G5 preview → G7 referral reward → G9 search → G11 SEO pages
-  → G13 privacy → G15 capture → G12 groups (decision first)
+  → G13 privacy → G15 capture
 ```
+
+G12 groups deferred, out of scope — see social-plan.md.
 
 G1–G4 are pre-launch. G14 and G10 ship with launch. The rest run through the first 60 days.
 
@@ -418,7 +425,6 @@ end-to-end on both platforms.** Do not launch into an empty map.
 
 - [ ] Target: 30 hosts, 60+ games/week, 3 liquid suburbs, ≥40% of new users arriving via
       share/referral/organic search rather than direct.
-- [ ] Decide G12 groups on evidence from host behaviour.
 - [ ] Expand to a 4th cluster only when clusters 1–3 hold liquidity 3 weeks running *without*
       Smashio-run sessions propping them up.
 

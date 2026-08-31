@@ -269,7 +269,7 @@ type AlertState = "idle" | "saving" | "saved";
 // The retention primitive (D5): turns a failed search into a scheduled return visit by watching
 // the current level + radius and pushing when a matching game is posted. Deliberately its own
 // row style (bell, no count) — it isn't a ladder rung since it has nothing to count yet.
-function AlertMeRow({ state, onPress }: { state: AlertState; onPress: () => void }) {
+function AlertMeRow({ state, onPress, label = "Alert me when a game matches" }: { state: AlertState; onPress: () => void; label?: string }) {
   if (state === "saved") {
     return (
       <View
@@ -292,7 +292,7 @@ function AlertMeRow({ state, onPress }: { state: AlertState; onPress: () => void
     >
       <Ionicons name="notifications-outline" size={16} color={colors.textSecondary} />
       <Text className="font-body-bold text-[14px]" style={{ color: colors.textSecondary }}>
-        {state === "saving" ? "Saving…" : "Alert me when a game matches"}
+        {state === "saving" ? "Saving…" : label}
       </Text>
     </Pressable>
   );
@@ -342,6 +342,67 @@ function FallbackLadder({
         >
           <Text className="font-body-extrabold text-[14px]" style={{ color: colors.base }}>
             Host your own game
+          </Text>
+          <Ionicons name="chevron-forward" size={16} color={colors.base} />
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+// G14 (gtm-plan.md §3.3): a true cold-start suburb — no filters applied, nothing within the
+// default radius. Rather than a bare "nothing here" shrug, widen silently (city-wide, closest
+// first) and show what's actually reachable, plus the two honest next moves: get pinged when
+// this suburb fills in, or be the one who fills it.
+function ColdStartEmpty({
+  nearestGames,
+  suburb,
+  alertState,
+  onAlert,
+  onHost,
+  onSelectGame,
+}: {
+  nearestGames: Game[];
+  suburb: string;
+  alertState: AlertState;
+  onAlert: () => void;
+  onHost: () => void;
+  onSelectGame: (id: string) => void;
+}) {
+  if (nearestGames.length === 0) {
+    return (
+      <EmptyState
+        character="kookaburra-shade"
+        title="Court's quiet right now"
+        subtitle="Be the first to call a game this week, takes under a minute to set up."
+        ctaLabel="Host a game"
+        onCta={onHost}
+      />
+    );
+  }
+  return (
+    <View className="items-center gap-3 pt-8 px-6">
+      <Ionicons name="search-outline" size={32} color={colors.textTertiary} />
+      <Text className="font-display-bold text-[19px] text-center" style={{ color: colors.text }}>
+        Nothing in {suburb} yet
+      </Text>
+      <Text className="text-[14.5px] text-center max-w-[280px] leading-5" style={{ color: colors.textSecondary }}>
+        Closest games nearby, or be the first to call one here.
+      </Text>
+      <View className="w-full gap-2 mt-2">
+        {nearestGames.slice(0, 3).map((g) => (
+          <GameCard key={g.id} game={g} onPress={() => onSelectGame(g.id)} />
+        ))}
+      </View>
+      <View className="w-full gap-2 mt-2">
+        <AlertMeRow state={alertState} onPress={onAlert} label={`Tell me when a game appears in ${suburb}`} />
+        <Pressable
+          onPress={onHost}
+          className="flex-row items-center justify-between rounded-xl px-4 py-3.5"
+          style={{ backgroundColor: colors.accent }}
+        >
+          <Text className="font-body-extrabold text-[14px]" style={{ color: colors.base }}>
+            Host one, we'll help fill it
           </Text>
           <Ionicons name="chevron-forward" size={16} color={colors.base} />
         </Pressable>
@@ -855,6 +916,17 @@ export default function Discover() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fallbackEnabled, fallbackQuery.data, whenFilter, levelFilters, discoverRadiusKm]);
 
+  // G14 (gtm-plan.md §3.3): the cold-start case — no filters at all, still zero games at the
+  // default radius. Widened city-wide (max radius option, closest first) so "nothing here" can
+  // show what's actually nearest instead of a bare shrug.
+  const coldStartEnabled = !showInitialLoading && !showError && games.length === 0 && !isFiltered;
+  const coldStartQuery = useDiscoverGames(
+    { tierSlugs: [], when: "all", radiusKm: DISCOVER_RADIUS_OPTIONS_KM[DISCOVER_RADIUS_OPTIONS_KM.length - 1], sortBy: "closest" },
+    userLocation,
+    { enabled: coldStartEnabled, units: distanceUnits, anon: !session }
+  );
+  const nearestGames = coldStartEnabled ? coldStartQuery.data ?? [] : [];
+
   const [alertState, setAlertState] = useState<AlertState>("idle");
   const createAlert = useCreateAlert();
   // The saved alert describes a specific filter set — if the user changes level/radius, "saved"
@@ -1127,12 +1199,13 @@ export default function Discover() {
                     </View>
                   </View>
                 ) : (
-                  <EmptyState
-                    character="kookaburra-shade"
-                    title="Court's quiet right now"
-                    subtitle="Be the first to call a game this week, takes under a minute to set up."
-                    ctaLabel="Host a game"
-                    onCta={handleHost}
+                  <ColdStartEmpty
+                    nearestGames={nearestGames}
+                    suburb={locationLabel}
+                    alertState={alertState}
+                    onAlert={handleSetAlert}
+                    onHost={handleHost}
+                    onSelectGame={(id) => router.push(`/game/${id}`)}
                   />
                 )
               }

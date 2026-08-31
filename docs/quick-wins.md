@@ -138,19 +138,21 @@ plan doc, not a quick win. See §5.
 These are the ones users will actually notice. All are ≥half a day, so they sit at the boundary of
 this doc's scope — take them one at a time.
 
-### 3.1 Waitlist for full games — **highest product value here**
+### 3.1 Waitlist for full games — **highest product value here** — **shipped 2026-08-31**
 
 **Gap.** No `waitlist` anywhere in `supabase/migrations/`. A game at capacity is a hard dead end.
 
 **Why it hurts.** Social badminton is capacity-bound by court size. "Full" is the single most
 common state a popular game reaches, and today it converts an interested player into nothing.
 
-**Work.** Add a `waitlisted` status to `game_players`, auto-promote the head of the queue when
-someone leaves, and fire the existing notify trigger on promotion. The whole notification pipeline
-(`20260820000200_notifications_p0.sql` onward) already exists — this is one migration plus roster
-UI.
-
-**Effort:** ~half a day.
+**Work.** Added a `waitlisted` status to `game_players` (`20260831000000_waitlist.sql`).
+`request_to_join` routes there instead of `requested` once `open_spots` hits zero, skipping host
+review entirely. A new `promote_waitlist` trigger auto-promotes the longest-waiting row the moment
+an approved spot frees up (`leave_game`/`remove_player`), which re-fires the existing
+`trigger_notify_join_decision` push — no new notification type needed. `leave_game` now also
+releases a waitlisted spot. UI: `game/[id].tsx` swaps the disabled "Game full" button for "Hold to
+join waitlist", shows queue position (`waitlist_position` RPC) once on it, and the host sees a
+"N on waitlist" count next to the roster.
 
 ### 3.2 Recurring games — start with "Duplicate"
 

@@ -20,6 +20,8 @@ import {
   useMyMembership,
   useRemovePlayer,
   useRequestToJoin,
+  useWaitlistCount,
+  useWaitlistPosition,
 } from "../../lib/queries/gamePlayers";
 import { Badge } from "../../components/Badge";
 import { BackButton } from "../../components/BackButton";
@@ -35,6 +37,7 @@ import { SwipeToDecide } from "../../components/SwipeToDecide";
 import { VettingStrip } from "../../components/VettingStrip";
 import { haptics } from "../../lib/haptics";
 import { shareGame } from "../../lib/share";
+import { track } from "../../lib/analytics";
 import { ReservedSpots } from "../../components/ReservedSpots";
 import { useClaimReservedSpot, useRespondToGameInvite } from "../../lib/queries/reservedSpots";
 import { useReduceMotion } from "../../lib/motion";
@@ -65,6 +68,8 @@ export default function GameDetails() {
   const rosterQuery = useGameRoster(session ? gameId : "");
   const requestToJoin = useRequestToJoin(gameId);
   const leaveGame = useLeaveGame(gameId);
+  const waitlistPositionQuery = useWaitlistPosition(gameId, membershipQuery.data?.status === "waitlisted");
+  const waitlistCountQuery = useWaitlistCount(gameId, !!membershipQuery.data?.isOrganizer);
   const organizerCard = usePlayerCard(game?.organizerId);
   const respondToInvite = useRespondToGameInvite(gameId);
   const claimSpot = useClaimReservedSpot();
@@ -78,6 +83,13 @@ export default function GameDetails() {
   // A reserved-spot invite link lands on https://smashio.com.au/game/<id>?invite=<token>, which
   // is the same Universal Link path a plain share uses — so the token is redeemed here, once,
   // as soon as there's a session to redeem it with (post-game-plan.md D11).
+  const viewedTracked = useRef(false);
+  useEffect(() => {
+    if (!game || viewedTracked.current) return;
+    viewedTracked.current = true;
+    track("game_viewed", { game_id: gameId, source: invite ? "deeplink" : focus ? "push" : "discover" });
+  }, [game]);
+
   const claimedInvite = useRef(false);
   useEffect(() => {
     if (!invite || !session || claimedInvite.current) return;
@@ -144,6 +156,20 @@ export default function GameDetails() {
       { text: "Cancel", style: "cancel" },
       {
         text: "Leave game",
+        style: "destructive",
+        onPress: () => {
+          haptics.tap();
+          leaveGame.mutate();
+        },
+      },
+    ]);
+  };
+
+  const confirmLeaveWaitlist = () => {
+    Alert.alert("Leave the waitlist?", "You'll lose your spot in the queue — you can join it again later.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Leave waitlist",
         style: "destructive",
         onPress: () => {
           haptics.tap();
@@ -307,9 +333,18 @@ export default function GameDetails() {
 
           {/* +1 for the host, who holds one of max_players but has no game_players row
               (post-game-plan.md D1) — this read "2/4" for a game with 3 people in it. */}
-          <Text className="font-body-extrabold text-[13px] uppercase tracking-wide mt-5.5 mb-2.5" style={{ color: colors.textTertiary }}>
-            Players joined ({game.joinedCount + 1}/{game.maxPlayers})
-          </Text>
+          <View className="flex-row items-center justify-between mt-5.5 mb-2.5">
+            <Text className="font-body-extrabold text-[13px] uppercase tracking-wide" style={{ color: colors.textTertiary }}>
+              Players joined ({game.joinedCount + 1}/{game.maxPlayers})
+            </Text>
+            {/* Waitlist is auto-promoted, not something the host reviews — a count is enough,
+                unlike join requests which need Approve/Decline. */}
+            {isOrganizer && !cancelled && !!waitlistCountQuery.data && (
+              <Text className="text-[12px] font-body-semibold" style={{ color: colors.textTertiary }}>
+                {waitlistCountQuery.data} on waitlist
+              </Text>
+            )}
+          </View>
           <View className="flex-row flex-wrap gap-2.5">
             {joined.map((p) => (
               <RosterAvatar key={p.id} gameId={gameId} player={p} canRemove={isOrganizer && !cancelled} />
@@ -392,8 +427,27 @@ export default function GameDetails() {
           </View>
         ) : membership?.status === "requested" ? (
           <Button testID="game-cta" label="Request sent" variant="secondary" disabled />
+        ) : membership?.status === "waitlisted" ? (
+          <Button
+            testID="game-cta"
+            label={waitlistPositionQuery.data ? `On the waitlist · #${waitlistPositionQuery.data}` : "On the waitlist"}
+            variant="secondary"
+            loading={leaveGame.isPending}
+            onPress={confirmLeaveWaitlist}
+          />
         ) : full ? (
-          <Button testID="game-cta" label="Game full" variant="secondary" disabled />
+          <HoldButton
+            testID="game-cta"
+            label="Hold to join waitlist"
+            completeLabel="You're on the list"
+            sfx="chime"
+            onComplete={() => {
+              requestToJoin.mutate(
+                { waitlisted: true },
+                { onError: () => Alert.alert("Couldn't join the waitlist", "Give it another go.") }
+              );
+            }}
+          />
         ) : (
           <HoldButton
             testID="game-cta"
@@ -401,9 +455,10 @@ export default function GameDetails() {
             completeLabel="Request sent"
             sfx="chime"
             onComplete={() => {
-              requestToJoin.mutate(undefined, {
-                onError: () => Alert.alert("Couldn't send request", "Give it another go."),
-              });
+              requestToJoin.mutate(
+                { waitlisted: false },
+                { onError: () => Alert.alert("Couldn't send request", "Give it another go.") }
+              );
             }}
           />
         )}

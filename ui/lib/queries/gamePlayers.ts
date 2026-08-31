@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../supabase";
 import { avatarColor } from "../theme";
+import { track } from "../analytics";
 import type { Player } from "../mockData";
 
 function photoUrl(path: string | null): string | null {
@@ -80,8 +81,10 @@ export function useMyGamesRoster(gameIds: string[]) {
 export type Membership = {
   isOrganizer: boolean;
   // 'invited' is the host direct-adding someone to a reserved spot; the player answers, not the
-  // host (post-game-plan.md D10). 'declined' is their no.
-  status: "requested" | "invited" | "approved" | "rejected" | "left" | "removed" | "declined" | null;
+  // host (post-game-plan.md D10). 'declined' is their no. 'waitlisted' is a request made while the
+  // game was full — request_to_join routes there instead of 'requested' so there's nothing for
+  // the host to decide until a spot actually opens (gtm-plan.md G6).
+  status: "requested" | "invited" | "approved" | "rejected" | "left" | "removed" | "declined" | "waitlisted" | null;
 };
 
 export function useMyMembership(gameId: string, organizerId: string | null | undefined) {
@@ -148,6 +151,8 @@ function invalidateGame(queryClient: ReturnType<typeof useQueryClient>, gameId: 
   queryClient.invalidateQueries({ queryKey: ["game_players", "roster", gameId] });
   queryClient.invalidateQueries({ queryKey: ["game_players", "membership", gameId] });
   queryClient.invalidateQueries({ queryKey: ["game_players", "requests", gameId] });
+  queryClient.invalidateQueries({ queryKey: ["game_players", "waitlist_position", gameId] });
+  queryClient.invalidateQueries({ queryKey: ["game_players", "waitlist_count", gameId] });
   queryClient.invalidateQueries({ queryKey: ["game_players", "pending_requests_count"] });
   // Prefix match — these two are keyed by the full (sorted) game-id list, not a single gameId,
   // so a partial ["game_players", "<name>"] key catches every variant currently cached.
@@ -189,15 +194,47 @@ export function useMyHostedPendingRequests(gameIds: string[]) {
   });
 }
 
+// waitlisted is a client-side hint for analytics only — the server decides the actual status
+// (open_spots at call time), this just labels what the caller expected when they tapped.
 export function useRequestToJoin(gameId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async () => {
+    mutationFn: async (opts?: { waitlisted?: boolean }) => {
       await requireUserId();
       const { error } = await supabase.rpc("request_to_join", { p_game_id: gameId });
       if (error) throw error;
+      return opts;
     },
-    onSuccess: () => invalidateGame(queryClient, gameId),
+    onSuccess: (opts) => {
+      track("join_requested", { game_id: gameId, waitlisted: !!opts?.waitlisted });
+      invalidateGame(queryClient, gameId);
+    },
+  });
+}
+
+// 1-indexed position in the waitlist queue, null once the caller isn't on it (promoted or left).
+export function useWaitlistPosition(gameId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["game_players", "waitlist_position", gameId],
+    queryFn: async (): Promise<number | null> => {
+      const { data, error } = await supabase.rpc("waitlist_position", { p_game_id: gameId });
+      if (error) throw error;
+      return data as number | null;
+    },
+    enabled: !!gameId && enabled,
+  });
+}
+
+// Host-facing count, shown next to the roster so a full game's queue isn't invisible.
+export function useWaitlistCount(gameId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["game_players", "waitlist_count", gameId],
+    queryFn: async (): Promise<number> => {
+      const { data, error } = await supabase.rpc("waitlist_count", { p_game_id: gameId });
+      if (error) throw error;
+      return (data as number | null) ?? 0;
+    },
+    enabled: !!gameId && enabled,
   });
 }
 
@@ -231,7 +268,10 @@ export function useDecideJoinRequest(gameId: string) {
       const { error } = await supabase.rpc("decide_join_request", { p_game_id: gameId, p_profile_id: profileId, approve });
       if (error) throw error;
     },
-    onSuccess: () => invalidateGame(queryClient, gameId),
+    onSuccess: (_data, { approve }) => {
+      if (approve) track("join_approved", { game_id: gameId });
+      invalidateGame(queryClient, gameId);
+    },
   });
 }
 
@@ -271,7 +311,8 @@ export function useMarkAttendance(gameId: string) {
       const { error } = await supabase.rpc("mark_attendance", { p_game_id: gameId, p_no_shows: noShowIds });
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, noShowIds) => {
+      track("game_played", { game_id: gameId, no_show_count: noShowIds.length });
       queryClient.invalidateQueries({ queryKey: ["game_players", "attendance", gameId] });
       queryClient.invalidateQueries({ queryKey: ["past_game_detail", gameId] });
     },

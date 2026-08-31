@@ -18,6 +18,8 @@ Read [README.md](../README.md), [docs/mvp-spec.md](mvp-spec.md), [docs/business-
 
 [docs/social-plan.md](social-plan.md) is still proposed, not approved — beyond the MVP spec, needs explicit sign-off before any app code or migration lands.
 
+[docs/gtm-plan.md](gtm-plan.md) (Sydney go-to-market for v1 public, written 2026-08-26) is **proposed, not signed off**. Its §3 is a marketing-leverage audit of the app — the 15 gaps (G1–G15) that make acquisition leak, each with repo evidence and a pointer to the plan doc or quick-win item that owns the fix. Read §3 before proposing growth/marketing work so you don't re-derive a gap; §4–§7 (channels, 90-day sequence, budget) need explicit sign-off before money is spent.
+
 [docs/quick-wins.md](quick-wins.md) is a running backlog of ≤1-day items (missing OTA updates, missing Android `assetlinks.json`, no analytics, no waitlist, etc.), each with the gap evidence. Not a plan doc, not approved, not ordered work — check it before proposing a "small improvement" so you don't re-derive one that's already listed, and add to it rather than starting a new doc.
 
 The venues-plan §3 discovery sweep HAS been run (2026-08-15) — `scripts/venues/` + `data/venues/`, results in [data/venues/SWEEP-FINDINGS.md](../data/venues/SWEEP-FINDINGS.md). Read it before touching venue data: it found that `seed.sql`'s "NBC Homebush" is stale, that `venues.google_place_id` uniqueness does not stop duplicate venues (NULL place_id on the 8 seeded rows), and that venue matching must never merge on proximity alone.

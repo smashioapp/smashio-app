@@ -29,8 +29,14 @@ Render check flags these `bad`/`thin` — genuinely blank/empty renders, not
 crashes. Root cause is the "no styling" choice above (text with no color,
 icons with no stroke color, gauges with no fill) — expected, not chased:
 
-- `BackButton`, `DayHeader`, `ReliabilityGauge`, `RollingNumber` — RENDER_BLANK
+- `BackButton`, `DayHeader`, `Field`, `ListRow`, `ReliabilityGauge`,
+  `RollingNumber`, `RowSectionLabel` — RENDER_BLANK
 - `ShuttlecockGlyph` — RENDER_THIN (SVG icon, paints nothing unstyled)
+
+`Field`, `ListRow` and `RowSectionLabel` joined the list on the 2026-08-31
+re-sync — same cause, not new breakage: all three mount clean
+(`errs: 0`, `rootEmpty: false` in `.render-check.json`), they just paint
+nothing without styling.
 
 ## Forked lib files (`.design-sync/overrides/`, see `cfg.libOverrides` for why)
 
@@ -55,6 +61,18 @@ icons with no stroke color, gauges with no fill) — expected, not chased:
     component that transitively imports it (nearly all of them, via
     `lib/session.tsx` etc.). Sentry DSN / Google Maps key stay blank, same
     as `.env.example`'s own defaults.
+  - **`heavyRasterPlugin`** (added 2026-08-31 re-sync) — the app's real art
+    (1024px AI game covers, brand logo, splash/adaptive icons, Smashimals)
+    is served as separate files by Metro but has to ride base64-inline
+    (+33%) in a single-file dataurl bundle. At source size `_ds_bundle.js`
+    was 12.2 MB, over the app's 12 MB upload cap — a hard blocker, not a
+    warning. PNGs over 100 KB now go through `sharp` at 512px palette-PNG
+    before the `dataurl` loader sees them: covers 3.3 MB → 99 KB, bundle
+    12.2 MB → 7.5 MB. Previews only ever render these a few hundred px
+    wide, so it's visually equivalent there. Size-triggered rather than a
+    hardcoded path list, so future heavy art is covered without a code
+    change; no-ops (inlines source bytes) if `sharp` won't resolve.
+
 - **`source-kit.mjs`** — two fixes, both specific to synth-entry mode with
   zero `.d.ts`:
   1. Upstream only runs the derive-from-src component-discovery fallback
@@ -84,6 +102,11 @@ icons with no stroke color, gauges with no fill) — expected, not chased:
   `nativewind`-styled expectations that still won't render (the babel-plugin
   gap above isn't fixed by anything in this config — it needs the bundler
   fork described above, not attempted).
+- The 12 MB upload cap is now the live constraint on this bundle, not a
+  theoretical one: 7.5 MB used, and `heavyRasterPlugin` only reclaims PNGs.
+  Heavy art in a format it doesn't touch (`.jpg`, `.webp`, video, more
+  `.wav` sfx) or a big new npm dep will walk it back toward the cap with no
+  warning until a build fails. Check the `bundle:` KB line each re-sync.
 - `.design-sync/overrides/bundle.mjs`'s `EXPO_PUBLIC_*` placeholders will
   silently go stale if `ui/.env.example`'s documented local-dev defaults
   ever change — no automated link between the two.

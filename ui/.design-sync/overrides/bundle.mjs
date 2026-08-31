@@ -186,6 +186,59 @@ export const RN_WEB_EXTENSIONS = [
   '.tsx', '.ts', '.jsx', '.js', '.css', '.json',
 ];
 
+// Downscale oversized raster assets before esbuild's `dataurl` loader inlines
+// them. This repo ships real app art (1024px AI game covers, brand logo,
+// splash/adaptive icons, Smashimals) that Metro serves as separate files but a
+// single-file dataurl bundle has to carry base64-inline (+33%). At source size
+// that pushed _ds_bundle.js past the app's 12 MB upload cap. Previews only ever
+// render these in floor cards a few hundred px wide, so a 512px palette-PNG
+// re-encode is visually equivalent there and ~30x smaller (covers: 3.3 MB ->
+// 99 KB). Size-triggered, not a hardcoded path list, so future heavy art is
+// covered automatically. sharp is a devDependency of the app itself (via Expo);
+// if it can't be resolved the plugin no-ops and the original bytes are inlined.
+const HEAVY_PNG_BYTES = 100 * 1024;
+const HEAVY_PNG_MAX_DIM = 512;
+export function heavyRasterPlugin(nodePaths) {
+  let sharp;                                  // resolved lazily, once
+  let resolveTried = false;
+  const cache = new Map();                    // path -> Promise<Buffer>
+  return {
+    name: 'heavy-raster-downscale',
+    setup(b) {
+      b.onLoad({ filter: /\.png$/ }, async (args) => {
+        let size;
+        try { size = statSync(args.path).size; } catch { return null; }
+        if (size <= HEAVY_PNG_BYTES) return null;
+        if (!resolveTried) {
+          resolveTried = true;
+          try {
+            sharp = createRequire(join(nodePaths, 'noop.js'))('sharp');
+          } catch {
+            console.error('  (sharp unresolvable — heavy PNGs inlined at source size)');
+          }
+        }
+        if (!sharp) return null;
+        if (!cache.has(args.path)) {
+          cache.set(
+            args.path,
+            sharp(args.path)
+              .resize(HEAVY_PNG_MAX_DIM, HEAVY_PNG_MAX_DIM, { fit: 'inside', withoutEnlargement: true })
+              .png({ palette: true, quality: 60, effort: 7 })
+              .toBuffer()
+              .catch((e) => {
+                console.error(`  (downscale failed for ${args.path}: ${e.message} — inlining source)`);
+                return null;
+              }),
+          );
+        }
+        const buf = await cache.get(args.path);
+        if (!buf) return null;
+        return { contents: buf, loader: 'dataurl' };
+      });
+    },
+  };
+}
+
 // Build a resolve plugin from tsconfig compilerOptions.paths. esbuild's
 // built-in `tsconfig` option only applies paths to files covered by that
 // tsconfig, which the synth entry (in OUT) isn't — so we resolve explicitly.
@@ -240,7 +293,7 @@ export function tsconfigPathsPlugin(tsconfigPath) {
 // what the runtime bundle actually contains.
 function sharedBuildOptions({ nodePaths, tsconfig }) {
   const pathsPlugin = tsconfig ? tsconfigPathsPlugin(tsconfig) : null;
-  const plugins = [reactShim, rnWebAliasPlugin(nodePaths), nodeShimPlugin];
+  const plugins = [reactShim, rnWebAliasPlugin(nodePaths), nodeShimPlugin, heavyRasterPlugin(nodePaths)];
   if (pathsPlugin) plugins.unshift(pathsPlugin);
   return {
     bundle: true,

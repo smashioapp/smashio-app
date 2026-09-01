@@ -17,8 +17,16 @@
 
 alter table public.games rename column duration_hours to duration_minutes;
 alter table public.games alter column duration_minutes set default 90;
-update public.games set duration_minutes = duration_minutes * 60;
+-- Drop the old hours-range check before the backfill multiplies values into minutes range, or a
+-- real (non-empty) games table fails this migration on its own data (60 > the old "<=12" cap).
 alter table public.games drop constraint games_duration_hours_check;
+-- enforce_game_edit_rules (20260810000000_game_management.sql) blocks any update to a cancelled
+-- game — correct for the app, wrong for a data-only backfill touching every row regardless of
+-- status. Same bypass 20260814000000_courts_hours_perplayer_price.sql used for the same reason.
+-- Covers every backfill UPDATE in this migration (duration, format_id, skill_tier_max_id below),
+-- reset back to default right after the last one.
+set local session_replication_role = replica;
+update public.games set duration_minutes = duration_minutes * 60;
 alter table public.games add constraint games_duration_minutes_check
   check (duration_minutes >= 60 and duration_minutes <= 360 and duration_minutes % 15 = 0);
 
@@ -86,6 +94,7 @@ alter table public.games add column notes text check (notes is null or char_leng
 -- tier, same as today — every existing row backfills to a range of exactly one tier.
 alter table public.games add column skill_tier_max_id uuid references public.skill_tiers(id);
 update public.games set skill_tier_max_id = skill_tier_id;
+set local session_replication_role = default;
 -- Nullable on purpose: null means "same as the floor", so any insert that doesn't set it (the
 -- seed, older RPC callers) still reads as a single-tier game via coalesce() below.
 

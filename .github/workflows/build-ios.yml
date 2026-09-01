@@ -41,7 +41,11 @@ jobs:
 
       - uses: maxim-lobanov/setup-xcode@v1
         with:
-          xcode-version: latest-stable
+          # Pinned, not latest-stable: Xcode 26.3's stricter Swift/C++ interop
+          # checker rejects expo-modules-jsi's RuntimeScheduler.h (missing
+          # SWIFT_SHARED_REFERENCE annotation, fixed upstream only in the
+          # 58.0.0 canary). 26.2 builds clean.
+          xcode-version: "26.2"
 
       - uses: actions/setup-node@v4
         with:

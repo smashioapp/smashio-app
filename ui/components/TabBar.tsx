@@ -1,7 +1,7 @@
-import { useEffect } from "react";
+import { useEffect, type ReactElement } from "react";
 import { View, Pressable } from "react-native";
-import { BlurView } from "expo-blur";
-import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+import Svg, { Circle, Rect, Path, Line } from "react-native-svg";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
@@ -28,11 +28,55 @@ type TabBarProps = {
   navigation: { navigate: (name: string) => void };
 };
 
-const ICONS: Record<string, { active: keyof typeof Ionicons.glyphMap; inactive: keyof typeof Ionicons.glyphMap }> = {
-  discover: { active: "search", inactive: "search-outline" },
-  "my-games": { active: "calendar", inactive: "calendar-outline" },
-  feed: { active: "people", inactive: "people-outline" },
-  profile: { active: "person", inactive: "person-outline" },
+// Custom glyphs (SMASHIO v3 design, claude.ai/design 23bc2cae…, "Discover" doc's tabbar) —
+// hand-drawn shapes matching the mock's .ti/.circ/.feed/.cal/.prof CSS, redrawn as SVG since
+// RN has no border-pseudo-element trick. Person glyph is a rounded arc, not the mock's boxy one.
+function DiscoverGlyph({ color, size }: { color: string; size: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 26 26">
+      <Circle cx={13} cy={13} r={11} stroke={color} strokeWidth={2.2} fill="none" />
+      <Circle cx={13} cy={13} r={5.5} fill={color} />
+    </Svg>
+  );
+}
+function FeedGlyph({ color, size }: { color: string; size: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 26 26">
+      <Rect x={0} y={5} width={26} height={2.4} rx={1.2} fill={color} />
+      <Rect x={0} y={12} width={18} height={2.4} rx={1.2} fill={color} />
+      <Rect x={0} y={19} width={22} height={2.4} rx={1.2} fill={color} />
+    </Svg>
+  );
+}
+function MyGamesGlyph({ color, size }: { color: string; size: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 26 26">
+      <Rect x={2} y={5} width={22} height={19} rx={6} stroke={color} strokeWidth={2.2} fill="none" />
+      <Line x1={8} y1={1.5} x2={8} y2={8.5} stroke={color} strokeWidth={2.2} strokeLinecap="round" />
+      <Line x1={18} y1={1.5} x2={18} y2={8.5} stroke={color} strokeWidth={2.2} strokeLinecap="round" />
+    </Svg>
+  );
+}
+function ProfileGlyph({ color, size }: { color: string; size: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 26 26">
+      <Circle cx={13} cy={8} r={4.5} stroke={color} strokeWidth={2.2} fill="none" />
+      <Path
+        d="M4 24 C4 17.5 8.2 14 13 14 C17.8 14 22 17.5 22 24"
+        stroke={color}
+        strokeWidth={2.2}
+        strokeLinecap="round"
+        fill="none"
+      />
+    </Svg>
+  );
+}
+
+const GLYPHS: Record<string, (props: { color: string; size: number }) => ReactElement> = {
+  discover: DiscoverGlyph,
+  "my-games": MyGamesGlyph,
+  feed: FeedGlyph,
+  profile: ProfileGlyph,
 };
 
 // Labels are no longer rendered (docs/v2-design-plan.md §5 — the design's bar is icon-only),
@@ -98,6 +142,7 @@ function TabButton({
   }, [focused]);
 
   const iconStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  const Glyph = GLYPHS[name];
 
   return (
     <Pressable
@@ -114,11 +159,7 @@ function TabButton({
       style={{ width: NAV.ITEM_WIDTH, height: NAV.ITEM_HEIGHT }}
     >
       <Animated.View style={iconStyle}>
-        <Ionicons
-          name={focused ? ICONS[name].active : ICONS[name].inactive}
-          size={NAV.ICON}
-          color={focused ? colors.accent : colors.textTertiary}
-        />
+        <Glyph color={focused ? colors.accent : colors.textTertiary} size={NAV.ICON} />
         {showDot && <UnreadDot />}
         {!!badgeCount && <CountBadge count={badgeCount} />}
       </Animated.View>
@@ -180,7 +221,11 @@ function HostButton() {
           pressStyle,
         ]}
       >
-        <Ionicons name="add" size={26} color={colors.base} />
+        {/* Ionicons' "add" glyph sits off-centre in its own box on RN Web (font metrics, not
+            layout) — two bars positioned by hand match the design's .fab::before/::after
+            exactly and centre correctly on every platform. */}
+        <View style={{ position: "absolute", left: "50%", top: "50%", width: 20, height: 3.4, marginLeft: -10, marginTop: -1.7, borderRadius: 2, backgroundColor: colors.base }} />
+        <View style={{ position: "absolute", left: "50%", top: "50%", width: 3.4, height: 20, marginLeft: -1.7, marginTop: -10, borderRadius: 2, backgroundColor: colors.base }} />
       </Animated.View>
     </Pressable>
   );
@@ -234,33 +279,35 @@ export function TabBar({ state, navigation }: TabBarProps) {
     );
   };
 
+  // v3 design (claude.ai/design 23bc2cae…, .tabbar rule): no floating blur pill — the bar is
+  // just icons sitting directly on a bottom-anchored dark gradient scrim, edge to edge.
+  const scrimHeight = NAV.BAR_HEIGHT + tabBarBottom(insets.bottom) + NAV.FAB_RISE + 12;
+
   return (
-    <View
-      pointerEvents="box-none"
-      style={{ position: "absolute", left: NAV.BAR_MARGIN, right: NAV.BAR_MARGIN, bottom: tabBarBottom(insets.bottom) }}
-    >
-      <Animated.View style={barStyle}>
-        <BlurView
-          intensity={60}
-          tint="dark"
-          style={{
-            flex: 1,
-            borderRadius: 100,
-            overflow: "hidden",
+    <View pointerEvents="box-none" style={{ position: "absolute", left: 0, right: 0, bottom: 0 }}>
+      <LinearGradient
+        pointerEvents="none"
+        colors={["rgba(8,8,10,0)", "rgba(8,8,10,0.55)", "rgba(8,8,10,0.92)", "rgba(8,8,10,0.99)"]}
+        locations={[0, 0.22, 0.48, 1]}
+        style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: scrimHeight }}
+      />
+
+      <Animated.View
+        style={[
+          barStyle,
+          {
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "space-around",
-            borderWidth: 1,
-            borderColor: "rgba(255,255,255,0.08)",
-            backgroundColor: "rgba(24,24,28,0.82)",
-          }}
-        >
-          {left.map(renderTab)}
-          {/* The host button overhangs the bar's top edge, so it can't live inside a
-              BlurView that has to clip its own blur — this reserves its slot instead. */}
-          <View style={{ width: NAV.FAB_SIZE }} />
-          {right.map(renderTab)}
-        </BlurView>
+            paddingHorizontal: 24,
+            paddingBottom: tabBarBottom(insets.bottom),
+          },
+        ]}
+      >
+        {left.map(renderTab)}
+        {/* Reserves the FAB's slot in the row so its overhang above doesn't overlap a tab. */}
+        <View style={{ width: NAV.FAB_SIZE }} />
+        {right.map(renderTab)}
       </Animated.View>
 
       {/* Centred on the bar, then lifted so it overhangs the top edge — same silhouette as the
@@ -271,7 +318,7 @@ export function TabBar({ state, navigation }: TabBarProps) {
           position: "absolute",
           left: 0,
           right: 0,
-          bottom: (NAV.BAR_HEIGHT - NAV.FAB_SIZE) / 2 + NAV.FAB_RISE,
+          bottom: tabBarBottom(insets.bottom) + (NAV.BAR_HEIGHT - NAV.FAB_SIZE) / 2 + NAV.FAB_RISE,
           alignItems: "center",
         }}
       >

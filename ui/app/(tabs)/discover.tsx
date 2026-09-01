@@ -464,18 +464,17 @@ function NotificationBell() {
 // The map is entered from here, not from a floating pill: the list is the primary surface, and a
 // pinned row has no content to overlap (the pill was positioned off tab-bar clearance, so it
 // painted over the map sheet's peek content at every snap). Exit lives inside the sheet.
+// v3 design (claude.ai/design 23bc2cae…, "Discover" doc note on screen 1): Search and Map moved
+// into the header's icon cluster beside the bell, so this row carries only Filters + the active
+// filter chips — the two-icon-button cap from the design's Foundations doc.
 function FilterChipsRow({
   activeCount,
   chips,
   onPressFilters,
-  onPressMap,
-  onPressSearch,
 }: {
   activeCount: number;
   chips: { key: string; label: string; onClear: () => void }[];
   onPressFilters: () => void;
-  onPressMap: () => void;
-  onPressSearch: () => void;
 }) {
   return (
     <View style={{ position: "relative" }}>
@@ -485,34 +484,6 @@ function FilterChipsRow({
       style={{ flexGrow: 0 }}
       contentContainerStyle={{ gap: 8, paddingHorizontal: LAYOUT.SCREEN_PAD, paddingBottom: 12, alignItems: "center" }}
     >
-      {/* gtm-plan.md G9: the list view had no way to type a venue name at all — venues_directory
-          (search-backed) only existed one tap into the map or three deep in the filters sheet. */}
-      <Pressable
-        testID="discover-search-open"
-        accessibilityRole="button"
-        accessibilityLabel="Search venues and suburbs"
-        onPress={onPressSearch}
-        className="flex-row items-center gap-1.5 rounded-pill pl-3 pr-3.5 py-2 border"
-        style={{ backgroundColor: colors.surfaceAlt, borderColor: colors.cardBorder }}
-      >
-        <Ionicons name="search" size={14} color={colors.text} />
-        <Text className="font-body-bold text-[12.5px]" style={{ color: colors.text }}>
-          Search
-        </Text>
-      </Pressable>
-      <Pressable
-        testID="discover-map-open"
-        accessibilityRole="button"
-        accessibilityLabel="Show these games on a map"
-        onPress={onPressMap}
-        className="flex-row items-center gap-1.5 rounded-pill pl-3 pr-3.5 py-2 border"
-        style={{ backgroundColor: colors.surfaceAlt, borderColor: colors.cardBorder }}
-      >
-        <Ionicons name="map-outline" size={14} color={colors.text} />
-        <Text className="font-body-bold text-[12.5px]" style={{ color: colors.text }}>
-          Map
-        </Text>
-      </Pressable>
       <Pressable
         onPress={onPressFilters}
         className="flex-row items-center gap-1.5 rounded-pill pl-3 pr-3.5 py-2 border"
@@ -1155,16 +1126,35 @@ export default function Discover() {
             {locationLabel.toUpperCase()} · {discoverRadiusKm}KM RADIUS
           </Text>
         </View>
-        <NotificationBell />
+        <View className="flex-row gap-2" style={{ marginTop: 2 }}>
+          {/* gtm-plan.md G9, moved here per v3 design's header icon cluster (screen 1 note):
+              venues_directory search used to be one tap into the map or three deep in the
+              filters sheet with no way to type a venue name from the list at all. */}
+          <Pressable
+            testID="discover-search-open"
+            accessibilityRole="button"
+            accessibilityLabel="Search venues and suburbs"
+            onPress={() => router.push(session ? "/venues" : "/onboarding")}
+            className="w-[38px] h-[38px] rounded-full items-center justify-center border"
+            style={{ backgroundColor: "#17171A", borderColor: "rgba(255,255,255,0.08)" }}
+          >
+            <Ionicons name="search" size={16} color={colors.textSecondary} />
+          </Pressable>
+          <Pressable
+            testID="discover-map-open"
+            accessibilityRole="button"
+            accessibilityLabel="Show these games on a map"
+            onPress={() => (session ? setDiscoverView("map") : router.push("/onboarding"))}
+            className="w-[38px] h-[38px] rounded-full items-center justify-center border"
+            style={{ backgroundColor: "#17171A", borderColor: "rgba(255,255,255,0.08)" }}
+          >
+            <Ionicons name="map-outline" size={16} color={colors.textSecondary} />
+          </Pressable>
+          <NotificationBell />
+        </View>
       </View>
 
-      <FilterChipsRow
-        activeCount={activeFilterChips.length}
-        chips={activeFilterChips}
-        onPressFilters={() => setFiltersOpen(true)}
-        onPressMap={() => (session ? setDiscoverView("map") : router.push("/onboarding"))}
-        onPressSearch={() => router.push(session ? "/venues" : "/onboarding")}
-      />
+      <FilterChipsRow activeCount={activeFilterChips.length} chips={activeFilterChips} onPressFilters={() => setFiltersOpen(true)} />
 
       <FiltersSheet visible={filtersOpen} onClose={() => setFiltersOpen(false)} markLevelTouched={markLevelTouched} />
 

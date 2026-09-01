@@ -25,6 +25,8 @@ npm run web        # experimental web preview, not a shipped platform
 npx tsc --noEmit   # type check (strict mode; no lint/test scripts configured)
 ```
 
+Visual verification of UI changes: `npm run web` + Browser pane at the mobile viewport preset (375x812) is the fastest way to eyeball a change without a simulator — not a substitute for a real iOS/Android check before shipping, since `web` is unshipped and can diverge (e.g. no native blur/haptics). `.claude/launch.json` has `smashio-web-alt` (port 8083) preconfigured for this.
+
 `ui/.env` is checked in pointing at the local `supabase start` stack — `npm start` / `run:ios` / `run:android` / jest / Maestro e2e all use it, no setup needed. `ui/.env.production` (gitignored) holds the hosted project's URL/key for `eas build`/`expo export` only — real device/store builds always use it, local dev never does. `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` blank = grey map tiles + no venue search in the wizard. Test login: `test@smashio.dev` / `Test1234!` (email/password, no Google needed) — seeded into both the local db (`supabase/seed.sql`) and the hosted project.
 
 Store builds go through EAS (`ui/eas.json`): `eas build --profile production --platform ios`.

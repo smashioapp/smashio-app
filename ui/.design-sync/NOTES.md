@@ -132,3 +132,12 @@ Render check: `bad`/`thin` set unchanged from the list above, no new warns.
 
 The feed and composer screens (`app/(tabs)/feed.tsx`, `app/compose.tsx`) are
 app routes, not `components/`, so they are outside `srcDir` and did not sync.
+
+### Second 2026-09-01 run — no-op
+
+Re-ran after `93dc6ab`/`0ecbfec`. `upload.any: false`: 77 components, nothing
+changed/added/removed, bundle sha held at `6ca69ee`. The only in-scope edit in
+those commits was `TabBar.tsx`'s feed icon (`newspaper` → `people`) and it was
+already in the working tree when the earlier run built, so it shipped in that
+upload. Everything else in both commits is app routes (`feed.tsx`,
+`my-games.tsx`, `compose.tsx`) — outside `srcDir`.

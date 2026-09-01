@@ -463,6 +463,349 @@ RollingNumber, Burst, EmptyState, Skeleton, VettingStrip, SegmentedToggle, Butto
     show me how we render bad news without shaming someone into churning.
 ```
 
+## Prompt 6 — Create a game, v3 (the draft card)
+
+Run **after** prompt 1. Redesign of shipped code, not greenfield — read
+[create-game-plan.md](create-game-plan.md) first, especially §0 (what already shipped, don't
+re-propose it) and §1 (the diagnosis this prompt is answering). Every structural decision below
+is already signed off; the prompt states them as constraints, not options.
+
+```
+You are redesigning SMASHIO's create-a-game flow. This is the host's core action and it is
+currently the weakest surface in the app. Read the constraints as settled decisions — I am not
+asking you to re-open them, I am asking you to design inside them brilliantly.
+
+=== CONTEXT ===
+SMASHIO is a badminton player-matching app for Sydney. Hosts are NOT booking a court through us.
+They already booked and paid for court time, and they are selling their spare slots to cut their
+own cost. So a "game" is: a court booking that already exists, plus the people the host wants in
+it. The app's one real differentiator is that a host can upload their booking confirmation (photo
+or PDF), an LLM reads it, and the game publishes as VERIFIED — we can vouch that the court is
+genuinely booked. No competitor in this market has that.
+
+Dark only. There is no light mode. Tokens (use these exactly):
+  base #0A0A0B · baseAlt #08080A · surface #141416 · surfaceAlt #1F1F24
+  card #18181C · cardAlt #0E0E10 · cardBorder rgba(255,255,255,0.08)
+  accent (lime) #D6FF3F · accentSoft #EBFF7A · accent2 #AEE62A
+  text #F5F5F7 · textSecondary #96969E · textTertiary #7A7A82 · textMuted #5C5C64
+  tier colors: Beginner #6FCBFF · Intermediate #35D6A6 · Advanced #FFB648 · Pro #C08CFF
+  danger #FF6767
+  24px screen gutter. Radii: hero 26 · card 18 · rail 16 · sheet 28 · tile 16.
+  One lime "hero" anchor per screen, never two.
+This project already has SMASHIO's real component library imported. Build on GameCard, Sheet,
+Chip, Badge, TierBadge, Button, HoldButton, Burst, StepProgress, EmptyState, Avatar. Do not
+invent a parallel kit.
+
+=== WHAT'S BROKEN TODAY (design against this) ===
+1. Six wizard steps. After venue and date the host meets FIVE +/- steppers in a row — total
+   players, reserved spots, courts, duration, price. A big lime numeral between two grey circles,
+   five times. That is the entire interaction model.
+2. The host never sees what they're making. The GameCard other players will see is not on screen
+   at any point during creation.
+3. Ten fields, nine of them numbers, none of them the host's voice. Two games at the same venue
+   on the same night are visually identical.
+4. "Reserved spots" is an integer. The host thinks "me, Mia, Raj and three strangers" and we make
+   them convert that to the number 2, then find a different screen after publish to name them.
+5. The host is not in their own roster. The header counts them, the avatars don't.
+
+=== SETTLED STRUCTURE — TWO STEPS, THEN ONE CARD ===
+STEP 1 — the fork. Unchanged in function, restyled: "Got a booking confirmation?" with a primary
+upload action and a quiet "I'll type it in instead". The upload action must offer BOTH camera and
+file (images or PDF) — hosts are often standing at the venue desk holding a printed receipt.
+This screen is the best thing in the current flow. Make it feel like the front door of the whole
+product, not a modal question.
+
+STEP 2 — THE DRAFT CARD. One scrolling screen. No more steppers, no page pushes.
+At the top, a LIVE PREVIEW of the actual GameCard that players will see on Discover — cover art,
+venue, time, tier, fill state — re-rendering as the host edits. This is the single most important
+idea in the redesign: the host edits the artifact, not a form about it. Luma's model.
+
+Below the preview, four required rows, each tap-to-expand IN PLACE (inline accordion or bottom
+sheet, your call — argue for one and use it consistently):
+   WHERE  venue
+   WHEN   date, start time, duration
+   WHO    lineup strip + skill range
+   COST   price per player
+Then ONE collapsed row: "More options", showing a summary of its current defaults so the host can
+see it's already answered — e.g. "Social · Public · Auto-approve · You bring shuttles". Opening it
+reveals: host note (280 chars, free text — the only field where the host has a voice), format
+(social / competitive / drills / doubles rotation), visibility (public / link-only), auto-approve
+join requests (on by default), shuttles (who brings, feather or nylon), court number (optional
+text, e.g. "Court 3"). EVERY one of these ships with a sensible default pre-selected. A host must
+be able to publish having never opened this row.
+Publish button always visible and never gated behind a Continue chain. When it can't fire, it says
+why inline ("Pick a venue first"), it does not just grey out.
+
+=== THE RECEIPT PATH, AND THE VERIFIED MOMENT ===
+When step 1 got a document, the parse fills WHERE and WHEN before the host sees the card, and the
+preview is ALREADY stamped verified. Design that stamp — it is the payoff for the whole feature
+and today it gets no moment at all.
+  · Parsed rows carry a "from your confirmation" provenance tag, and a thumbnail of the source
+    document is one tap away (a trust badge that links to its evidence is materially more
+    credible than a static seal).
+  · Fields the model read with HIGH confidence are LOCKED — read-only, lock glyph, provenance tag.
+    Medium and low confidence stay editable with the tag showing. Design all three treatments so
+    they are distinguishable without reading.
+  · Every locked row carries "Doesn't match my booking?" → a sheet with two exits: re-upload a
+    different document, or unlock this one field. Design that sheet. A locked wrong time sends
+    players to the wrong court, so the escape hatch must be findable, not hidden.
+  · Design the parsing state (2–5 seconds, document already picked) and the "that's not a booking
+    confirmation" bounce. Neither may dead-end — both land in a working flow.
+
+=== THE LINEUP STRIP — the centrepiece, design it first ===
+Replaces the wrapped avatar grid AND the separate "Held for friends" section. It appears in
+exactly two places: the WHO row of the draft card, and the game detail screen. NOT on Discover
+cards, NOT on the share/invite page. Same component in both places.
+
+For games of 8 players or fewer, render every slot. Five states, each readable at a glance
+without labels:
+  HOST          Smashimal bust, solid, LIME CROWN RING, caption "You" (or the host's first name
+                for everyone else). The host is slot one. Always.
+  JOINED        Smashimal bust, solid ring.
+  NAMED HOLD    initial on the spot's assigned colour, DASHED ring, small person/link glyph.
+  ANON HOLD     blank silhouette, dashed ring, "held".
+  OPEN          SMASHIMAL HEAD SILHOUETTE — an empty outline in the exact head shape of our
+                shipped busts (ears, snout, the lot), dotted ring at ~40% opacity, "open".
+                Not a generic person glyph. This is a brand asset nobody else in the market has.
+Order is stable and never re-sorts under the viewer: host → joins in join order → holds → open.
+Filling reads left to right like a progress bar.
+Group the slots by players-per-court (4 for badminton) with a hairline divider, so an 8-player
+2-court game visibly reads as two courts — which is what the host booked and what players will
+walk into. Above 8 players the strip collapses to a row of dots plus "+4" with a tap-through.
+One line of copy beneath replaces three separate counters that exist today: "3 in · 1 held ·
+4 open · $6 each".
+
+THE STRIP IS THE EDITOR. In the create flow, tapping an open slot opens "add someone": one search
+field, three outcomes, no mode switch — pick a matching SMASHIO player (they get an invite), or
+"just hold a spot for 'Raj'" (named hold + share link), or hold it unnamed. Design that picker.
+If the game is full and the host adds another person, the total bumps and the strip says so
+inline ("Bumped to 6 so Raj fits") — never silently.
+On the game detail screen the same strip is the roster: filled slot → player card peek, held slot
+→ host names/invites/releases, open slot → share sheet for the host, Join for everyone else.
+Cancelled game → whole strip desaturates, never disappears.
+Motion: a slot filling pops; the LAST open slot going solid is the "we're on" moment and fires a
+burst — reuse the publish stamp's vocabulary. Everything respects reduce-motion.
+
+=== THE COST ROW ===
+Price is capped at $20 per player per hour and is the one field a receipt CANNOT answer — what
+the host paid is not what the host charges. So when a receipt gave us a total, the row opens on a
+SUGGESTION the host must confirm or change: "Your booking was $44. At 6 players that's $8 each,
+you'd cover it." Never pre-applied, never silently defaulted. Design how a suggestion looks
+different from an answered field. Show the host their own break-even as they change headcount —
+this is the number that decides whether they host again.
+
+=== DURATION ===
+Duration is moving from whole hours to 15-minute steps (1h30 is the most common Sydney block).
+Design a duration control that handles 1h00–6h00 in quarter hours without becoming a spinner.
+
+=== EDIT IS THE SAME CARD ===
+The host's edit screen reuses this draft card against a published game. Design that variant:
+venue row locked with a reason (venue cannot change after publish — people agreed to a place),
+a persistent line saying joined players will be notified of changes, and a save affordance that
+is clearly not "publish". One component, two modes.
+
+=== PUBLISH AND AFTER ===
+Keep the existing publish celebration — two lines sweeping in, a checkmark stamping with
+overshoot, a burst at peak, the summary sliding up from underneath. It is good. What changes is
+where it lands: the success screen must lead with GET PEOPLE IN — share link, "invite from your
+last game", copy-for-WhatsApp — not a summary and a "Let's go!" that sends you back. Design it as
+a distribution moment.
+Also design one lightweight post-publish nudge: a game whose host note is still empty gets a
+gentle prompt on its own page ("Say something about this game — it's the difference between four
+identical listings"). One surface, not a nag campaign.
+
+=== COPY TONE ===
+Casually Australian and human. Contractions fine. Light Aussie phrasing where it lands naturally
+("no worries", "keen", "sorted") but clarity beats personality. Never "An error has occurred" —
+say "Something's gone wrong, give it another go." NEVER use em dashes in user-facing text; use a
+comma or a full stop. Write every string in the designs as real copy, not lorem.
+
+=== NOT IN THIS PASS ===
+· Verifying an ALREADY-PUBLISHED game by uploading a receipt (its own pass later).
+· Recurring / weekly games.
+· Saved squads or named reusable rosters.
+· In-app payment.
+· The lineup strip on Discover cards or the public invite page.
+
+=== DELIVER ===
+Artboards for every screen and every state, PLUS the reusable pieces specced as components with
+all their states — matching how the component library is already organised.
+1. Step 1 fork, and its camera-vs-file affordance.
+2. Parsing state, and the not-a-confirmation bounce.
+3. The draft card, receipt path: verified stamp, locked / editable / low-confidence rows, the
+   "doesn't match my booking?" sheet.
+4. The draft card, manual path: same card, nothing pre-filled, so I can see how it degrades.
+5. Each expanded row in place — where, when, who, cost — and the More options sheet.
+6. LINEUP STRIP as a component: all five slot states, 2 / 4 / 6 / 8 players, the >8 collapse, the
+   court grouping, the add-someone picker, the cancelled state.
+7. The strip in situ on the game detail screen, with the host as slot one.
+8. Edit mode of the draft card.
+9. Publish celebration → the share-first success screen.
+10. The empty-note nudge.
+11. States throughout: loading, offline mid-parse, validation ("that time's already passed"),
+    venue unresolvable, and a host who has published nothing before.
+```
+
+## Prompt 6a — Host a Game v3, revision pass
+
+Run against the existing `SMASHIO v3 - Host a Game.html`. It is good and mostly correct — this
+is a targeted revision, not a redo. Findings recorded 2026-09-01 after reading the file back
+through the design MCP.
+
+```
+Revising SMASHIO v3 - Host a Game. The file is strong: structure, the fork, the parse ladder,
+the strip, edit mode, the share-first landing and the edge states are all right and should not
+be redrawn. Nine specific changes below. Keep everything not named here exactly as it is.
+
+=== BLOCKING — three fields the flow cannot ship without ===
+
+1. TOTAL PLAYERS IS NOT SETTABLE.
+The expanded WHO row is lineup strip + skill range. There is no control for max_players (range
+2–16, and the host counts as one of them). Today a host can only grow the game by adding a
+person and letting it auto-bump; a host who wants a 4-player game cannot shrink the default.
+Add the control to the expanded WHO row, above the skill range. It must not be another +/-
+stepper in a card — that is the pattern this whole redesign exists to kill. Consider sizing the
+strip itself: drag the strip's end, or tap a "+ slot" / "− slot" affordance on the strip's tail,
+so the count and the thing being counted are one object. Show what happens at both ends of the
+range, and show a strip at 2, 6 and 16 (16 is the collapsed dot row).
+
+2. COURTS BOOKED IS MISSING ENTIRELY.
+`courts_booked` is a real field (1–10), it is read off the receipt, and the strip's own court
+grouping depends on it. The file currently derives courts from headcount — the 8-player artboard
+is captioned "2 COURTS". That is wrong: 8 players on ONE court in rotation is completely normal
+badminton, and it is a different game from 8 players across two courts. Add courts to the
+expanded WHEN row (it is a property of the booking, alongside duration), receipt-fillable with a
+provenance tag like the rest. Then make the strip's grouping follow courts_booked, not
+players ÷ 4, and show the case the current file cannot express: 8 players, 1 court, no divider,
+with a line saying they are rotating.
+
+3. THE COST ROW WEARS THE LOW-CONFIDENCE COSTUME.
+The cost row uses `.acc.low` and `.prov.low` — the exact amber treatment the confidence key
+defines as "the model wasn't sure, check this". But cost is not a badly-read field. It is a
+deliberate suggestion the host must accept, and price is the one thing a receipt genuinely
+cannot answer (what the host paid ≠ what the host charges). Same amber, two meanings, in the
+same card. Give the suggestion its own treatment — it should read as an offer, not a warning.
+The lime accent is a candidate since it is the app's "this is good, take it" colour, but only if
+it does not fight the Publish button for the screen's one hero. Show the suggestion state and
+the accepted state side by side.
+
+=== NEEDED — one missing screen, one wrong assumption ===
+
+4. THE SOURCE DOCUMENT IS NEVER VIEWABLE.
+Every provenance tag says "FROM YOUR CONFIRMATION · view", and the whole trust argument rests on
+a badge that links to its evidence. There is no artboard for what "view" opens. Design it: the
+receipt/screenshot at readable size, pinch-zoomable, with the field it was read for called out
+on the image if that is feasible. Reachable from any provenance tag and from the mismatch sheet.
+
+5. PDF HAS NO VISUAL.
+The parsing state makes the document its own hero — "it stays on-screen, slightly desaturated,
+while the ring spins over it". That works for a photo. A PDF emailed by the venue has no
+thumbnail without extra work, and PDF is a first-class input in this flow (venues email them
+constantly). Design the PDF variant of the parsing state, of the draft card's provenance
+thumbnail, and of the source-document viewer from item 4. A filename and a page count in a
+document-shaped frame is fine; guessing at a render is not.
+
+=== ALIGNMENT — four things that drift from what was signed off ===
+
+6. FILLED SLOTS SHOULD BE SMASHIMALS, NOT INITIALS.
+Host and joined slots are currently a coloured circle with a letter. Every SMASHIO account has a
+Smashimal bust avatar — 28 shipped characters — and the open slot you drew is already their head
+silhouette, which is exactly right. Filled slots should be the bust itself, so filling a slot
+reads as the silhouette resolving into a character. Initials stay as the fallback for named
+holds (a held spot has a name but no account, so there is no bust to show) — that also makes
+"held" visually distinct from "joined" by more than a dashed ring.
+
+7. NO MEDIUM-CONFIDENCE ROW APPEARS IN ANY REAL CARD.
+Only high-confidence fields lock; medium and low stay editable. The confidence key panel shows
+all three treatments correctly, but in the actual draft card both WHERE and WHEN are locked. The
+mixed card is the COMMON case and the one where the three treatments have to be told apart at a
+glance. Redraw the main receipt draft with WHERE locked (high) and WHEN editable-with-tag
+(medium), so the contrast is visible where it matters.
+
+8. "SAVE & EXIT" IMPLIES SOMETHING WE DO NOT HAVE.
+The draft card header has "Save & exit". There is no draft persistence in the product — wizard
+state is in-memory and resets, and an abandoned parsed receipt is swept after 24 hours. Either
+change it to "Cancel" / "Discard", or, if you think saved drafts are worth having, design the
+whole idea: where a saved draft lives, how it is found again, what it looks like in a list, and
+what happens to its attached receipt. Do not leave the affordance implying a feature.
+
+9. THE PREVIEW MUST NOT USE THE LINEUP STRIP.
+The draft card's live GameCard preview shows "You · M · +4" and the artboard's component list
+names LineupStrip. The strip is scoped to exactly two surfaces — the WHO row and the game detail
+roster — and never to a Discover card. The preview IS a Discover card. Make it explicit that the
+preview uses AvatarStack, the existing component, so the build cannot accidentally ship the strip
+onto every list surface.
+
+=== SMALL ===
+· The strip's collapse threshold is shown at >8, but 2 and 6 player variants are missing from
+  the component sheet. Add them.
+· "✓ VERIFIED BOOKING" on the draft cover vs "✓ VERIFIED" on game detail. Pick one and use it
+  everywhere, including the Discover card.
+· Edit mode shows "6 in · 0 held · 2 open". What happens when a host drags max_players below the
+  number of people already in? Show the blocked state and its copy.
+· The camera path has no permission-denied state. One inline row is enough.
+· Step affordance: the flow is described as two steps but nothing on either screen says so. Either
+  add a minimal 1-of-2 marker to the draft card header, or drop the two-step framing from the
+  narration and call it what it is — one decision, then one card. Argue for whichever you think is
+  right; do not leave it ambiguous.
+
+=== DO NOT CHANGE ===
+The fork screen and its action sheet. The parsing state's document-as-hero idea. The bounce and
+offline states. The mismatch sheet's two-exit structure. The More options sheet and its defaults
+summary. Edit mode's locked-venue reason and amber banner. The publish celebration and the
+share-first landing, including the first-time-host variant. The empty-note nudge. All edge states
+in band 11. The copy throughout — it is on tone and should survive verbatim wherever the layout
+does not force a change.
+```
+
+## Prompt 6b — Host a Game v3, polish pass
+
+Run after 6a. Everything from 6a landed correctly; these are the four nits left over plus one
+judgement call. Small pass, no structural change.
+
+```
+Final polish on SMASHIO v3 - Host a Game. The 6a revision landed correctly — max_players sizing,
+courts_booked, the offer treatment, the source-document viewer, the PDF variants, busts in filled
+slots, the mixed-confidence card, the step marker and AvatarStack are all right. Four small things
+left. Change only these.
+
+1. COURTS STOPS AT "4+".
+The chips read 1 / 2 / 3 / 4+ but the real range is 1 to 10. Show what "4+" opens — a compact
+numeric entry, a longer chip row, whatever fits the row without turning into a stepper — and show
+the selected state for a value above 4, so the row can say "6 courts" without a mystery chip.
+
+2. REMOVING A SLOT IS AN INVISIBLE AFFORDANCE.
+Adding a slot is a visible dashed tile. Removing one is long-press on the last open slot, which
+nobody will find. Either give the last open slot a visible remove affordance that appears once the
+strip is above its minimum, or design a one-time hint that teaches it. Adding and removing should
+not have wildly different discoverability.
+
+3. NUMBER BOTH SCREENS OR NEITHER.
+"STEP 2 OF 2" appears on both draft cards. The fork screen has no marker at all, so the host meets
+"step 2" having never seen a step 1. Add the matching marker to the fork, or drop the numbering
+from the draft card and let the flow read as one decision then one card. Pick one, apply it to
+every artboard.
+
+4. TWO AVATAR LANGUAGES ON ONE SCREEN.
+The lineup strip now renders busts. The GameCard preview directly above it renders initials in
+AvatarStack ("You / M / +4"). Same screen, same people, two visual languages. AvatarStack should
+render the same busts at its smaller overlapped size, with initials only as the fallback for a
+player with no avatar. Update it wherever the preview appears.
+
+JUDGEMENT CALL, tell me what you think rather than just changing it:
+The offer treatment (.acc.offer) is a lime-bordered tint, and the Publish button is a lime fill on
+the same screen. The design system says one lime hero per screen. I think a tint and a fill are
+different enough, and the offer scrolls while Publish is pinned — but you drew it, so look at it at
+real size and tell me whether it holds or whether the offer needs a different accent.
+
+OPTIONAL, your call:
+Courts now sits under a row labelled WHEN, which reads "Sat 6 Sep · 7:00–8:30pm · 2 courts". It is
+a booking property like duration so it belongs there, but the label is a stretch. Either rename the
+row to something that covers time and court allocation, or leave it. Say which you chose and why.
+
+Everything else in the file stays exactly as it is.
+```
+
 ---
 
 ## Notes for whoever runs these
@@ -474,5 +817,11 @@ RollingNumber, Burst, EmptyState, Skeleton, VettingStrip, SegmentedToggle, Butto
 - The mark itself is frozen. Only the wordmark typeface is in play.
 - Prompt 5 is a redesign of shipped code, not greenfield — read [profile-plan.md](profile-plan.md)
   (P0-P6 all landed) before running it, so the agent is not handed problems we already fixed.
+- Prompt 6 is next in build order, after the feed. Its structural decisions were settled
+  2026-09-01 and are recorded in [create-game-plan.md](create-game-plan.md) §9 — read that before
+  changing anything in the prompt, and don't re-open: two steps not six, high-confidence-only
+  locking, extra fields behind one collapsed row with defaults pre-picked, the lineup strip as the
+  people editor on exactly two surfaces, edit reusing the draft card, verify-an-existing-game out
+  of scope.
 - Social (prompt 4) is unapproved scope — see [social-plan.md](social-plan.md) §11. Designing it is
   cheap; building it needs sign-off.

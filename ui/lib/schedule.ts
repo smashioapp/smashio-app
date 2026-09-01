@@ -1,12 +1,36 @@
 import { formatDate } from "./format";
 
-// Host picks how many hours the court's booked for; ends_at is derived from starts_at + this.
-export const DEFAULT_DURATION_HOURS = 2;
+// Host picks how long the court's booked for, in 15-minute steps (create-game-plan.md §9.12 —
+// 1h30 is the most common Sydney badminton block, and rounding to a whole hour publishes an end
+// time later than what the receipt actually proves). Hours stay the unit callers pass around
+// (durationMs, the wizard draft, edit form) since durationMs(1.5) is already exact — only the
+// DB column is minutes (games.duration_minutes).
+export const DEFAULT_DURATION_HOURS = 1.5;
 export const MIN_DURATION_HOURS = 1;
 export const MAX_DURATION_HOURS = 6;
+export const DURATION_STEP_HOURS = 0.25;
 
 export function durationMs(hours: number): number {
   return hours * 60 * 60 * 1000;
+}
+
+export function durationMinutesToHours(minutes: number): number {
+  return minutes / 60;
+}
+
+export function hoursToDurationMinutes(hours: number): number {
+  return Math.round(hours * 60);
+}
+
+// "1h 30m" / "2h" — the display form everywhere a fractional-hour value would otherwise read as
+// "1.5h", which nobody actually says.
+export function formatDuration(hours: number): string {
+  const totalMinutes = Math.round(hours * 60);
+  const h = Math.floor(totalMinutes / 60);
+  const m = totalMinutes % 60;
+  if (m === 0) return `${h}h`;
+  if (h === 0) return `${m}m`;
+  return `${h}h ${m}m`;
 }
 
 export const TIME_OPTIONS = [

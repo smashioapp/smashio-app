@@ -41,7 +41,8 @@ import { haptics } from "../../lib/haptics";
 import { shareGame } from "../../lib/share";
 import { track } from "../../lib/analytics";
 import { ReservedSpots } from "../../components/ReservedSpots";
-import { useClaimReservedSpot, useRespondToGameInvite } from "../../lib/queries/reservedSpots";
+import { useClaimReservedSpot, useReservedSpots, useRespondToGameInvite } from "../../lib/queries/reservedSpots";
+import { LineupStrip, lineupSummary, type LineupSlot } from "../../components/LineupStrip";
 import { useReduceMotion } from "../../lib/motion";
 import { GameDetailSkeleton } from "../../components/Skeleton";
 
@@ -75,6 +76,8 @@ export default function GameDetails() {
   const organizerCard = usePlayerCard(game?.organizerId);
   const respondToInvite = useRespondToGameInvite(gameId);
   const claimSpot = useClaimReservedSpot();
+  const reservedSpotsQuery = useReservedSpots(session ? gameId : "");
+  const removePlayer = useRemovePlayer(gameId);
   const reduceMotion = useReduceMotion();
   const { width: windowWidth } = useWindowDimensions();
   const [onCalendar, setOnCalendar] = useState(false);
@@ -207,6 +210,23 @@ export default function GameDetails() {
     .filter(Boolean)
     .join(" · ");
   const organizer = organizerCard.data;
+
+  // Lineup slots: host, then joins in join order, then holds, then open — stable order, never
+  // re-sorts (create-game-plan.md §4.5).
+  const named = reservedSpotsQuery.data ?? [];
+  const namedSlots: LineupSlot[] = named.map((s) => ({ kind: "named", id: s.id, label: s.claimedName ?? s.invitedName ?? s.label, claimed: !!s.claimedBy }));
+  const joinedSlots: LineupSlot[] = joined.map((p) => ({ kind: "joined", id: p.id, name: p.name, avatarKey: p.avatarKey, photoUri: p.photoUri }));
+  const anonCount = Math.max(0, game.reservedSpots - named.length);
+  const anonSlots: LineupSlot[] = Array.from({ length: anonCount }, (_, i) => ({ kind: "anon", id: `anon-${i}` }));
+  const filledForStrip = 1 + joinedSlots.length + namedSlots.length + anonSlots.length;
+  const openSlots: LineupSlot[] = cancelled ? [] : Array.from({ length: Math.max(0, game.maxPlayers - filledForStrip) }, (_, i) => ({ kind: "open", id: `open-${i}` }));
+  const lineupSlots: LineupSlot[] = [
+    { kind: "host", id: game.organizerId, name: organizer?.displayName || game.organizerName || "Host", avatarKey: organizer?.avatarKey },
+    ...joinedSlots,
+    ...namedSlots,
+    ...anonSlots,
+    ...openSlots,
+  ];
 
   return (
     <View className="flex-1" style={{ backgroundColor: colors.base }}>
@@ -358,25 +378,57 @@ export default function GameDetails() {
 
           {isOrganizer && !cancelled && <JoinRequests gameId={gameId} full={full} onLayoutY={scrollToRequests} />}
 
-          {/* +1 for the host, who holds one of max_players but has no game_players row
-              (post-game-plan.md D1) — this read "2/4" for a game with 3 people in it. */}
+          {/* Lineup strip (create-game-plan.md §4.4/§4.5): the host is slot one, not a separate
+              card above a roster that doesn't contain them. Same component as the draft card's
+              WHO row. Filled/held management still lives in ReservedSpots below — this is the
+              at-a-glance read; that's the action surface. */}
           <View className="flex-row items-center justify-between mt-5.5 mb-2.5">
             <Text className="font-body-extrabold text-[13px] uppercase tracking-wide" style={{ color: colors.textTertiary }}>
-              Players joined ({game.joinedCount + 1}/{game.maxPlayers})
+              Lineup
             </Text>
-            {/* Waitlist is auto-promoted, not something the host reviews — a count is enough,
-                unlike join requests which need Approve/Decline. */}
             {isOrganizer && !cancelled && !!waitlistCountQuery.data && (
               <Text className="text-[12px] font-body-semibold" style={{ color: colors.textTertiary }}>
                 {waitlistCountQuery.data} on waitlist
               </Text>
             )}
           </View>
-          <View className="flex-row flex-wrap gap-2.5">
-            {joined.map((p) => (
-              <RosterAvatar key={p.id} gameId={gameId} player={p} canRemove={isOrganizer && !cancelled} />
-            ))}
-          </View>
+          <LineupStrip
+            slots={lineupSlots}
+            courtsBooked={game.courtsBooked}
+            onExpand={() => scrollRef.current?.scrollTo({ y: 999999, animated: true })}
+            onTapSlot={(slot) => {
+              if (slot.kind !== "host" && slot.kind !== "joined") return;
+              if (slot.kind === "joined" && isOrganizer && !cancelled) {
+                Alert.alert(slot.name, undefined, [
+                  { text: "View profile", onPress: () => router.push(`/player/${slot.id}`) },
+                  {
+                    text: "Remove from game",
+                    style: "destructive",
+                    onPress: () =>
+                      Alert.alert(`Remove ${slot.name}?`, "They'll be let know and their spot opens back up.", [
+                        { text: "Cancel", style: "cancel" },
+                        {
+                          text: "Remove",
+                          style: "destructive",
+                          onPress: () => {
+                            haptics.tap();
+                            removePlayer.mutate(slot.id, {
+                              onError: (e) => Alert.alert("Couldn't remove player", e instanceof Error ? e.message : "Give it another go."),
+                            });
+                          },
+                        },
+                      ]),
+                  },
+                  { text: "Cancel", style: "cancel" },
+                ]);
+                return;
+              }
+              router.push(`/player/${slot.id}`);
+            }}
+          />
+          <Text className="text-[12px] mt-2.5" style={{ color: cancelled ? colors.textMuted : colors.textSecondary }}>
+            {lineupSummary(lineupSlots, perPlayer)}
+          </Text>
 
           {!!session && (
             <ReservedSpots gameId={gameId} isOrganizer={isOrganizer} reservedSpots={game.reservedSpots} cancelled={cancelled} />
@@ -544,68 +596,6 @@ function GamePreviewTeaser({ gameId }: { gameId: string }) {
         <Button label="Log in / Create account" onPress={goToLogin} />
       </View>
     </View>
-  );
-}
-
-function RosterAvatar({
-  gameId,
-  player,
-  canRemove,
-}: {
-  gameId: string;
-  player: { id: string; name: string; color: string; photoUri?: string | null; avatarKey?: string | null };
-  canRemove: boolean;
-}) {
-  const removePlayer = useRemovePlayer(gameId);
-
-  const confirmRemove = () => {
-    if (!canRemove) return;
-    Alert.alert(`Remove ${player.name}?`, "They'll be let know and their spot opens back up.", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Remove",
-        style: "destructive",
-        onPress: () => {
-          haptics.tap();
-          removePlayer.mutate(player.id, {
-            onError: (e) => Alert.alert("Couldn't remove player", e instanceof Error ? e.message : "Give it another go."),
-          });
-        },
-      },
-    ]);
-  };
-
-  return (
-    <Pressable
-      onPress={() => router.push(`/player/${player.id}`)}
-      onLongPress={confirmRemove}
-      disabled={removePlayer.isPending}
-      className="items-center gap-1.5"
-      style={{ width: 52, opacity: removePlayer.isPending ? 0.4 : 1 }}
-    >
-      <Avatar
-        id={player.id}
-        name={player.name}
-        color={player.color}
-        photoUri={player.photoUri}
-        avatarKey={player.avatarKey}
-        size={38}
-      />
-      <Text className="text-[12px] font-body-semibold" style={{ color: colors.textSecondary }} numberOfLines={1}>
-        {player.name}
-      </Text>
-      {canRemove && (
-        <Pressable
-          testID={`game-remove-${player.id}`}
-          onPress={confirmRemove}
-          hitSlop={8}
-          className="absolute w-[18px] h-[18px] rounded-full items-center justify-center border"
-          style={{ top: -2, right: 3, backgroundColor: colors.surfaceAlt, borderColor: colors.cardBorder }}
-        >
-          <Ionicons name="close" size={11} color={colors.danger} />
-        </Pressable>
-      )}
-    </Pressable>
   );
 }
 

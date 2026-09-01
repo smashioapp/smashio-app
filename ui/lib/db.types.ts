@@ -335,6 +335,38 @@ export type Database = {
           },
         ]
       }
+      game_formats: {
+        Row: {
+          id: string
+          label: string
+          ordinal: number
+          slug: string
+          sport_id: string
+        }
+        Insert: {
+          id?: string
+          label: string
+          ordinal?: number
+          slug: string
+          sport_id: string
+        }
+        Update: {
+          id?: string
+          label?: string
+          ordinal?: number
+          slug?: string
+          sport_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_formats_sport_id_fkey"
+            columns: ["sport_id"]
+            isOneToOne: false
+            referencedRelation: "sports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       game_players: {
         Row: {
           attended: boolean | null
@@ -456,6 +488,7 @@ export type Database = {
         Row: {
           attendance_marked_at: string | null
           attendance_prompted_at: string | null
+          auto_approve: boolean
           chat_closed_at: string | null
           chat_mode: string
           chat_pause_until: string | null
@@ -465,10 +498,12 @@ export type Database = {
           courts_booked: number
           cover_key: string
           created_at: string
-          duration_hours: number
+          duration_minutes: number
           ends_at: string
+          format_id: string
           id: string
           max_players: number
+          notes: string | null
           nudge_pending_at: string | null
           nudge_underfilled_at: string | null
           organizer_id: string
@@ -476,16 +511,20 @@ export type Database = {
           reminded_24h_at: string | null
           reminded_at: string | null
           reserved_spots: number
+          shuttles: string | null
           skill_tier_id: string
+          skill_tier_max_id: string | null
           sport_id: string
           starts_at: string
           status: string
           venue_id: string
           verification_status: string
+          visibility: string
         }
         Insert: {
           attendance_marked_at?: string | null
           attendance_prompted_at?: string | null
+          auto_approve?: boolean
           chat_closed_at?: string | null
           chat_mode?: string
           chat_pause_until?: string | null
@@ -495,10 +534,12 @@ export type Database = {
           courts_booked?: number
           cover_key?: string
           created_at?: string
-          duration_hours?: number
+          duration_minutes?: number
           ends_at: string
+          format_id: string
           id?: string
           max_players: number
+          notes?: string | null
           nudge_pending_at?: string | null
           nudge_underfilled_at?: string | null
           organizer_id: string
@@ -506,16 +547,20 @@ export type Database = {
           reminded_24h_at?: string | null
           reminded_at?: string | null
           reserved_spots?: number
+          shuttles?: string | null
           skill_tier_id: string
+          skill_tier_max_id?: string | null
           sport_id: string
           starts_at: string
           status?: string
           venue_id: string
           verification_status?: string
+          visibility?: string
         }
         Update: {
           attendance_marked_at?: string | null
           attendance_prompted_at?: string | null
+          auto_approve?: boolean
           chat_closed_at?: string | null
           chat_mode?: string
           chat_pause_until?: string | null
@@ -525,10 +570,12 @@ export type Database = {
           courts_booked?: number
           cover_key?: string
           created_at?: string
-          duration_hours?: number
+          duration_minutes?: number
           ends_at?: string
+          format_id?: string
           id?: string
           max_players?: number
+          notes?: string | null
           nudge_pending_at?: string | null
           nudge_underfilled_at?: string | null
           organizer_id?: string
@@ -536,14 +583,24 @@ export type Database = {
           reminded_24h_at?: string | null
           reminded_at?: string | null
           reserved_spots?: number
+          shuttles?: string | null
           skill_tier_id?: string
+          skill_tier_max_id?: string | null
           sport_id?: string
           starts_at?: string
           status?: string
           venue_id?: string
           verification_status?: string
+          visibility?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "games_format_id_fkey"
+            columns: ["format_id"]
+            isOneToOne: false
+            referencedRelation: "game_formats"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "games_organizer_id_fkey"
             columns: ["organizer_id"]
@@ -554,6 +611,13 @@ export type Database = {
           {
             foreignKeyName: "games_skill_tier_id_fkey"
             columns: ["skill_tier_id"]
+            isOneToOne: false
+            referencedRelation: "skill_tiers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "games_skill_tier_max_id_fkey"
+            columns: ["skill_tier_max_id"]
             isOneToOne: false
             referencedRelation: "skill_tiers"
             referencedColumns: ["id"]
@@ -1883,15 +1947,20 @@ export type Database = {
       games_public: {
         Row: {
           approved_count: number | null
+          auto_approve: boolean | null
           cost_per_player_cents: number | null
           court_label: string | null
           courts_booked: number | null
           cover_key: string | null
           created_at: string | null
-          duration_hours: number | null
+          duration_minutes: number | null
           ends_at: string | null
+          format_id: string | null
+          format_label: string | null
+          format_slug: string | null
           id: string | null
           max_players: number | null
+          notes: string | null
           open_spots: number | null
           organizer_avatar_key: string | null
           organizer_display_name: string | null
@@ -1901,8 +1970,11 @@ export type Database = {
           organizer_reliability_score: number | null
           reserved_claimed: number | null
           reserved_spots: number | null
+          shuttles: string | null
           skill_tier_id: string | null
           skill_tier_label: string | null
+          skill_tier_max_id: string | null
+          skill_tier_max_label: string | null
           skill_tier_ordinal: number | null
           skill_tier_slug: string | null
           sport_id: string | null
@@ -1916,8 +1988,16 @@ export type Database = {
           venue_name: string | null
           venue_suburb: string | null
           verification_status: string | null
+          visibility: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "games_format_id_fkey"
+            columns: ["format_id"]
+            isOneToOne: false
+            referencedRelation: "game_formats"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "games_organizer_id_fkey"
             columns: ["organizer_id"]
@@ -2034,6 +2114,28 @@ export type Database = {
         }[]
       }
       complete_past_games: { Args: never; Returns: undefined }
+      create_game_with_spots: {
+        Args: {
+          p_auto_approve?: boolean
+          p_cost_per_player_cents: number
+          p_court_label?: string
+          p_courts_booked: number
+          p_cover_key?: string
+          p_duration_minutes: number
+          p_format_id?: string
+          p_max_players: number
+          p_notes?: string
+          p_shuttles?: string
+          p_skill_tier_id: string
+          p_skill_tier_max_id?: string
+          p_sport_id: string
+          p_spots?: Json
+          p_starts_at: string
+          p_venue_id: string
+          p_visibility?: string
+        }
+        Returns: string
+      }
       create_post: {
         Args: {
           p_body?: string
@@ -2245,10 +2347,12 @@ export type Database = {
           courts_booked: number
           cover_key: string
           distance_m: number
-          duration_hours: number
+          duration_minutes: number
           ends_at: string
+          format_label: string
           id: string
           max_players: number
+          notes: string
           open_spots: number
           organizer_avatar_key: string
           organizer_display_name: string
@@ -2259,6 +2363,7 @@ export type Database = {
           reserved_claimed: number
           reserved_spots: number
           skill_tier_label: string
+          skill_tier_max_label: string
           skill_tier_ordinal: number
           skill_tier_slug: string
           starts_at: string
@@ -2293,7 +2398,7 @@ export type Database = {
           courts_booked: number
           cover_key: string
           distance_m: number
-          duration_hours: number
+          duration_minutes: number
           ends_at: string
           id: string
           max_players: number

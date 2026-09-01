@@ -297,11 +297,19 @@ async function checkRateLimits(uploadedBy: string): Promise<string | null> {
   return null;
 }
 
+// 15MB, under Gemini's 20MB inline-data limit — multi-page PDFs cost more tokens per call than a
+// photo, so the cap is tighter than the raw API ceiling on purpose.
+const MAX_UPLOAD_BYTES = 15 * 1024 * 1024;
+
 async function downloadImage(path: string): Promise<{ bytes: Uint8Array; mediaType: string }> {
   const { data, error } = await serviceClient.storage.from("confirmations").download(path);
   if (error || !data) throw new Error(error?.message ?? "Could not download uploaded file");
   const bytes = new Uint8Array(await data.arrayBuffer());
-  const mediaType = data.type && data.type.startsWith("image/") ? data.type : "image/jpeg";
+  if (bytes.byteLength > MAX_UPLOAD_BYTES) throw new Error("That file's too big to read — try a smaller photo or PDF.");
+  // Was: anything not image/* silently relabelled image/jpeg, so a PDF got handed to Gemini
+  // mislabelled and could never parse (create-game-plan.md §4.1 part 1). PDF is a first-class
+  // input now — venues email them constantly.
+  const mediaType = data.type === "application/pdf" || data.type?.startsWith("image/") ? data.type : "image/jpeg";
   return { bytes, mediaType };
 }
 

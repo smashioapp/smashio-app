@@ -1,6 +1,6 @@
 import { create } from "zustand";
-import { TierId } from "./theme";
-import { DEFAULT_DURATION_HOURS, MAX_DURATION_HOURS, MIN_DURATION_HOURS, firstBookableSlot, isSlotBookable } from "./schedule";
+import { TIERS, TierId } from "./theme";
+import { DEFAULT_DURATION_HOURS, DURATION_STEP_HOURS, MAX_DURATION_HOURS, MIN_DURATION_HOURS, firstBookableSlot, isSlotBookable } from "./schedule";
 
 // Player-count and per-player-price bounds. Min join threshold is 2 (was 4); max players caps
 // at 16 (host picks any value up to that, not just +/-2 steps). Per-player price is host-set
@@ -11,18 +11,37 @@ export const MIN_COURTS_BOOKED = 1;
 export const MAX_COURTS_BOOKED = 10;
 export const MAX_COST_PER_PLAYER_PER_HOUR = 20;
 
+// A spot the host has named, invited, or just held blank — the lineup strip's "who's coming"
+// list (create-game-plan.md §4.3). Sent to create_game_with_spots on publish; games_reserved_spots
+// rows are what these become server-side. Not persisted until publish, so ids are local-only.
+export type NamedSpotDraft = {
+  localId: string;
+  label: string | null;
+  invitedProfileId: string | null;
+  invitedName: string | null;
+};
+
 export type WizardDraft = {
   venueId: string | null;
   startsAt: Date;
   skill: TierId;
+  // Skill *range*, not a point (create-game-plan.md §5) — skillMax === skill means a single tier,
+  // same as today. TIERS order (theme.ts) defines the range between them.
+  skillMax: TierId;
   maxPlayers: number;
   courtsBooked: number;
   // Free-text court number/label host gives players ("Court 3", "3-4"). Optional.
   courtLabel: string;
   durationHours: number;
   cost: number;
-  // Spots taken off max_players for people joining outside the app — not named, just a count.
+  // Anonymous held spots — the remainder of total held that isn't in namedSpots below.
   reservedSpots: number;
+  namedSpots: NamedSpotDraft[];
+  format: string;
+  visibility: "public" | "link_only";
+  autoApprove: boolean;
+  shuttles: string;
+  notes: string;
 };
 
 // 7pm today is the slot most hosts want, but it's already gone if the wizard is opened in the
@@ -38,12 +57,19 @@ const initialWizard: WizardDraft = {
   venueId: null,
   startsAt: defaultStartsAt(),
   skill: "Intermediate",
+  skillMax: "Intermediate",
   maxPlayers: 8,
   courtsBooked: 1,
   courtLabel: "",
   durationHours: DEFAULT_DURATION_HOURS,
   cost: 8,
   reservedSpots: 0,
+  namedSpots: [],
+  format: "social",
+  visibility: "public",
+  autoApprove: true,
+  shuttles: "",
+  notes: "",
 };
 
 // Rebook (my-games-plan.md §M4): carries both the draft fields and the venue *display* fields,
@@ -123,6 +149,7 @@ type AppState = {
   selectVenue: (id: string) => void;
   setStartsAt: (d: Date) => void;
   selectWizardTier: (id: TierId) => void;
+  setSkillMax: (id: TierId) => void;
   incPlayers: () => void;
   decPlayers: () => void;
   incCourts: () => void;
@@ -139,6 +166,13 @@ type AppState = {
   setDurationHours: (n: number) => void;
   setCost: (n: number) => void;
   setReservedSpots: (n: number) => void;
+  addNamedSpot: (spot: { label: string | null; invitedProfileId?: string | null; invitedName?: string | null }) => void;
+  removeNamedSpot: (localId: string) => void;
+  setFormat: (v: string) => void;
+  setVisibility: (v: "public" | "link_only") => void;
+  setAutoApprove: (v: boolean) => void;
+  setShuttles: (v: string) => void;
+  setNotes: (v: string) => void;
 
   rebookSeed: RebookSeed | null;
   setRebookSeed: (seed: RebookSeed) => void;
@@ -205,28 +239,44 @@ export const useAppStore = create<AppState>((set) => ({
   resetWizard: () => set({ wizard: { ...initialWizard, startsAt: defaultStartsAt() } }),
   selectVenue: (id) => set((s) => ({ wizard: { ...s.wizard, venueId: id } })),
   setStartsAt: (d) => set((s) => ({ wizard: { ...s.wizard, startsAt: d } })),
-  selectWizardTier: (id) => set((s) => ({ wizard: { ...s.wizard, skill: id } })),
+  selectWizardTier: (id) =>
+    set((s) => {
+      // Keep the range non-inverted: picking a floor above the current ceiling drags the
+      // ceiling up with it (and vice versa via setSkillMax below).
+      const minOrd = TIERS.findIndex((t) => t.id === id);
+      const maxOrd = TIERS.findIndex((t) => t.id === s.wizard.skillMax);
+      return { wizard: { ...s.wizard, skill: id, skillMax: maxOrd < minOrd ? id : s.wizard.skillMax } };
+    }),
+  setSkillMax: (id) =>
+    set((s) => {
+      const minOrd = TIERS.findIndex((t) => t.id === s.wizard.skill);
+      const maxOrd = TIERS.findIndex((t) => t.id === id);
+      return { wizard: { ...s.wizard, skillMax: id, skill: maxOrd < minOrd ? id : s.wizard.skill } };
+    }),
   incPlayers: () =>
     set((s) => {
       const maxPlayers = Math.min(MAX_PLAYERS, s.wizard.maxPlayers + 1);
-      return { wizard: { ...s.wizard, maxPlayers, reservedSpots: Math.min(s.wizard.reservedSpots, maxPlayers - 1) } };
+      const cap = Math.max(0, maxPlayers - 1 - s.wizard.namedSpots.length);
+      return { wizard: { ...s.wizard, maxPlayers, reservedSpots: Math.min(s.wizard.reservedSpots, cap) } };
     }),
   decPlayers: () =>
     set((s) => {
-      const maxPlayers = Math.max(MIN_PLAYERS, s.wizard.maxPlayers - 1);
-      return { wizard: { ...s.wizard, maxPlayers, reservedSpots: Math.min(s.wizard.reservedSpots, maxPlayers - 1) } };
+      const floor = Math.max(MIN_PLAYERS, 1 + s.wizard.namedSpots.length);
+      const maxPlayers = Math.max(floor, s.wizard.maxPlayers - 1);
+      const cap = Math.max(0, maxPlayers - 1 - s.wizard.namedSpots.length);
+      return { wizard: { ...s.wizard, maxPlayers, reservedSpots: Math.min(s.wizard.reservedSpots, cap) } };
     }),
   incCourts: () => set((s) => ({ wizard: { ...s.wizard, courtsBooked: Math.min(MAX_COURTS_BOOKED, s.wizard.courtsBooked + 1) } })),
   decCourts: () => set((s) => ({ wizard: { ...s.wizard, courtsBooked: Math.max(MIN_COURTS_BOOKED, s.wizard.courtsBooked - 1) } })),
   incHours: () =>
     set((s) => {
-      const durationHours = Math.min(MAX_DURATION_HOURS, s.wizard.durationHours + 1);
+      const durationHours = Math.min(MAX_DURATION_HOURS, Math.round((s.wizard.durationHours + DURATION_STEP_HOURS) * 100) / 100);
       const cap = durationHours * MAX_COST_PER_PLAYER_PER_HOUR;
       return { wizard: { ...s.wizard, durationHours, cost: Math.min(s.wizard.cost, cap) } };
     }),
   decHours: () =>
     set((s) => {
-      const durationHours = Math.max(MIN_DURATION_HOURS, s.wizard.durationHours - 1);
+      const durationHours = Math.max(MIN_DURATION_HOURS, Math.round((s.wizard.durationHours - DURATION_STEP_HOURS) * 100) / 100);
       const cap = durationHours * MAX_COST_PER_PLAYER_PER_HOUR;
       return { wizard: { ...s.wizard, durationHours, cost: Math.min(s.wizard.cost, cap) } };
     }),
@@ -235,14 +285,50 @@ export const useAppStore = create<AppState>((set) => ({
   decCost: () => set((s) => ({ wizard: { ...s.wizard, cost: Math.max(1, s.wizard.cost - 1) } })),
   // Ceiling is maxPlayers - 1: the host occupies one slot themselves and can't reserve it
   // (post-game-plan.md D1, mirrored by games_reserved_spots_check).
-  incReservedSpots: () => set((s) => ({ wizard: { ...s.wizard, reservedSpots: Math.min(s.wizard.maxPlayers - 1, s.wizard.reservedSpots + 1) } })),
+  incReservedSpots: () =>
+    set((s) => ({
+      wizard: { ...s.wizard, reservedSpots: Math.min(s.wizard.maxPlayers - 1 - s.wizard.namedSpots.length, s.wizard.reservedSpots + 1) },
+    })),
   decReservedSpots: () => set((s) => ({ wizard: { ...s.wizard, reservedSpots: Math.max(0, s.wizard.reservedSpots - 1) } })),
-  setMaxPlayers: (n) => set((s) => ({ wizard: { ...s.wizard, maxPlayers: n, reservedSpots: Math.min(s.wizard.reservedSpots, n) } })),
+  setMaxPlayers: (n) =>
+    set((s) => ({
+      wizard: { ...s.wizard, maxPlayers: n, reservedSpots: Math.max(0, Math.min(s.wizard.reservedSpots, n - 1 - s.wizard.namedSpots.length)) },
+    })),
   setCourtsBooked: (n) => set((s) => ({ wizard: { ...s.wizard, courtsBooked: n } })),
   setCourtLabel: (v) => set((s) => ({ wizard: { ...s.wizard, courtLabel: v } })),
   setDurationHours: (n) => set((s) => ({ wizard: { ...s.wizard, durationHours: n } })),
   setCost: (n) => set((s) => ({ wizard: { ...s.wizard, cost: n } })),
   setReservedSpots: (n) => set((s) => ({ wizard: { ...s.wizard, reservedSpots: Math.max(0, Math.min(s.wizard.maxPlayers, n)) } })),
+  // Named spots eat into the open pool first; if the game's already full (no open slot left),
+  // bump maxPlayers by one instead of silently failing (create-game-plan.md §5's "Bumped to 6
+  // so Raj fits" rule — never silent).
+  addNamedSpot: (spot) =>
+    set((s) => {
+      const openBefore = Math.max(0, s.wizard.maxPlayers - 1 - s.wizard.namedSpots.length - s.wizard.reservedSpots);
+      const maxPlayers = openBefore > 0 ? s.wizard.maxPlayers : Math.min(MAX_PLAYERS, s.wizard.maxPlayers + 1);
+      return {
+        wizard: {
+          ...s.wizard,
+          maxPlayers,
+          namedSpots: [
+            ...s.wizard.namedSpots,
+            {
+              localId: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+              label: spot.label,
+              invitedProfileId: spot.invitedProfileId ?? null,
+              invitedName: spot.invitedName ?? null,
+            },
+          ],
+        },
+      };
+    }),
+  removeNamedSpot: (localId) =>
+    set((s) => ({ wizard: { ...s.wizard, namedSpots: s.wizard.namedSpots.filter((sp) => sp.localId !== localId) } })),
+  setFormat: (v) => set((s) => ({ wizard: { ...s.wizard, format: v } })),
+  setVisibility: (v) => set((s) => ({ wizard: { ...s.wizard, visibility: v } })),
+  setAutoApprove: (v) => set((s) => ({ wizard: { ...s.wizard, autoApprove: v } })),
+  setShuttles: (v) => set((s) => ({ wizard: { ...s.wizard, shuttles: v } })),
+  setNotes: (v) => set((s) => ({ wizard: { ...s.wizard, notes: v } })),
 
   rebookSeed: null,
   setRebookSeed: (seed) => set({ rebookSeed: seed }),

@@ -33,7 +33,9 @@ appId: com.smashio.app
     visible: "JOIN REQUESTS (1)"
     timeout: 20000
 - tapOn:
-    id: "game-remove-22222222-0000-0000-0000-000000000005"
+    id: "lineup-slot-22222222-0000-0000-0000-000000000005"
+- assertVisible: "Ella Wright"
+- tapOn: "Remove from game"
 - assertVisible: "Remove Ella Wright?"
 - tapOn: "Remove"
 - waitForAnimationToEnd:

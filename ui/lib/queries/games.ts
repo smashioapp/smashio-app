@@ -5,7 +5,7 @@ import { track } from "../analytics";
 import type { Database } from "../db.types";
 import type { Game, PastGame } from "../mockData";
 import { formatDate, formatDistance, formatTimeRange, type DistanceUnits } from "../format";
-import { durationMs } from "../schedule";
+import { durationMinutesToHours, durationMs, hoursToDurationMinutes } from "../schedule";
 import { avatarColor } from "../theme";
 import { prepareConfirmationImage } from "../imagePrep";
 import { randomCoverKey } from "../covers";
@@ -39,7 +39,7 @@ function toGame(row: NearbyGameRow, units: DistanceUnits = "km"): Game {
     skillTierId: "",
     maxPlayers: row.max_players,
     courtsBooked: row.courts_booked,
-    durationHours: row.duration_hours,
+    durationHours: durationMinutesToHours(row.duration_minutes),
     reservedSpots: row.reserved_spots ?? 0,
     reservedClaimed: row.reserved_claimed ?? 0,
     // Named roster is a separate fetch (useGameRoster), gated by RLS to organizer + approved
@@ -61,6 +61,9 @@ function toGame(row: NearbyGameRow, units: DistanceUnits = "km"): Game {
     organizerHostedCount: row.organizer_hosted_count,
     skillTierOrdinal: row.skill_tier_ordinal,
     coverKey: row.cover_key,
+    skillTierMax: (row.skill_tier_max_label as Game["skillTierMax"]) ?? undefined,
+    format: row.format_label,
+    notes: row.notes,
   };
 }
 
@@ -82,7 +85,7 @@ function toGameFromPublicRow(row: GamesPublicRow): Game {
     skillTierId: row.skill_tier_id!,
     maxPlayers: row.max_players!,
     courtsBooked: row.courts_booked ?? 1,
-    durationHours: row.duration_hours ?? 2,
+    durationHours: durationMinutesToHours(row.duration_minutes ?? 90),
     reservedSpots: row.reserved_spots ?? 0,
     reservedClaimed: row.reserved_claimed ?? 0,
     joined: [],
@@ -102,6 +105,12 @@ function toGameFromPublicRow(row: GamesPublicRow): Game {
     organizerHostedCount: row.organizer_hosted_count ?? undefined,
     skillTierOrdinal: row.skill_tier_ordinal,
     coverKey: row.cover_key,
+    skillTierMax: (row.skill_tier_max_label as Game["skillTierMax"]) ?? undefined,
+    format: row.format_label,
+    visibility: (row.visibility as Game["visibility"]) ?? undefined,
+    autoApprove: row.auto_approve ?? undefined,
+    shuttles: row.shuttles,
+    notes: row.notes,
   };
 }
 
@@ -124,7 +133,7 @@ function toAnonGame(row: NearbyGamePublicRow, units: DistanceUnits = "km"): Game
     skillTierId: "",
     maxPlayers: row.max_players,
     courtsBooked: row.courts_booked,
-    durationHours: row.duration_hours,
+    durationHours: durationMinutesToHours(row.duration_minutes),
     reservedSpots: row.reserved_spots ?? 0,
     reservedClaimed: row.reserved_claimed ?? 0,
     joined: [],
@@ -276,6 +285,10 @@ export function useWeekPulseGames(center: { lat: number; lng: number } = { lat: 
   });
 }
 
+export type NamedSpotInput = { label: string | null; invitedProfileId?: string | null };
+
+// Host a Game v3 (create-game-plan.md §4.3, §9.2): one atomic RPC instead of an insert plus N
+// follow-up reserved-spot calls — a failure partway through no longer leaves a half-built game.
 export function useCreateGame() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -283,41 +296,46 @@ export function useCreateGame() {
       venueId: string;
       sportId: string;
       skillTierId: string;
+      skillTierMaxId?: string;
       startsAt: Date;
       maxPlayers: number;
       courtsBooked: number;
       courtLabel?: string;
       durationHours: number;
       costPerPlayerCents: number;
-      reservedSpots?: number;
+      formatId?: string;
+      visibility?: "public" | "link_only";
+      autoApprove?: boolean;
+      shuttles?: string;
+      notes?: string;
+      spots?: NamedSpotInput[];
     }) => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) throw new Error("Not signed in.");
 
-      const endsAt = new Date(input.startsAt.getTime() + durationMs(input.durationHours));
-      const { data, error } = await supabase
-        .from("games")
-        .insert({
-          sport_id: input.sportId,
-          venue_id: input.venueId,
-          organizer_id: user.id,
-          starts_at: input.startsAt.toISOString(),
-          ends_at: endsAt.toISOString(),
-          skill_tier_id: input.skillTierId,
-          max_players: input.maxPlayers,
-          courts_booked: input.courtsBooked,
-          court_label: input.courtLabel?.trim() || null,
-          duration_hours: input.durationHours,
-          cost_per_player_cents: input.costPerPlayerCents,
-          reserved_spots: input.reservedSpots ?? 0,
-          cover_key: randomCoverKey(),
-        })
-        .select("id")
-        .single();
+      const { data, error } = await supabase.rpc("create_game_with_spots", {
+        p_sport_id: input.sportId,
+        p_venue_id: input.venueId,
+        p_skill_tier_id: input.skillTierId,
+        p_skill_tier_max_id: input.skillTierMaxId ?? input.skillTierId,
+        p_starts_at: input.startsAt.toISOString(),
+        p_max_players: input.maxPlayers,
+        p_courts_booked: input.courtsBooked,
+        p_duration_minutes: hoursToDurationMinutes(input.durationHours),
+        p_cost_per_player_cents: input.costPerPlayerCents,
+        p_court_label: input.courtLabel?.trim() || undefined,
+        p_format_id: input.formatId,
+        p_visibility: input.visibility ?? "public",
+        p_auto_approve: input.autoApprove ?? true,
+        p_shuttles: input.shuttles?.trim() || undefined,
+        p_notes: input.notes?.trim() || undefined,
+        p_cover_key: randomCoverKey(),
+        p_spots: (input.spots ?? []).map((s) => ({ label: s.label, invited_profile_id: s.invitedProfileId ?? null })),
+      });
       if (error) throw error;
-      return data.id;
+      return data as string;
     },
     onSuccess: (gameId) => {
       track("game_published", { game_id: gameId });
@@ -345,12 +363,18 @@ export function useUpdateGame(gameId: string) {
     mutationFn: async (input: {
       startsAt: Date;
       skillTierId: string;
+      skillTierMaxId?: string;
       maxPlayers: number;
       courtsBooked: number;
       courtLabel?: string;
       durationHours: number;
       costPerPlayerCents: number;
       reservedSpots: number;
+      formatId?: string;
+      visibility?: "public" | "link_only";
+      autoApprove?: boolean;
+      shuttles?: string;
+      notes?: string;
     }) => {
       const { error } = await supabase
         .from("games")
@@ -358,12 +382,18 @@ export function useUpdateGame(gameId: string) {
           starts_at: input.startsAt.toISOString(),
           ends_at: new Date(input.startsAt.getTime() + durationMs(input.durationHours)).toISOString(),
           skill_tier_id: input.skillTierId,
+          skill_tier_max_id: input.skillTierMaxId ?? input.skillTierId,
           max_players: input.maxPlayers,
           courts_booked: input.courtsBooked,
           court_label: input.courtLabel?.trim() || null,
-          duration_hours: input.durationHours,
+          duration_minutes: hoursToDurationMinutes(input.durationHours),
           cost_per_player_cents: input.costPerPlayerCents,
           reserved_spots: input.reservedSpots,
+          ...(input.formatId ? { format_id: input.formatId } : {}),
+          visibility: input.visibility ?? "public",
+          auto_approve: input.autoApprove ?? true,
+          shuttles: input.shuttles?.trim() || null,
+          notes: input.notes?.trim() || null,
         })
         .eq("id", gameId);
       if (error) throw error;
@@ -578,7 +608,7 @@ export function usePastGameDetail(gameId: string) {
         skill: game.skill_tier_label as PastGame["skill"],
         maxPlayers: game.max_players!,
         courtsBooked: game.courts_booked ?? 1,
-        durationHours: game.duration_hours ?? 2,
+        durationHours: durationMinutesToHours(game.duration_minutes ?? 90),
         cost: (game.cost_per_player_cents ?? 0) / 100,
         startsAtIso: game.starts_at!,
       };
@@ -677,22 +707,43 @@ async function readFunctionsErrorMessage(error: unknown, fallback: string): Prom
   }
 }
 
+const MAX_PARSE_UPLOAD_BYTES = 15 * 1024 * 1024;
+
 // Step 0 of the receipt-first flow: upload straight to drafts/{uid}/ (no game yet) and parse.
-// Client-side downscale to ~1600px long edge before upload — parsing costs real money per call.
+// A photo gets a client-side downscale to ~1600px long edge first — parsing costs real money per
+// call — but a PDF uploads as-is (create-game-plan.md §4.1): downscaling a document makes no
+// sense, and Gemini reads a multi-page PDF natively.
 export function useParseConfirmation() {
   return useMutation({
-    mutationFn: async ({ localUri, width, height }: { localUri: string; width: number; height: number }) => {
+    mutationFn: async ({
+      localUri,
+      width,
+      height,
+      mimeType,
+      fileName,
+    }: {
+      localUri: string;
+      width: number;
+      height: number;
+      mimeType?: string;
+      fileName?: string;
+    }) => {
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) throw new Error("Not signed in.");
 
-      const preparedUri = await prepareConfirmationImage(localUri, width, height);
-      const bytes = await new File(preparedUri).arrayBuffer();
-      const path = `drafts/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+      const isPdf = mimeType === "application/pdf";
+      const uploadUri = isPdf ? localUri : await prepareConfirmationImage(localUri, width, height);
+      const bytes = await new File(uploadUri).arrayBuffer();
+      if (bytes.byteLength > MAX_PARSE_UPLOAD_BYTES) {
+        throw new Error("That file's too big — try a smaller photo or PDF.");
+      }
+      const ext = isPdf ? "pdf" : "jpg";
+      const path = `drafts/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
       const { error: uploadError } = await supabase.storage
         .from("confirmations")
-        .upload(path, bytes, { contentType: "image/jpeg", upsert: true });
+        .upload(path, bytes, { contentType: isPdf ? "application/pdf" : "image/jpeg", upsert: true });
       if (uploadError) throw uploadError;
 
       const { data, error } = await supabase.functions.invoke("ai-proxy", {

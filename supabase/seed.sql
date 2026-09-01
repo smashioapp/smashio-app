@@ -12,6 +12,21 @@ from public.sports, (values
 ) as t(slug, label, ordinal)
 where sports.slug = 'badminton';
 
+-- game_formats normally seeds inside 20260901120000_host_a_game_v3.sql, but on a fresh
+-- `supabase db reset` the migrations replay before this file does, so sports doesn't exist yet
+-- when that migration's insert runs. Same insert, repeated here so local dev gets it too.
+insert into public.game_formats (sport_id, slug, label, ordinal)
+select s.id, f.slug, f.label, f.ordinal
+from public.sports s
+cross join (values
+  ('social', 'Social', 0),
+  ('competitive', 'Competitive', 1),
+  ('drills', 'Drills', 2),
+  ('doubles_rotation', 'Doubles rotation', 3)
+) as f(slug, label, ordinal)
+where s.slug = 'badminton'
+on conflict (sport_id, slug) do nothing;
+
 -- Venues. Sydney-only for launch — see docs/ux-plan.md. Real courts, approximate coordinates.
 -- Fixed ids (not looked up by name): the venue-directory migrations (20260815001400 and
 -- friends, ~56 rows) can legitimately reinsert a venue sharing one of these names — the
@@ -170,7 +185,7 @@ join public.skill_tiers st on st.sport_id = s.id and st.slug = b.tier_slug;
 
 insert into public.games (
   id, sport_id, venue_id, skill_tier_id, organizer_id,
-  starts_at, ends_at, duration_hours, courts_booked, max_players,
+  starts_at, ends_at, duration_minutes, courts_booked, max_players,
   cost_per_player_cents, status
 )
 select
@@ -180,7 +195,7 @@ select
   (select st.id from public.skill_tiers st join public.sports s on s.id = st.sport_id where s.slug = 'badminton' and st.slug = g.tier_slug),
   g.organizer_id::uuid,
   now() + g.starts_offset, now() + g.starts_offset + make_interval(hours => g.duration),
-  g.duration, 1, g.max_players, g.cost_cents, g.status
+  g.duration * 60, 1, g.max_players, g.cost_cents, g.status
 from (values
   -- id suffix, venue_id, tier, organizer, starts offset, duration hours, max players, cost/player cents, status
   -- venue …0002 (Alpha Badminton, Silverwater) is ~15.2km from the Sydney CBD e2e geo fix
@@ -207,7 +222,7 @@ from (values
 -- published->completed, so a past-dated 'published' row would sit stuck until the cron runs.
 insert into public.games (
   id, sport_id, venue_id, skill_tier_id, organizer_id,
-  starts_at, ends_at, duration_hours, courts_booked, max_players,
+  starts_at, ends_at, duration_minutes, courts_booked, max_players,
   cost_per_player_cents, status
 )
 select
@@ -217,7 +232,7 @@ select
   (select st.id from public.skill_tiers st join public.sports s on s.id = st.sport_id where s.slug = 'badminton' and st.slug = 'intermediate'),
   g.organizer_id::uuid,
   now() + g.ends_offset - interval '2 hours', now() + g.ends_offset,
-  2, 1, 6, 1200, 'completed'
+  120, 1, 6, 1200, 'completed'
 from (values
   ('44444444-0000-0000-0000-000000000008', '55555555-0000-0000-0000-000000000002', '22222222-0000-0000-0000-000000000001', interval '-20 hours'),
   ('44444444-0000-0000-0000-000000000009', '55555555-0000-0000-0000-000000000003', '22222222-0000-0000-0000-000000000002', interval '-44 hours')

@@ -61,6 +61,15 @@ export type Game = {
   // Only populated by useMyJoinedGames — the viewer's own membership row status, so a
   // requested-but-not-yet-approved game can render "Awaiting host" instead of vanishing.
   myStatus?: "approved" | "requested" | "invited" | "waitlisted";
+  // Host a Game v3 (create-game-plan.md §9.2) — skill range ceiling, format, and the
+  // More-options fields. skillTierMax === skill means a single-tier game, same as before this
+  // shipped. Optional everywhere: only toGameFromPublicRow/toGame project them.
+  skillTierMax?: TierId;
+  format?: string | null;
+  visibility?: "public" | "link_only";
+  autoApprove?: boolean;
+  shuttles?: string | null;
+  notes?: string | null;
 };
 
 export type PastPlayer = {

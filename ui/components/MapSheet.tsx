@@ -3,7 +3,7 @@ import { View, Text, Pressable, FlatList, ScrollView, Dimensions, NativeSyntheti
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring } from "react-native-reanimated";
 import { Ionicons } from "@expo/vector-icons";
-import { colors, gradients } from "../lib/theme";
+import { colors, gradients, TIERS } from "../lib/theme";
 import { LinearGradient } from "expo-linear-gradient";
 import { SPRING, useReduceMotion } from "../lib/motion";
 import { haptics } from "../lib/haptics";
@@ -26,7 +26,8 @@ export type SheetPeekVariant = "carousel" | "stack";
 
 export function sheetSnapHeights(peekVariant: SheetPeekVariant = "carousel") {
   return {
-    peek: peekVariant === "stack" ? 236 : 168,
+    // +20 accounts for the tier-color legend line under the title row (Games mode only).
+    peek: peekVariant === "stack" ? 236 : 188,
     half: Math.round(SCREEN_HEIGHT * 0.48),
     full: Math.round(SCREEN_HEIGHT * 0.82),
   };
@@ -48,6 +49,10 @@ type MapSheetProps = {
   areaOverrideLabel?: string | null;
   onClearArea?: () => void;
   onExitMap: () => void;
+  // Tier-color legend line under the title row (Games mode only) — pins are colored by skill
+  // level with no key on the map itself; this is the always-visible key rather than making the
+  // viewer open Filters to learn what each dot means.
+  showTierLegend?: boolean;
   peekVariant?: SheetPeekVariant;
   // Identity of whatever `emptyState` currently renders — changing it resets the scroll offset.
   bodyKey?: string;
@@ -74,6 +79,7 @@ export const MapSheet = forwardRef<MapSheetHandle, MapSheetProps>(function MapSh
     areaOverrideLabel = null,
     onClearArea,
     onExitMap,
+    showTierLegend = false,
     peekVariant = "carousel",
     bodyKey = "",
     onCardPress,
@@ -206,6 +212,19 @@ export const MapSheet = forwardRef<MapSheetHandle, MapSheetProps>(function MapSh
                 <Ionicons name={snap === "full" ? "chevron-down" : "chevron-up"} size={16} color={colors.textTertiary} />
               </View>
             </View>
+
+            {showTierLegend && (
+              <View className="flex-row items-center gap-3 w-full px-5 mt-2">
+                {TIERS.map((t) => (
+                  <View key={t.id} className="flex-row items-center gap-1">
+                    <View className="rounded-full" style={{ width: 7, height: 7, backgroundColor: t.color }} />
+                    <Text className="font-body-bold text-[10.5px]" style={{ color: colors.textSecondary }}>
+                      {t.id.slice(0, 3)}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
         </GestureDetector>
 

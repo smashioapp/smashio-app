@@ -85,6 +85,39 @@ function priceCapLabel(cents: number): string {
   return `Under $${cents / 100}`;
 }
 
+// Hand-drawn to match the v3 design's own CSS-drawn glyphs exactly (SMASHIO v3 - Discover.html,
+// screens 1 and 3) — Ionicons' "search" (filled) and "options-outline" (sliders with knobs) read
+// as different icons entirely, not just a different weight.
+function SearchGlyph({ size = 13, color }: { size?: number; color: string }) {
+  return (
+    <View style={{ width: size, height: size }}>
+      <View style={{ width: size, height: size, borderRadius: size, borderWidth: 1.6, borderColor: color }} />
+      <View
+        style={{
+          position: "absolute",
+          width: size * 0.4,
+          height: 1.6,
+          backgroundColor: color,
+          bottom: -3,
+          right: -3,
+          borderRadius: 1,
+          transform: [{ rotate: "45deg" }],
+        }}
+      />
+    </View>
+  );
+}
+
+function FilterGlyph({ color }: { color: string }) {
+  return (
+    <View style={{ gap: 3 }}>
+      <View style={{ width: 14, height: 1.6, borderRadius: 1, backgroundColor: color }} />
+      <View style={{ width: 10, height: 1.6, borderRadius: 1, backgroundColor: color }} />
+      <View style={{ width: 6, height: 1.6, borderRadius: 1, backgroundColor: color }} />
+    </View>
+  );
+}
+
 function FiltersSheet({
   visible,
   onClose,
@@ -1138,7 +1171,7 @@ export default function Discover() {
             className="w-[38px] h-[38px] rounded-full items-center justify-center border"
             style={{ backgroundColor: "#17171A", borderColor: "rgba(255,255,255,0.08)" }}
           >
-            <Ionicons name="search" size={16} color={colors.textSecondary} />
+            <SearchGlyph size={13} color={colors.textSecondary} />
           </Pressable>
           <Pressable
             testID="discover-map-open"
@@ -1314,16 +1347,18 @@ export default function Discover() {
               </Pressable>
               <View
                 className="flex-1 flex-row items-center gap-2 rounded-pill px-4"
-                style={{ height: 44, backgroundColor: "rgba(23,23,26,0.9)", borderWidth: 1, borderColor: colors.cardBorder }}
+                style={{ height: 44, minWidth: 0, backgroundColor: "rgba(23,23,26,0.9)", borderWidth: 1, borderColor: colors.cardBorder }}
               >
-                <Ionicons name="search" size={15} color={colors.textTertiary} />
+                <SearchGlyph size={13} color={colors.textMuted} />
                 <TextInput
                   value={mapSearch}
                   onChangeText={setMapSearch}
                   placeholder="Search venues, suburbs…"
-                  placeholderTextColor={colors.textTertiary}
+                  placeholderTextColor={colors.textMuted}
+                  multiline={false}
+                  numberOfLines={1}
                   className="flex-1 font-body-semibold text-[13.5px]"
-                  style={{ color: colors.text }}
+                  style={{ color: colors.text, minWidth: 0 }}
                 />
                 {mapSearch.length > 0 && (
                   <Pressable
@@ -1345,7 +1380,7 @@ export default function Discover() {
                 className="items-center justify-center rounded-full border"
                 style={{ width: 44, height: 44, backgroundColor: "rgba(23,23,26,0.9)", borderColor: colors.cardBorder }}
               >
-                <Ionicons name="options-outline" size={17} color={colors.textDim} />
+                <FilterGlyph color={colors.textDim} />
                 {activeFilterChips.length > 0 && (
                   <View
                     className="absolute rounded-full items-center justify-center"
@@ -1416,6 +1451,7 @@ export default function Discover() {
             areaOverrideLabel={mapAreaOverride ? `Showing this area · Back to ${locationLabel}` : null}
             onClearArea={() => setMapAreaOverride(null)}
             onExitMap={() => setDiscoverView("list")}
+            showTierLegend={mapMode === "games"}
             peekVariant={mapSheetPeekVariant}
             bodyKey={`${mapMode}|${mapSheetTitle}|${mapAreaOverride ? "area" : "filters"}`}
             onCardPress={(id) => router.push(`/game/${id}`)}

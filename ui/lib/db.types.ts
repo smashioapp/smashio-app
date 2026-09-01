@@ -927,6 +927,81 @@ export type Database = {
           },
         ]
       }
+      post_reactions: {
+        Row: {
+          created_at: string
+          post_id: string
+          profile_id: string
+        }
+        Insert: {
+          created_at?: string
+          post_id: string
+          profile_id: string
+        }
+        Update: {
+          created_at?: string
+          post_id?: string
+          profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_reactions_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_reactions_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      post_replies: {
+        Row: {
+          author_id: string
+          body: string
+          created_at: string
+          id: string
+          post_id: string
+          status: string
+        }
+        Insert: {
+          author_id: string
+          body: string
+          created_at?: string
+          id?: string
+          post_id: string
+          status?: string
+        }
+        Update: {
+          author_id?: string
+          body?: string
+          created_at?: string
+          id?: string
+          post_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_replies_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_replies_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       posts: {
         Row: {
           accepted_answer_id: string | null
@@ -983,6 +1058,13 @@ export type Database = {
           venue_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "posts_accepted_answer_fk"
+            columns: ["accepted_answer_id"]
+            isOneToOne: false
+            referencedRelation: "post_replies"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "posts_author_id_fkey"
             columns: ["author_id"]
@@ -1882,6 +1964,10 @@ export type Database = {
       }
     }
     Functions: {
+      accept_reply: {
+        Args: { p_post_id: string; p_reply_id: string }
+        Returns: undefined
+      }
       achievement_week_streak: {
         Args: { p_profile_id: string }
         Returns: number
@@ -1932,6 +2018,10 @@ export type Database = {
       }
       claim_reserved_spot: { Args: { p_token: string }; Returns: string }
       claimed_reserved_count: { Args: { p_game_id: string }; Returns: number }
+      classify_post_text: {
+        Args: { p_author_id: string; p_text: string }
+        Returns: boolean
+      }
       close_chat: { Args: { p_game_id: string }; Returns: undefined }
       club_seo_detail: { Args: { p_slug: string }; Returns: Json }
       club_seo_directory: {
@@ -1953,6 +2043,10 @@ export type Database = {
           p_starts_at?: string
           p_venue_id?: string
         }
+        Returns: string
+      }
+      create_reply: {
+        Args: { p_body: string; p_post_id: string }
         Returns: string
       }
       create_reserved_spot_invite: {
@@ -1996,36 +2090,69 @@ export type Database = {
         Args: { p_game_id: string }
         Returns: undefined
       }
-      feed_home: {
-        Args: {
-          p_cursor_created_at?: string
-          p_cursor_id?: string
-          p_lat: number
-          p_limit?: number
-          p_lng: number
-          p_radius_m: number
-          p_sport_slug: string
-        }
-        Returns: {
-          author_avatar_key: string
-          author_display_name: string
-          author_id: string
-          author_photo_path: string
-          body: string
-          club_id: string
-          created_at: string
-          distance_bucket: string
-          game_id: string
-          id: string
-          is_followed_author: boolean
-          kind: string
-          payload: Json
-          reaction_count: number
-          reply_count: number
-          venue_id: string
-          venue_name: string
-        }[]
-      }
+      feed_home:
+        | {
+            Args: {
+              p_cursor_created_at?: string
+              p_cursor_id?: string
+              p_lat: number
+              p_limit?: number
+              p_lng: number
+              p_radius_m: number
+              p_sport_slug: string
+            }
+            Returns: {
+              author_avatar_key: string
+              author_display_name: string
+              author_id: string
+              author_photo_path: string
+              body: string
+              club_id: string
+              created_at: string
+              distance_bucket: string
+              game_id: string
+              id: string
+              is_followed_author: boolean
+              kind: string
+              payload: Json
+              reaction_count: number
+              reply_count: number
+              venue_id: string
+              venue_name: string
+            }[]
+          }
+        | {
+            Args: {
+              p_cursor_created_at?: string
+              p_cursor_id?: string
+              p_kind?: string[]
+              p_lat: number
+              p_limit?: number
+              p_lng: number
+              p_mode?: string
+              p_radius_m: number
+              p_sport_slug: string
+            }
+            Returns: {
+              author_avatar_key: string
+              author_display_name: string
+              author_id: string
+              author_photo_path: string
+              body: string
+              club_id: string
+              created_at: string
+              distance_bucket: string
+              game_id: string
+              id: string
+              is_followed_author: boolean
+              kind: string
+              payload: Json
+              reaction_count: number
+              reply_count: number
+              venue_id: string
+              venue_name: string
+            }[]
+          }
       filter_quiet_recipients: {
         Args: { p_profile_ids: string[] }
         Returns: string[]
@@ -2076,10 +2203,25 @@ export type Database = {
         Returns: boolean
       }
       leave_game: { Args: { p_game_id: string }; Returns: undefined }
+      list_replies: {
+        Args: { p_post_id: string }
+        Returns: {
+          author_avatar_key: string
+          author_display_name: string
+          author_id: string
+          author_photo_path: string
+          body: string
+          created_at: string
+          id: string
+          is_accepted: boolean
+          post_id: string
+        }[]
+      }
       mark_attendance: {
         Args: { p_game_id: string; p_no_shows?: string[] }
         Returns: undefined
       }
+      my_reacted_post_ids: { Args: { p_post_ids: string[] }; Returns: string[] }
       nearby_games: {
         Args: {
           from_ts?: string
@@ -2378,6 +2520,22 @@ export type Database = {
         Args: { p_game_id: string; p_muted: boolean; p_profile_id: string }
         Returns: undefined
       }
+      suggested_players_to_follow: {
+        Args: {
+          p_lat: number
+          p_limit?: number
+          p_lng: number
+          p_radius_m?: number
+        }
+        Returns: {
+          avatar_key: string
+          display_name: string
+          home_suburb: string
+          id: string
+          photo_path: string
+          skill_tier_label: string
+        }[]
+      }
       system_close_chat: {
         Args: { p_actor_id: string; p_game_id: string }
         Returns: undefined
@@ -2390,6 +2548,7 @@ export type Database = {
         Args: { p_emoji: string; p_message_id: string }
         Returns: boolean
       }
+      toggle_reaction: { Args: { p_post_id: string }; Returns: boolean }
       trigger_purge_confirmations: {
         Args: { p_type: string }
         Returns: undefined

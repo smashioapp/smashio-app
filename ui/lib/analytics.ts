@@ -29,6 +29,7 @@ export type AnalyticsEvent =
   // pages with no membership feature (§13.3), add the tracking when a full club entity ships.
   | "feed_viewed"
   | "post_created"
+  | "reply_created"
   | "post_to_game_converted"
   | "follow_added"
   | "club_joined"

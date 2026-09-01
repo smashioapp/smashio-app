@@ -100,6 +100,21 @@ export function formatCountdown(startsAtIso: string, now: Date = new Date()): st
   return `Starts in ${h}h ${m}m`;
 }
 
+// Feed post/reply timestamps ("42m ago", "2h ago") — matches the v3 Feed design's relative
+// time strings. Falls over to a short date once it's more than a week old, same threshold
+// most social feeds use before relative time stops being useful.
+export function relativeTime(iso: string, now: Date = new Date()): string {
+  const diffMs = now.getTime() - new Date(iso).getTime();
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(iso).toLocaleDateString("en-AU", { day: "numeric", month: "short" });
+}
+
 function mondayOfWeek(d: Date): number {
   const start = new Date(d);
   start.setHours(0, 0, 0, 0);

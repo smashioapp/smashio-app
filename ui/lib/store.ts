@@ -80,6 +80,12 @@ export const DISCOVER_RADIUS_OPTIONS_KM = [5, 10, 15, 25, 50];
 export const DEFAULT_DISCOVER_RADIUS_KM = 15;
 export const PRICE_CAP_OPTIONS_CENTS = [1000, 2000, 3000];
 
+// v3 Feed design (claude.ai/design 23bc2cae…, "SMASHIO v3 - Feed.html", screen 2's Filters sheet).
+export type FeedMode = "nearby" | "following";
+export type FeedKind = "games" | "looking_for_players" | "question" | "achievement";
+export const FEED_RADIUS_OPTIONS_KM = [2, 5, 10, 15, 25];
+export const DEFAULT_FEED_RADIUS_KM = 15;
+
 type AppState = {
   discoverView: "list" | "map";
   setDiscoverView: (v: "list" | "map") => void;
@@ -102,6 +108,15 @@ type AppState = {
   sortBy: SortOption;
   setSortBy: (v: SortOption) => void;
   clearDiscoverFilters: () => void;
+
+  feedMode: FeedMode;
+  setFeedMode: (v: FeedMode) => void;
+  feedKindFilters: FeedKind[];
+  toggleFeedKindFilter: (k: FeedKind) => void;
+  setFeedKindFilters: (v: FeedKind[]) => void;
+  feedRadiusKm: number;
+  setFeedRadiusKm: (v: number) => void;
+  clearFeedFilters: () => void;
 
   wizard: WizardDraft;
   resetWizard: () => void;
@@ -175,6 +190,16 @@ export const useAppStore = create<AppState>((set) => ({
       amenityFilters: [],
       sortBy: "soonest",
     }),
+
+  feedMode: "nearby",
+  setFeedMode: (v) => set({ feedMode: v }),
+  feedKindFilters: [],
+  toggleFeedKindFilter: (k) =>
+    set((s) => ({ feedKindFilters: s.feedKindFilters.includes(k) ? s.feedKindFilters.filter((x) => x !== k) : [...s.feedKindFilters, k] })),
+  setFeedKindFilters: (v) => set({ feedKindFilters: v }),
+  feedRadiusKm: DEFAULT_FEED_RADIUS_KM,
+  setFeedRadiusKm: (v) => set({ feedRadiusKm: v }),
+  clearFeedFilters: () => set({ feedMode: "nearby", feedKindFilters: [], feedRadiusKm: DEFAULT_FEED_RADIUS_KM }),
 
   wizard: initialWizard,
   resetWizard: () => set({ wizard: { ...initialWizard, startsAt: defaultStartsAt() } }),

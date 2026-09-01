@@ -1299,6 +1299,19 @@ export default function Discover() {
               outside the current viewport (P3, discover-map-ux-plan.md backlog B8). */}
           <View pointerEvents="box-none" className="absolute left-0 right-0" style={{ top: 12, paddingHorizontal: LAYOUT.SCREEN_PAD, gap: 8 }}>
             <View className="flex-row items-center gap-2.5">
+              {/* Back to list — round toggle, same control as the header's Map button, glyph
+                  flipped (v3 design's "Map" note): floating over the map, not buried in the
+                  sheet, so it's reachable regardless of the sheet's snap. */}
+              <Pressable
+                testID="discover-map-back-to-list"
+                accessibilityRole="button"
+                accessibilityLabel="Back to list view"
+                onPress={() => setDiscoverView("list")}
+                className="items-center justify-center rounded-full border"
+                style={{ width: 44, height: 44, backgroundColor: "rgba(23,23,26,0.9)", borderColor: colors.cardBorder }}
+              >
+                <Ionicons name="list-outline" size={17} color={colors.textDim} />
+              </Pressable>
               <View
                 className="flex-1 flex-row items-center gap-2 rounded-pill px-4"
                 style={{ height: 44, backgroundColor: "rgba(23,23,26,0.9)", borderWidth: 1, borderColor: colors.cardBorder }}
@@ -1377,8 +1390,10 @@ export default function Discover() {
             {/* Two floating rows over the map, not four. The Tonight chip is gone (the list's
                 chip row is the only place filters change now) and so is the pin legend — pins
                 already say what they are: "You ·" prefix, dim ring for a court, tier colour for
-                a game. A legend that explains three shapes costs more map than the shapes do. */}
-            <View className="flex-row items-center gap-2">
+                a game. A legend that explains three shapes costs more map than the shapes do.
+                Centered glass pill, matching v3 design's Games|Courts mode toggle — not the
+                compact left-aligned switch used elsewhere in the app. */}
+            <View className="items-center">
               <SegmentedToggle
                 options={[
                   { key: "games", label: "Games" },
@@ -1386,6 +1401,8 @@ export default function Discover() {
                 ]}
                 value={mapMode}
                 onChange={handleSetMapMode}
+                size="lg"
+                style={{ backgroundColor: "rgba(20,20,22,0.85)", borderColor: colors.cardBorder }}
               />
             </View>
           </View>

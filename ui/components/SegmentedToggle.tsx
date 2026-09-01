@@ -11,6 +11,8 @@ export function SegmentedToggle<T extends string>({
   onChange,
   disabled = false,
   fullWidth = false,
+  size = "sm",
+  style,
 }: {
   options: { key: T; label: string; locked?: boolean }[];
   value: T;
@@ -19,18 +21,26 @@ export function SegmentedToggle<T extends string>({
   /** Equal-width segments filling the row (Profile's Overview/History/Trophy) instead of the
    * default content-sized pills (Discover's compact List|Map switch). */
   fullWidth?: boolean;
+  /** "lg" is the glass floating-pill sizing used over the Discover map (v3 design's Games|Courts
+   * toggle) — bigger padding/type than the default compact row-level switch. */
+  size?: "sm" | "lg";
+  style?: object;
 }) {
+  const lg = size === "lg";
   return (
     <View
       className="flex-row"
-      style={{
-        backgroundColor: colors.surface,
-        borderWidth: 1,
-        borderColor: colors.cardBorder,
-        borderRadius: 100,
-        padding: 3,
-        opacity: disabled ? 0.4 : 1,
-      }}
+      style={[
+        {
+          backgroundColor: colors.surface,
+          borderWidth: 1,
+          borderColor: colors.cardBorder,
+          borderRadius: 100,
+          padding: 3,
+          opacity: disabled ? 0.4 : 1,
+        },
+        style,
+      ]}
     >
       {options.map((o) => {
         const active = o.key === value;
@@ -48,15 +58,15 @@ export function SegmentedToggle<T extends string>({
             style={{
               flex: fullWidth ? 1 : undefined,
               alignItems: "center",
-              paddingHorizontal: 12,
-              paddingVertical: 5,
+              paddingHorizontal: lg ? 16 : 12,
+              paddingVertical: lg ? 7 : 5,
               borderRadius: 100,
               backgroundColor: active ? colors.accent : "transparent",
               opacity: o.locked ? 0.4 : 1,
             }}
           >
             <Text
-              className="font-body-bold text-[11.5px]"
+              className={lg ? "font-body-extrabold text-[12px]" : "font-body-bold text-[11.5px]"}
               style={{ color: active ? colors.base : colors.textDim }}
             >
               {o.label}

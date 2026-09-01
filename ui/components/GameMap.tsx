@@ -131,6 +131,11 @@ function PinPill({ game, active }: { game: Game; active: boolean }) {
         borderWidth: active ? 0 : 1.5,
         opacity: open || active ? 1 : 0.45,
         transform: [{ scale: active ? 1.15 : 1 }],
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: active ? 6 : 2 },
+        shadowOpacity: active ? 0.4 : 0.2,
+        shadowRadius: active ? 14 : 4,
+        elevation: active ? 6 : 2,
       }}
     >
       <Text className="font-body-extrabold text-[11px]" style={{ color: active ? colors.base : color }}>
@@ -199,6 +204,11 @@ function VenuePin({ venue, active, onPress }: { venue: VenueGroup; active: boole
           borderColor: colors.accent,
           borderWidth: active ? 0 : 1.5,
           opacity: anyOpen || active ? 1 : 0.45,
+          shadowColor: "#000",
+          shadowOffset: { width: 0, height: active ? 6 : 2 },
+          shadowOpacity: active ? 0.4 : 0.2,
+          shadowRadius: active ? 14 : 4,
+          elevation: active ? 6 : 2,
         }}
       >
         <Text className="font-body-extrabold text-[11px]" style={{ color: active ? colors.base : colors.accent }}>
@@ -249,9 +259,22 @@ function NoGameVenuePin({ venue, onPress, showLabel }: { venue: NoGameVenue; onP
       {/* D8: visual dot is 20px, but the tap target is the full 44x44pt Apple minimum — padding
           on a transparent wrapper, not a bigger dot. */}
       <View style={{ width: 44, height: 44, alignItems: "center", justifyContent: "center" }}>
+        {/* Rounded-square marker (v3 design 3b) — distinguishes a court pin from a circular
+            game pin at a glance, since there's no game here to colour-code. */}
         <View
-          className="rounded-full border"
-          style={{ width: 20, height: 20, backgroundColor: colors.surfaceAlt, borderColor: colors.accent, borderWidth: 2 }}
+          style={{
+            width: 20,
+            height: 20,
+            borderRadius: 6,
+            backgroundColor: colors.surfaceAlt,
+            borderColor: colors.text,
+            borderWidth: 2,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 3 },
+            shadowOpacity: 0.3,
+            shadowRadius: 6,
+            elevation: 3,
+          }}
         />
         {showLabel && (
           <View

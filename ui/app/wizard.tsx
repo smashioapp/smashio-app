@@ -198,6 +198,7 @@ export default function Wizard() {
     decReservedSpots,
     setMaxPlayers,
     setCourtsBooked,
+    setCourtLabel,
     setDurationHours,
     setCost,
     setReservedSpots,
@@ -588,6 +589,7 @@ export default function Wizard() {
         startsAt: wizard.startsAt,
         maxPlayers: wizard.maxPlayers,
         courtsBooked: wizard.courtsBooked,
+        courtLabel: wizard.courtLabel,
         durationHours: wizard.durationHours,
         costPerPlayerCents: Math.round(wizard.cost * 100),
         reservedSpots: wizard.reservedSpots,
@@ -885,6 +887,17 @@ export default function Wizard() {
         </Text>
         <Stepper onPress={() => bumpCourts(1)} icon="add" disabled={wizard.courtsBooked >= MAX_COURTS_BOOKED} />
       </View>
+
+      <Label>Court number (optional)</Label>
+      <TextInput
+        value={wizard.courtLabel}
+        onChangeText={setCourtLabel}
+        placeholder="e.g. Court 3"
+        placeholderTextColor={colors.textMuted}
+        maxLength={20}
+        className="rounded-2xl p-4.5 mb-5 border text-[15px]"
+        style={{ backgroundColor: colors.card, borderColor: colors.cardBorder, color: colors.text }}
+      />
 
       <Label>Duration (hours)</Label>
       <View className="flex-row items-center justify-center gap-6 rounded-2xl p-4.5 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>

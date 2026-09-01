@@ -17,6 +17,8 @@ export type WizardDraft = {
   skill: TierId;
   maxPlayers: number;
   courtsBooked: number;
+  // Free-text court number/label host gives players ("Court 3", "3-4"). Optional.
+  courtLabel: string;
   durationHours: number;
   cost: number;
   // Spots taken off max_players for people joining outside the app — not named, just a count.
@@ -38,6 +40,7 @@ const initialWizard: WizardDraft = {
   skill: "Intermediate",
   maxPlayers: 8,
   courtsBooked: 1,
+  courtLabel: "",
   durationHours: DEFAULT_DURATION_HOURS,
   cost: 8,
   reservedSpots: 0,
@@ -117,6 +120,7 @@ type AppState = {
   decReservedSpots: () => void;
   setMaxPlayers: (n: number) => void;
   setCourtsBooked: (n: number) => void;
+  setCourtLabel: (v: string) => void;
   setDurationHours: (n: number) => void;
   setCost: (n: number) => void;
   setReservedSpots: (n: number) => void;
@@ -210,6 +214,7 @@ export const useAppStore = create<AppState>((set) => ({
   decReservedSpots: () => set((s) => ({ wizard: { ...s.wizard, reservedSpots: Math.max(0, s.wizard.reservedSpots - 1) } })),
   setMaxPlayers: (n) => set((s) => ({ wizard: { ...s.wizard, maxPlayers: n, reservedSpots: Math.min(s.wizard.reservedSpots, n) } })),
   setCourtsBooked: (n) => set((s) => ({ wizard: { ...s.wizard, courtsBooked: n } })),
+  setCourtLabel: (v) => set((s) => ({ wizard: { ...s.wizard, courtLabel: v } })),
   setDurationHours: (n) => set((s) => ({ wizard: { ...s.wizard, durationHours: n } })),
   setCost: (n) => set((s) => ({ wizard: { ...s.wizard, cost: n } })),
   setReservedSpots: (n) => set((s) => ({ wizard: { ...s.wizard, reservedSpots: Math.max(0, Math.min(s.wizard.maxPlayers, n)) } })),

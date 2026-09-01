@@ -286,6 +286,7 @@ export function useCreateGame() {
       startsAt: Date;
       maxPlayers: number;
       courtsBooked: number;
+      courtLabel?: string;
       durationHours: number;
       costPerPlayerCents: number;
       reservedSpots?: number;
@@ -307,6 +308,7 @@ export function useCreateGame() {
           skill_tier_id: input.skillTierId,
           max_players: input.maxPlayers,
           courts_booked: input.courtsBooked,
+          court_label: input.courtLabel?.trim() || null,
           duration_hours: input.durationHours,
           cost_per_player_cents: input.costPerPlayerCents,
           reserved_spots: input.reservedSpots ?? 0,
@@ -345,6 +347,7 @@ export function useUpdateGame(gameId: string) {
       skillTierId: string;
       maxPlayers: number;
       courtsBooked: number;
+      courtLabel?: string;
       durationHours: number;
       costPerPlayerCents: number;
       reservedSpots: number;
@@ -357,6 +360,7 @@ export function useUpdateGame(gameId: string) {
           skill_tier_id: input.skillTierId,
           max_players: input.maxPlayers,
           courts_booked: input.courtsBooked,
+          court_label: input.courtLabel?.trim() || null,
           duration_hours: input.durationHours,
           cost_per_player_cents: input.costPerPlayerCents,
           reserved_spots: input.reservedSpots,

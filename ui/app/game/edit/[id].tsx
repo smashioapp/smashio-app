@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { View, Text, Pressable, ScrollView, Alert } from "react-native";
+import { View, Text, Pressable, ScrollView, Alert, TextInput } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
@@ -30,6 +30,7 @@ export default function EditGame() {
   const [skill, setSkill] = useState<TierId>("Intermediate");
   const [maxPlayers, setMaxPlayers] = useState(8);
   const [courtsBooked, setCourtsBooked] = useState(1);
+  const [courtLabel, setCourtLabel] = useState("");
   const [durationHours, setDurationHours] = useState(2);
   const [cost, setCost] = useState(8);
   const [reservedSpots, setReservedSpots] = useState(0);
@@ -42,6 +43,7 @@ export default function EditGame() {
     setSkill(game.skill);
     setMaxPlayers(game.maxPlayers);
     setCourtsBooked(game.courtsBooked);
+    setCourtLabel(game.courts ?? "");
     setDurationHours(game.durationHours);
     setCost(game.cost);
     setReservedSpots(game.reservedSpots);
@@ -91,7 +93,7 @@ export default function EditGame() {
       return;
     }
     updateGame.mutate(
-      { startsAt, skillTierId: tier.id, maxPlayers, courtsBooked, durationHours, costPerPlayerCents: Math.round(cost * 100), reservedSpots },
+      { startsAt, skillTierId: tier.id, maxPlayers, courtsBooked, courtLabel, durationHours, costPerPlayerCents: Math.round(cost * 100), reservedSpots },
       {
         onSuccess: () => {
           haptics.success();
@@ -279,6 +281,17 @@ export default function EditGame() {
           </Text>
           <Stepper icon="add" disabled={courtsBooked >= MAX_COURTS_BOOKED} onPress={() => setCourtsBooked(Math.min(MAX_COURTS_BOOKED, courtsBooked + 1))} />
         </View>
+
+        <Label>Court number (optional)</Label>
+        <TextInput
+          value={courtLabel}
+          onChangeText={setCourtLabel}
+          placeholder="e.g. Court 3"
+          placeholderTextColor={colors.textMuted}
+          maxLength={20}
+          className="rounded-2xl p-4.5 mb-5 border text-[15px]"
+          style={{ backgroundColor: colors.card, borderColor: colors.cardBorder, color: colors.text }}
+        />
 
         <Label>Duration (hours)</Label>
         <View

@@ -51,6 +51,8 @@ export function Button({
           <Text
             className={`font-body-extrabold ${textSize}`}
             style={{ color: variant === "primary" ? colors.base : variant === "secondary" ? colors.accent : colors.textSecondary }}
+            numberOfLines={1}
+            adjustsFontSizeToFit
           >
             {label}
           </Text>
@@ -70,7 +72,7 @@ export function Button({
             className={`rounded-pill ${pad} px-6 flex-row items-center justify-center gap-2`}
           >
             {isDisabled && !loading ? (
-              <Text className={`font-body-extrabold ${textSize}`} style={{ color: colors.textMuted }}>
+              <Text className={`font-body-extrabold ${textSize}`} style={{ color: colors.textMuted }} numberOfLines={1} adjustsFontSizeToFit>
                 {label}
               </Text>
             ) : (

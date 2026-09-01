@@ -1,9 +1,9 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { View, Text, FlatList, ActivityIndicator, RefreshControl, Pressable } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, avatarColor, type TierId } from "../../lib/theme";
-import { useTabBarSpace } from "../../lib/nav";
+import { NAV, useTabBarSpace } from "../../lib/nav";
 import { useUserLocation } from "../../lib/location";
 import { useFeedHome, type FeedPost } from "../../lib/queries/feed";
 import { Screen } from "../../components/Screen";
@@ -140,6 +140,9 @@ export default function Feed() {
   const feedQuery = useFeedHome({ lat: location.lat, lng: location.lng });
   const posts = useMemo(() => feedQuery.data?.pages.flat() ?? [], [feedQuery.data]);
   const { session } = useSession();
+  // Guards the compose button against a rapid double-tap opening the modal more than once —
+  // router.push has no built-in debounce, so a fast burst stacked several copies of the screen.
+  const composeGuard = useRef(false);
 
   useEffect(() => {
     track("feed_viewed");
@@ -154,14 +157,21 @@ export default function Feed() {
         {session && (
           <Pressable
             onPress={() => {
+              if (composeGuard.current) return;
+              composeGuard.current = true;
+              setTimeout(() => {
+                composeGuard.current = false;
+              }, 600);
               haptics.tap();
               router.push("/compose");
             }}
             className="w-9 h-9 rounded-full items-center justify-center"
             style={{ backgroundColor: colors.accent }}
             testID="feed-compose"
+            accessibilityRole="button"
+            accessibilityLabel="New post"
           >
-            <Ionicons name="add" size={20} color={colors.base} />
+            <Ionicons name="create-outline" size={18} color={colors.base} />
           </Pressable>
         )}
       </View>
@@ -179,11 +189,14 @@ export default function Feed() {
           onCta={() => router.push("/(tabs)/discover")}
         />
       ) : (
+        // The global Host FAB overhangs above the tab bar (NAV.FAB_RISE) — tabBarSpace alone
+        // clears the bar itself but left the FAB permanently covering the last card, hence the
+        // extra padding below.
         <FlatList
           data={posts}
           keyExtractor={(p) => p.id}
           renderItem={({ item }) => <FeedRow post={item} />}
-          contentContainerStyle={{ paddingTop: 4, paddingBottom: tabBarSpace }}
+          contentContainerStyle={{ paddingTop: 4, paddingBottom: tabBarSpace + NAV.FAB_RISE }}
           onEndReached={() => feedQuery.hasNextPage && feedQuery.fetchNextPage()}
           onEndReachedThreshold={0.4}
           refreshControl={<RefreshControl refreshing={feedQuery.isRefetching} onRefresh={() => feedQuery.refetch()} tintColor={colors.accent} />}

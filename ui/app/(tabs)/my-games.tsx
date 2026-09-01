@@ -31,7 +31,13 @@ import type { Game } from "../../lib/mockData";
 
 type AlertRowState = "idle" | "saving" | "saved";
 
-const ROLE_LABEL: Record<MyRole, string> = { hosting: "Hosting", playing: "Playing", requested: "Requested" };
+const ROLE_LABEL: Record<MyRole, string> = {
+  hosting: "Hosting",
+  playing: "Playing",
+  requested: "Requested",
+  invited: "Invited",
+  waitlisted: "Waitlisted",
+};
 
 const HERO_WINDOW_MS = 24 * 60 * 60 * 1000;
 
@@ -85,7 +91,10 @@ export default function MyGames() {
   }, []);
 
   const upcoming: UpcomingGame[] = useMemo(() => {
-    const joined = (joinedQuery.data ?? []).map((g) => ({ ...g, role: (g.myStatus === "requested" ? "requested" : "playing") as MyRole }));
+    const joined = (joinedQuery.data ?? []).map((g) => ({
+      ...g,
+      role: (g.myStatus === "requested" || g.myStatus === "invited" || g.myStatus === "waitlisted" ? g.myStatus : "playing") as MyRole,
+    }));
     const hosting = (hostingQuery.data ?? []).map((g) => ({ ...g, role: "hosting" as MyRole }));
     return [...joined, ...hosting].sort((a, b) => a.startsAt.localeCompare(b.startsAt));
   }, [joinedQuery.data, hostingQuery.data]);

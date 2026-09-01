@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, Pressable, ScrollView, TextInput, Dimensions, FlatList, BackHandler, Alert, Linking, NativeSyntheticEvent, NativeScrollEvent } from "react-native";
 import Animated, { FadeIn, FadeOut } from "react-native-reanimated";
+import { LinearGradient } from "expo-linear-gradient";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -477,6 +478,7 @@ function FilterChipsRow({
   onPressSearch: () => void;
 }) {
   return (
+    <View style={{ position: "relative" }}>
     <ScrollView
       horizontal
       showsHorizontalScrollIndicator={false}
@@ -542,6 +544,16 @@ function FilterChipsRow({
         </Pressable>
       ))}
     </ScrollView>
+    {/* Fade hint — the row scrolls (confirmed via scrollWidth vs. clientWidth) but the last chip
+        was cut flush with the edge with no cue there was more. */}
+    <LinearGradient
+      pointerEvents="none"
+      colors={["transparent", colors.base]}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 0 }}
+      style={{ position: "absolute", right: 0, top: 0, bottom: 12, width: 28 }}
+    />
+    </View>
   );
 }
 

@@ -23,9 +23,15 @@ import { shareGame } from "../lib/share";
 import { useCancelGame, useUploadConfirmation } from "../lib/queries/games";
 import { useDecideJoinRequest, useLeaveGame, type PendingRequest } from "../lib/queries/gamePlayers";
 
-export type MyRole = "hosting" | "playing" | "requested";
+export type MyRole = "hosting" | "playing" | "requested" | "invited" | "waitlisted";
 
-const ROLE_LABEL: Record<MyRole, string> = { hosting: "Hosting", playing: "Playing", requested: "Requested" };
+const ROLE_LABEL: Record<MyRole, string> = {
+  hosting: "Hosting",
+  playing: "Playing",
+  requested: "Requested",
+  invited: "Invited",
+  waitlisted: "Waitlisted",
+};
 const FILL_HEALTH_WINDOW_MS = 48 * 60 * 60 * 1000;
 
 // The commitment card — you already decided, so scarcity/price are gone; the questions this
@@ -73,9 +79,14 @@ export function UpcomingGameCard({
 
   const handleLeave = () => {
     const isRequested = role === "requested";
+    const isWaitlisted = role === "waitlisted";
     Alert.alert(
-      isRequested ? "Withdraw request?" : "Leave game?",
-      isRequested ? "You'll stop waiting on the host's decision." : "You'll give up your spot in this game.",
+      isRequested ? "Withdraw request?" : isWaitlisted ? "Leave the waitlist?" : "Leave game?",
+      isRequested
+        ? "You'll stop waiting on the host's decision."
+        : isWaitlisted
+          ? "You'll give up your place in the queue."
+          : "You'll give up your spot in this game.",
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -171,6 +182,18 @@ export function UpcomingGameCard({
             </Text>
           )}
 
+          {role === "invited" && (
+            <Text className="text-[12.5px] font-body-bold" style={{ color: colors.accent }}>
+              You're invited — tap to respond
+            </Text>
+          )}
+
+          {role === "waitlisted" && (
+            <Text className="text-[12.5px] font-body-bold" style={{ color: colors.accent }}>
+              On the waitlist
+            </Text>
+          )}
+
           {role !== "hosting" && game.organizerName && (
             <View className="flex-row items-center gap-2">
               <Avatar
@@ -208,6 +231,10 @@ export function UpcomingGameCard({
                   {` of ${game.maxPlayers} in`}
                 </Text>
               </View>
+            ) : role === "invited" || role === "waitlisted" ? (
+              <Text className="text-[13px] font-body-bold" style={{ color: colors.textMuted }}>
+                {inCount} going
+              </Text>
             ) : (
               <Text className="text-[13px] font-body-bold" style={{ color: colors.textMuted }}>
                 You're in · {inCount} going
@@ -378,6 +405,21 @@ export function UpcomingGameCard({
                   </Text>
                 </Pressable>
               </>
+            ) : role === "invited" ? (
+              // Accept/Decline live on the game detail screen (D10) — leave_game doesn't even
+              // cover the 'invited' status, so this routes there instead of a no-op Leave.
+              <Pressable
+                onPress={(e) => {
+                  e.stopPropagation();
+                  onPress();
+                }}
+                className="rounded-pill px-3.5 py-2"
+                style={{ backgroundColor: colors.accent }}
+              >
+                <Text className="font-body-bold text-[12.5px]" style={{ color: colors.base }}>
+                  Respond
+                </Text>
+              </Pressable>
             ) : (
               <Pressable
                 disabled={leaveGame.isPending}
@@ -389,7 +431,7 @@ export function UpcomingGameCard({
                 style={{ borderColor: "rgba(255,255,255,0.15)", opacity: leaveGame.isPending ? 0.6 : 1 }}
               >
                 <Text className="font-body-bold text-[12.5px]" style={{ color: colors.textDim }}>
-                  {role === "requested" ? "Withdraw" : "Leave"}
+                  {role === "requested" ? "Withdraw" : role === "waitlisted" ? "Leave waitlist" : "Leave"}
                 </Text>
               </Pressable>
             )}

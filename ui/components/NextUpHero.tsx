@@ -12,7 +12,13 @@ import { addGameToCalendar } from "../lib/calendar";
 import type { Game, Player } from "../lib/mockData";
 import type { MyRole } from "./UpcomingGameCard";
 
-const ROLE_LABEL: Record<MyRole, string> = { hosting: "Hosting", playing: "Playing", requested: "Requested" };
+const ROLE_LABEL: Record<MyRole, string> = {
+  hosting: "Hosting",
+  playing: "Playing",
+  requested: "Requested",
+  invited: "Invited",
+  waitlisted: "Waitlisted",
+};
 const URGENT_MS = 2 * 60 * 60 * 1000;
 
 function formatClock(iso: string): string {

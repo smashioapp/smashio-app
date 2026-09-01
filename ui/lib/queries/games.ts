@@ -442,15 +442,19 @@ export function useMyJoinedGames() {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return [];
-      // Both statuses — a request the host hasn't decided yet still belongs on this screen;
-      // dropping it until approval makes the one screen named "My Games" silent about it.
+      // All four live statuses — a pending request, an unanswered invite, and a waitlist spot
+      // all belong on the one screen named "My Games" just as much as an approved spot does.
+      // Dropping 'invited'/'waitlisted' here left the game detail screen's Accept/Decline and
+      // waitlist buttons unreachable, since there was no way into the game from this list.
       const { data: memberships, error: mErr } = await supabase
         .from("game_players")
         .select("game_id, status")
         .eq("profile_id", user.id)
-        .in("status", ["approved", "requested"]);
+        .in("status", ["approved", "requested", "invited", "waitlisted"]);
       if (mErr) throw mErr;
-      const statusByGameId = new Map(memberships?.map((m) => [m.game_id, m.status as "approved" | "requested"]));
+      const statusByGameId = new Map(
+        memberships?.map((m) => [m.game_id, m.status as "approved" | "requested" | "invited" | "waitlisted"])
+      );
       const gameIds = [...statusByGameId.keys()];
       if (gameIds.length === 0) return [];
       // Cancelled games stay in the list until they're in the past — dropping them the

@@ -60,7 +60,7 @@ export type Game = {
   coverKey?: string | null;
   // Only populated by useMyJoinedGames — the viewer's own membership row status, so a
   // requested-but-not-yet-approved game can render "Awaiting host" instead of vanishing.
-  myStatus?: "approved" | "requested";
+  myStatus?: "approved" | "requested" | "invited" | "waitlisted";
 };
 
 export type PastPlayer = {

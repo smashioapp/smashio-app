@@ -19,6 +19,12 @@ jobs:
       EXPO_PUBLIC_SENTRY_DSN: ${{ secrets.EXPO_PUBLIC_SENTRY_DSN }}
       EXPO_PUBLIC_POSTHOG_KEY: ${{ secrets.EXPO_PUBLIC_POSTHOG_KEY }}
       EXPO_PUBLIC_POSTHOG_HOST: ${{ secrets.EXPO_PUBLIC_POSTHOG_HOST }}
+      # Expo SDK 56+ precompiled xcframeworks can resolve against a mismatched
+      # expo-modules-core ABI (expo/expo#46880), causing missing-symbol dyld
+      # crashes at launch and ITMS-90863 Mac-silicon validation failures on
+      # upload. Not fixed upstream yet -- force source builds for all Expo
+      # modules until it is.
+      EXPO_USE_PRECOMPILED_MODULES: "0"
       SENTRY_ORG: smashio
       SENTRY_PROJECT: smashio-sentry-app
       SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}

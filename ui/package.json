@@ -34,6 +34,7 @@
     "expo-linear-gradient": "~57.0.1",
     "expo-linking": "~57.0.5",
     "expo-location": "~57.0.8",
+    "expo-modules-jsi": "57.0.5",
     "expo-notifications": "~57.0.9",
     "expo-router": "~57.0.11",
     "expo-secure-store": "~57.0.1",
@@ -61,12 +62,14 @@
     "zustand": "^5.0.14"
   },
   "overrides": {
-    "expo-modules-jsi": "57.0.6"
+    "expo-modules-jsi": "57.0.5"
   },
   "expo": {
     "autolinking": {
       "ios": {
-        "buildFromSource": ["expo-modules-jsi"]
+        "buildFromSource": [
+          "expo-modules-jsi"
+        ]
       }
     }
   },

@@ -63,6 +63,13 @@
   "overrides": {
     "expo-modules-jsi": "57.0.6"
   },
+  "expo": {
+    "autolinking": {
+      "ios": {
+        "buildFromSource": ["expo-modules-jsi"]
+      }
+    }
+  },
   "devDependencies": {
     "@react-native/jest-preset": "^0.86.2",
     "@testing-library/react-native": "^13.3.3",

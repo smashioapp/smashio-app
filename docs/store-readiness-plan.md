@@ -25,6 +25,62 @@ Signing is now self-managed, which changes the recovery story:
 
 Android has no Play Console setup and no `ANDROID_*` secrets, so [build-android.yml](../.github/workflows/build-android.yml) cannot succeed yet — it builds artifacts only and has never run in CI.
 
+### iOS runner image / Xcode / expo-modules-jsi — read before touching any of the three (2026-09-02)
+
+These three are one coupled decision, not three independent knobs. Build 1077 and 1079 both
+shipped a binary that crashed on launch and tripped `ITMS-90863` because they were changed
+independently.
+
+**The coupling.** `ExpoModulesCore` ships as a *precompiled* xcframework; `ExpoModulesJSI` is
+compiled *from source* in our build. So the jsi version we compile must export exactly the symbols
+the prebuilt core binary already links against. `expo-modules-core@57.0.10` was published
+2026-08-06, when jsi latest was `57.0.4`, so its binary carries an undefined reference to jsi
+57.0.4's `JavaScriptActor.assumeIsolated(_:) rethrows`.
+
+**What broke.** jsi `57.0.6` rewrote `assumeIsolated` into two `@_alwaysEmitIntoClient` overloads.
+Always-emit-into-client symbols are inlined into callers and never exported, so the symbol vanished
+from the framework. `ld` does not check one prebuilt dylib's undefined symbols against another
+dylib, so the archive linked clean and **dyld failed at launch instead** — a green CI run that
+produces a dead app. Apple's upload validator reports the same missing symbol as `ITMS-90863`
+("symbols that aren't present in macOS"), which reads like an Apple-silicon/Catalyst problem and
+is not one.
+
+**Why we were on 57.0.6 at all.** `e498afe` pinned `runs-on: macos-15` for queue times. That
+dropped Xcode from **26.6** (the `macos-26` image, which build 1070 used and which worked) to
+**26.3**, and jsi `57.0.4` does not compile on 26.3 — `JavaScriptCodable+Date.swift:53: type of
+expression is ambiguous` (run 74). The version bump was a fix for a compile error that only
+existed because of the runner pin.
+
+**Where it landed.** jsi pinned to **`57.0.5`**, the only version that satisfies both sides: it
+carries the Date compile fix so it builds on Xcode 26.3, and its diff against 57.0.4 is two files
+with no public API change, so it still exports the symbol `ExpoModulesCore` needs. Its
+`RuntimeScheduler.h` is byte-identical to 57.0.6's, so
+[ui/patches/expo-modules-jsi+57.0.5.patch](../ui/patches/expo-modules-jsi+57.0.5.patch) (which
+strips `SWIFT_RETURNS_RETAINED`, rejected by the Swift/C++ interop checker on Xcode 26.2 **and**
+26.3) still applies. `expo-modules-jsi` is also a *direct* dependency in `ui/package.json`: with
+only `expo-modules-core` depending on it, npm nests the pinned copy under
+`node_modules/expo-modules-core/node_modules/` and patch-package fails with "Patch file found for
+package expo-modules-jsi which is not present".
+
+**The open decision.** `macos-15` is the upstream cause of all of it. `macos-latest` gives Xcode
+26.6, which compiles jsi fine and would let us drop both the pin and the patch — at the cost of
+the queue times `e498afe` was avoiding. The `57.0.5` pin works on both runners, so nothing is
+forcing the choice today. If you move back to `macos-latest`, drop the pin and the patch together
+and confirm the resulting jsi version still exports `assumeIsolated` for whatever
+`expo-modules-core` version is precompiled at that point.
+
+**Rules of thumb.**
+- Never bump `expo-modules-jsi` on its own. Check it against the `expo-modules-core` version in
+  the build log's `[Expo-precompiled] 📦` list, and against that core version's npm publish date
+  versus the jsi publish dates.
+- A green iOS build proves nothing about launch. This class of bug is invisible until the app
+  runs on a device. Install the TestFlight build before calling it shipped.
+- `ITMS-90863` on this app means a missing Swift symbol, not an Apple-silicon issue. Read the
+  symbol name.
+- Attributing this to precompiled-module ABI in general (`EXPO_USE_PRECOMPILED_MODULES=0`,
+  `expo.autolinking.ios.buildFromSource`) was tried in `dd59cba`/`65729fe` and did not fix it.
+  The skew is a version skew.
+
 ## Fixed 2026-08-12 — account deletion
 
 Play's User Data policy (enforced since April 2024) requires both halves for any app with accounts. Both now exist:

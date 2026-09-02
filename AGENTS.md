@@ -33,3 +33,4 @@ Testing locally: log in with `test@smashio.dev` / `Test1234!` (email/password fo
 - Business/legal facts (ABN, ASIC name status) belong in docs/business-context.md — keep updated if they change, don't duplicate elsewhere.
 - Stack is decided (docs/tech-stack.md: React Native/Expo + Supabase + Google Maps, chat in-house on Supabase Realtime, AI calls server-side only). Changing it needs explicit user sign-off.
 - AI features must go through a server-side proxy — never call the LLM API directly from the client app.
+- Before touching the iOS runner image, the Xcode version, or the `expo-modules-jsi` pin/patch in `ui/package.json`, read [store-readiness-plan.md](store-readiness-plan.md) §"iOS runner image / Xcode / expo-modules-jsi". Those three are one coupled decision: changing them independently shipped two builds (1077, 1079) that passed CI and then crashed on launch with a missing Swift symbol. A green iOS build does not prove the app launches.

@@ -3,6 +3,23 @@ import { View, Text, Pressable, PanResponder } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../lib/theme";
 
+// Edit mode's full-screen row-editor header (create-game-plan.md band 08a): "Back / Title / Done",
+// same shape on all four editors, distinct from the read screen's chevron-and-kebab header.
+export function EditorHeader({ title, onBack, onDone }: { title: string; onBack: () => void; onDone: () => void }) {
+  return (
+    <View className="flex-row items-center justify-between pt-14 px-5 pb-3">
+      <Pressable onPress={onBack} className="flex-row items-center gap-1" hitSlop={8}>
+        <Ionicons name="chevron-back-outline" size={14} color={colors.textSecondary} />
+        <Text className="font-body-bold text-[15px]" style={{ color: colors.textSecondary }}>Back</Text>
+      </Pressable>
+      <Text className="font-display text-[16px]" style={{ color: colors.text }}>{title}</Text>
+      <Pressable onPress={onDone} hitSlop={8}>
+        <Text className="font-body-bold text-[14px]" style={{ color: colors.accent }}>Done</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 // Shared pieces of the Host a Game v3 draft card (create-game-plan.md §9.8: "Edit reuses the
 // draft card" — one component, two modes). Split out of wizard.tsx so game/edit/[id].tsx can
 // build the same accordion rows instead of drifting back into its own bespoke stepper form.

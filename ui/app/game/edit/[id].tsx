@@ -1,34 +1,34 @@
 import { useEffect, useState } from "react";
-import { View, Text, Pressable, ScrollView, Alert, TextInput } from "react-native";
+import { View, Text, Pressable, ScrollView, Alert } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
-import DateTimePicker from "@react-native-community/datetimepicker";
-import { colors, TIERS, tierColor, type TierId } from "../../../lib/theme";
-import { formatDate, formatTimeRange, formatTimeShort } from "../../../lib/format";
-import { DURATION_STEP_HOURS, MAX_DURATION_HOURS, MIN_DURATION_HOURS, durationMs, formatDuration, slotAt } from "../../../lib/schedule";
-import { MAX_COST_PER_PLAYER_PER_HOUR, MAX_COURTS_BOOKED, MAX_PLAYERS, MIN_COURTS_BOOKED, MIN_PLAYERS } from "../../../lib/store";
+import { colors, tierColor } from "../../../lib/theme";
+import { formatDate, formatTimeRange, formatTimeShort, formatCountdown } from "../../../lib/format";
+import { durationMs, formatDuration } from "../../../lib/schedule";
 import { useCancelGame, useGameDetail, useUpdateGame } from "../../../lib/queries/games";
 import { useGameRoster } from "../../../lib/queries/gamePlayers";
 import { useSkillTiers } from "../../../lib/queries/sports";
 import { useReservedSpots } from "../../../lib/queries/reservedSpots";
-import { Button } from "../../../components/Button";
+import { LineupStrip, lineupSummary, type LineupSlot } from "../../../components/LineupStrip";
 import { BackButton } from "../../../components/BackButton";
 import { Sheet } from "../../../components/Sheet";
-import { AccordionRow, PriceSlider, RowLabel, Stepper } from "../../../components/DraftCardParts";
-import { LineupStrip, lineupSummary, type LineupSlot } from "../../../components/LineupStrip";
-import { ReservedSpots } from "../../../components/ReservedSpots";
+import { useAppStore, type EditGameFields } from "../../../lib/store";
+import { costRow, loudSummary, moreRow, pushPreview, whenRow, whoRow } from "../../../lib/editGameDiff";
 import { haptics } from "../../../lib/haptics";
 import { useSession } from "../../../lib/session";
 import { useProfile } from "../../../lib/queries/profile";
+import { shareGame } from "../../../lib/share";
 
 const SPORT_SLUG = "badminton";
-const COURT_CHIPS = [1, 2, 3, 4, 5, 6];
-const DURATION_CHIPS = [1, 1.5, 2, 2.5];
+// design-brief band 08 item 5: within this of start, the WHEN row grows a caution line and the
+// status pill goes amber — editing is still allowed, the host just sees the runway first.
+const STARTING_SOON_MS = 2 * 60 * 60 * 1000;
 
-// Host a Game v3 (create-game-plan.md §9.8): edit is a mode of the same draft card, not a
-// separate form — venue locked with its reason, a persistent "players will be notified" line,
-// save instead of publish. Reuses AccordionRow/LineupStrip from the create flow (wizard.tsx /
-// DraftCardParts.tsx) so create and edit can't drift apart again.
+// Host a Game v3 edit mode (create-game-plan.md §9.8, design band 08): a read state you enter and
+// leave. Ten stacked blocks collapse to a header, one locked venue line, and four value rows —
+// WHEN/WHO/COST/MORE OPTIONS — each pushing to its own full-screen editor (edit-when/edit-who/
+// edit-cost/edit-more) instead of expanding in place. Draft state lives in useAppStore().editDraft
+// so it survives the push/pop between this screen and its editors.
 export default function EditGame() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const gameId = id ?? "";
@@ -42,50 +42,42 @@ export default function EditGame() {
   const { session } = useSession();
   const { data: profile } = useProfile(session?.user.id);
 
-  const [startsAt, setStartsAt] = useState<Date | null>(null);
-  const [skill, setSkill] = useState<TierId>("Intermediate");
-  const [skillMax, setSkillMax] = useState<TierId>("Intermediate");
-  const [maxPlayers, setMaxPlayers] = useState(8);
-  const [courtsBooked, setCourtsBooked] = useState(1);
-  const [courtsExpanded, setCourtsExpanded] = useState(false);
-  const [courtLabel, setCourtLabel] = useState("");
-  const [durationHours, setDurationHours] = useState(1.5);
-  const [cost, setCost] = useState(8);
-  const [reservedSpots, setReservedSpots] = useState(0);
-  const [format, setFormat] = useState("social");
-  const [visibility, setVisibility] = useState<"public" | "link_only">("public");
-  const [autoApprove, setAutoApprove] = useState(true);
-  const [shuttles, setShuttles] = useState("");
-  const [notes, setNotes] = useState("");
+  const editDraft = useAppStore((s) => s.editDraft);
+  const initEditDraft = useAppStore((s) => s.initEditDraft);
+  const discardEditDraft = useAppStore((s) => s.discardEditDraft);
+  const clearEditDraft = useAppStore((s) => s.clearEditDraft);
 
-  const [expandedRow, setExpandedRow] = useState<"when" | "who" | "cost" | null>(null);
-  const [moreOpen, setMoreOpen] = useState(false);
+  const [kebabOpen, setKebabOpen] = useState(false);
+  const [discardOpen, setDiscardOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saveFailed, setSaveFailed] = useState<"failed" | "offline" | null>(null);
 
   useEffect(() => {
-    if (!game || startsAt) return;
-    setStartsAt(new Date(game.startsAt));
-    setSkill(game.skill);
-    setSkillMax(game.skillTierMax ?? game.skill);
-    setMaxPlayers(game.maxPlayers);
-    setCourtsBooked(game.courtsBooked);
-    setCourtLabel(game.courts ?? "");
-    setDurationHours(game.durationHours);
-    setCost(game.cost);
-    setReservedSpots(game.reservedSpots);
-    setFormat(game.format ?? "social");
-    setVisibility(game.visibility ?? "public");
-    setAutoApprove(game.autoApprove ?? true);
-    setShuttles(game.shuttles ?? "");
-    setNotes(game.notes ?? "");
-  }, [game, startsAt]);
+    if (!game) return;
+    initEditDraft(gameId, {
+      startsAt: new Date(game.startsAt),
+      durationHours: game.durationHours,
+      courtsBooked: game.courtsBooked,
+      courtLabel: game.courts ?? "",
+      skill: game.skill,
+      skillMax: game.skillTierMax ?? game.skill,
+      maxPlayers: game.maxPlayers,
+      cost: game.cost,
+      format: game.format ?? "social",
+      visibility: game.visibility ?? "public",
+      autoApprove: game.autoApprove ?? true,
+      shuttles: game.shuttles ?? "",
+      notes: game.notes ?? "",
+      // eslint-disable-next-line
+    } as EditGameFields);
+    // Leaving the screen entirely (not just pushing to a row editor) clears the draft so a later
+    // visit starts from the server's current values, not a stale edit.
+    return () => clearEditDraft();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [game?.id]);
 
-  const approvedCount = rosterQuery.data?.length ?? 0;
-  const reservedClaimed = game?.reservedClaimed ?? 0;
-  const heldForFriends = Math.max(0, reservedSpots - reservedClaimed);
-  const minPlayers = Math.max(MIN_PLAYERS, 1 + approvedCount + heldForFriends);
-  const maxCost = durationHours * MAX_COST_PER_PLAYER_PER_HOUR;
-
-  if (gameQuery.isLoading || !startsAt) {
+  if (gameQuery.isLoading || !editDraft || editDraft.gameId !== gameId) {
     return (
       <View className="flex-1 items-center justify-center" style={{ backgroundColor: colors.baseAlt }}>
         <Text style={{ color: colors.textSecondary }}>Loading…</Text>
@@ -100,17 +92,18 @@ export default function EditGame() {
     );
   }
 
-  const endsAt = new Date(startsAt.getTime() + durationMs(durationHours));
-  const rescheduled = startsAt.toISOString() !== game.startsAt;
-  const startInPast = startsAt.getTime() <= Date.now();
+  const d = editDraft.current;
+  const o = editDraft.original;
+  const approvedCount = rosterQuery.data?.length ?? 0;
+  const cancelled = game.status === "cancelled";
 
   const named = reservedSpotsQuery.data ?? [];
   const namedSlots: LineupSlot[] = named.map((s) => ({ kind: "named", id: s.id, label: s.claimedName ?? s.invitedName ?? s.label, claimed: !!s.claimedBy }));
   const joinedSlots: LineupSlot[] = (rosterQuery.data ?? []).map((p) => ({ kind: "joined", id: p.id, name: p.name, avatarKey: p.avatarKey, photoUri: p.photoUri }));
-  const anonCount = Math.max(0, reservedSpots - named.length);
+  const anonCount = Math.max(0, game.reservedSpots - named.length);
   const anonSlots: LineupSlot[] = Array.from({ length: anonCount }, (_, i) => ({ kind: "anon", id: `anon-${i}` }));
   const filledCount = 1 + joinedSlots.length + namedSlots.length + anonSlots.length;
-  const openCount = Math.max(0, maxPlayers - filledCount);
+  const openCount = Math.max(0, d.maxPlayers - filledCount);
   const openSlots: LineupSlot[] = Array.from({ length: openCount }, (_, i) => ({ kind: "open", id: `open-${i}` }));
   const lineupSlots: LineupSlot[] = [
     { kind: "host", id: game.organizerId, name: profile?.display_name || "You", avatarKey: profile?.avatar_key },
@@ -120,384 +113,336 @@ export default function EditGame() {
     ...openSlots,
   ];
 
+  const when = whenRow(d, o);
+  const who = whoRow(d, o);
+  const cost = costRow(d, o);
+  const more = moreRow(d, o);
+  const anyDirty = when.dirty || who.dirty || cost.dirty || more.dirty;
+  const summary = loudSummary(d, o, approvedCount);
+  const preview = pushPreview(d, o, game.venue);
+  const startsInMs = d.startsAt.getTime() - Date.now();
+  const startingSoon = startsInMs > 0 && startsInMs <= STARTING_SOON_MS;
+  const countdown = formatCountdown(d.startsAt.toISOString());
+
+  const dirtyRowChangedNames = [when.dirty && "the time", who.dirty && "the lineup", cost.dirty && "the price", more.dirty && "more options"].filter(Boolean) as string[];
+
   const save = () => {
-    const tier = tiers.find((t) => t.label === skill);
-    const tierMax = tiers.find((t) => t.label === skillMax) ?? tier;
+    const tier = tiers.find((t) => t.label === d.skill);
+    const tierMax = tiers.find((t) => t.label === d.skillMax) ?? tier;
     if (!tier) {
       Alert.alert("Not ready yet", "Still loading skill levels, give it a moment.");
       return;
     }
-    if (startInPast) {
+    if (d.startsAt.getTime() <= Date.now()) {
       Alert.alert("Pick a future time", "That start time has already passed.");
       return;
     }
+    setSaving(true);
+    setSaveFailed(null);
     updateGame.mutate(
       {
-        startsAt,
+        startsAt: d.startsAt,
         skillTierId: tier.id,
         skillTierMaxId: tierMax?.id,
-        maxPlayers,
-        courtsBooked,
-        courtLabel,
-        durationHours,
-        costPerPlayerCents: Math.round(cost * 100),
-        reservedSpots,
-        visibility,
-        autoApprove,
-        shuttles,
-        notes,
+        maxPlayers: d.maxPlayers,
+        courtsBooked: d.courtsBooked,
+        courtLabel: d.courtLabel,
+        durationHours: d.durationHours,
+        costPerPlayerCents: Math.round(d.cost * 100),
+        reservedSpots: game.reservedSpots,
+        visibility: d.visibility,
+        autoApprove: d.autoApprove,
+        shuttles: d.shuttles,
+        notes: d.notes,
       },
       {
         onSuccess: () => {
           haptics.success();
+          setSaving(false);
+          clearEditDraft();
           router.back();
         },
         onError: (e) => {
           haptics.error();
-          Alert.alert("Couldn't save changes", e instanceof Error ? e.message : "Give it another go.");
+          setSaving(false);
+          // Heuristic, not a live connectivity signal — this app has no NetInfo dependency yet
+          // (create-game-plan.md deviation log). A network-shaped error reads as "offline", any
+          // other failure reads as "save failed".
+          const msg = e instanceof Error ? e.message : "";
+          setSaveFailed(/network|fetch|offline/i.test(msg) ? "offline" : "failed");
         },
       }
     );
   };
 
   const confirmCancel = () => {
-    Alert.alert(
-      "Cancel this game?",
-      approvedCount > 0
-        ? `${approvedCount} ${approvedCount === 1 ? "player" : "players"} will be notified and lose their spot. This can't be undone.`
-        : "This can't be undone.",
-      [
-        { text: "Keep game", style: "cancel" },
-        {
-          text: "Cancel game",
-          style: "destructive",
-          onPress: () =>
-            cancelGame.mutate(undefined, {
-              onSuccess: () => {
-                haptics.success();
-                router.back();
-              },
-              onError: (e) => {
-                haptics.error();
-                Alert.alert("Couldn't cancel", e instanceof Error ? e.message : "Give it another go.");
-              },
-            }),
-        },
-      ]
-    );
+    cancelGame.mutate(undefined, {
+      onSuccess: () => {
+        haptics.success();
+        clearEditDraft();
+        setCancelOpen(false);
+        router.back();
+      },
+      onError: (e) => {
+        haptics.error();
+        Alert.alert("Couldn't cancel", e instanceof Error ? e.message : "Give it another go.");
+      },
+    });
   };
 
   const moreOptionsSummary = [
-    { social: "Social", competitive: "Competitive", drills: "Drills", doubles_rotation: "Doubles rotation" }[format] ?? "Social",
-    visibility === "public" ? "Public" : "Link only",
-    autoApprove ? "Auto-approve" : "Review joins",
-    shuttles.trim() ? shuttles : "No shuttle note",
-  ].join(" · ");
+    { social: "Social", competitive: "Competitive", drills: "Drills", doubles_rotation: "Doubles rotation" }[d.format] ?? "Social",
+    d.visibility === "public" ? "Public" : "Link only",
+    d.autoApprove ? "Auto-approve joins" : "Review joins",
+    d.shuttles.trim() ? d.shuttles : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  const goto = (screen: "edit-when" | "edit-who" | "edit-cost" | "edit-more") => {
+    haptics.tap();
+    router.push(`/game/${screen}/${gameId}`);
+  };
 
   return (
-    <View className="flex-1 pt-14" style={{ backgroundColor: colors.baseAlt }}>
-      <View className="flex-row items-center gap-3 px-5 pb-3">
-        <BackButton dark onPress={() => router.back()} />
-        <Text className="font-display text-[20px]" style={{ color: colors.text }}>Edit game</Text>
+    <View className="flex-1 pt-14" style={{ backgroundColor: colors.baseAlt, opacity: cancelled ? 0.85 : 1 }}>
+      <View className="flex-row items-center justify-between px-5 pb-2">
+        <Pressable onPress={() => { clearEditDraft(); router.back(); }} className="flex-row items-center gap-1">
+          <Ionicons name="chevron-back-outline" size={17} color={colors.textSecondary} />
+          <Text className="font-display text-[18px]" style={{ color: colors.text }}>Edit game</Text>
+        </Pressable>
+        {!cancelled && (
+          <Pressable onPress={() => { haptics.tap(); setKebabOpen(true); }} hitSlop={10}>
+            <Ionicons name="ellipsis-horizontal-outline" size={18} color={colors.textSecondary} />
+          </Pressable>
+        )}
       </View>
 
-      <ScrollView className="flex-1 px-5" contentContainerStyle={{ paddingBottom: 24 }}>
-        {/* Same cover preview shell as the draft card, minus the DRAFT badge — the venue can't
-            change post-publish, so this row is display-only with its reason. */}
-        <View className="rounded-3xl overflow-hidden mb-2" style={{ height: 120, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.cardBorder, justifyContent: "flex-end", padding: 14 }}>
-          <View className="flex-row items-center gap-1.5">
-            <Ionicons name="lock-closed" size={11} color={colors.textMuted} />
-            <Text className="font-body-bold text-[10px] uppercase" style={{ color: colors.textMuted, letterSpacing: 0.5 }}>Venue locked</Text>
+      {cancelled ? (
+        <View className="px-5">
+          <View className="self-start rounded-pill px-2 py-1 mb-2.5" style={{ backgroundColor: colors.surfaceAlt }}>
+            <Text className="font-body-extrabold text-[10px]" style={{ color: colors.textSecondary }}>CANCELLED</Text>
           </View>
-          <Text numberOfLines={1} className="font-display text-[17px] mt-1" style={{ color: colors.text }}>{game.venue}</Text>
-          <Text className="text-[12px] mt-0.5" style={{ color: colors.textSecondary }}>{game.venueAddress ?? game.suburb}</Text>
+          <Text className="text-[12.5px] leading-5 mb-4" style={{ color: colors.textSecondary }}>
+            This game's off, so there's nothing left to edit. It's kept here as a record for you{approvedCount > 0 ? ` and the ${approvedCount} ${approvedCount === 1 ? "player who was" : "players who were"} in` : ""}.
+          </Text>
         </View>
-        <Text className="text-[12px] mb-5" style={{ color: colors.textMuted }}>
-          Venue can't be changed after publish — it's what your booking confirmation verifies, and people already agreed to a place.
-        </Text>
-
-        <AccordionRow
-          label="WHEN"
-          value={startInPast ? null : `${formatDate(startsAt.toISOString())} · ${formatTimeShort(startsAt.toISOString())} · ${formatDuration(durationHours)} · ${courtsBooked} court${courtsBooked === 1 ? "" : "s"}`}
-          placeholder="Pick a date and time"
-          expanded={expandedRow === "when"}
-          onToggle={() => setExpandedRow(expandedRow === "when" ? null : "when")}
-        >
-          <RowLabel>Date</RowLabel>
-          <View className="rounded-2xl p-2 mb-5 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
-            <DateTimePicker
-              value={startsAt}
-              mode="date"
-              display="inline"
-              minimumDate={new Date()}
-              themeVariant="dark"
-              accentColor={colors.accent}
-              onChange={(_e, date) => { if (date) setStartsAt(slotAt(date, startsAt.getHours(), startsAt.getMinutes())); }}
-            />
-          </View>
-          <RowLabel>Time</RowLabel>
-          <View className="rounded-2xl items-center border mb-5" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
-            <DateTimePicker
-              value={startsAt}
-              mode="time"
-              display="spinner"
-              minuteInterval={5}
-              themeVariant="dark"
-              textColor={colors.text}
-              onChange={(_e, date) => { if (date) setStartsAt(slotAt(startsAt, date.getHours(), date.getMinutes())); }}
-            />
-          </View>
-          {startInPast && (
-            <Text className="text-[13.5px] mb-3 text-center" style={{ color: colors.advanced }}>That slot has already passed. Pick a later time or another day.</Text>
-          )}
-
-          <RowLabel>Duration</RowLabel>
-          <View className="flex-row items-center justify-center gap-5 rounded-2xl p-4 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
-            <Stepper
-              icon="remove"
-              disabled={durationHours <= MIN_DURATION_HOURS}
-              onPress={() => { const next = Math.max(MIN_DURATION_HOURS, Math.round((durationHours - DURATION_STEP_HOURS) * 100) / 100); setDurationHours(next); setCost((c) => Math.min(c, next * MAX_COST_PER_PLAYER_PER_HOUR)); }}
-            />
-            <Text className="font-display text-[24px]" style={{ color: colors.accent, minWidth: 90, textAlign: "center" }}>{formatDuration(durationHours)}</Text>
-            <Stepper
-              icon="add"
-              disabled={durationHours >= MAX_DURATION_HOURS}
-              onPress={() => { const next = Math.min(MAX_DURATION_HOURS, Math.round((durationHours + DURATION_STEP_HOURS) * 100) / 100); setDurationHours(next); setCost((c) => Math.min(c, next * MAX_COST_PER_PLAYER_PER_HOUR)); }}
-            />
-          </View>
-          <View className="flex-row gap-2 mt-2.5 flex-wrap">
-            {DURATION_CHIPS.map((h) => (
-              <Pressable key={h} onPress={() => setDurationHours(h)} className="rounded-pill px-3.5 py-2" style={{ backgroundColor: durationHours === h ? colors.accent : colors.surface, borderWidth: 1, borderColor: durationHours === h ? colors.accent : colors.cardBorder }}>
-                <Text className="font-body-bold text-[12.5px]" style={{ color: durationHours === h ? colors.base : colors.textDim }}>{formatDuration(h)}</Text>
-              </Pressable>
-            ))}
-          </View>
-
-          <RowLabel style={{ marginTop: 18 }}>Courts booked</RowLabel>
-          {!courtsExpanded && courtsBooked <= 6 ? (
-            <View className="flex-row gap-2 flex-wrap">
-              {COURT_CHIPS.map((c) => (
-                <Pressable key={c} onPress={() => setCourtsBooked(c)} className="rounded-pill px-4 py-2.5" style={{ backgroundColor: courtsBooked === c ? colors.accent : colors.surface, borderWidth: 1, borderColor: courtsBooked === c ? colors.accent : colors.cardBorder }}>
-                  <Text className="font-body-extrabold text-[13px]" style={{ color: courtsBooked === c ? colors.base : colors.textDim }}>{c}</Text>
-                </Pressable>
-              ))}
-              <Pressable onPress={() => { setCourtsExpanded(true); if (courtsBooked <= 6) setCourtsBooked(7); }} className="rounded-pill px-4 py-2.5" style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.cardBorder }}>
-                <Text className="font-body-extrabold text-[13px]" style={{ color: colors.textDim }}>7+</Text>
-              </Pressable>
-            </View>
-          ) : (
-            <View className="flex-row items-center justify-center gap-5 rounded-2xl p-4 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
-              <Stepper onPress={() => setCourtsBooked(Math.max(MIN_COURTS_BOOKED, courtsBooked - 1))} icon="remove" disabled={courtsBooked <= MIN_COURTS_BOOKED} />
-              <Text className="font-display text-[24px]" style={{ color: colors.accent, minWidth: 60, textAlign: "center" }}>{courtsBooked} courts</Text>
-              <Stepper onPress={() => setCourtsBooked(Math.min(MAX_COURTS_BOOKED, courtsBooked + 1))} icon="add" disabled={courtsBooked >= MAX_COURTS_BOOKED} />
+      ) : (
+        <View className="px-5 flex-row items-center gap-2 mb-2">
+          {game.verified && (
+            <View className="flex-row items-center gap-1 rounded-pill px-2 py-1" style={{ backgroundColor: "rgba(53,214,166,0.16)" }}>
+              <Ionicons name="checkmark-outline" size={9} color={colors.intermediate} />
+              <Text className="font-body-extrabold text-[10px]" style={{ color: colors.intermediate }}>VERIFIED</Text>
             </View>
           )}
+          {countdown && (
+            <Text className="font-body-bold text-[11.5px]" style={{ color: startingSoon ? colors.advanced : colors.textSecondary }}>{countdown}</Text>
+          )}
+        </View>
+      )}
 
-          <RowLabel style={{ marginTop: 18 }}>Court number (optional)</RowLabel>
-          <TextInput
-            value={courtLabel}
-            onChangeText={setCourtLabel}
-            placeholder="e.g. Court 3"
-            placeholderTextColor={colors.textMuted}
-            maxLength={20}
-            className="rounded-2xl p-4 border text-[15px]"
-            style={{ backgroundColor: colors.card, borderColor: colors.cardBorder, color: colors.text }}
-          />
-        </AccordionRow>
-
-        <AccordionRow
-          label="WHO"
-          value={lineupSummary(lineupSlots, cost)}
-          placeholder=""
-          expanded={expandedRow === "who"}
-          onToggle={() => setExpandedRow(expandedRow === "who" ? null : "who")}
-        >
-          <LineupStrip slots={lineupSlots} courtsBooked={courtsBooked} />
-
-          <RowLabel style={{ marginTop: 18 }}>Max players</RowLabel>
-          <View className="flex-row items-center justify-center gap-6 rounded-2xl p-4 mb-1.5 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
-            <Stepper
-              icon="remove"
-              disabled={maxPlayers <= minPlayers}
-              onPress={() => { const next = Math.max(minPlayers, maxPlayers - 1); setMaxPlayers(next); setReservedSpots((r) => Math.min(r, Math.max(named.length, next - 1 - approvedCount))); }}
-            />
-            <Text className="font-display text-[26px]" style={{ color: colors.accent }}>{maxPlayers}</Text>
-            <Stepper icon="add" disabled={maxPlayers >= MAX_PLAYERS} onPress={() => setMaxPlayers(Math.min(MAX_PLAYERS, maxPlayers + 1))} />
-          </View>
-          <Text className="text-[12px] mb-4" style={{ color: colors.textMuted }}>
-            {minPlayers > MIN_PLAYERS
-              ? `You plus ${approvedCount} approved${heldForFriends > 0 ? ` and ${heldForFriends} held` : ""}, so this can't go below ${minPlayers}.`
-              : "No one's joined yet, so you can still change this freely."}
-          </Text>
-
-          <RowLabel>Skill range</RowLabel>
-          <View className="flex-row gap-2 flex-wrap mb-4">
-            {TIERS.map((t) => {
-              const minOrd = TIERS.findIndex((x) => x.id === skill);
-              const maxOrd = TIERS.findIndex((x) => x.id === skillMax);
-              const ord = TIERS.findIndex((x) => x.id === t.id);
-              const inRange = ord >= minOrd && ord <= maxOrd;
-              return (
-                <Pressable
-                  key={t.id}
-                  onPress={() => {
-                    if (ord < minOrd) setSkill(t.id);
-                    else if (ord > maxOrd) setSkillMax(t.id);
-                    else if (t.id === skill) setSkill(t.id);
-                    else setSkillMax(t.id);
-                  }}
-                  className="rounded-pill px-3.5 py-2 flex-row items-center gap-1.5"
-                  style={{ backgroundColor: inRange ? colors.surfaceAlt : colors.surface, borderWidth: 1.5, borderColor: inRange ? t.color : "rgba(255,255,255,0.07)" }}
-                >
-                  <View className="w-2 h-2 rounded-full" style={{ backgroundColor: t.color }} />
-                  <Text className="font-body-bold text-[12.5px]" style={{ color: inRange ? colors.text : colors.textMuted }}>{t.id}</Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          <RowLabel>Manage held spots</RowLabel>
-          <ReservedSpots gameId={gameId} isOrganizer reservedSpots={reservedSpots} cancelled={false} />
-        </AccordionRow>
-
-        {(() => {
-          const showCost = expandedRow === "cost";
-          return (
-            <AccordionRow
-              label="COST"
-              value={`$${cost} per player`}
-              placeholder="Set a price per player"
-              expanded={showCost}
-              onToggle={() => setExpandedRow(showCost ? null : "cost")}
-            >
-              <View className="items-center mb-4">
-                <View className="flex-row items-baseline">
-                  <Text className="font-display text-[26px]" style={{ color: colors.textTertiary }}>$</Text>
-                  <TextInput
-                    value={String(cost)}
-                    onChangeText={(t) => { const digits = t.replace(/[^0-9]/g, ""); setCost(digits === "" ? 1 : Math.min(maxCost, Math.max(1, parseInt(digits, 10)))); }}
-                    keyboardType="number-pad"
-                    maxLength={3}
-                    selectTextOnFocus
-                    className="font-display text-[48px] text-center px-1"
-                    style={{ color: colors.text, borderBottomWidth: 2, borderBottomColor: colors.accent, minWidth: 64 }}
-                  />
-                </View>
-                <Text className="text-[12px] mt-1" style={{ color: colors.textSecondary }}>per player</Text>
-                <View className="w-full mt-3 px-1">
-                  <PriceSlider value={cost} min={1} max={maxCost} onChange={setCost} />
-                </View>
-              </View>
-              <View className="rounded-2xl p-3.5 flex-row justify-between items-center border" style={{ backgroundColor: "rgba(214,255,63,0.1)", borderColor: "rgba(214,255,63,0.25)" }}>
-                <Text className="text-[13.5px] font-body-bold" style={{ color: colors.accent }}>If full · {maxPlayers} players</Text>
-                <Text className="font-display-bold text-[18px]" style={{ color: colors.accent }}>${cost * maxPlayers}</Text>
-              </View>
-              <Text className="text-[12px] mt-2.5" style={{ color: colors.textMuted }}>
-                Capped at ${MAX_COST_PER_PLAYER_PER_HOUR}/hour · ${maxCost} max for this {formatDuration(durationHours)} booking.
-              </Text>
-            </AccordionRow>
-          );
-        })()}
-
-        <Pressable onPress={() => setMoreOpen(true)} className="rounded-2xl px-3.5 py-3.5 mb-3 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
-          <View className="flex-row justify-between items-center">
-            <Text className="font-body-bold text-[14px]" style={{ color: colors.text }}>More options</Text>
-            <Ionicons name="chevron-forward" size={15} color={colors.textTertiary} />
-          </View>
-          <Text numberOfLines={1} className="text-[12px] mt-1" style={{ color: colors.textSecondary }}>{moreOptionsSummary}</Text>
-        </Pressable>
-
-        {rescheduled && (
-          <View className="flex-row items-start gap-2.5 rounded-2xl p-3.5 mb-5 border" style={{ backgroundColor: "rgba(255,182,72,0.1)", borderColor: "rgba(255,182,72,0.25)" }}>
-            <Ionicons name="notifications-outline" size={16} color={colors.advanced} style={{ marginTop: 1 }} />
-            <Text className="flex-1 text-[13.5px]" style={{ color: colors.advanced }}>
-              Everyone who joined gets notified of the new time: {formatDate(startsAt.toISOString())} · {formatTimeRange(startsAt.toISOString(), endsAt.toISOString())}
-            </Text>
-          </View>
+      <View className="px-5 mb-4">
+        <View className="flex-row items-center gap-1.5 mb-1.5">
+          <Ionicons name="lock-closed-outline" size={12} color={colors.textTertiary} />
+          <Text numberOfLines={1} className="font-body-bold text-[12px] flex-1" style={{ color: colors.textTertiary }}>{game.venue} · locked</Text>
+        </View>
+        {!cancelled && (
+          <Pressable onPress={() => { haptics.tap(); router.push(`/game/${gameId}`); }} className="flex-row items-center gap-1 self-start">
+            <Text className="font-body-bold text-[11.5px]" style={{ color: colors.accent3 }}>See what players see</Text>
+            <Ionicons name="chevron-forward-outline" size={11} color={colors.accent3} />
+          </Pressable>
         )}
-        {/* Persistent notify line (create-game-plan.md §9.8) — not gated on rescheduled, so it's
-            visible any time the host has this screen open, not just after a specific edit. */}
-        <Text className="text-[12px] mb-5" style={{ color: colors.textMuted }}>
-          Players already in this game will be notified if anything they'd notice changes.
-        </Text>
+      </View>
 
-        <Pressable onPress={confirmCancel} disabled={cancelGame.isPending} className="items-center py-3">
-          <Text className="font-body-bold text-[14.5px]" style={{ color: colors.danger, opacity: cancelGame.isPending ? 0.5 : 1 }}>
-            {cancelGame.isPending ? "Cancelling…" : "Cancel this game"}
-          </Text>
-        </Pressable>
+      <ScrollView className="flex-1 px-5" contentContainerStyle={{ paddingBottom: anyDirty && !cancelled ? 140 : 32 }}>
+        <ReadRow
+          label="WHEN"
+          value={`${formatDate(d.startsAt.toISOString())} · ${formatTimeRange(d.startsAt.toISOString(), new Date(d.startsAt.getTime() + durationMs(d.durationHours)).toISOString())} · ${d.courtsBooked} court${d.courtsBooked === 1 ? "" : "s"}`}
+          was={when.dirty ? `was ${formatTimeRange(o.startsAt.toISOString(), new Date(o.startsAt.getTime() + durationMs(o.durationHours)).toISOString())}` : undefined}
+          dirty={when.dirty}
+          loud={when.loud}
+          notifyCount={when.loud ? approvedCount : undefined}
+          caution={!when.dirty && startingSoon ? "Changing this now reaches players with almost no notice" : undefined}
+          cancelled={cancelled}
+          onPress={() => goto("edit-when")}
+        />
+        <ReadRow
+          label="WHO"
+          value={lineupSummary(lineupSlots, d.cost)}
+          was={who.dirty ? `was ${o.maxPlayers} players max` : undefined}
+          dirty={who.dirty}
+          loud={who.loud}
+          notifyCount={who.loud ? approvedCount : undefined}
+          cancelled={cancelled}
+          onPress={() => goto("edit-who")}
+        >
+          {!cancelled && (
+            <View className="flex-row items-center mt-2.5">
+              <LineupStrip slots={lineupSlots.slice(0, 8)} courtsBooked={1} size={26} />
+            </View>
+          )}
+        </ReadRow>
+        <ReadRow
+          label="COST"
+          value={`$${d.cost} per player`}
+          was={cost.dirty ? `was $${o.cost} per player` : undefined}
+          dirty={cost.dirty}
+          loud={cost.loud}
+          notifyCount={cost.loud ? approvedCount : undefined}
+          cancelled={cancelled}
+          onPress={() => goto("edit-cost")}
+        />
+        {!cancelled && (
+          <ReadRow label="MORE OPTIONS" value={moreOptionsSummary} dirty={more.dirty} loud={false} quietEdited={more.dirty} cancelled={cancelled} onPress={() => goto("edit-more")} />
+        )}
       </ScrollView>
 
-      <View className="px-5 pb-8 pt-3.5">
-        <Button label="Save changes" loading={updateGame.isPending} disabled={startInPast} onPress={save} />
-      </View>
-
-      <Sheet visible={moreOpen} onClose={() => setMoreOpen(false)} title="More options">
-        <RowLabel style={{ marginTop: 4 }}>Format</RowLabel>
-        <View className="flex-row gap-2 flex-wrap mb-4">
-          {[
-            { slug: "social", label: "Social" },
-            { slug: "competitive", label: "Competitive" },
-            { slug: "drills", label: "Drills" },
-            { slug: "doubles_rotation", label: "Doubles rotation" },
-          ].map((f) => (
-            <Pressable key={f.slug} onPress={() => setFormat(f.slug)} className="rounded-pill px-3.5 py-2" style={{ backgroundColor: format === f.slug ? colors.accent : colors.surface, borderWidth: 1, borderColor: format === f.slug ? colors.accent : colors.cardBorder }}>
-              <Text className="font-body-bold text-[12.5px]" style={{ color: format === f.slug ? colors.base : colors.textDim }}>{f.label}</Text>
+      {anyDirty && !cancelled && (
+        <View className="absolute left-0 right-0 bottom-0 px-5 pb-8 pt-3.5" style={{ backgroundColor: colors.cardAlt, borderTopWidth: 1, borderTopColor: colors.cardBorder }}>
+          {saveFailed === "failed" && (
+            <View className="mb-2.5">
+              <Text className="font-body-bold text-[13px]" style={{ color: colors.danger }}>Something's gone wrong saving that, give it another go.</Text>
+              <Text className="text-[11.5px] mt-0.5" style={{ color: colors.textSecondary }}>Your changes are still right here, nothing's lost.</Text>
+            </View>
+          )}
+          {saveFailed === "offline" && (
+            <View className="mb-2.5">
+              <Text className="font-body-bold text-[13px]" style={{ color: colors.advanced }}>You're offline, we'll save this the second you're back.</Text>
+              <Text className="text-[11.5px] mt-0.5" style={{ color: colors.textSecondary }}>Your changes are kept right here either way.</Text>
+            </View>
+          )}
+          {!saveFailed && (
+            <>
+              {summary && <Text className="font-body-bold text-[13px]" style={{ color: colors.text }}>{summary}</Text>}
+              {more.dirty && <Text className="text-[11.5px] mt-0.5" style={{ color: colors.textTertiary }}>Everything else stays quiet, no one's notified.</Text>}
+              {preview && (
+                <Text className="text-[10.5px] italic mt-1" style={{ color: colors.textTertiary }}>"{preview.title}. {preview.body}"</Text>
+              )}
+            </>
+          )}
+          <View className="flex-row gap-2.5 mt-3">
+            <Pressable
+              onPress={() => { haptics.tap(); if (anyDirty) setDiscardOpen(true); }}
+              disabled={saving}
+              className="flex-1 rounded-pill py-3.5 items-center border"
+              style={{ borderColor: colors.cardBorder, opacity: saving ? 0.4 : 1 }}
+            >
+              <Text className="font-body-bold text-[14.5px]" style={{ color: colors.text }}>Discard</Text>
             </Pressable>
-          ))}
-        </View>
-
-        <RowLabel>Visibility</RowLabel>
-        <View className="flex-row gap-2 mb-4">
-          {[
-            { v: "public" as const, label: "Public", desc: "Shows on Discover" },
-            { v: "link_only" as const, label: "Link only", desc: "Only people you share the link with" },
-          ].map((o) => (
-            <Pressable key={o.v} onPress={() => setVisibility(o.v)} className="flex-1 rounded-2xl p-3 border-[1.5px]" style={{ backgroundColor: visibility === o.v ? colors.surfaceAlt : colors.surface, borderColor: visibility === o.v ? colors.accent : "rgba(255,255,255,0.07)" }}>
-              <Text className="font-body-bold text-[13.5px]" style={{ color: colors.text }}>{o.label}</Text>
-              <Text className="text-[11px] mt-0.5" style={{ color: colors.textMuted }}>{o.desc}</Text>
+            <Pressable onPress={save} disabled={saving} className="flex-1 rounded-pill py-3.5 items-center" style={{ backgroundColor: colors.accent, opacity: saving ? 0.6 : 1 }}>
+              <Text className="font-body-extrabold text-[14.5px]" style={{ color: colors.base }}>{saving ? "Saving…" : saveFailed ? "Try again" : "Save changes"}</Text>
             </Pressable>
-          ))}
+          </View>
         </View>
+      )}
 
-        <Pressable onPress={() => setAutoApprove(!autoApprove)} className="flex-row items-center justify-between rounded-2xl p-3.5 mb-4 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
-          <View className="flex-1 pr-2">
-            <Text className="font-body-bold text-[13.5px]" style={{ color: colors.text }}>Auto-approve joins</Text>
-            <Text className="text-[11px] mt-0.5" style={{ color: colors.textMuted }}>Off means you'll review every request first</Text>
-          </View>
-          <View className="w-11 h-6 rounded-pill justify-center px-0.5" style={{ backgroundColor: autoApprove ? colors.accent : colors.surfaceAlt }}>
-            <View className="w-5 h-5 rounded-full" style={{ backgroundColor: colors.base, alignSelf: autoApprove ? "flex-end" : "flex-start" }} />
-          </View>
+      <Sheet visible={kebabOpen} onClose={() => setKebabOpen(false)} title="">
+        <Pressable onPress={() => { setKebabOpen(false); router.push(`/game/${gameId}`); }} className="flex-row items-center gap-3 py-3">
+          <Ionicons name="open-outline" size={16} color={colors.textSecondary} />
+          <Text className="font-body-bold text-[14px]" style={{ color: colors.text }}>See what players see</Text>
         </Pressable>
+        <View className="h-[1px]" style={{ backgroundColor: colors.cardBorder }} />
+        <Pressable onPress={() => { setKebabOpen(false); haptics.tap(); shareGame(game); }} className="flex-row items-center gap-3 py-3">
+          <Ionicons name="share-outline" size={16} color={colors.textSecondary} />
+          <Text className="font-body-bold text-[14px]" style={{ color: colors.text }}>Share this game</Text>
+        </Pressable>
+        <View className="h-[1px]" style={{ backgroundColor: colors.cardBorder }} />
+        <Pressable onPress={() => { setKebabOpen(false); setCancelOpen(true); }} className="flex-row items-center gap-3 py-3">
+          <Ionicons name="alert-circle-outline" size={16} color={colors.danger} />
+          <Text className="font-body-bold text-[14px]" style={{ color: colors.danger }}>Cancel this game</Text>
+        </Pressable>
+      </Sheet>
 
-        <RowLabel>Shuttles</RowLabel>
-        <TextInput
-          value={shuttles}
-          onChangeText={setShuttles}
-          placeholder="e.g. I'll bring feather shuttles"
-          placeholderTextColor={colors.textMuted}
-          maxLength={80}
-          className="rounded-2xl p-3.5 mb-4 border text-[14px]"
-          style={{ backgroundColor: colors.card, borderColor: colors.cardBorder, color: colors.text }}
-        />
+      <Sheet visible={discardOpen} onClose={() => setDiscardOpen(false)} title="Discard your changes?">
+        <Text className="text-[13px]" style={{ color: colors.textSecondary }}>
+          You changed {dirtyRowChangedNames.length <= 1 ? dirtyRowChangedNames[0] ?? "this" : `${dirtyRowChangedNames.slice(0, -1).join(", ")} and ${dirtyRowChangedNames[dirtyRowChangedNames.length - 1]}`}. Leaving now throws that away, nothing's saved yet.
+        </Text>
+        <Pressable onPress={() => setDiscardOpen(false)} className="rounded-pill py-3.5 items-center mt-4" style={{ backgroundColor: colors.accent }}>
+          <Text className="font-body-extrabold text-[14.5px]" style={{ color: colors.base }}>Keep editing</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => {
+            discardEditDraft();
+            setSaveFailed(null);
+            setDiscardOpen(false);
+          }}
+          className="items-center py-3.5 mt-1"
+        >
+          <Text className="font-body-bold text-[14px]" style={{ color: colors.danger }}>Discard changes</Text>
+        </Pressable>
+      </Sheet>
 
-        <RowLabel>Say something about this game</RowLabel>
-        <TextInput
-          value={notes}
-          onChangeText={setNotes}
-          placeholder="Casual hit, first-timers welcome…"
-          placeholderTextColor={colors.textMuted}
-          maxLength={280}
-          multiline
-          className="rounded-2xl p-3.5 border text-[14px]"
-          style={{ backgroundColor: colors.card, borderColor: colors.cardBorder, color: colors.text, minHeight: 80, textAlignVertical: "top" }}
-        />
-        <Text className="text-[11px] mt-1.5 text-right" style={{ color: colors.textMuted }}>{notes.length}/280</Text>
-
-        <Pressable onPress={() => setMoreOpen(false)} className="rounded-pill py-3.5 items-center mt-4" style={{ backgroundColor: colors.accent }}>
-          <Text className="font-body-extrabold text-[15px]" style={{ color: colors.base }}>Done</Text>
+      <Sheet visible={cancelOpen} onClose={() => setCancelOpen(false)} title="Cancel this game?">
+        <Text className="text-[13px]" style={{ color: colors.textSecondary }}>
+          {approvedCount > 0 ? `${approvedCount} ${approvedCount === 1 ? "player loses" : "players lose"} their spot. We'll let them know it's off, straight away.` : "We'll let anyone who requested know it's off."}
+        </Text>
+        <Pressable
+          onPress={confirmCancel}
+          disabled={cancelGame.isPending}
+          className="rounded-pill py-3.5 items-center mt-4"
+          style={{ backgroundColor: colors.danger, opacity: cancelGame.isPending ? 0.6 : 1 }}
+        >
+          <Text className="font-body-extrabold text-[14.5px]" style={{ color: colors.base }}>{cancelGame.isPending ? "Cancelling…" : "Cancel game"}</Text>
+        </Pressable>
+        <Pressable onPress={() => setCancelOpen(false)} disabled={cancelGame.isPending} className="rounded-pill py-3.5 items-center mt-2.5 border" style={{ borderColor: colors.cardBorder }}>
+          <Text className="font-body-bold text-[14.5px]" style={{ color: colors.text }}>Keep it</Text>
         </Pressable>
       </Sheet>
     </View>
+  );
+}
+
+function ReadRow({
+  label,
+  value,
+  was,
+  dirty,
+  loud,
+  quietEdited,
+  notifyCount,
+  caution,
+  cancelled,
+  onPress,
+  children,
+}: {
+  label: string;
+  value: string;
+  was?: string;
+  dirty: boolean;
+  loud: boolean;
+  quietEdited?: boolean;
+  notifyCount?: number;
+  caution?: string;
+  cancelled: boolean;
+  onPress: () => void;
+  children?: React.ReactNode;
+}) {
+  return (
+    <Pressable
+      onPress={cancelled ? undefined : onPress}
+      className="rounded-2xl px-3.5 py-3.5 mb-2.5 border-[1.5px]"
+      style={{
+        backgroundColor: colors.card,
+        borderColor: loud && dirty ? "rgba(255,182,72,.35)" : caution ? "rgba(255,182,72,.28)" : "rgba(255,255,255,.14)",
+        opacity: cancelled ? 0.6 : 1,
+      }}
+    >
+      <View className="flex-row justify-between items-start">
+        <View className="flex-1 pr-2">
+          <Text className="font-body-extrabold text-[10.5px] uppercase" style={{ color: colors.textTertiary, letterSpacing: 0.5 }}>{label}</Text>
+          <Text className="font-body-bold text-[15px] mt-1" style={{ color: colors.text }}>{value}</Text>
+          {was && <Text className="text-[11px] mt-0.5" style={{ color: colors.textMuted, textDecorationLine: "line-through" }}>{was}</Text>}
+        </View>
+        {!cancelled && <Ionicons name="chevron-forward-outline" size={14} color={colors.textTertiary} />}
+      </View>
+      {children}
+      {notifyCount != null && (
+        <Text className="font-body-extrabold text-[9.5px] mt-2" style={{ color: colors.advanced, letterSpacing: 0.3 }}>
+          NOTIFIES {notifyCount} {notifyCount === 1 ? "PLAYER" : "PLAYERS"}
+        </Text>
+      )}
+      {quietEdited && <Text className="text-[10.5px] font-body-bold mt-1.5" style={{ color: colors.textTertiary }}>Edited · no notification sent</Text>}
+      {caution && <Text className="text-[11px] font-body-bold mt-1.5" style={{ color: colors.advanced }}>{caution}</Text>}
+    </Pressable>
   );
 }

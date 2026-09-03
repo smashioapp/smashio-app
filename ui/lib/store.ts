@@ -97,6 +97,31 @@ export type HostHereSeed = {
   venueAddress: string;
 };
 
+// Host a Game v3 edit mode (create-game-plan.md band 08): a read state you enter and leave, with
+// four full-screen row editors writing into one draft here rather than each other's local state,
+// since Expo Router tears down and remounts a screen on push/pop. `original` is the snapshot the
+// read screen diffs against for dirty markers, "was" values and the loud/quiet save-bar copy.
+export type EditGameFields = {
+  startsAt: Date;
+  durationHours: number;
+  courtsBooked: number;
+  courtLabel: string;
+  skill: TierId;
+  skillMax: TierId;
+  maxPlayers: number;
+  cost: number;
+  format: string;
+  visibility: "public" | "link_only";
+  autoApprove: boolean;
+  shuttles: string;
+  notes: string;
+};
+export type EditGameDraft = {
+  gameId: string;
+  original: EditGameFields;
+  current: EditGameFields;
+};
+
 export type WhenFilter = "tonight" | "tomorrow" | "week" | "all";
 export type SortOption = "soonest" | "closest" | "cheapest" | "most_spots";
 
@@ -188,6 +213,12 @@ type AppState = {
   wizardFromPost: boolean;
   setWizardFromPost: (v: boolean) => void;
   clearWizardFromPost: () => void;
+
+  editDraft: EditGameDraft | null;
+  initEditDraft: (gameId: string, fields: EditGameFields) => void;
+  patchEditDraft: (patch: Partial<EditGameFields>) => void;
+  discardEditDraft: () => void;
+  clearEditDraft: () => void;
 };
 
 export const useAppStore = create<AppState>((set) => ({
@@ -341,4 +372,13 @@ export const useAppStore = create<AppState>((set) => ({
   wizardFromPost: false,
   setWizardFromPost: (v) => set({ wizardFromPost: v }),
   clearWizardFromPost: () => set({ wizardFromPost: false }),
+
+  editDraft: null,
+  // No-op when a draft for this gameId already exists — a row editor pushed on top must not
+  // stomp in-progress edits with a fresh snapshot on remount.
+  initEditDraft: (gameId, fields) =>
+    set((s) => (s.editDraft?.gameId === gameId ? s : { editDraft: { gameId, original: fields, current: fields } })),
+  patchEditDraft: (patch) => set((s) => (s.editDraft ? { editDraft: { ...s.editDraft, current: { ...s.editDraft.current, ...patch } } } : s)),
+  discardEditDraft: () => set((s) => (s.editDraft ? { editDraft: { ...s.editDraft, current: s.editDraft.original } } : s)),
+  clearEditDraft: () => set({ editDraft: null }),
 }));

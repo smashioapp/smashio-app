@@ -203,7 +203,7 @@ export function gameCancelledBody(s: GameSummary): PushBody {
 export function gameRescheduledBody(s: GameSummary, oldStartsAt?: string | null): PushBody {
   const moved = oldStartsAt ? ` Moved from ${shortTime(oldStartsAt)}.` : "";
   return {
-    title: `New time — ${shortTime(s.starts_at)}`,
+    title: `New time, ${shortTime(s.starts_at)}`,
     body: `${where(s)}${courtSuffix(s)}.${moved} Still in?`,
   };
 }

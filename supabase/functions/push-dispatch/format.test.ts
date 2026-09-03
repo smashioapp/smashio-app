@@ -224,13 +224,13 @@ Deno.test("gameCancelledBody names the host and the released spot", () => {
 
 Deno.test("gameRescheduledBody carries both the new time and the old one", () => {
   const { title, body } = gameRescheduledBody(summary, "2026-06-14T04:00:00Z");
-  assertEquals(title, "New time — Mon 2:00 pm");
+  assertEquals(title, "New time, Mon 2:00 pm");
   assertMatch(body, /Moved from Sun 2:00 pm/);
 });
 
 Deno.test("gameRescheduledBody omits the old time when the payload predates it", () => {
   const { title, body } = gameRescheduledBody(summary);
-  assertEquals(title, "New time — Mon 2:00 pm");
+  assertEquals(title, "New time, Mon 2:00 pm");
   assertMatch(body, /Still in\?/);
   assertEquals(body.includes("Moved from"), false);
 });

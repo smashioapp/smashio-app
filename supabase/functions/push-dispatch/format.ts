@@ -283,6 +283,15 @@ export function gameInviteBody(actor: string, s: GameSummary): PushBody {
   };
 }
 
+// D11's decline path — a link recipient who can't make it. No profile to name (they may not have
+// signed up), so this leads with the spot's label instead of a person.
+export function spotDeclinedBody(label: string | null, s: GameSummary): PushBody {
+  return {
+    title: "A held spot's back with you",
+    body: `${label ?? "Whoever you held it for"} can't make ${where(s)}, ${shortTime(s.starts_at)}. Find someone else or leave it open.`,
+  };
+}
+
 // C4. Nudge host at T-24h if game still has open spots. (Low tier, goes to inbox if quiet hours.)
 export function nudgeUnderfilledBody(s: GameSummary): PushBody {
   const open = s.spots_left;

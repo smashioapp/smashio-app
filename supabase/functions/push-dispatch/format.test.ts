@@ -24,6 +24,7 @@ import {
   reminder24hBody,
   reminder2hBody,
   shortTime,
+  spotDeclinedBody,
 } from "./format.ts";
 
 // --- shortTime: the timezone bug -------------------------------------------------------------
@@ -220,6 +221,17 @@ Deno.test("gameCancelledBody names the host and the released spot", () => {
   assertEquals(title, "Game cancelled");
   assertMatch(body, /Riya called off Badminton at Test Courts, Mon 2:00 pm/);
   assertMatch(body, /spot's released/);
+});
+
+Deno.test("spotDeclinedBody names the held spot's label when there is one", () => {
+  const { title, body } = spotDeclinedBody("Raj", summary);
+  assertEquals(title, "A held spot's back with you");
+  assertMatch(body, /^Raj can't make Badminton at Test Courts, Mon 2:00 pm/);
+});
+
+Deno.test("spotDeclinedBody falls back when the hold was never named", () => {
+  const { body } = spotDeclinedBody(null, summary);
+  assertMatch(body, /^Whoever you held it for can't make/);
 });
 
 Deno.test("gameRescheduledBody carries both the new time and the old one", () => {

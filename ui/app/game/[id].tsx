@@ -11,7 +11,7 @@ import { nextRebookSlot } from "../../lib/schedule";
 import { addGameToCalendar, hasCalendarEvent } from "../../lib/calendar";
 import { useGameDetail, useGamePreview } from "../../lib/queries/games";
 import { useSession } from "../../lib/session";
-import { savePendingGame } from "../../lib/pendingGame";
+import { savePendingPath } from "../../lib/pendingGame";
 import { usePlayerCard } from "../../lib/queries/profile";
 import { supabase } from "../../lib/supabase";
 import {
@@ -41,7 +41,7 @@ import { haptics } from "../../lib/haptics";
 import { shareGame } from "../../lib/share";
 import { track } from "../../lib/analytics";
 import { ReservedSpots } from "../../components/ReservedSpots";
-import { useClaimReservedSpot, useReservedSpots, useRespondToGameInvite } from "../../lib/queries/reservedSpots";
+import { useReservedSpots, useRespondToGameInvite } from "../../lib/queries/reservedSpots";
 import { LineupStrip, lineupSummary, type LineupSlot } from "../../components/LineupStrip";
 import { useReduceMotion } from "../../lib/motion";
 import { GameDetailSkeleton } from "../../components/Skeleton";
@@ -61,7 +61,7 @@ function goBack() {
 }
 
 export default function GameDetails() {
-  const { id, focus, invite } = useLocalSearchParams<{ id: string; focus?: string; invite?: string }>();
+  const { id, focus } = useLocalSearchParams<{ id: string; focus?: string }>();
   const gameId = id ?? "";
   const { session, isLoading: sessionLoading } = useSession();
   const gameQuery = useGameDetail(gameId, !!session);
@@ -75,7 +75,6 @@ export default function GameDetails() {
   const waitlistCountQuery = useWaitlistCount(gameId, !!membershipQuery.data?.isOrganizer);
   const organizerCard = usePlayerCard(game?.organizerId);
   const respondToInvite = useRespondToGameInvite(gameId);
-  const claimSpot = useClaimReservedSpot();
   const reservedSpotsQuery = useReservedSpots(session ? gameId : "");
   const removePlayer = useRemovePlayer(gameId);
   const reduceMotion = useReduceMotion();
@@ -85,26 +84,15 @@ export default function GameDetails() {
   // A join_request push deep-links here with ?focus=requests (docs/notifications-plan.md §7):
   // the requests list sits well below the hero, so landing at the top hides the one thing the
   // notification asked the host to do. Scrolls once, after the section reports its position.
-  // A reserved-spot invite link lands on https://smashio.com.au/game/<id>?invite=<token>, which
-  // is the same Universal Link path a plain share uses — so the token is redeemed here, once,
-  // as soon as there's a session to redeem it with (post-game-plan.md D11).
+  // A reserved-spot invite link now lands on its own claim screen (/game/claim/[token], band 12
+  // of create-game-plan.md) rather than being redeemed silently here — this page no longer
+  // parses an ?invite= param at all.
   const viewedTracked = useRef(false);
   useEffect(() => {
     if (!game || viewedTracked.current) return;
     viewedTracked.current = true;
-    track("game_viewed", { game_id: gameId, source: invite ? "deeplink" : focus ? "push" : "discover" });
+    track("game_viewed", { game_id: gameId, source: focus ? "push" : "discover" });
   }, [game]);
-
-  const claimedInvite = useRef(false);
-  useEffect(() => {
-    if (!invite || !session || claimedInvite.current) return;
-    claimedInvite.current = true;
-    claimSpot.mutate(invite, {
-      onSuccess: () => haptics.success(),
-      onError: (err) =>
-        Alert.alert("Couldn't take that spot", err instanceof Error ? err.message : "That invite might've already been used."),
-    });
-  }, [invite, session]);
 
   const scrollRef = useRef<ScrollView>(null);
   const focusedRequests = useRef(false);
@@ -120,7 +108,7 @@ export default function GameDetails() {
   }, [gameId, session]);
 
   useEffect(() => {
-    if (!sessionLoading && !session && gameId) savePendingGame(gameId);
+    if (!sessionLoading && !session && gameId) savePendingPath(`/game/${gameId}`);
   }, [sessionLoading, session, gameId]);
 
   if (sessionLoading || (session && gameQuery.isLoading)) {

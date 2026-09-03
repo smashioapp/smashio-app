@@ -2163,6 +2163,7 @@ export type Database = {
         Args: { p_game_id: string; p_notification_id: string }
         Returns: undefined
       }
+      decline_reserved_spot: { Args: { p_token: string }; Returns: undefined }
       delete_account: { Args: { p_profile_id: string }; Returns: Json }
       delete_message: { Args: { p_message_id: string }; Returns: undefined }
       delete_push_receipts: {
@@ -2479,6 +2480,20 @@ export type Database = {
           rated_host: boolean
           rated_player: boolean
           skill_voted: boolean
+        }[]
+      }
+      preview_reserved_spot_invite: {
+        Args: { p_token: string }
+        Returns: {
+          cost_per_player_cents: number
+          game_id: string
+          game_status: string
+          host_name: string
+          sport_name: string
+          spot_label: string
+          starts_at: string
+          venue_name: string
+          venue_suburb: string
         }[]
       }
       prune_ready_receipt_batch: {

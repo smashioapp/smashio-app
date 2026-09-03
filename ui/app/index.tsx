@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Redirect, router } from "expo-router";
 import { useSession } from "../lib/session";
 import { useProfile, useProfileSports } from "../lib/queries/profile";
-import { consumePendingGame } from "../lib/pendingGame";
+import { consumePendingPath } from "../lib/pendingGame";
 
 export default function Index() {
   const { session, isLoading: sessionLoading } = useSession();
@@ -17,8 +17,8 @@ export default function Index() {
   // account is actually ready to view it — before onboarding finishes there's no profile yet.
   useEffect(() => {
     if (!onboarded) return;
-    consumePendingGame().then((gameId) => {
-      if (gameId) router.replace(`/game/${gameId}`);
+    consumePendingPath().then((path) => {
+      if (path) router.replace(path);
       setPendingGameChecked(true);
     });
   }, [onboarded]);

@@ -108,18 +108,70 @@ export function useInviteToReservedSpot(gameId: string) {
 }
 
 // Returns the share URL, not the bare token — the token alone is useless to a caller and easy to
-// leak into the wrong string. Rides the existing /game/* Universal Link path, so no AASA or
-// assetlinks change is needed for invites to open the app.
+// leak into the wrong string. Points at the claim screen (band 12), not the game page directly —
+// the token alone resolves the game, so the URL doesn't need to carry the game id at all.
 export function useCreateReservedSpotInvite(gameId: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (spotId: string) => {
       const { data, error } = await supabase.rpc("create_reserved_spot_invite", { p_spot_id: spotId });
       if (error) throw error;
-      return `https://smashio.com.au/game/${gameId}?invite=${data as string}`;
+      return `https://smashio.com.au/game/claim/${data as string}`;
     },
     onSuccess: () => invalidateSpots(queryClient, gameId),
     onError: (error, spotId) => captureMutationError("reserved_spot.create_invite", error, { gameId, spotId }),
+  });
+}
+
+// Band 12's signed-out landing: a narrow, security-definer read the claim screen can call before
+// there's a session (preview_reserved_spot_invite is granted to anon). No row back means the
+// token is used, cancelled, or never existed — the claim screen collapses all three into one
+// "lost link" state (create-game-plan.md defect #2), since the RPC can't tell them apart.
+export type ReservedSpotInvitePreview = {
+  gameId: string;
+  hostName: string;
+  venueName: string;
+  venueSuburb: string | null;
+  sportName: string;
+  startsAt: string;
+  costPerPlayerCents: number;
+  spotLabel: string | null;
+  gameStatus: string;
+};
+
+export function usePreviewReservedSpotInvite(token: string | null) {
+  return useQuery({
+    queryKey: ["reserved_spot_invite_preview", token],
+    queryFn: async (): Promise<ReservedSpotInvitePreview | null> => {
+      const { data, error } = await supabase.rpc("preview_reserved_spot_invite", { p_token: token as string }).maybeSingle();
+      if (error) throw error;
+      if (!data) return null;
+      return {
+        gameId: data.game_id,
+        hostName: data.host_name,
+        venueName: data.venue_name,
+        venueSuburb: data.venue_suburb,
+        sportName: data.sport_name,
+        startsAt: data.starts_at,
+        costPerPlayerCents: data.cost_per_player_cents,
+        spotLabel: data.spot_label,
+        gameStatus: data.game_status,
+      };
+    },
+    enabled: !!token,
+    retry: false,
+  });
+}
+
+// The claim screen's polite decline (band 12) — token-only, no auth required, so a recipient can
+// say no without being forced through signup first.
+export function useDeclineReservedSpot() {
+  return useMutation({
+    mutationFn: async (token: string) => {
+      const { error } = await supabase.rpc("decline_reserved_spot", { p_token: token });
+      if (error) throw error;
+    },
+    onError: (error) => captureMutationError("reserved_spot.decline", error),
   });
 }
 

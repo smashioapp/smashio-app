@@ -40,6 +40,7 @@ import {
   type PushTier,
   reminder24hBody,
   reminder2hBody,
+  spotDeclinedBody,
 } from "./format.ts";
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
@@ -79,6 +80,7 @@ const CHANNEL_FOR_TYPE: Record<string, PushChannel> = {
   post_game_rate: "reminders",
   post_game_attendance: "reminders",
   game_invite: "requests",
+  spot_declined: "game-updates",
   nudge_underfilled: "reminders",
   nudge_pending: "reminders",
   alert_match: "discovery",
@@ -276,6 +278,8 @@ async function renderIndividual(row: NotificationRow): Promise<Rendered | null> 
     }
     case "alert_match":
       return { body: alertMatchBody(summary), screen: "game" };
+    case "spot_declined":
+      return { body: spotDeclinedBody(row.params.label as string | null, summary), screen: "game" };
     default:
       return null;
   }

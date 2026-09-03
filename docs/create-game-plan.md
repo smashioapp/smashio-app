@@ -480,6 +480,38 @@ Still genuinely open, decide before E-phase work starts:
   verified inventory that the filtered list isn't empty.
 - **A moderation queue to read `review_status='pending'`.** Named as a gap in §8, still unowned.
 
+## §10 v3 design build — deviation log (2026-09-03)
+
+Bands 00/03–12 of *SMASHIO v3 — Host a Game* built P1–P7 per the phasing above. Every deviation
+from the literal artboards, with why:
+
+1. **Push title em dash.** `gameRescheduledBody`'s "New time — …" violated CLAUDE.md's no-em-dash
+   rule; changed to "New time, …" and its test, in `push-dispatch/format.ts`.
+2. **"Link sent, not opened" → "Link sent."** No `link_opened_at` tracking exists (defect #1);
+   chose the copy change over building open-tracking.
+3. **"Link used or lost" host row.** `claim_reserved_spot` burns the token and fills the spot the
+   instant it's used, so a claimed link is no longer a hold row at all (defect #2). Only "lost" is
+   real — the row offers "Send a new link", not a distinct used-state.
+4. **"Duplicate this game" left out of edit's kebab**, per instruction — though `game/[id].tsx`
+   already has a working `handleDuplicate` (seeds a rebook draft into the wizard), so the
+   "no backend" premise doesn't hold. Worth reconsidering; not added here regardless.
+5. **Kebab's "Share this game" uses `share-outline`**, not the design's `refresh-outline` — the
+   design's own band 00 icon key maps refresh-outline to "reuse/duplicate", not share, so that
+   icon choice contradicts its own legend. Used the app's existing share convention instead.
+6. **Edit read-state's WHO "was" value** reads "was N players max" rather than reconstructing a
+   full lineup-summary string for the pre-edit state.
+7. **One push per save, not a synthesized combined one.** `trigger_notify_game_change` fires
+   reschedule OR details-changed, never both (elsif priority) — editing time *and* price together
+   sends the reschedule push only; the save bar's preview shows whichever one actually fires.
+8. **Hold expiry uses preset chips (2h/4h/pin)**, not a drag slider — no drag primitive exists on
+   this screen's controls, and a slider would be new scope beyond band 12e's own ask.
+9. **No second join-requests queue built.** `game/[id].tsx`'s existing `JoinRequests` (swipe to
+   approve/decline, vetting context, full-game guard) already satisfies band 05's minimal
+   queue spec and exceeds it — reconciled to "keep the one that ships", not draw a second.
+10. **Skill range (min/max tier) is quiet, not loud.** No trigger fires a push on a skill-tier
+    change, so classifying it as loud would promise a notification that never sends.
+11. **Cancel-game "reason" field (band 08c) not built.** No `cancellation_reason` column and no
+    push copy variant for it exist; out of the backend deltas this pass was scoped to add.
 
 ---
 

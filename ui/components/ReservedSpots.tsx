@@ -131,7 +131,7 @@ function HoldRow({
     : invited
       ? "Invited, hasn't answered"
       : linkSent
-        ? "Link sent, not opened"
+        ? "Link sent"
         : namedNoLink
           ? "No link sent"
           : null;

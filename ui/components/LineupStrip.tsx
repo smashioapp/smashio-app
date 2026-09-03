@@ -209,9 +209,13 @@ export function LineupStrip({
   );
 }
 
-export function lineupSummary(slots: LineupSlot[], costPerPlayer: number): string {
+// variant "row" is the draft/edit card's collapsed WHO value (create-game-plan.md band 03): reads
+// "You · N held · M open" while only the host has a slot (nobody can have joined a game that
+// isn't published yet), falling back to a headcount once others have actually joined.
+export function lineupSummary(slots: LineupSlot[], costPerPlayer: number, variant: "row" | "strip" = "strip"): string {
   const joined = slots.filter((s) => s.kind === "host" || s.kind === "joined").length;
   const held = slots.filter((s) => s.kind === "anon" || (s.kind === "named" && !s.claimed)).length;
   const open = slots.filter((s) => s.kind === "open").length;
-  return `${joined} in · ${held} held · ${open} open · $${costPerPlayer} each`;
+  const joinedLabel = variant === "row" && joined <= 1 ? "You" : `${joined} in`;
+  return `${joinedLabel} · ${held} held · ${open} open · $${costPerPlayer} each`;
 }

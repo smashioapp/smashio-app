@@ -15,10 +15,13 @@ export function RowLabel({ children, style }: { children: string; style?: object
   );
 }
 
-export function Stepper({ onPress, icon, disabled = false }: { onPress: () => void; icon: keyof typeof Ionicons.glyphMap; disabled?: boolean }) {
+export function Stepper({ onPress, icon, disabled = false }: { onPress: () => void; icon: "add" | "remove"; disabled?: boolean }) {
+  // Icon key band 00: add-outline in accent3, remove-outline in sec (muted at a floor/disabled).
+  const glyph = icon === "add" ? "add-outline" : "remove-outline";
+  const color = disabled ? colors.textMuted : icon === "add" ? colors.accent3 : colors.textSecondary;
   return (
     <Pressable onPress={onPress} disabled={disabled} className="w-[38px] h-[38px] rounded-full items-center justify-center" style={{ backgroundColor: colors.surfaceAlt, opacity: disabled ? 0.4 : 1 }}>
-      <Ionicons name={icon} size={16} color={colors.text} />
+      <Ionicons name={glyph} size={16} color={color} />
     </Pressable>
   );
 }
@@ -109,9 +112,9 @@ export function AccordionRow({
           )}
         </View>
         {locked ? (
-          <Ionicons name="lock-closed" size={14} color={colors.intermediate} />
+          <Ionicons name="lock-closed-outline" size={14} color={colors.intermediate} />
         ) : (
-          <Ionicons name={expanded ? "chevron-up" : "chevron-forward"} size={15} color={colors.textTertiary} />
+          <Ionicons name={expanded ? "chevron-up" : "chevron-forward-outline"} size={15} color={colors.textTertiary} />
         )}
       </Pressable>
 

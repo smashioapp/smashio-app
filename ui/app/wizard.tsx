@@ -197,6 +197,7 @@ export default function Wizard() {
   const [verified, setVerified] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [published, setPublished] = useState(false);
+  const [publishError, setPublishError] = useState(false);
 
   const [entryMode, setEntryMode] = useState<"manual" | "receipt" | null>(null);
   const [uploadSheet, setUploadSheet] = useState(false);
@@ -510,6 +511,7 @@ export default function Wizard() {
       return;
     }
     setPublishing(true);
+    setPublishError(false);
     let id: string;
     try {
       id = await createGame.mutateAsync({
@@ -529,9 +531,12 @@ export default function Wizard() {
         notes: wizard.notes,
         spots: wizard.namedSpots.map((s) => ({ label: s.label, invitedProfileId: s.invitedProfileId })),
       });
-    } catch (e) {
+    } catch {
+      // Inline banner, not a dialog — the game and its holds write together, so a failure can
+      // happen after the host has already committed. Draft stays exactly as they left it
+      // (create-game-plan.md band 03 "1b · Publish failed, draft untouched").
       haptics.error();
-      Alert.alert("Couldn't publish that game", e instanceof Error ? e.message : "Give it another go.");
+      setPublishError(true);
       setPublishing(false);
       return;
     }
@@ -575,7 +580,7 @@ export default function Wizard() {
   const renderVenuePicker = () => (
     <View>
       <View className="flex-row items-center gap-2 rounded-2xl px-3.5 border-[1.5px] mb-2" style={{ backgroundColor: colors.card, borderColor: selectedVenue ? colors.accent : "rgba(255,255,255,0.07)" }}>
-        <Ionicons name="search" size={15} color={colors.textMuted} />
+        <Ionicons name="search-outline" size={15} color={colors.textMuted} />
         <TextInput
           value={venueQuery}
           onChangeText={changeVenueQuery}
@@ -982,7 +987,7 @@ export default function Wizard() {
     <View className="flex-1 pt-14" style={{ backgroundColor: "#08080A" }}>
       <View className="flex-row items-center gap-3 px-5 pb-1">
         <Pressable onPress={goBack} className="w-[34px] h-[34px] rounded-full items-center justify-center" style={{ backgroundColor: "#17171A" }}>
-          <Ionicons name="chevron-back" size={16} color={colors.text} />
+          <Ionicons name="chevron-back-outline" size={16} color={colors.text} />
         </Pressable>
         <Text className="font-display text-[20px]" style={{ color: colors.text }}>
           {entryMode === null ? "Host a game" : "Your game"}
@@ -1049,7 +1054,8 @@ export default function Wizard() {
               <View className="flex-row justify-between px-3.5 pt-3">
                 {entryMode === "receipt" && parsedData?.is_booking_confirmation ? (
                   <View className="flex-row items-center gap-1.5 rounded-pill px-2.5 py-1" style={{ backgroundColor: "rgba(53,214,166,0.18)", borderWidth: 1, borderColor: "rgba(53,214,166,0.35)" }}>
-                    <Text className="font-body-extrabold text-[10px]" style={{ color: colors.intermediate }}>✓ VERIFIED</Text>
+                    <Ionicons name="checkmark-outline" size={10} color={colors.intermediate} />
+                    <Text className="font-body-extrabold text-[10px]" style={{ color: colors.intermediate }}>VERIFIED</Text>
                   </View>
                 ) : (
                   <View />
@@ -1115,7 +1121,7 @@ export default function Wizard() {
 
             <AccordionRow
               label="WHO"
-              value={lineupSummary(lineupSlots, wizard.cost)}
+              value={lineupSummary(lineupSlots, wizard.cost, "row")}
               placeholder=""
               expanded={expandedRow === "who"}
               onToggle={() => setExpandedRow(expandedRow === "who" ? null : "who")}
@@ -1162,7 +1168,7 @@ export default function Wizard() {
             <Pressable onPress={() => setMoreOpen(true)} className="rounded-2xl px-3.5 py-3.5 mb-3 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
               <View className="flex-row justify-between items-center">
                 <Text className="font-body-bold text-[14px]" style={{ color: colors.text }}>More options</Text>
-                <Ionicons name="chevron-forward" size={15} color={colors.textTertiary} />
+                <Ionicons name="chevron-forward-outline" size={15} color={colors.textTertiary} />
               </View>
               <Text numberOfLines={1} className="text-[12px] mt-1" style={{ color: colors.textSecondary }}>{moreOptionsSummary}</Text>
             </Pressable>
@@ -1172,6 +1178,12 @@ export default function Wizard() {
 
       {!parsing && entryMode !== null && (
         <View className="px-5 pb-8 pt-3.5" style={{ backgroundColor: colors.base }}>
+          {publishError && (
+            <View className="rounded-2xl px-3.5 py-3 mb-3 border" style={{ backgroundColor: colors.card, borderColor: "rgba(255,103,103,.3)" }}>
+              <Text className="font-body-bold text-[14px]" style={{ color: colors.danger }}>Something's gone wrong publishing your game</Text>
+              <Text className="text-[12px] mt-1" style={{ color: colors.textSecondary }}>Nothing's lost, your draft's exactly as you left it. Give it another go.</Text>
+            </View>
+          )}
           {publishDisabledReason ? (
             <View className="rounded-pill py-4 items-center" style={{ backgroundColor: colors.surfaceAlt }}>
               <Text className="font-body-extrabold text-[16.5px]" style={{ color: colors.textMuted }}>{publishDisabledReason}</Text>
@@ -1179,7 +1191,9 @@ export default function Wizard() {
           ) : (
             <LinearGradient colors={gradients.accent} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} className="rounded-pill">
               <Pressable onPress={publish} disabled={publishing} className="py-4 items-center" style={{ opacity: publishing ? 0.6 : 1 }}>
-                <Text className="font-body-extrabold text-[16.5px]" style={{ color: colors.base }}>{publishing ? "Publishing…" : "Publish game"}</Text>
+                <Text className="font-body-extrabold text-[16.5px]" style={{ color: colors.base }}>
+                  {publishing ? "Publishing…" : publishError ? "Try publishing again" : "Publish game"}
+                </Text>
               </Pressable>
             </LinearGradient>
           )}

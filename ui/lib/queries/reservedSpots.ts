@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../supabase";
 import { avatarColor } from "../theme";
+import { captureMutationError } from "../sentry";
 
 // A reserved spot the host has put a name, an invite, or a link on (post-game-plan.md D2).
 // The remainder of games.reserved_spots is the plain anonymous count the wizard has always had —
@@ -64,6 +65,7 @@ export function useAddReservedSpot(gameId: string) {
       return data as string;
     },
     onSuccess: () => invalidateSpots(queryClient, gameId),
+    onError: (error) => captureMutationError("reserved_spot.add", error, { gameId }),
   });
 }
 
@@ -75,6 +77,7 @@ export function useRenameReservedSpot(gameId: string) {
       if (error) throw error;
     },
     onSuccess: () => invalidateSpots(queryClient, gameId),
+    onError: (error, input) => captureMutationError("reserved_spot.rename", error, { gameId, spotId: input.spotId }),
   });
 }
 
@@ -88,6 +91,7 @@ export function useRemoveReservedSpot(gameId: string) {
       if (error) throw error;
     },
     onSuccess: () => invalidateSpots(queryClient, gameId),
+    onError: (error, spotId) => captureMutationError("reserved_spot.remove", error, { gameId, spotId }),
   });
 }
 
@@ -99,6 +103,7 @@ export function useInviteToReservedSpot(gameId: string) {
       if (error) throw error;
     },
     onSuccess: () => invalidateSpots(queryClient, gameId),
+    onError: (error, input) => captureMutationError("reserved_spot.invite", error, { gameId, spotId: input.spotId }),
   });
 }
 
@@ -114,6 +119,7 @@ export function useCreateReservedSpotInvite(gameId: string) {
       return `https://smashio.com.au/game/${gameId}?invite=${data as string}`;
     },
     onSuccess: () => invalidateSpots(queryClient, gameId),
+    onError: (error, spotId) => captureMutationError("reserved_spot.create_invite", error, { gameId, spotId }),
   });
 }
 
@@ -128,6 +134,7 @@ export function useClaimReservedSpot() {
       return data as string;
     },
     onSuccess: (gameId) => invalidateSpots(queryClient, gameId),
+    onError: (error) => captureMutationError("reserved_spot.claim", error),
   });
 }
 
@@ -144,6 +151,7 @@ export function useRespondToGameInvite(gameId: string) {
       invalidateSpots(queryClient, gameId);
       queryClient.invalidateQueries({ queryKey: ["game_players", "membership", gameId] });
     },
+    onError: (error) => captureMutationError("reserved_spot.respond_to_invite", error, { gameId }),
   });
 }
 

@@ -319,7 +319,7 @@ export default function EditGame() {
             <Stepper
               icon="remove"
               disabled={maxPlayers <= minPlayers}
-              onPress={() => { const next = Math.max(minPlayers, maxPlayers - 1); setMaxPlayers(next); setReservedSpots((r) => Math.min(r, Math.max(reservedClaimed, next - 1 - approvedCount))); }}
+              onPress={() => { const next = Math.max(minPlayers, maxPlayers - 1); setMaxPlayers(next); setReservedSpots((r) => Math.min(r, Math.max(named.length, next - 1 - approvedCount))); }}
             />
             <Text className="font-display text-[26px]" style={{ color: colors.accent }}>{maxPlayers}</Text>
             <Stepper icon="add" disabled={maxPlayers >= MAX_PLAYERS} onPress={() => setMaxPlayers(Math.min(MAX_PLAYERS, maxPlayers + 1))} />

@@ -10,6 +10,7 @@ import { avatarColor } from "../theme";
 import { prepareConfirmationImage } from "../imagePrep";
 import { randomCoverKey } from "../covers";
 import { useAppStore } from "../store";
+import { captureMutationError } from "../sentry";
 
 // Sydney CBD — fallback center when device location is unavailable or denied. Sydney-only for launch.
 export const DEFAULT_LAT = -33.8688;
@@ -346,6 +347,7 @@ export function useCreateGame() {
       queryClient.invalidateQueries({ queryKey: ["nearby_games"] });
       queryClient.invalidateQueries({ queryKey: ["my_games"] });
     },
+    onError: (error, input) => captureMutationError("game.create", error, { venueId: input.venueId, sportId: input.sportId }),
   });
 }
 
@@ -399,6 +401,7 @@ export function useUpdateGame(gameId: string) {
       if (error) throw error;
     },
     onSuccess: () => invalidateGameLists(queryClient, gameId),
+    onError: (error, input) => captureMutationError("game.update", error, { gameId, maxPlayers: input.maxPlayers, reservedSpots: input.reservedSpots }),
   });
 }
 
@@ -412,6 +415,7 @@ export function useCancelGame(gameId: string) {
       if (error) throw error;
     },
     onSuccess: () => invalidateGameLists(queryClient, gameId),
+    onError: (error) => captureMutationError("game.cancel", error, { gameId }),
   });
 }
 
@@ -637,6 +641,7 @@ export function useUploadConfirmation() {
     // this only matters for the M3 upload-from-hosting-card path, where the card must pick up
     // the new verification_status without the user navigating away and back.
     onSuccess: (_data, { gameId }) => invalidateGameLists(queryClient, gameId),
+    onError: (error, input) => captureMutationError("game.upload_confirmation", error, { gameId: input.gameId }),
   });
 }
 
@@ -668,6 +673,7 @@ export function useUploadConfirmationFiles() {
       }
     },
     onSuccess: (_data, { gameId }) => invalidateGameLists(queryClient, gameId),
+    onError: (error, input) => captureMutationError("game.upload_confirmation_files", error, { gameId: input.gameId, fileCount: input.files.length }),
   });
 }
 
@@ -752,6 +758,7 @@ export function useParseConfirmation() {
       if (error) throw new Error(await readFunctionsErrorMessage(error, "Couldn't read that photo."));
       return data as { confirmation_id: string; parsed: ParsedBooking };
     },
+    onError: (error) => captureMutationError("game.parse_confirmation", error),
   });
 }
 
@@ -767,5 +774,6 @@ export function useAttachConfirmation() {
       if (error) throw new Error(await readFunctionsErrorMessage(error, "Couldn't attach your booking confirmation."));
     },
     onSuccess: (_data, { gameId }) => invalidateGameLists(queryClient, gameId),
+    onError: (error, input) => captureMutationError("game.attach_confirmation", error, { gameId: input.gameId }),
   });
 }

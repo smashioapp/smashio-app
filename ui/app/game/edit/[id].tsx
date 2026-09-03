@@ -98,7 +98,7 @@ export default function EditGame() {
   const cancelled = game.status === "cancelled";
 
   const named = reservedSpotsQuery.data ?? [];
-  const namedSlots: LineupSlot[] = named.map((s) => ({ kind: "named", id: s.id, label: s.claimedName ?? s.invitedName ?? s.label, claimed: !!s.claimedBy }));
+  const namedSlots: LineupSlot[] = named.map((s) => ({ kind: "named", id: s.id, label: s.claimedName ?? s.invitedName ?? s.label, claimed: !!s.claimedBy, invitedProfileId: s.invitedProfileId, avatarKey: s.invitedAvatarKey, photoUri: s.invitedPhotoUri }));
   const joinedSlots: LineupSlot[] = (rosterQuery.data ?? []).map((p) => ({ kind: "joined", id: p.id, name: p.name, avatarKey: p.avatarKey, photoUri: p.photoUri }));
   const anonCount = Math.max(0, game.reservedSpots - named.length);
   const anonSlots: LineupSlot[] = Array.from({ length: anonCount }, (_, i) => ({ kind: "anon", id: `anon-${i}` }));

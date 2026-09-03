@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { View, Text, Pressable, TextInput, Alert, Share, ActivityIndicator } from "react-native";
+import * as Clipboard from "expo-clipboard";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, initial } from "../lib/theme";
 import { haptics } from "../lib/haptics";
@@ -13,11 +14,13 @@ import {
   usePlayerSearch,
   type ReservedSpot,
 } from "../lib/queries/reservedSpots";
+import { Sheet } from "./Sheet";
 import { track } from "../lib/analytics";
 
-// post-game-plan.md D2/D3/D10/D11. The host holds N spots off max_players; a subset can carry a
-// friend's name, a direct invite, or a share link. Members see the named ones so the headcount
-// makes sense; only the host can add, invite, or release.
+// post-game-plan.md D2/D3/D10/D11, restyled per create-game-plan.md band 12a/12b: five hold
+// states rendered distinctly (held-no-name, held-for-a-name, link-sent, invited, claimed), and
+// every un-claimed hold is a single tap target that opens a "Manage this hold" sheet in place —
+// no separate screen, no iOS-only Alert.prompt (a real Android bug the old row-icon UI had).
 //
 // The anonymous remainder (reserved_spots minus the named rows) is deliberately not a row here —
 // it's a count the host set in the wizard for people they haven't identified yet.
@@ -34,65 +37,18 @@ export function ReservedSpots({
 }) {
   const { data: spots, isLoading } = useReservedSpots(gameId);
   const addSpot = useAddReservedSpot(gameId);
-  const removeSpot = useRemoveReservedSpot(gameId);
-  const createInvite = useCreateReservedSpotInvite(gameId);
-  const [inviteTarget, setInviteTarget] = useState<string | null>(null);
+  const [managing, setManaging] = useState<ReservedSpot | null>(null);
 
   const named = spots ?? [];
   const anonymous = Math.max(0, reservedSpots - named.length);
 
   if (!isOrganizer && named.length === 0 && anonymous === 0) return null;
 
-  const promptAdd = () => {
+  const holdSpot = () => {
     haptics.tap();
-    Alert.prompt?.(
-      "Hold a spot",
-      "Who's it for? You can leave this blank and name them later.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Hold spot",
-          onPress: (name?: string) =>
-            addSpot.mutate(name?.trim() || null, {
-              onError: (err) => Alert.alert("Couldn't hold a spot", err instanceof Error ? err.message : "Give it another go."),
-            }),
-        },
-      ],
-      "plain-text"
-    ) ??
-      // Alert.prompt is iOS-only; Android gets an unnamed spot it can rename from the row.
-      addSpot.mutate(null, {
-        onError: (err) => Alert.alert("Couldn't hold a spot", err instanceof Error ? err.message : "Give it another go."),
-      });
-  };
-
-  const shareInvite = (spot: ReservedSpot) => {
-    haptics.tap();
-    createInvite.mutate(spot.id, {
-      onSuccess: async (url) => {
-        const result = await Share.share({ message: `Here's your spot: ${url}` }).catch(() => null);
-        if (result?.action === Share.sharedAction) track("share_sent", { kind: "invite" });
-      },
-      onError: (err) => Alert.alert("Couldn't make an invite", err instanceof Error ? err.message : "Give it another go."),
+    addSpot.mutate(null, {
+      onError: (err) => Alert.alert("Couldn't hold a spot", err instanceof Error ? err.message : "Give it another go."),
     });
-  };
-
-  const confirmRelease = (spot: ReservedSpot) => {
-    Alert.alert(
-      "Release this spot?",
-      `${spot.label ?? "This spot"} goes back on the market for anyone to join.`,
-      [
-        { text: "Keep holding", style: "cancel" },
-        {
-          text: "Release",
-          style: "destructive",
-          onPress: () =>
-            removeSpot.mutate(spot.id, {
-              onError: (err) => Alert.alert("Couldn't release", err instanceof Error ? err.message : "Give it another go."),
-            }),
-        },
-      ]
-    );
   };
 
   return (
@@ -104,63 +60,7 @@ export function ReservedSpots({
       {isLoading && <ActivityIndicator color={colors.accent} />}
 
       {named.map((spot) => (
-        <View
-          key={spot.id}
-          className="flex-row items-center gap-3 rounded-2xl px-3.5 py-3 mb-2 border"
-          style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}
-        >
-          <View className="w-9 h-9 rounded-full items-center justify-center" style={{ backgroundColor: spot.color }}>
-            <Text style={{ color: colors.base, fontWeight: "800" }}>
-              {initial(spot.claimedName ?? spot.invitedName ?? spot.label ?? "?")}
-            </Text>
-          </View>
-          <View className="flex-1">
-            <Text className="font-body-bold text-[15px]" style={{ color: colors.text }}>
-              {spot.claimedName ?? spot.invitedName ?? spot.label ?? "Unnamed spot"}
-            </Text>
-            <Text className="text-[12px]" style={{ color: colors.textMuted }}>
-              {spot.claimedBy
-                ? "In the game"
-                : spot.invitedProfileId
-                  ? "Invited, waiting on them"
-                  : spot.inviteToken
-                    ? "Link sent"
-                    : "Held, not invited yet"}
-            </Text>
-          </View>
-          {isOrganizer && !cancelled && !spot.claimedBy && (
-            <View className="flex-row gap-1.5">
-              {!spot.invitedProfileId && (
-                <>
-                  <Pressable
-                    onPress={() => setInviteTarget(spot.id)}
-                    hitSlop={6}
-                    className="w-8 h-8 rounded-full items-center justify-center border"
-                    style={{ backgroundColor: colors.surface, borderColor: colors.cardBorder }}
-                  >
-                    <Ionicons name="person-add-outline" size={14} color={colors.textTertiary} />
-                  </Pressable>
-                  <Pressable
-                    onPress={() => shareInvite(spot)}
-                    hitSlop={6}
-                    className="w-8 h-8 rounded-full items-center justify-center border"
-                    style={{ backgroundColor: colors.surface, borderColor: colors.cardBorder }}
-                  >
-                    <Ionicons name="link-outline" size={14} color={colors.textTertiary} />
-                  </Pressable>
-                </>
-              )}
-              <Pressable
-                onPress={() => confirmRelease(spot)}
-                hitSlop={6}
-                className="w-8 h-8 rounded-full items-center justify-center border"
-                style={{ backgroundColor: colors.surface, borderColor: colors.cardBorder }}
-              >
-                <Ionicons name="close" size={14} color={colors.textTertiary} />
-              </Pressable>
-            </View>
-          )}
-        </View>
+        <HoldRow key={spot.id} spot={spot} isOrganizer={isOrganizer} cancelled={cancelled} onManage={() => setManaging(spot)} />
       ))}
 
       {anonymous > 0 && (
@@ -175,7 +75,7 @@ export function ReservedSpots({
       {isOrganizer && !cancelled && (
         <Pressable
           testID="reserved-add"
-          onPress={promptAdd}
+          onPress={holdSpot}
           disabled={addSpot.isPending}
           className="rounded-pill py-3 items-center border-[1.5px]"
           style={{ borderColor: "rgba(255,255,255,0.15)", opacity: addSpot.isPending ? 0.5 : 1 }}
@@ -186,10 +86,195 @@ export function ReservedSpots({
         </Pressable>
       )}
 
-      {inviteTarget && (
-        <InvitePicker gameId={gameId} spotId={inviteTarget} onDone={() => setInviteTarget(null)} />
+      {managing && (
+        <ManageHoldSheet gameId={gameId} spot={managing} onClose={() => setManaging(null)} />
       )}
     </View>
+  );
+}
+
+// The five hold states (band 12a), each a visually distinct tile+row, not read from a caption.
+function HoldRow({
+  spot,
+  isOrganizer,
+  cancelled,
+  onManage,
+}: {
+  spot: ReservedSpot;
+  isOrganizer: boolean;
+  cancelled: boolean;
+  onManage: () => void;
+}) {
+  const claimed = !!spot.claimedBy;
+  const invited = !!spot.invitedProfileId && !claimed;
+  const linkSent = !!spot.inviteToken && !claimed && !invited;
+  const namedNoLink = !!spot.label && !claimed && !invited && !linkSent;
+
+  const title = spot.claimedName ?? spot.invitedName ?? (spot.label ? `Held for ${spot.label}` : "Held, no name yet");
+  const subtitle = claimed
+    ? "Joined just now"
+    : invited
+      ? "Invited, hasn't answered"
+      : linkSent
+        ? "Link sent, not opened"
+        : namedNoLink
+          ? "No link sent"
+          : null;
+
+  return (
+    <Pressable
+      onPress={isOrganizer && !cancelled && !claimed ? onManage : undefined}
+      className="flex-row items-center gap-3 rounded-2xl px-3.5 py-3 mb-2 border"
+      style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}
+    >
+      <View
+        className="w-9 h-9 rounded-full items-center justify-center overflow-hidden"
+        style={{
+          backgroundColor: spot.label || claimed || invited ? spot.color : colors.surfaceAlt,
+          borderWidth: claimed ? 0 : 2,
+          borderColor: claimed ? "transparent" : invited ? colors.beginner : colors.advanced,
+          borderStyle: claimed ? "solid" : "dashed",
+          opacity: invited ? 0.6 : 1,
+        }}
+      >
+        <Text style={{ color: colors.base, fontWeight: "800" }}>
+          {initial(spot.claimedName ?? spot.invitedName ?? spot.label ?? "?")}
+        </Text>
+      </View>
+      <View className="flex-1">
+        <Text className="font-body-bold text-[15px]" style={{ color: colors.text }}>{title}</Text>
+        {subtitle && (
+          <Text className="text-[12px]" style={{ color: claimed ? colors.intermediate : colors.textMuted }}>{subtitle}</Text>
+        )}
+      </View>
+      {isOrganizer && !cancelled && !claimed && (
+        <Text className="font-body-bold text-[11.5px]" style={{ color: namedNoLink ? colors.accent3 : colors.danger }}>
+          {namedNoLink ? "Get link" : "Manage"}
+        </Text>
+      )}
+    </Pressable>
+  );
+}
+
+// band 12b — "tapping the anonymous row opens exactly this, in place, no separate screen."
+// Reused for every un-claimed hold, not just anonymous ones — naming, inviting, linking and
+// releasing are all the same job regardless of what state the spot is currently in.
+function ManageHoldSheet({ gameId, spot, onClose }: { gameId: string; spot: ReservedSpot; onClose: () => void }) {
+  const rename = useRenameReservedSpot(gameId);
+  const removeSpot = useRemoveReservedSpot(gameId);
+  const createInvite = useCreateReservedSpotInvite(gameId);
+  const [mode, setMode] = useState<"menu" | "name" | "invite">("menu");
+  const [nameInput, setNameInput] = useState(spot.label ?? "");
+  const [link, setLink] = useState<string | null>(null);
+
+  const getLink = () => {
+    haptics.tap();
+    createInvite.mutate(spot.id, {
+      onSuccess: (url) => setLink(url),
+      onError: (err) => Alert.alert("Couldn't make a link", err instanceof Error ? err.message : "Give it another go."),
+    });
+  };
+
+  const copyForWhatsApp = async () => {
+    if (!link) return;
+    await Clipboard.setStringAsync(`Here's your spot: ${link}`);
+    haptics.success();
+    track("share_sent", { kind: "invite" });
+    Share.share({ message: `Here's your spot: ${link}` }).catch(() => null);
+  };
+
+  const saveName = () => {
+    rename.mutate(
+      { spotId: spot.id, label: nameInput.trim() },
+      {
+        onSuccess: onClose,
+        onError: (err) => Alert.alert("Couldn't save that", err instanceof Error ? err.message : "Give it another go."),
+      }
+    );
+  };
+
+  const confirmRelease = () => {
+    Alert.alert(
+      "Release this spot?",
+      "It goes open to anyone on Discover, the game doesn't shrink.",
+      [
+        { text: "Keep holding", style: "cancel" },
+        {
+          text: "Release",
+          style: "destructive",
+          onPress: () => {
+            removeSpot.mutate(spot.id, {
+              onSuccess: onClose,
+              onError: (err) => Alert.alert("Couldn't release", err instanceof Error ? err.message : "Give it another go."),
+            });
+          },
+        },
+      ]
+    );
+  };
+
+  return (
+    <Sheet visible onClose={onClose} title={mode === "name" ? "Name it" : mode === "invite" ? "Invite someone" : "Manage this hold"}>
+      {mode === "menu" && !link && (
+        <View>
+          <View className="flex-row gap-2 flex-wrap">
+            <Pressable onPress={() => setMode("name")} className="rounded-pill px-3.5 py-2 border" style={{ borderColor: colors.cardBorder, backgroundColor: colors.surface }}>
+              <Text className="font-body-bold text-[13px]" style={{ color: colors.text }}>Name it</Text>
+            </Pressable>
+            <Pressable onPress={() => setMode("invite")} className="rounded-pill px-3.5 py-2 border" style={{ borderColor: colors.cardBorder, backgroundColor: colors.surface }}>
+              <Text className="font-body-bold text-[13px]" style={{ color: colors.text }}>Invite someone</Text>
+            </Pressable>
+            <Pressable onPress={getLink} disabled={createInvite.isPending} className="rounded-pill px-3.5 py-2 border" style={{ borderColor: colors.cardBorder, backgroundColor: colors.surface }}>
+              <Text className="font-body-bold text-[13px]" style={{ color: colors.text }}>{createInvite.isPending ? "Getting link…" : spot.inviteToken ? "Send a new link" : "Get a link"}</Text>
+            </Pressable>
+          </View>
+          <Pressable onPress={confirmRelease} disabled={removeSpot.isPending} className="items-center py-3.5 mt-4">
+            <Text className="font-body-bold text-[13.5px]" style={{ color: colors.danger }}>Release this spot</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {mode === "menu" && link && (
+        <View>
+          <View className="flex-row items-center gap-2 rounded-2xl px-3.5 py-3 border" style={{ backgroundColor: colors.cardAlt, borderColor: colors.cardBorder }}>
+            <Ionicons name="link-outline" size={14} color={colors.accent3} />
+            <Text numberOfLines={1} className="flex-1 text-[12px]" style={{ color: colors.textDim }}>{link}</Text>
+            <Pressable onPress={() => Clipboard.setStringAsync(link)} hitSlop={6}>
+              <Ionicons name="copy-outline" size={14} color={colors.accent3} />
+            </Pressable>
+          </View>
+          <Text className="text-[12px] mt-2" style={{ color: colors.textSecondary }}>
+            Single use, first tap wins. Forwarding it to a group chat means whoever's fastest gets the spot.
+          </Text>
+          <Pressable onPress={copyForWhatsApp} className="rounded-pill py-3 items-center mt-3" style={{ backgroundColor: colors.accent }}>
+            <Text className="font-body-extrabold text-[14px]" style={{ color: colors.base }}>Copy for WhatsApp</Text>
+          </Pressable>
+          <Pressable onPress={getLink} disabled={createInvite.isPending} className="items-center py-3 mt-1">
+            <Text className="font-body-bold text-[13px]" style={{ color: colors.textSecondary }}>Send a new link instead</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {mode === "name" && (
+        <View>
+          <TextInput
+            value={nameInput}
+            onChangeText={setNameInput}
+            placeholder="Who's it for?"
+            placeholderTextColor={colors.textMuted}
+            maxLength={40}
+            autoFocus
+            className="rounded-2xl px-3.5 py-3 border text-[15px]"
+            style={{ backgroundColor: colors.card, borderColor: colors.cardBorder, color: colors.text }}
+          />
+          <Pressable onPress={saveName} disabled={rename.isPending} className="rounded-pill py-3.5 items-center mt-3.5" style={{ backgroundColor: colors.accent }}>
+            <Text className="font-body-extrabold text-[14.5px]" style={{ color: colors.base }}>{rename.isPending ? "Saving…" : "Save"}</Text>
+          </Pressable>
+        </View>
+      )}
+
+      {mode === "invite" && <InvitePicker gameId={gameId} spotId={spot.id} onDone={onClose} />}
+    </Sheet>
   );
 }
 
@@ -201,21 +286,14 @@ function InvitePicker({ gameId, spotId, onDone }: { gameId: string; spotId: stri
   const invite = useInviteToReservedSpot(gameId);
 
   return (
-    <View className="rounded-2xl p-3.5 mt-2 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
-      <View className="flex-row items-center justify-between mb-2">
-        <Text className="font-body-extrabold text-[12.5px] uppercase" style={{ color: colors.textTertiary }}>
-          Invite someone
-        </Text>
-        <Pressable onPress={onDone} hitSlop={8}>
-          <Ionicons name="close" size={16} color={colors.textTertiary} />
-        </Pressable>
-      </View>
+    <View>
       <TextInput
         value={term}
         onChangeText={setTerm}
         placeholder="Search by name"
         placeholderTextColor={colors.textMuted}
         autoCapitalize="none"
+        autoFocus
         className="rounded-xl px-3 py-2.5 text-[14.5px]"
         style={{ backgroundColor: colors.surface, color: colors.text }}
       />

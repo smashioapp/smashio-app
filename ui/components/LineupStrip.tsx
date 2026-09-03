@@ -13,7 +13,18 @@ import { animalFor, GHOST_KEY } from "../lib/avatars";
 export type LineupSlot =
   | { kind: "host"; id: string; name: string; avatarKey?: string | null; photoUri?: string | null }
   | { kind: "joined"; id: string; name: string; avatarKey?: string | null; photoUri?: string | null }
-  | { kind: "named"; id: string; label: string | null; claimed: boolean }
+  | {
+      kind: "named";
+      id: string;
+      label: string | null;
+      claimed: boolean;
+      // Set once the hold has moved to INVITED (create-game-plan.md band 12a): a real Smashio
+      // profile, rendered as their own dimmed bust with a pending ring, never an initial tile —
+      // "they already have an avatar."
+      invitedProfileId?: string | null;
+      avatarKey?: string | null;
+      photoUri?: string | null;
+    }
   | { kind: "anon"; id: string }
   | { kind: "open"; id: string };
 
@@ -50,6 +61,37 @@ function SlotAvatar({ slot, size }: { slot: LineupSlot; size: number }) {
     );
   }
   if (slot.kind === "named") {
+    // INVITED: a real profile who hasn't accepted yet — their own bust, dimmed, dashed ring.
+    // Never an initial tile once there's an actual avatar to show (band 12a).
+    if (slot.invitedProfileId && !slot.claimed) {
+      const animal = animalFor(slot.avatarKey, slot.invitedProfileId);
+      const isGhost = slot.avatarKey === GHOST_KEY;
+      return (
+        <View
+          style={{
+            width: size,
+            height: size,
+            borderRadius: size / 2,
+            borderWidth: 1.6,
+            borderColor: colors.beginner,
+            borderStyle: "dashed",
+            alignItems: "center",
+            justifyContent: "center",
+            backgroundColor: colors.surfaceAlt,
+            opacity: 0.6,
+            overflow: "hidden",
+          }}
+        >
+          {slot.photoUri ? (
+            <Image source={{ uri: slot.photoUri }} style={{ width: size, height: size }} />
+          ) : animal && !isGhost ? (
+            <Image source={animal.src} style={{ width: size, height: size }} />
+          ) : (
+            <Text style={{ color: colors.text, fontSize: size * 0.34, fontWeight: "800" }}>{initial(slot.label ?? "?")}</Text>
+          )}
+        </View>
+      );
+    }
     const label = slot.label ?? "?";
     return (
       <View

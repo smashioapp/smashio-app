@@ -3,6 +3,10 @@ import { supabase } from "../supabase";
 import { avatarColor } from "../theme";
 import { captureMutationError } from "../sentry";
 
+function photoUrl(path: string | null): string | null {
+  return path ? supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl : null;
+}
+
 // A reserved spot the host has put a name, an invite, or a link on (post-game-plan.md D2).
 // The remainder of games.reserved_spots is the plain anonymous count the wizard has always had —
 // there is no row for those, by design: the host doesn't know who they are yet either.
@@ -11,6 +15,8 @@ export type ReservedSpot = {
   label: string | null;
   invitedProfileId: string | null;
   invitedName: string | null;
+  invitedAvatarKey: string | null;
+  invitedPhotoUri: string | null;
   inviteToken: string | null;
   claimedBy: string | null;
   claimedName: string | null;
@@ -27,7 +33,7 @@ export function useReservedSpots(gameId: string) {
         // explicitly or it refuses to embed either. Kept as one string literal — supabase-js
         // parses the select at the type level and a concatenated expression defeats that.
         .select(
-          "id, label, invited_profile_id, invite_token, claimed_by, created_at, invited:profiles!game_reserved_spots_invited_profile_id_fkey(display_name), claimer:profiles!game_reserved_spots_claimed_by_fkey(display_name)"
+          "id, label, invited_profile_id, invite_token, claimed_by, created_at, invited:profiles!game_reserved_spots_invited_profile_id_fkey(display_name, avatar_key, photo_path), claimer:profiles!game_reserved_spots_claimed_by_fkey(display_name)"
         )
         .eq("game_id", gameId)
         .order("created_at");
@@ -37,6 +43,8 @@ export function useReservedSpots(gameId: string) {
         label: row.label,
         invitedProfileId: row.invited_profile_id,
         invitedName: (row.invited as { display_name: string } | null)?.display_name ?? null,
+        invitedAvatarKey: (row.invited as { avatar_key: string | null } | null)?.avatar_key ?? null,
+        invitedPhotoUri: photoUrl((row.invited as { photo_path: string | null } | null)?.photo_path ?? null),
         inviteToken: row.invite_token,
         claimedBy: row.claimed_by,
         claimedName: (row.claimer as { display_name: string } | null)?.display_name ?? null,

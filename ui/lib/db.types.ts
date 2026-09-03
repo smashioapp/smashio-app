@@ -427,31 +427,40 @@ export type Database = {
           claimed_at: string | null
           claimed_by: string | null
           created_at: string
+          expires_at: string | null
           game_id: string
           id: string
           invite_token: string | null
           invited_profile_id: string | null
           label: string | null
+          nudged_at: string | null
+          pinned: boolean
         }
         Insert: {
           claimed_at?: string | null
           claimed_by?: string | null
           created_at?: string
+          expires_at?: string | null
           game_id: string
           id?: string
           invite_token?: string | null
           invited_profile_id?: string | null
           label?: string | null
+          nudged_at?: string | null
+          pinned?: boolean
         }
         Update: {
           claimed_at?: string | null
           claimed_by?: string | null
           created_at?: string
+          expires_at?: string | null
           game_id?: string
           id?: string
           invite_token?: string | null
           invited_profile_id?: string | null
           label?: string | null
+          nudged_at?: string | null
+          pinned?: boolean
         }
         Relationships: [
           {
@@ -2640,6 +2649,10 @@ export type Database = {
         Args: { p_game_id: string; p_muted: boolean; p_profile_id: string }
         Returns: undefined
       }
+      set_reserved_spot_expiry: {
+        Args: { p_hours_before: number; p_pinned: boolean; p_spot_id: string }
+        Returns: undefined
+      }
       suggested_players_to_follow: {
         Args: {
           p_lat: number
@@ -2656,6 +2669,7 @@ export type Database = {
           skill_tier_label: string
         }[]
       }
+      sweep_reserved_spot_holds: { Args: never; Returns: undefined }
       system_close_chat: {
         Args: { p_actor_id: string; p_game_id: string }
         Returns: undefined

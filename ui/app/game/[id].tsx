@@ -202,7 +202,16 @@ export default function GameDetails() {
   // Lineup slots: host, then joins in join order, then holds, then open — stable order, never
   // re-sorts (create-game-plan.md §4.5).
   const named = reservedSpotsQuery.data ?? [];
-  const namedSlots: LineupSlot[] = named.map((s) => ({ kind: "named", id: s.id, label: s.claimedName ?? s.invitedName ?? s.label, claimed: !!s.claimedBy, invitedProfileId: s.invitedProfileId, avatarKey: s.invitedAvatarKey, photoUri: s.invitedPhotoUri }));
+  const namedSlots: LineupSlot[] = named.map((s) => ({
+    kind: "named",
+    id: s.id,
+    label: s.claimedName ?? s.invitedName ?? s.label,
+    claimed: !!s.claimedBy,
+    invitedProfileId: s.invitedProfileId,
+    avatarKey: s.invitedAvatarKey,
+    photoUri: s.invitedPhotoUri,
+    expiringSoon: !s.pinned && !!s.expiresAt && new Date(s.expiresAt).getTime() - Date.now() <= 2 * 60 * 60 * 1000 && new Date(s.expiresAt).getTime() > Date.now(),
+  }));
   const joinedSlots: LineupSlot[] = joined.map((p) => ({ kind: "joined", id: p.id, name: p.name, avatarKey: p.avatarKey, photoUri: p.photoUri }));
   const anonCount = Math.max(0, game.reservedSpots - named.length);
   const anonSlots: LineupSlot[] = Array.from({ length: anonCount }, (_, i) => ({ kind: "anon", id: `anon-${i}` }));

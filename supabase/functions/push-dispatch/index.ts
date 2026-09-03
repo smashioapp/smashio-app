@@ -38,6 +38,8 @@ import {
   type PushBody,
   type PushChannel,
   type PushTier,
+  holdAutoReleasedBody,
+  holdNudgeBody,
   reminder24hBody,
   reminder2hBody,
   spotDeclinedBody,
@@ -81,6 +83,8 @@ const CHANNEL_FOR_TYPE: Record<string, PushChannel> = {
   post_game_attendance: "reminders",
   game_invite: "requests",
   spot_declined: "game-updates",
+  hold_nudge: "reminders",
+  hold_auto_released: "game-updates",
   nudge_underfilled: "reminders",
   nudge_pending: "reminders",
   alert_match: "discovery",
@@ -280,6 +284,10 @@ async function renderIndividual(row: NotificationRow): Promise<Rendered | null> 
       return { body: alertMatchBody(summary), screen: "game" };
     case "spot_declined":
       return { body: spotDeclinedBody(row.params.label as string | null, summary), screen: "game" };
+    case "hold_nudge":
+      return { body: holdNudgeBody(row.params.label as string | null, summary), screen: "game" };
+    case "hold_auto_released":
+      return { body: holdAutoReleasedBody(row.params.label as string | null, summary), screen: "game" };
     default:
       return null;
   }

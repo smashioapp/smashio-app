@@ -24,14 +24,50 @@ export type LineupSlot =
       invitedProfileId?: string | null;
       avatarKey?: string | null;
       photoUri?: string | null;
+      // band 12e: the caller decides (now vs expires_at/pinned), the strip just draws the ring.
+      expiringSoon?: boolean;
     }
-  | { kind: "anon"; id: string }
+  | { kind: "anon"; id: string; expiringSoon?: boolean }
   | { kind: "open"; id: string };
 
 const SLOT_SIZE = 42;
 const COLLAPSE_THRESHOLD = 8;
 
+// band 12e: "inside the last 2 hours ... the strip tile gets a thin amber ring" — an outer ring
+// layered on top of whatever the slot's own border already is (named holds already use amber for
+// dashed-unclaimed generally, so this needs its own distinct halo rather than reusing that color
+// at the same radius).
+function ExpiringRing({ size, children }: { size: number; children: React.ReactNode }) {
+  return (
+    <View style={{ width: size, height: size }}>
+      {children}
+      <View
+        pointerEvents="none"
+        style={{
+          position: "absolute",
+          inset: -3,
+          borderRadius: (size + 6) / 2,
+          borderWidth: 1.4,
+          borderColor: colors.advanced,
+        }}
+      />
+    </View>
+  );
+}
+
 function SlotAvatar({ slot, size }: { slot: LineupSlot; size: number }) {
+  const expiringSoon = "expiringSoon" in slot && !!slot.expiringSoon && !(slot.kind === "named" && slot.claimed);
+  if (expiringSoon) {
+    return (
+      <ExpiringRing size={size}>
+        <SlotAvatarInner slot={slot} size={size} />
+      </ExpiringRing>
+    );
+  }
+  return <SlotAvatarInner slot={slot} size={size} />;
+}
+
+function SlotAvatarInner({ slot, size }: { slot: LineupSlot; size: number }) {
   if (slot.kind === "host" || slot.kind === "joined") {
     const animal = animalFor(slot.avatarKey, slot.id);
     const isGhost = slot.avatarKey === GHOST_KEY;

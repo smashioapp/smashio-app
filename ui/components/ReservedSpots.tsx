@@ -11,11 +11,21 @@ import {
   useRemoveReservedSpot,
   useInviteToReservedSpot,
   useCreateReservedSpotInvite,
+  useSetReservedSpotExpiry,
   usePlayerSearch,
   type ReservedSpot,
 } from "../lib/queries/reservedSpots";
 import { Sheet } from "./Sheet";
 import { track } from "../lib/analytics";
+
+// band 12e's row countdown — "1h 40m" style, matching format.ts's formatCountdown shape but
+// driven off a plain ms-left number since it's computed once above, not from an ISO string.
+function formatHoldCountdown(msLeft: number): string {
+  const totalMins = Math.round(msLeft / 60000);
+  const h = Math.floor(totalMins / 60);
+  const m = totalMins % 60;
+  return h === 0 ? `${m}m` : `${h}h ${m}m`;
+}
 
 // post-game-plan.md D2/D3/D10/D11, restyled per create-game-plan.md band 12a/12b: five hold
 // states rendered distinctly (held-no-name, held-for-a-name, link-sent, invited, claimed), and
@@ -110,6 +120,11 @@ function HoldRow({
   const linkSent = !!spot.inviteToken && !claimed && !invited;
   const namedNoLink = !!spot.label && !claimed && !invited && !linkSent;
 
+  // band 12e: quiet for most of the window, an amber countdown once inside the last 2 hours.
+  const msLeft = spot.expiresAt ? new Date(spot.expiresAt).getTime() - Date.now() : null;
+  const expiringSoon = !claimed && !spot.pinned && msLeft != null && msLeft > 0 && msLeft <= 2 * 60 * 60 * 1000;
+  const countdown = expiringSoon ? formatHoldCountdown(msLeft!) : null;
+
   const title = spot.claimedName ?? spot.invitedName ?? (spot.label ? `Held for ${spot.label}` : "Held, no name yet");
   const subtitle = claimed
     ? "Joined just now"
@@ -147,6 +162,13 @@ function HoldRow({
           <Text className="text-[12px]" style={{ color: claimed ? colors.intermediate : colors.textMuted }}>{subtitle}</Text>
         )}
       </View>
+      {!claimed && spot.pinned && <Ionicons name="pin-outline" size={14} color={colors.accent3} />}
+      {countdown && (
+        <View className="flex-row items-center gap-1">
+          <Ionicons name="time-outline" size={12} color={colors.advanced} />
+          <Text className="font-body-extrabold text-[11px]" style={{ color: colors.advanced }}>{countdown}</Text>
+        </View>
+      )}
       {isOrganizer && !cancelled && !claimed && (
         <Text className="font-body-bold text-[11.5px]" style={{ color: namedNoLink ? colors.accent3 : colors.danger }}>
           {namedNoLink ? "Get link" : "Manage"}
@@ -163,6 +185,7 @@ function ManageHoldSheet({ gameId, spot, onClose }: { gameId: string; spot: Rese
   const rename = useRenameReservedSpot(gameId);
   const removeSpot = useRemoveReservedSpot(gameId);
   const createInvite = useCreateReservedSpotInvite(gameId);
+  const setExpiry = useSetReservedSpotExpiry(gameId);
   const [mode, setMode] = useState<"menu" | "name" | "invite">("menu");
   const [nameInput, setNameInput] = useState(spot.label ?? "");
   const [link, setLink] = useState<string | null>(null);
@@ -228,6 +251,44 @@ function ManageHoldSheet({ gameId, spot, onClose }: { gameId: string; spot: Rese
               <Text className="font-body-bold text-[13px]" style={{ color: colors.text }}>{createInvite.isPending ? "Getting link…" : spot.inviteToken ? "Send a new link" : "Get a link"}</Text>
             </Pressable>
           </View>
+
+          <Text className="font-body-extrabold text-[11px] uppercase mt-4 mb-2" style={{ color: colors.textTertiary, letterSpacing: 0.5 }}>
+            Auto-releases
+          </Text>
+          <View className="flex-row gap-2 flex-wrap">
+            {[
+              { label: "2h before", hours: 2 },
+              { label: "4h before", hours: 4 },
+            ].map((o) => {
+              const active = !spot.pinned && spot.expiresAt != null;
+              return (
+                <Pressable
+                  key={o.hours}
+                  onPress={() => setExpiry.mutate({ spotId: spot.id, hoursBefore: o.hours, pinned: false })}
+                  disabled={setExpiry.isPending}
+                  className="rounded-pill px-3.5 py-2 border"
+                  style={{ borderColor: active ? colors.accent : colors.cardBorder, backgroundColor: colors.surface }}
+                >
+                  <Text className="font-body-bold text-[12.5px]" style={{ color: colors.text }}>{o.label}</Text>
+                </Pressable>
+              );
+            })}
+            <Pressable
+              onPress={() => setExpiry.mutate({ spotId: spot.id, hoursBefore: 4, pinned: true })}
+              disabled={setExpiry.isPending}
+              className="rounded-pill px-3.5 py-2 flex-row items-center gap-1.5 border"
+              style={{ borderColor: spot.pinned ? colors.accent3 : colors.cardBorder, backgroundColor: colors.surface }}
+            >
+              <Ionicons name="pin-outline" size={13} color={colors.accent3} />
+              <Text className="font-body-bold text-[12.5px]" style={{ color: colors.text }}>Pin, never expires</Text>
+            </Pressable>
+          </View>
+          <Text className="text-[11.5px] mt-2" style={{ color: colors.textMuted }}>
+            {spot.pinned
+              ? "The host said this one waits, so it does, forever if need be."
+              : "Nobody's claimed it by then, it opens back up to anyone."}
+          </Text>
+
           <Pressable onPress={confirmRelease} disabled={removeSpot.isPending} className="items-center py-3.5 mt-4">
             <Text className="font-body-bold text-[13.5px]" style={{ color: colors.danger }}>Release this spot</Text>
           </Pressable>

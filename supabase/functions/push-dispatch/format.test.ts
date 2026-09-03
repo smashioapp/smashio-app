@@ -21,6 +21,8 @@ import {
   pick,
   playerLeftBody,
   postGameRateBody,
+  holdAutoReleasedBody,
+  holdNudgeBody,
   reminder24hBody,
   reminder2hBody,
   shortTime,
@@ -232,6 +234,18 @@ Deno.test("spotDeclinedBody names the held spot's label when there is one", () =
 Deno.test("spotDeclinedBody falls back when the hold was never named", () => {
   const { body } = spotDeclinedBody(null, summary);
   assertMatch(body, /^Whoever you held it for can't make/);
+});
+
+Deno.test("holdNudgeBody offers the choice without demanding one", () => {
+  const { title, body } = holdNudgeBody("Raj", summary);
+  assertEquals(title, "Raj still hasn't been taken");
+  assertMatch(body, /Want to open it up so someone else can grab it, or give it longer\?/);
+});
+
+Deno.test("holdAutoReleasedBody reads as a notice, not a request", () => {
+  const { title, body } = holdAutoReleasedBody("Raj", summary);
+  assertEquals(title, "We opened Raj's spot back up");
+  assertMatch(body, /^Nobody claimed it in time/);
 });
 
 Deno.test("gameRescheduledBody carries both the new time and the old one", () => {

@@ -21,6 +21,8 @@ export type ReservedSpot = {
   claimedBy: string | null;
   claimedName: string | null;
   color: string;
+  expiresAt: string | null;
+  pinned: boolean;
 };
 
 export function useReservedSpots(gameId: string) {
@@ -33,7 +35,7 @@ export function useReservedSpots(gameId: string) {
         // explicitly or it refuses to embed either. Kept as one string literal — supabase-js
         // parses the select at the type level and a concatenated expression defeats that.
         .select(
-          "id, label, invited_profile_id, invite_token, claimed_by, created_at, invited:profiles!game_reserved_spots_invited_profile_id_fkey(display_name, avatar_key, photo_path), claimer:profiles!game_reserved_spots_claimed_by_fkey(display_name)"
+          "id, label, invited_profile_id, invite_token, claimed_by, created_at, expires_at, pinned, invited:profiles!game_reserved_spots_invited_profile_id_fkey(display_name, avatar_key, photo_path), claimer:profiles!game_reserved_spots_claimed_by_fkey(display_name)"
         )
         .eq("game_id", gameId)
         .order("created_at");
@@ -49,6 +51,8 @@ export function useReservedSpots(gameId: string) {
         claimedBy: row.claimed_by,
         claimedName: (row.claimer as { display_name: string } | null)?.display_name ?? null,
         color: avatarColor(row.id),
+        expiresAt: row.expires_at,
+        pinned: row.pinned,
       }));
     },
     enabled: !!gameId,
@@ -100,6 +104,20 @@ export function useRemoveReservedSpot(gameId: string) {
     },
     onSuccess: () => invalidateSpots(queryClient, gameId),
     onError: (error, spotId) => captureMutationError("reserved_spot.remove", error, { gameId, spotId }),
+  });
+}
+
+// band 12e: the host adjusts how long a hold waits before auto-release, or pins it to exempt it
+// entirely. hoursBefore is ignored when pinned is true.
+export function useSetReservedSpotExpiry(gameId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ spotId, hoursBefore, pinned }: { spotId: string; hoursBefore: number; pinned: boolean }) => {
+      const { error } = await supabase.rpc("set_reserved_spot_expiry", { p_spot_id: spotId, p_hours_before: hoursBefore, p_pinned: pinned });
+      if (error) throw error;
+    },
+    onSuccess: () => invalidateSpots(queryClient, gameId),
+    onError: (error, input) => captureMutationError("reserved_spot.set_expiry", error, { gameId, spotId: input.spotId }),
   });
 }
 

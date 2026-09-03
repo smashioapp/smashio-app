@@ -292,6 +292,25 @@ export function spotDeclinedBody(label: string | null, s: GameSummary): PushBody
   };
 }
 
+// band 12e — the hold is inside its last 2 hours and nobody's claimed it. One nudge, equal
+// choices offered in the app, not a demand to act.
+export function holdNudgeBody(label: string | null, s: GameSummary): PushBody {
+  const who = label ?? "Your held spot";
+  return {
+    title: `${who} still hasn't been taken`,
+    body: `${where(s)} starts ${shortTime(s.starts_at)}. Want to open it up so someone else can grab it, or give it longer?`,
+  };
+}
+
+// band 12e's auto-release notice — "a quiet notice, not a request for action, since inaction was
+// the whole point."
+export function holdAutoReleasedBody(label: string | null, s: GameSummary): PushBody {
+  return {
+    title: `We opened ${label ? `${label}'s` : "a held"} spot back up`,
+    body: `Nobody claimed it in time, so it's open to anyone now for ${where(s)}, ${shortTime(s.starts_at)}.`,
+  };
+}
+
 // C4. Nudge host at T-24h if game still has open spots. (Low tier, goes to inbox if quiet hours.)
 export function nudgeUnderfilledBody(s: GameSummary): PushBody {
   const open = s.spots_left;

@@ -476,6 +476,19 @@ export default function Wizard() {
     await parseFromPicked(asset.uri, asset.width, asset.height, "image/jpeg");
   };
 
+  const chooseFromLibrary = async () => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      setUploadSheet(false);
+      Alert.alert("Can't get to your photos", "Turn it on in Settings, or choose a file instead, works the same either way.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.8 });
+    if (result.canceled) return;
+    const asset = result.assets[0];
+    await parseFromPicked(asset.uri, asset.width, asset.height, "image/jpeg");
+  };
+
   const chooseFile = async () => {
     const result = await DocumentPicker.getDocumentAsync({ type: ["image/*", "application/pdf"], copyToCacheDirectory: true });
     if (result.canceled) return;
@@ -1173,7 +1186,7 @@ export default function Wizard() {
         </View>
       )}
 
-      {/* Upload action sheet — camera + file, equal footing (create-game-plan.md §Step1). */}
+      {/* Upload action sheet — camera + library + file, equal footing (create-game-plan.md §Step1). */}
       <Sheet visible={uploadSheet} onClose={() => setUploadSheet(false)} title="Add your booking confirmation">
         <Text className="text-[13px]" style={{ color: colors.textSecondary }}>
           A photo of the printed receipt, a screenshot, or the PDF the venue emailed you all work.
@@ -1182,6 +1195,10 @@ export default function Wizard() {
           <Pressable onPress={takePhoto} className="flex-1 rounded-2xl py-4 items-center gap-2 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
             <Ionicons name="camera-outline" size={22} color={colors.text} />
             <Text className="font-body-bold text-[13px]" style={{ color: colors.text }}>Take a photo</Text>
+          </Pressable>
+          <Pressable onPress={chooseFromLibrary} className="flex-1 rounded-2xl py-4 items-center gap-2 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
+            <Ionicons name="images-outline" size={22} color={colors.text} />
+            <Text className="font-body-bold text-[13px]" style={{ color: colors.text }}>Photo library</Text>
           </Pressable>
           <Pressable onPress={chooseFile} className="flex-1 rounded-2xl py-4 items-center gap-2 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
             <Ionicons name="document-outline" size={22} color={colors.text} />

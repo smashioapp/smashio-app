@@ -27,18 +27,22 @@ export function UtilityChipRow({
   onDuplicate,
 }: {
   onCalendar: boolean;
-  onToggleCalendar: () => void;
+  // Undefined hides the calendar chip entirely — design-brief Prompt 7a: "Only approved players
+  // and the host see it," not a not-joined or waitlisted viewer.
+  onToggleCalendar?: () => void;
   onShare: () => void;
   onDuplicate?: () => void;
 }) {
   return (
     <View className="flex-row flex-wrap gap-2">
-      <UtilChip
-        icon="calendar-outline"
-        label={onCalendar ? "On your calendar" : "Add to calendar"}
-        tone={onCalendar ? colors.intermediate : undefined}
-        onPress={onToggleCalendar}
-      />
+      {onToggleCalendar && (
+        <UtilChip
+          icon="calendar-outline"
+          label={onCalendar ? "On your calendar" : "Add to calendar"}
+          tone={onCalendar ? colors.intermediate : undefined}
+          onPress={onToggleCalendar}
+        />
+      )}
       <UtilChip icon="share-outline" label="Share" onPress={onShare} />
       {onDuplicate && <UtilChip icon="copy-outline" label="Duplicate this game" onPress={onDuplicate} />}
     </View>

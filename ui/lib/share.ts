@@ -1,5 +1,6 @@
 import { Platform, Share } from "react-native";
 import * as Linking from "expo-linking";
+import * as Clipboard from "expo-clipboard";
 import type { Game } from "./mockData";
 import { track } from "./analytics";
 
@@ -20,6 +21,19 @@ export async function shareGame(game: Game) {
       Platform.OS === "ios" ? { message: text, url } : { message: `${text} — ${url}` }
     );
     if (result.action === Share.sharedAction) track("share_sent", { kind: "game", game_id: game.id });
+  } catch {}
+}
+
+// design-brief Prompt 7a's host-only quick-invite chip: copies the same text the ordinary share
+// sheet sends, then opens Share too — WhatsApp's own share target strips a bare link's preview
+// card if it isn't already on the clipboard when the picker opens.
+export async function copyGameLinkForWhatsApp(game: Game) {
+  const url = `https://smashio.com.au/game/${game.id}`;
+  const text = `Join me for badminton at ${game.venue} · ${game.date} ${game.time} — ${url}`;
+  await Clipboard.setStringAsync(text);
+  try {
+    const result = await Share.share({ message: text });
+    if (result.action === Share.sharedAction) track("share_sent", { kind: "game_whatsapp", game_id: game.id });
   } catch {}
 }
 

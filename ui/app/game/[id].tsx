@@ -37,9 +37,10 @@ import { Avatar } from "../../components/Avatar";
 import { SwipeToDecide } from "../../components/SwipeToDecide";
 import { VettingStrip } from "../../components/VettingStrip";
 import { haptics } from "../../lib/haptics";
-import { shareGame } from "../../lib/share";
+import { copyGameLinkForWhatsApp, shareGame } from "../../lib/share";
 import { track } from "../../lib/analytics";
 import { ReservedSpots } from "../../components/ReservedSpots";
+import { InviteCoplayerSheet } from "../../components/InviteCoplayerSheet";
 import { useReservedSpots, useRespondToGameInvite } from "../../lib/queries/reservedSpots";
 import { LineupStrip, lineupSummary, type LineupSlot } from "../../components/LineupStrip";
 import { useReduceMotion } from "../../lib/motion";
@@ -102,6 +103,7 @@ export default function GameDetails() {
   const [reportSheetOpen, setReportSheetOpen] = useState(false);
   const [leaveSheetOpen, setLeaveSheetOpen] = useState(false);
   const [similarSheetOpen, setSimilarSheetOpen] = useState(false);
+  const [invitePastOpen, setInvitePastOpen] = useState(false);
   const distanceUnits = useDistanceUnits();
   const location = useUserLocation();
 
@@ -369,19 +371,47 @@ export default function GameDetails() {
                   {joined.length + 1} of {game.maxPlayers} in{heldCount > 0 ? `, ${heldCount} held` : ""}
                 </Text>
               </View>
-              <Pressable
-                className="flex-row items-center gap-1.5 rounded-pill px-3 py-2 border self-start mt-2.5"
-                style={{ backgroundColor: colors.surface, borderColor: colors.cardBorder }}
-                onPress={() => {
-                  haptics.tap();
-                  shareGame(game);
-                }}
-              >
-                <Ionicons name="share-outline" size={13} color={colors.textSecondary} />
-                <Text className="font-body-bold text-[11.5px]" style={{ color: colors.textSecondary }}>
-                  Share link
-                </Text>
-              </Pressable>
+              <View className="flex-row flex-wrap gap-2 mt-2.5">
+                <Pressable
+                  className="flex-row items-center gap-1.5 rounded-pill px-3 py-2 border"
+                  style={{ backgroundColor: colors.surface, borderColor: colors.cardBorder }}
+                  onPress={() => {
+                    haptics.tap();
+                    shareGame(game);
+                  }}
+                >
+                  <Ionicons name="share-outline" size={13} color={colors.textSecondary} />
+                  <Text className="font-body-bold text-[11.5px]" style={{ color: colors.textSecondary }}>
+                    Share link
+                  </Text>
+                </Pressable>
+                <Pressable
+                  className="flex-row items-center gap-1.5 rounded-pill px-3 py-2 border"
+                  style={{ backgroundColor: colors.surface, borderColor: colors.cardBorder }}
+                  onPress={() => {
+                    haptics.tap();
+                    setInvitePastOpen(true);
+                  }}
+                >
+                  <Ionicons name="people-outline" size={13} color={colors.textSecondary} />
+                  <Text className="font-body-bold text-[11.5px]" style={{ color: colors.textSecondary }}>
+                    Invite from last game
+                  </Text>
+                </Pressable>
+                <Pressable
+                  className="flex-row items-center gap-1.5 rounded-pill px-3 py-2 border"
+                  style={{ backgroundColor: colors.surface, borderColor: colors.cardBorder }}
+                  onPress={() => {
+                    haptics.tap();
+                    copyGameLinkForWhatsApp(game);
+                  }}
+                >
+                  <Ionicons name="chatbubble-outline" size={13} color={colors.textSecondary} />
+                  <Text className="font-body-bold text-[11.5px]" style={{ color: colors.textSecondary }}>
+                    Copy for WhatsApp
+                  </Text>
+                </Pressable>
+              </View>
               <JoinRequests gameId={gameId} full={full} onLayoutY={scrollToRequests} />
             </View>
           )}
@@ -576,10 +606,14 @@ export default function GameDetails() {
           <View className="mt-3.5">
             <UtilityChipRow
               onCalendar={onCalendar}
-              onToggleCalendar={() => {
-                haptics.tap();
-                addGameToCalendar(game, organizer?.displayName).then(() => hasCalendarEvent(gameId).then(setOnCalendar));
-              }}
+              onToggleCalendar={
+                isOrganizer || membership?.status === "approved"
+                  ? () => {
+                      haptics.tap();
+                      addGameToCalendar(game, organizer?.displayName).then(() => hasCalendarEvent(gameId).then(setOnCalendar));
+                    }
+                  : undefined
+              }
               onShare={() => shareGame(game)}
               onDuplicate={isOrganizer && !cancelled ? handleDuplicate : undefined}
             />
@@ -772,6 +806,7 @@ export default function GameDetails() {
           </View>
         </View>
       </Sheet>
+      {isOrganizer && <InviteCoplayerSheet gameId={gameId} visible={invitePastOpen} onClose={() => setInvitePastOpen(false)} />}
       {game.venueLat != null && game.venueLng != null && (
         <SimilarGamesSheet
           visible={similarSheetOpen}

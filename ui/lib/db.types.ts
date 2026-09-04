@@ -2578,6 +2578,16 @@ export type Database = {
           rating_count: number
         }[]
       }
+      recent_coplayers: {
+        Args: { p_game_id: string }
+        Returns: {
+          avatar_key: string
+          display_name: string
+          last_played_at: string
+          photo_path: string
+          profile_id: string
+        }[]
+      }
       recompute_achievements: {
         Args: { p_profile_id: string }
         Returns: undefined

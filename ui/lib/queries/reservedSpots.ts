@@ -233,6 +233,52 @@ export function useRespondToGameInvite(gameId: string) {
   });
 }
 
+// design-brief Prompt 7a's "Invite from last game" quick-invite chip: people who've played an
+// approved game hosted by this organizer before, and aren't already on this game's roster or
+// holds. Organizer-only (recent_coplayers enforces it server-side too).
+export type RecentCoplayer = {
+  profileId: string;
+  name: string;
+  avatarKey: string | null;
+  photoUri: string | null;
+  color: string;
+};
+
+export function useRecentCoplayers(gameId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["recent_coplayers", gameId],
+    queryFn: async (): Promise<RecentCoplayer[]> => {
+      const { data, error } = await supabase.rpc("recent_coplayers", { p_game_id: gameId });
+      if (error) throw error;
+      return (data ?? []).map((row) => ({
+        profileId: row.profile_id,
+        name: row.display_name,
+        avatarKey: row.avatar_key,
+        photoUri: photoUrl(row.photo_path),
+        color: avatarColor(row.profile_id),
+      }));
+    },
+    enabled: enabled && !!gameId,
+  });
+}
+
+// Chains add_reserved_spot + invite_to_reserved_spot so "invite from last game" is one tap:
+// hold a fresh spot, then invite this specific person to it, same as the manual "Hold a spot" ->
+// "Invite someone" flow but without the intermediate search step since we already know who.
+export function useInviteCoplayer(gameId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (profileId: string) => {
+      const { data: spotId, error: addError } = await supabase.rpc("add_reserved_spot", { p_game_id: gameId });
+      if (addError) throw addError;
+      const { error: inviteError } = await supabase.rpc("invite_to_reserved_spot", { p_spot_id: spotId as string, p_profile_id: profileId });
+      if (inviteError) throw inviteError;
+    },
+    onSuccess: () => invalidateSpots(queryClient, gameId),
+    onError: (error, profileId) => captureMutationError("reserved_spot.invite_coplayer", error, { gameId, profileId }),
+  });
+}
+
 // Host-side people search for direct-add. Name prefix only, and deliberately not a full
 // directory: it exists to find someone you already know, not to browse the user base.
 export function usePlayerSearch(term: string) {

@@ -9,7 +9,8 @@ import { openDirections } from "../../lib/directions";
 import { useAppStore } from "../../lib/store";
 import { nextRebookSlot } from "../../lib/schedule";
 import { addGameToCalendar, hasCalendarEvent } from "../../lib/calendar";
-import { useGameDetail, useGamePreview } from "../../lib/queries/games";
+import { useAttendanceMarkedAt, useGameDetail, useGamePreview } from "../../lib/queries/games";
+import { useMyRatedGameIds } from "../../lib/queries/ratings";
 import { useSession } from "../../lib/session";
 import { savePendingPath } from "../../lib/pendingGame";
 import { usePlayerCard } from "../../lib/queries/profile";
@@ -29,12 +30,10 @@ import { Badge } from "../../components/Badge";
 import { BackButton } from "../../components/BackButton";
 import { Button } from "../../components/Button";
 import { HoldButton } from "../../components/HoldButton";
-import { CountdownChip } from "../../components/CountdownChip";
 import { CourtBackdrop } from "../../components/CourtBackdrop";
 import { GameCover } from "../../components/GameCover";
 import { StatTile, StatTileRow } from "../../components/StatTile";
-import { ListRow } from "../../components/ListRow";
-import { Avatar, AvatarStack } from "../../components/Avatar";
+import { Avatar } from "../../components/Avatar";
 import { SwipeToDecide } from "../../components/SwipeToDecide";
 import { VettingStrip } from "../../components/VettingStrip";
 import { haptics } from "../../lib/haptics";
@@ -45,12 +44,20 @@ import { useReservedSpots, useRespondToGameInvite } from "../../lib/queries/rese
 import { LineupStrip, lineupSummary, type LineupSlot } from "../../components/LineupStrip";
 import { useReduceMotion } from "../../lib/motion";
 import { GameDetailSkeleton } from "../../components/Skeleton";
+import { StatusBand, gameMode } from "../../components/StatusBand";
+import { GamePitch } from "../../components/GamePitch";
+import { VenueDetailCard } from "../../components/VenueDetailCard";
+import { ChatPreviewStrip } from "../../components/ChatPreviewStrip";
+import { UtilityChipRow } from "../../components/UtilityChipRow";
+import { VerifiedSheet } from "../../components/VerifiedSheet";
+import { ReportSheet } from "../../components/ReportSheet";
+import { Sheet } from "../../components/Sheet";
+import { useUserLocation } from "../../lib/location";
+import { haversineMeters, formatDistance } from "../../lib/format";
+import { useDistanceUnits } from "../../lib/queries/settings";
+import { useDiscoverGames } from "../../lib/queries/games";
 
 const HERO_HEIGHT = 300;
-
-function avatarUrl(photoPath: string | null | undefined): string | null {
-  return photoPath ? supabase.storage.from("avatars").getPublicUrl(photoPath).data.publicUrl : null;
-}
 
 function goBack() {
   if (router.canGoBack()) {
@@ -58,6 +65,17 @@ function goBack() {
   } else {
     router.replace("/");
   }
+}
+
+function SectionLabel({ children, right }: { children: React.ReactNode; right?: React.ReactNode }) {
+  return (
+    <View className="flex-row items-center justify-between mt-5.5 mb-2.5">
+      <Text className="font-body-extrabold text-[13px] uppercase tracking-wide" style={{ color: colors.textTertiary }}>
+        {children}
+      </Text>
+      {right}
+    </View>
+  );
 }
 
 export default function GameDetails() {
@@ -80,6 +98,17 @@ export default function GameDetails() {
   const reduceMotion = useReduceMotion();
   const { width: windowWidth } = useWindowDimensions();
   const [onCalendar, setOnCalendar] = useState(false);
+  const [verifiedSheetOpen, setVerifiedSheetOpen] = useState(false);
+  const [reportSheetOpen, setReportSheetOpen] = useState(false);
+  const [leaveSheetOpen, setLeaveSheetOpen] = useState(false);
+  const [similarSheetOpen, setSimilarSheetOpen] = useState(false);
+  const distanceUnits = useDistanceUnits();
+  const location = useUserLocation();
+
+  const mode = game ? gameMode(game) : "upcoming";
+  const attendanceQuery = useAttendanceMarkedAt(gameId, mode === "done");
+  const ratedIdsQuery = useMyRatedGameIds(mode === "done" ? [gameId] : []);
+  const rated = ratedIdsQuery.data?.has(gameId) ?? false;
 
   // A join_request push deep-links here with ?focus=requests (docs/notifications-plan.md §7):
   // the requests list sits well below the hero, so landing at the top hides the one thing the
@@ -130,8 +159,17 @@ export default function GameDetails() {
 
   if (!game) {
     return (
-      <View className="flex-1 items-center justify-center" style={{ backgroundColor: colors.base }}>
-        <Text style={{ color: colors.textSecondary }}>Game not found</Text>
+      <View className="flex-1 items-center justify-center px-8" style={{ backgroundColor: colors.base }}>
+        <Ionicons name="alert-circle-outline" size={28} color={colors.textTertiary} />
+        <Text className="font-display text-[18px] mt-3" style={{ color: colors.text }}>
+          This game's gone
+        </Text>
+        <Text className="text-[13.5px] text-center mt-1.5" style={{ color: colors.textSecondary }}>
+          The host may have deleted it, or the link's out of date. No worries, try Discover instead.
+        </Text>
+        <View className="mt-5 self-stretch">
+          <Button label="Back to Discover" variant="secondary" onPress={() => router.replace("/(tabs)/discover")} />
+        </View>
       </View>
     );
   }
@@ -140,29 +178,21 @@ export default function GameDetails() {
   const joined = rosterQuery.data ?? [];
   const membership = membershipQuery.data;
   const isOrganizer = membership?.isOrganizer ?? false;
-  const cancelled = game.status === "cancelled";
+  const cancelled = mode === "cancelled";
   const open = spotsLeft(game);
   const full = open === 0;
+  const distanceM =
+    game.venueLat != null && game.venueLng != null ? haversineMeters(location.lat, location.lng, game.venueLat, game.venueLng) : null;
 
   const confirmLeave = () => {
-    Alert.alert("Leave this game?", "You'll lose your spot, and might need to ask to rejoin.", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Leave game",
-        style: "destructive",
-        onPress: () => {
-          haptics.tap();
-          leaveGame.mutate();
-        },
-      },
-    ]);
+    haptics.tap();
+    setLeaveSheetOpen(true);
   };
 
   // G8 (quick-wins.md §3.2): reuses Rebook's exact seed shape (my-games/past.tsx handleRebook)
   // so hosts don't re-key a weekly game by hand — only the entry point (an upcoming/live game
   // instead of a past one) and the "duplicate" framing differ.
-  const handleDuplicate = () => {
-    haptics.tap();
+  const seedRebook = () => {
     if (game.venueId) {
       useAppStore.getState().setRebookSeed({
         venueId: game.venueId,
@@ -177,7 +207,18 @@ export default function GameDetails() {
         startsAt: nextRebookSlot(new Date(game.startsAt)),
       });
     }
+  };
+
+  const handleDuplicate = () => {
+    haptics.tap();
+    seedRebook();
     router.push("/wizard");
+  };
+
+  const handleRebook = () => {
+    haptics.tap();
+    seedRebook();
+    router.replace("/wizard");
   };
 
   const confirmLeaveWaitlist = () => {
@@ -225,10 +266,22 @@ export default function GameDetails() {
     ...openSlots,
   ];
 
+  const heldCount = Math.max(0, game.reservedSpots - game.reservedClaimed);
+  const daysOut = Math.max(1, Math.ceil((new Date(game.startsAt).getTime() - Date.now()) / (24 * 60 * 60 * 1000)));
+  const covered = perPlayer * (joined.length + 1);
+  const totalCost = perPlayer * game.maxPlayers;
+  const shortfall = Math.max(0, totalCost - covered);
+
+  const showHostJob = isOrganizer && !cancelled && (mode === "upcoming" || mode === "imminent" || mode === "live");
+  const showDoneRecap = isOrganizer && mode === "done" && !attendanceQuery.data;
+  const hostName = organizer?.displayName || game.organizerName || "The host";
+
   return (
     <View className="flex-1" style={{ backgroundColor: colors.base }}>
       <ScrollView ref={scrollRef} contentContainerStyle={{ paddingBottom: 24 }}>
-        {/* Anchor (docs/v2-design-plan.md §4.3): the one hero on this screen. */}
+        {/* Anchor (docs/v2-design-plan.md §4.3): the one hero on this screen. Design redesign
+            (Prompt 7a): only back + share live in the hero, everything else moved to the
+            utility row lower on the page. */}
         <View style={{ height: HERO_HEIGHT, backgroundColor: colors.surface, overflow: "hidden" }}>
           <View pointerEvents="none" style={{ position: "absolute", inset: 0 }}>
             {game.coverKey && game.coverKey !== "auto" ? (
@@ -240,37 +293,34 @@ export default function GameDetails() {
 
           <View className="px-4 flex-row justify-between items-center" style={{ paddingTop: 56 }}>
             <BackButton dark onPress={goBack} />
-            <View className="flex-row items-center gap-2">
-              {isOrganizer && !cancelled && (
-                <Pressable
-                  onPress={() => {
-                    haptics.tap();
-                    router.push(`/game/edit/${game.id}`);
-                  }}
-                  className="w-9 h-9 rounded-full items-center justify-center"
-                  style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
-                >
-                  <Ionicons name="create-outline" size={16} color="#fff" />
-                </Pressable>
-              )}
-              <Pressable
-                onPress={() => {
-                  haptics.tap();
-                  shareGame(game);
-                }}
-                className="w-9 h-9 rounded-full items-center justify-center"
-                style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
-              >
-                <Ionicons name="share-outline" size={16} color="#fff" />
-              </Pressable>
-            </View>
+            <Pressable
+              onPress={() => {
+                haptics.tap();
+                shareGame(game);
+              }}
+              className="w-9 h-9 rounded-full items-center justify-center"
+              style={{ backgroundColor: "rgba(0,0,0,0.4)" }}
+            >
+              <Ionicons name="share-outline" size={16} color="#fff" />
+            </Pressable>
           </View>
 
           <View className="px-5" style={{ position: "absolute", left: 0, right: 0, bottom: 20 }}>
             <View className="flex-row items-center justify-between mb-2">
-              {cancelled ? <Badge state="cancelled" label="Cancelled" /> : <CountdownChip startsAt={game.startsAt} />}
+              {cancelled ? (
+                <Badge state="cancelled" label="Cancelled" />
+              ) : (
+                <View />
+              )}
               {!cancelled && game.verificationStatus !== "none" && (
-                <Badge state={game.verified ? "verified" : "pending"} label={game.verified ? "Verified" : "Pending"} />
+                <Pressable
+                  onPress={() => {
+                    haptics.tap();
+                    setVerifiedSheetOpen(true);
+                  }}
+                >
+                  <Badge state={game.verified ? "verified" : "pending"} label={game.verified ? "Verified" : "Pending"} />
+                </Pressable>
               )}
             </View>
             <Text numberOfLines={1} className="font-display text-[27px]" style={{ color: colors.text }}>
@@ -282,10 +332,19 @@ export default function GameDetails() {
           </View>
         </View>
 
-        <View className="px-5 pt-4">
+        <View className="px-5 pt-4" style={{ gap: 0 }}>
+          <StatusBand
+            mode={mode}
+            startsAt={game.startsAt}
+            endsAt={game.endsAt}
+            courts={game.courts}
+            distanceM={distanceM}
+            doneAt={game.endsAt}
+          />
+
           {cancelled && (
             <View
-              className="flex-row items-start gap-2.5 rounded-2xl p-3.5 mb-4 border"
+              className="flex-row items-start gap-2.5 rounded-2xl p-3.5 mt-3 border"
               style={{ backgroundColor: "rgba(255,103,103,0.1)", borderColor: "rgba(255,103,103,0.3)" }}
             >
               <Ionicons name="close-circle-outline" size={17} color={colors.danger} style={{ marginTop: 1 }} />
@@ -297,98 +356,77 @@ export default function GameDetails() {
             </View>
           )}
 
-          <View className="flex-row items-center justify-between mb-4">
-            {joined.length > 0 ? <AvatarStack people={joined} max={5} /> : <View />}
-            {!cancelled && (
-              <Text className="font-body-bold text-[13px]" style={{ color: full ? colors.danger : colors.textSecondary }}>
-                {full ? "Full" : `${open} ${open === 1 ? "spot" : "spots"} left`} · {game.joinedCount + 1}/{game.maxPlayers} joined
-              </Text>
-            )}
-          </View>
-
-          <StatTileRow>
-            <StatTile value={`$${perPlayer}`} label="per player" tone={colors.accent} />
-            <StatTile value={full ? "Full" : `${open}`} label="spots left" tone={full ? colors.danger : undefined} />
-            <StatTile value={game.skill} label="skill level" small />
-          </StatTileRow>
-
-          <View className="mt-5">
-            {organizer && !isOrganizer && (
-              <View className="flex-row items-center gap-2.5" style={{ paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: LAYOUT.HAIRLINE }}>
-                <Avatar
-                  id={organizer.id}
-                  name={organizer.displayName}
-                  color={colors.surfaceAlt}
-                  photoUri={organizer.photoPath ? supabase.storage.from("avatars").getPublicUrl(organizer.photoPath).data.publicUrl : null}
-                  avatarKey={organizer.avatarKey}
-                  size={36}
-                />
-                <View className="flex-1 min-w-0">
-                  <Text numberOfLines={1} className="font-body-semibold text-[13.5px]" style={{ color: colors.text }}>
-                    {organizer.displayName} · Host
-                  </Text>
-                  <Text numberOfLines={1} className="text-[11.5px] mt-0.5" style={{ color: colors.textSecondary }}>
-                    {organizer.reliabilityScore != null
-                      ? `Reliability ${organizer.reliabilityScore} · ${reliabilityLabel(organizer.reliabilityScore)}`
-                      : "Reliability hidden by this host"}
-                  </Text>
-                </View>
-                <Pressable
-                  onPress={() => {
-                    haptics.tap();
-                    router.push(`/chat/${game.id}`);
-                  }}
-                  className="rounded-pill px-3 py-1.5 border"
-                  style={{ borderColor: colors.cardBorder }}
-                >
-                  <Text className="font-body-bold text-[12px]" style={{ color: colors.textDim }}>
-                    Message
-                  </Text>
-                </Pressable>
+          {showHostJob && (
+            <View className="mt-3">
+              <View
+                className="rounded-2xl p-4 border"
+                style={{ borderColor: "rgba(214,255,63,0.25)", backgroundColor: colors.card }}
+              >
+                <Text className="font-body-bold text-[15px]" style={{ color: colors.accent3 }}>
+                  {open > 0 ? `${open} ${open === 1 ? "spot" : "spots"} to fill, ${daysOut} ${daysOut === 1 ? "day" : "days"} out` : "Full house"}
+                </Text>
+                <Text className="text-[12.5px] mt-1" style={{ color: colors.textSecondary }}>
+                  {joined.length + 1} of {game.maxPlayers} in{heldCount > 0 ? `, ${heldCount} held` : ""}
+                </Text>
               </View>
-            )}
-
-            <ListRow
-              title="View venue & get directions"
-              accessory="chevron"
-              onPress={() => {
-                if (game.venueId) router.push(`/venue/${game.venueId}`);
-                else openDirections(game);
-              }}
-            />
-            <ListRow title="Open chat" accessory="chevron" onPress={() => router.push(`/chat/${game.id}`)} />
-            {(isOrganizer || membership?.status === "approved") && (
-              <ListRow
-                title={onCalendar ? "On your calendar · Change" : "Add to calendar"}
-                accessory="chevron"
+              <Pressable
+                className="flex-row items-center gap-1.5 rounded-pill px-3 py-2 border self-start mt-2.5"
+                style={{ backgroundColor: colors.surface, borderColor: colors.cardBorder }}
                 onPress={() => {
                   haptics.tap();
-                  addGameToCalendar(game, organizer?.displayName).then(() => hasCalendarEvent(gameId).then(setOnCalendar));
+                  shareGame(game);
                 }}
-              />
-            )}
-            <ListRow title="Share game link" accessory="chevron" divider={isOrganizer && !cancelled} onPress={() => shareGame(game)} />
-            {isOrganizer && !cancelled && (
-              <ListRow title="Duplicate this game" accessory="chevron" divider={false} onPress={handleDuplicate} />
-            )}
-          </View>
+              >
+                <Ionicons name="share-outline" size={13} color={colors.textSecondary} />
+                <Text className="font-body-bold text-[11.5px]" style={{ color: colors.textSecondary }}>
+                  Share link
+                </Text>
+              </Pressable>
+              <JoinRequests gameId={gameId} full={full} onLayoutY={scrollToRequests} />
+            </View>
+          )}
 
-          {isOrganizer && !cancelled && <JoinRequests gameId={gameId} full={full} onLayoutY={scrollToRequests} />}
+          {showDoneRecap && (
+            <View className="rounded-2xl p-4 mt-3 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
+              <Text className="font-body-bold text-[14px]" style={{ color: colors.text }}>
+                Mark who showed
+              </Text>
+              <Text className="text-[12.5px] mt-1" style={{ color: colors.textSecondary }}>
+                Keeps everyone's reliability numbers honest.
+              </Text>
+            </View>
+          )}
+
+          <View className="mt-3.5">
+            <GamePitch
+              notes={game.notes}
+              hostName={hostName}
+              format={game.format}
+              skill={game.skill}
+              skillMax={game.skillTierMax}
+              shuttles={game.shuttles}
+              courts={game.courts}
+              isOrganizer={isOrganizer}
+              gameId={gameId}
+            />
+          </View>
 
           {/* Lineup strip (create-game-plan.md §4.4/§4.5): the host is slot one, not a separate
               card above a roster that doesn't contain them. Same component as the draft card's
               WHO row. Filled/held management still lives in ReservedSpots below — this is the
               at-a-glance read; that's the action surface. */}
-          <View className="flex-row items-center justify-between mt-5.5 mb-2.5">
-            <Text className="font-body-extrabold text-[13px] uppercase tracking-wide" style={{ color: colors.textTertiary }}>
-              Lineup
-            </Text>
-            {isOrganizer && !cancelled && !!waitlistCountQuery.data && (
-              <Text className="text-[12px] font-body-semibold" style={{ color: colors.textTertiary }}>
-                {waitlistCountQuery.data} on waitlist
-              </Text>
-            )}
-          </View>
+          <SectionLabel
+            right={
+              !cancelled ? (
+                <Text className="text-[11px] font-body-semibold" style={{ color: colors.textTertiary }}>
+                  {game.joinedCount + 1}/{game.maxPlayers} joined
+                  {isOrganizer && !!waitlistCountQuery.data ? ` · ${waitlistCountQuery.data} waitlist` : ""}
+                </Text>
+              ) : undefined
+            }
+          >
+            Lineup
+          </SectionLabel>
           <LineupStrip
             slots={lineupSlots}
             courtsBooked={game.courtsBooked}
@@ -431,9 +469,10 @@ export default function GameDetails() {
             <ReservedSpots gameId={gameId} isOrganizer={isOrganizer} reservedSpots={game.reservedSpots} cancelled={cancelled} />
           )}
 
-          <Text className="font-body-extrabold text-[13px] uppercase tracking-wide mt-5.5 mb-2.5" style={{ color: colors.textTertiary }}>
-            Cost
-          </Text>
+          <SectionLabel>Venue</SectionLabel>
+          <VenueDetailCard game={game} />
+
+          <SectionLabel>Cost</SectionLabel>
           <View className="rounded-2xl p-4 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
             <View className="flex-row justify-between mb-2">
               <Text className="text-[14.5px]" style={{ color: colors.textSecondary }}>
@@ -448,30 +487,166 @@ export default function GameDetails() {
                 If full · {game.maxPlayers} players
               </Text>
               <Text className="text-[14.5px] font-body-bold" style={{ color: colors.text }}>
-                ${perPlayer * game.maxPlayers}
+                ${totalCost}
               </Text>
             </View>
-            <View className="rounded-xl p-3 flex-row justify-between items-center" style={{ backgroundColor: "rgba(214,255,63,0.1)" }}>
-              <Text className="text-[14.5px] font-body-bold" style={{ color: colors.accent }}>
-                Your share
-              </Text>
-              <Text className="font-display-bold text-[20px]" style={{ color: colors.accent }}>
-                ${perPlayer}
-              </Text>
-            </View>
+            {isOrganizer ? (
+              <View className="rounded-xl p-3" style={{ backgroundColor: "rgba(214,255,63,0.1)" }}>
+                <Text className="text-[13px] font-body-bold" style={{ color: colors.accent }}>
+                  Your break-even
+                </Text>
+                <Text className="text-[12.5px] mt-1" style={{ color: colors.textDim, lineHeight: 18 }}>
+                  Court's ${totalCost} total. {joined.length + 1} in at ${perPlayer}, that's ${covered}.{" "}
+                  {shortfall > 0 ? `You're $${shortfall} short of covering it, ${open} ${open === 1 ? "spot" : "spots"} left to close the gap.` : "Fully covered."}
+                </Text>
+              </View>
+            ) : (
+              <View className="rounded-xl p-3 flex-row justify-between items-center" style={{ backgroundColor: "rgba(214,255,63,0.1)" }}>
+                <Text className="text-[14.5px] font-body-bold" style={{ color: colors.accent }}>
+                  Your share
+                </Text>
+                <Text className="font-display-bold text-[20px]" style={{ color: colors.accent }}>
+                  ${perPlayer}
+                </Text>
+              </View>
+            )}
           </View>
+
+          <SectionLabel>Good to know</SectionLabel>
+          <View className="gap-2">
+            {[
+              ["Joining", game.autoApprove ? "Auto-approved" : "Host approves each request"],
+              ["Visibility", game.visibility === "link_only" ? "Link only" : "Public"],
+              ["If you drop out", "Spot opens to the waitlist"],
+              ["Bring", "Your own racquet"],
+            ].map(([label, value]) => (
+              <View key={label} className="flex-row justify-between">
+                <Text className="text-[12.5px]" style={{ color: colors.textTertiary }}>
+                  {label}
+                </Text>
+                <Text className="text-[12.5px] font-body-semibold" style={{ color: colors.textSecondary }}>
+                  {value}
+                </Text>
+              </View>
+            ))}
+          </View>
+
+          {organizer && !isOrganizer && (
+            <>
+              <SectionLabel>Host</SectionLabel>
+              <View className="flex-row items-center gap-2.5" style={{ paddingVertical: 4 }}>
+                <Avatar
+                  id={organizer.id}
+                  name={organizer.displayName}
+                  color={colors.surfaceAlt}
+                  photoUri={organizer.photoPath ? supabase.storage.from("avatars").getPublicUrl(organizer.photoPath).data.publicUrl : null}
+                  avatarKey={organizer.avatarKey}
+                  size={44}
+                />
+                <View className="flex-1 min-w-0">
+                  <Text numberOfLines={1} className="font-body-semibold text-[13.5px]" style={{ color: colors.text }}>
+                    {organizer.displayName} · Host
+                  </Text>
+                  <Text numberOfLines={1} className="text-[11.5px] mt-0.5" style={{ color: colors.textSecondary }}>
+                    {organizer.reliabilityScore != null
+                      ? `Reliability ${organizer.reliabilityScore} · ${reliabilityLabel(organizer.reliabilityScore)}`
+                      : "Reliability hidden by this host"}
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={() => {
+                    haptics.tap();
+                    router.push(`/chat/${game.id}`);
+                  }}
+                  className="rounded-pill px-3 py-1.5 border"
+                  style={{ borderColor: colors.cardBorder }}
+                >
+                  <Text className="font-body-bold text-[12px]" style={{ color: colors.textDim }}>
+                    Message
+                  </Text>
+                </Pressable>
+              </View>
+            </>
+          )}
+
+          <View className="mt-5.5">
+            <ChatPreviewStrip gameId={gameId} memberCount={game.joinedCount + 1} />
+          </View>
+
+          <View className="mt-3.5">
+            <UtilityChipRow
+              onCalendar={onCalendar}
+              onToggleCalendar={() => {
+                haptics.tap();
+                addGameToCalendar(game, organizer?.displayName).then(() => hasCalendarEvent(gameId).then(setOnCalendar));
+              }}
+              onShare={() => shareGame(game)}
+              onDuplicate={isOrganizer && !cancelled ? handleDuplicate : undefined}
+            />
+          </View>
+
+          {!isOrganizer && organizer && (
+            <Pressable
+              className="items-center py-5"
+              onPress={() => {
+                haptics.tap();
+                setReportSheetOpen(true);
+              }}
+            >
+              <Text className="font-body-bold text-[12px]" style={{ color: colors.textTertiary }}>
+                Report this game <Text style={{ color: colors.textMuted }}>·</Text> Block host
+              </Text>
+            </Pressable>
+          )}
         </View>
       </ScrollView>
 
-      {/* Fixed bottom pill (docs/v2-design-plan.md §4.3) — full-width now that chat is a
-          ListRow above; the old floating chat button next to it is gone. */}
+      {/* Fixed bottom pill (docs/v2-design-plan.md §4.3). */}
       <View className="px-5 pb-8 pt-3.5" style={{ backgroundColor: colors.base }}>
         {cancelled ? (
-          <Button testID="game-cta" label="Game cancelled" variant="secondary" disabled />
+          <View className="gap-2">
+            <Button testID="game-cta" label="Game cancelled" variant="ghost" disabled />
+            <Pressable className="items-center" onPress={() => router.replace("/(tabs)/discover")}>
+              <Text className="font-body-bold text-[12.5px]" style={{ color: colors.accent3 }}>
+                Find another game tonight
+              </Text>
+            </Pressable>
+          </View>
         ) : isOrganizer ? (
-          <Button testID="game-cta" label="Manage this game" variant="secondary" onPress={() => router.push(`/game/edit/${game.id}`)} />
+          mode === "done" ? (
+            <Button
+              testID="game-cta"
+              label={attendanceQuery.data ? "Rate your crew" : "Mark attendance"}
+              onPress={() => router.push(`/post-game/${game.id}`)}
+            />
+          ) : (
+            <Button testID="game-cta" label="Manage this game" variant="secondary" onPress={() => router.push(`/game/edit/${game.id}`)} />
+          )
+        ) : mode === "done" ? (
+          rated ? (
+            <Button testID="game-cta" label="Rebook this game" variant="secondary" onPress={handleRebook} />
+          ) : (
+            <Button testID="game-cta" label="Rate your crew" onPress={() => router.push(`/post-game/${game.id}`)} />
+          )
         ) : membership?.status === "approved" ? (
-          <Button testID="game-cta" label="Leave game" variant="secondary" loading={leaveGame.isPending} onPress={confirmLeave} />
+          mode === "imminent" ? (
+            <Button
+              testID="game-cta"
+              label={distanceM != null ? `Directions, ${formatDistance(distanceM, distanceUnits)} away` : "Directions"}
+              onPress={() => openDirections(game)}
+            />
+          ) : mode === "live" ? (
+            <Button testID="game-cta" label="You're in · playing now" variant="secondary" disabled />
+          ) : (
+            <View className="gap-2">
+              <Button testID="game-cta" label="You're in" variant="secondary" disabled />
+              <Pressable className="items-center" onPress={confirmLeave}>
+                <Text className="font-body-semibold text-[12.5px]" style={{ color: colors.textTertiary }}>
+                  Leave game
+                </Text>
+              </Pressable>
+            </View>
+          )
         ) : membership?.status === "invited" ? (
           // D10: the host held a spot with this player's name on it. They owe money for it, so
           // they answer — nobody is silently enrolled.
@@ -502,7 +677,14 @@ export default function GameDetails() {
             </View>
           </View>
         ) : membership?.status === "requested" ? (
-          <Button testID="game-cta" label="Request sent" variant="secondary" disabled />
+          <View className="gap-1.5">
+            <Button testID="game-cta" label="Request sent" variant="secondary" disabled />
+            <Pressable className="items-center" onPress={() => leaveGame.mutate()}>
+              <Text className="font-body-semibold text-[11.5px]" style={{ color: colors.textTertiary }}>
+                Withdraw request
+              </Text>
+            </Pressable>
+          </View>
         ) : membership?.status === "waitlisted" ? (
           <Button
             testID="game-cta"
@@ -512,18 +694,31 @@ export default function GameDetails() {
             onPress={confirmLeaveWaitlist}
           />
         ) : full ? (
-          <HoldButton
-            testID="game-cta"
-            label="Hold to join waitlist"
-            completeLabel="You're on the list"
-            sfx="chime"
-            onComplete={() => {
-              requestToJoin.mutate(
-                { waitlisted: true },
-                { onError: () => Alert.alert("Couldn't join the waitlist", "Give it another go.") }
-              );
-            }}
-          />
+          <View className="gap-1.5">
+            <HoldButton
+              testID="game-cta"
+              label="Hold to join waitlist"
+              completeLabel="You're on the list"
+              sfx="chime"
+              onComplete={() => {
+                requestToJoin.mutate(
+                  { waitlisted: true },
+                  { onError: () => Alert.alert("Couldn't join the waitlist", "Give it another go.") }
+                );
+              }}
+            />
+            <Pressable
+              className="items-center"
+              onPress={() => {
+                haptics.tap();
+                setSimilarSheetOpen(true);
+              }}
+            >
+              <Text className="font-body-bold text-[11.5px]" style={{ color: colors.accent3 }}>
+                or see similar games nearby
+              </Text>
+            </Pressable>
+          </View>
         ) : (
           <HoldButton
             testID="game-cta"
@@ -539,7 +734,105 @@ export default function GameDetails() {
           />
         )}
       </View>
+
+      <VerifiedSheet
+        visible={verifiedSheetOpen}
+        onClose={() => setVerifiedSheetOpen(false)}
+        status={game.verificationStatus}
+        hostName={hostName}
+      />
+      {organizer && (
+        <ReportSheet
+          visible={reportSheetOpen}
+          onClose={() => setReportSheetOpen(false)}
+          hostId={organizer.id}
+          hostName={organizer.displayName}
+          gameId={gameId}
+        />
+      )}
+      <Sheet visible={leaveSheetOpen} onClose={() => setLeaveSheetOpen(false)} title="Leave this game?">
+        <Text className="text-[13.5px]" style={{ color: colors.textSecondary, lineHeight: 20 }}>
+          Your spot opens up to whoever's next on the waitlist. If you change your mind, you'll need to ask to rejoin, same as anyone
+          else.
+        </Text>
+        <View className="flex-row gap-2.5 mt-2">
+          <View className="flex-1">
+            <Button label="Stay in" variant="ghost" onPress={() => setLeaveSheetOpen(false)} />
+          </View>
+          <View className="flex-1">
+            <Button
+              label="Leave game"
+              variant="secondary"
+              loading={leaveGame.isPending}
+              onPress={() => {
+                leaveGame.mutate();
+                setLeaveSheetOpen(false);
+              }}
+            />
+          </View>
+        </View>
+      </Sheet>
+      {game.venueLat != null && game.venueLng != null && (
+        <SimilarGamesSheet
+          visible={similarSheetOpen}
+          onClose={() => setSimilarSheetOpen(false)}
+          excludeId={gameId}
+          center={{ lat: game.venueLat, lng: game.venueLng }}
+        />
+      )}
     </View>
+  );
+}
+
+// Full-game dead end fix (design redesign artboard 07): rather than a whole new page section
+// that only exists in the full state (breaking the "page order never changes" rule), this is a
+// light sheet off the waitlist CTA's secondary link.
+function SimilarGamesSheet({
+  visible,
+  onClose,
+  excludeId,
+  center,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  excludeId: string;
+  center: { lat: number; lng: number };
+}) {
+  const gamesQuery = useDiscoverGames({ hasSpotsOnly: true, radiusKm: 10 }, center, { enabled: visible });
+  const similar = (gamesQuery.data ?? []).filter((g) => g.id !== excludeId).slice(0, 3);
+
+  return (
+    <Sheet visible={visible} onClose={onClose} title="Similar, with spots open">
+      {similar.length === 0 ? (
+        <Text className="text-[13.5px]" style={{ color: colors.textSecondary }}>
+          Nothing else nearby right now, the waitlist's still your best bet.
+        </Text>
+      ) : (
+        <View className="gap-2">
+          {similar.map((g) => (
+            <Pressable
+              key={g.id}
+              className="flex-row items-center gap-3 rounded-xl p-2.5"
+              style={{ backgroundColor: colors.surface }}
+              onPress={() => {
+                onClose();
+                router.push(`/game/${g.id}`);
+              }}
+            >
+              <View className="w-9 h-9 rounded-xl" style={{ backgroundColor: colors.surfaceAlt }} />
+              <View className="flex-1">
+                <Text className="font-body-bold text-[12.5px]" style={{ color: colors.text }}>
+                  {g.venue}
+                </Text>
+                <Text className="text-[11px]" style={{ color: colors.textSecondary }}>
+                  {g.date} · {g.time} · ${g.cost}
+                </Text>
+              </View>
+            </Pressable>
+          ))}
+        </View>
+      )}
+    </Sheet>
   );
 }
 
@@ -583,7 +876,7 @@ function GamePreviewTeaser({ gameId }: { gameId: string }) {
             </StatTileRow>
 
             <Text className="text-[14.5px] mt-6" style={{ color: colors.textSecondary, lineHeight: 21 }}>
-              Log in or create an account to see who's playing, chat, and join in.
+              Sign up to see who's playing and grab a spot.
             </Text>
           </>
         )}
@@ -612,11 +905,11 @@ function JoinRequests({
   if (requests.length === 0) return null;
 
   return (
-    <View onLayout={(e) => onLayoutY(e.nativeEvent.layout.y)}>
-      <Text className="font-body-extrabold text-[13px] uppercase tracking-wide mt-5.5" style={{ color: colors.textTertiary }}>
+    <View onLayout={(e) => onLayoutY(e.nativeEvent.layout.y)} className="mt-3.5">
+      <Text className="font-body-extrabold text-[13px] uppercase tracking-wide" style={{ color: colors.textTertiary }}>
         Join requests ({requests.length})
       </Text>
-      <Text className="text-[12px] mb-2.5" style={{ color: colors.textMuted }}>
+      <Text className="text-[12px] mb-2.5 mt-0.5" style={{ color: colors.textMuted }}>
         Swipe a request right to approve, left to decline
       </Text>
       {full && (

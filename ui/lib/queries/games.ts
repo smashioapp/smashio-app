@@ -431,6 +431,21 @@ export function useGameDetail(gameId: string, enabled = true) {
   });
 }
 
+// games_public doesn't project attendance_marked_at (it's a host-workflow column, not a discover
+// concern), and DONE mode only needs it once the game's actually over — a second small query
+// beats widening the view for every other reader of it.
+export function useAttendanceMarkedAt(gameId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["attendance_marked_at", gameId],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("games").select("attendance_marked_at").eq("id", gameId).maybeSingle();
+      if (error) throw error;
+      return data?.attendance_marked_at ?? null;
+    },
+    enabled: enabled && !!gameId,
+  });
+}
+
 export type GamePreview = {
   id: string;
   sportSlug: string;

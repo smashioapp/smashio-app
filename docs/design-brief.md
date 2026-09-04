@@ -808,6 +808,242 @@ Everything else in the file stays exactly as it is.
 
 ---
 
+## Prompt 7 — Game detail, v3 (the page everything links to)
+
+Run **after** prompt 1, and after `SMASHIO v3 - Host a Game.html` exists (this page reuses its
+lineup strip verbatim). Redesign of shipped code — read `ui/app/game/[id].tsx`,
+[post-game-plan.md](post-game-plan.md) and [create-game-plan.md](create-game-plan.md) §9 first.
+Reserved spots and edit/manage are **already designed and built** (Prompt 6/6a/6b) — this pass
+does not re-open them.
+
+```
+You are redesigning SMASHIO's game detail screen. Every push notification, share link, Discover
+card, My Games row and calendar entry lands here. It is the highest-traffic screen in the app and
+the only one where a stranger decides whether to hand a stranger money and an evening.
+
+=== CONTEXT ===
+SMASHIO is a badminton player-matching app for Sydney. The host already booked and paid for court
+time somewhere else and is selling spare slots to cut their own cost. A host can upload their
+booking confirmation, an LLM reads it, and the game publishes as VERIFIED. max_players INCLUDES
+the host. Games are indoor, so weather is irrelevant, do not design for it.
+
+Dark only. There is no light mode. Tokens (use these exactly):
+  base #0A0A0B · baseAlt #08080A · surface #141416 · surfaceAlt #1F1F24
+  card #18181C · cardAlt #0E0E10 · cardBorder rgba(255,255,255,0.08)
+  accent (lime) #D6FF3F · accentSoft #EBFF7A · accent2 #AEE62A
+  text #F5F5F7 · textSecondary #96969E · textTertiary #7A7A82 · textMuted #5C5C64
+  tier colors: Beginner #6FCBFF · Intermediate #35D6A6 · Advanced #FFB648 · Pro #C08CFF
+  danger #FF6767
+  24px screen gutter. Radii: hero 26 · card 18 · rail 16 · sheet 28 · tile 16.
+  One lime "hero" anchor per screen, never two.
+Build on the imported SMASHIO component library: GameCover, CourtBackdrop, Badge, TierBadge,
+CountdownChip, StatTile, ListRow, Avatar/AvatarStack, LineupStrip, Button, HoldButton, Sheet,
+SwipeToDecide, VettingStrip, Burst, EmptyState, Skeleton. Do not invent a parallel kit.
+
+=== ALREADY DESIGNED, DO NOT REDRAW ===
+· The LINEUP STRIP and its five slot states, court grouping and >8 collapse. Place it, reuse it,
+  do not restyle it.
+· Reserved-spot management (name / invite / release / hold expiry) and the manage-in-place sheet.
+· The host's edit/manage flow — it is the Prompt 6 draft card in edit mode. From this screen it is
+  one entry point, not a second editor.
+
+=== WHAT SHIPS TODAY (this is the baseline you are improving) ===
+Hero 300px with cover art or an animated court backdrop, back / edit / share icons, countdown or
+Cancelled badge, Verified or Pending badge, venue name, "2 courts · Sat 6 Sep · 7:00pm".
+Then: cancelled banner · avatar stack + "3 spots left · 5/8 joined" · three stat tiles
+($ per player / spots left / skill) · host row with a reliability line and a Message button ·
+a stack of grey ListRows (venue & directions, open chat, add to calendar, share link, duplicate) ·
+host-only join requests with swipe-to-approve · lineup strip + one summary line · reserved spots ·
+a cost card (courts × duration, if-full total, your share) · and a pinned bottom button whose label
+is the membership state (Hold to join · $8 / Request sent / Leave game / On the waitlist · #2 /
+Hold to join waitlist / Take my spot / Manage this game / Game cancelled).
+
+=== WHAT'S BROKEN (design against this) ===
+1. THE HOST HAS NO VOICE ON THEIR OWN PAGE. The host note, format (social / competitive / drills /
+   doubles rotation), shuttles (who brings, feather or nylon), court number and skill RANGE are all
+   captured at creation and NONE of them render here. Two games at the same venue on the same night
+   are still identical. This is the single biggest fix.
+2. NO LIFECYCLE. status is published / cancelled / completed and the screen only knows two of them.
+   There is nothing for "starts in 40 minutes, leave now", nothing for a game happening RIGHT NOW,
+   and a finished game renders exactly like an upcoming one, with a live Join button and no route
+   to rating the people you just played with.
+3. VENUE IS A GREY LIST ROW. No map, no photo, no distance, no travel time, no amenities, on an app
+   whose Discover surface is a map and whose venue directory already holds parking, showers, racquet
+   hire and pricing. The one question every player asks, where is it and how long will it take me,
+   is answered by a chevron.
+4. TRUST IS A STATIC SEAL. "Verified" is a badge with nothing behind it. The booking confirmation
+   that earned it is one tap away in the data and zero taps available in the UI.
+5. CHAT IS A DEAD ROW. No unread count, no last message, no sense that anything is happening.
+6. NO SOCIAL PROOF. No "you've played with Mia before", no mutuals, no host track record beyond one
+   reliability number.
+7. FULL IS A DEAD END. Waitlist or leave. No route to a game you could actually get into.
+8. NO SAFETY EXIT. Blocking and reporting exist in the product but not on the page where you meet
+   a stranger. Report / block must be reachable here.
+9. FIVE FLAT LIST ROWS carry actions of wildly different weight, and share appears twice.
+10. NO STICKY CONTEXT. Scroll past the hero and you lose the venue, the time and the price while
+    you are reading the roster that decides whether you want them.
+
+=== SETTLED STRUCTURE — ONE SPINE, FOUR LIFECYCLE MODES ===
+Same screen, four modes, one component: UPCOMING · IMMINENT (T-90min to start) · LIVE (start to
+end) · DONE (after end, with cancelled as its own terminal state). Mode changes the status band and
+the pinned CTA. It must NOT re-order the page. A player who knows this screen must still know it an
+hour later.
+
+Order, top to bottom, and argue if you disagree:
+  1. HERO — keep the cover / court backdrop, keep the title block. Add a collapsing sticky header
+     that appears on scroll carrying venue · time · price · a compact CTA.
+  2. STATUS BAND — the one line that changes with mode. "Starts in 3 days" → "Leave in about 15
+     min, it's 22 min away" → "On now, court 3" → "Wrapped up Saturday night". This replaces the
+     countdown chip doing all the work alone.
+  3. THE PITCH — host note in the host's own words, format chip, skill RANGE as a band not a single
+     tier, shuttles, court number. The differentiator block. If the note is empty the host, and only
+     the host, sees an inline prompt to write one; everyone else sees the block degrade gracefully,
+     never an empty card.
+  4. LINEUP — the existing strip, its summary line, plus one line of social proof ("You've played
+     with Mia and 2 others here"). Reserved spots keep their current placement under it.
+  5. VENUE — a real card: static map thumbnail, distance and travel time, top three amenities from
+     the venue directory, Directions and Venue page as distinct actions.
+  6. COST — keep the current card, it is good. Add how the host wants to be paid, and for the host
+     their own break-even as the roster fills.
+  7. GOOD TO KNOW — auto-approve on or off, public or link-only, what happens if you drop out, what
+     to bring. Plain rows, low contrast, scannable.
+  8. HOST — promote it, with track record: games hosted, reliability band, typical reply speed,
+     Message. It currently sits between two list rows and reads like one.
+  9. CHAT — a live strip: last message, sender avatar, unread pill. Not a chevron row.
+ 10. SAFETY — quiet text link at the very bottom: Report this game · Block host.
+ 11. HOST-ONLY join requests keep swipe-to-approve, but design where they sit so a host arriving
+     from a push lands on them without hunting.
+
+=== THE PINNED CTA LADDER ===
+One pinned bar. Design every state, including the ones that do not exist yet:
+  not joined, open        Hold to join · $8   (hold-to-confirm, existing pattern)
+  not joined, full        Hold to join waitlist, plus a secondary route out of the dead end
+  requested               Request sent, with what happens next and how to withdraw
+  waitlisted              On the waitlist · #2, and say honestly what #2 means
+  invited (named hold)    Decline / Take my spot · $8
+  approved, upcoming      the quiet state. Leave game must not be the loudest thing here
+  approved, imminent      directions-forward
+  approved, live          I'm here / running late
+  done, rateable          Rate your crew  ← the page's most valuable unbuilt state
+  done, rated             Rebook this game
+  host, any mode          Manage this game
+  cancelled               terminal, with the reason and a route to something else
+Leaving a game is destructive and reversible only by asking to rejoin. Design that confirmation.
+
+=== THE VERIFIED MOMENT, PART TWO ===
+Prompt 6 designed the stamp at creation. Here it has to survive contact with a sceptic. Tapping
+Verified opens a sheet: what we checked, when, and a thumbnail of the booking confirmation. Design
+the three states: verified, pending (submitted, not yet read), and none (the host typed it in,
+which is NORMAL and must not read as suspicious).
+
+=== THE DONE MODE — design this properly, it does not exist today ===
+After the last point: attendance (the host marks who showed), an aggregate of how it went, the route
+into rating, and rebook. Host and players see different things. A no-show cannot rate and is not
+rateable. Ratings are immutable and there is no deadline, so this state has to be re-enterable weeks
+later and still make sense. Read post-game-plan.md D1-D12 before drawing it.
+
+=== COPY TONE ===
+Casually Australian and human. Contractions fine. Light Aussie phrasing where it lands naturally
+("no worries", "keen", "sorted") but clarity beats personality. Never "An error has occurred", say
+"Something's gone wrong, give it another go." NEVER use em dashes in user-facing text, use a comma
+or a full stop. Write every string as real copy, not lorem.
+
+=== NOT IN THIS PASS ===
+· The lineup strip's own states, the reserved-spot manager, and the host's edit card (all done).
+· In-app payment or split-payment tracking. The cost card states an amount, it does not move money.
+· Recurring / weekly games.
+· Comments or reactions on a game. That is the feed, and it is held.
+· Weather. Indoor sport.
+· Verifying an already-published game by uploading a receipt later.
+
+=== DELIVER ===
+Artboards for every screen and state, plus the reusable pieces specced as components with all their
+states, matching how the library is already organised.
+1. Full page, UPCOMING, viewer not joined, game half full. The reference artboard.
+2. Same page for: approved player · host · invited player · waitlisted · requested.
+3. IMMINENT, LIVE and DONE modes, and cancelled.
+4. DONE mode both ways: host with attendance to mark, player with people to rate.
+5. The sticky collapsed header, at the scroll position where it takes over.
+6. STATUS BAND as a component, every mode.
+7. THE PITCH block: full, minimal (note empty, viewer), and the host's own empty-note prompt.
+8. VENUE card, and its degraded state when we have no map, no amenities and no address.
+9. Verified sheet: verified with document thumbnail, pending, and none.
+10. Chat strip: unread, read, and no messages yet.
+11. The full-game dead end and whatever you put there instead.
+12. Report / block sheet.
+13. The pinned CTA as a component, every state in the ladder above.
+14. States throughout: loading skeleton, game not found, offline, a logged-out visitor arriving on a
+    share link (they must see enough to want in, and no roster identities), and a brand-new player
+    who has joined nothing before.
+```
+
+## Prompt 7a — Game detail v3, revision pass
+
+Run against the existing `SMASHIO Game Detail Redesign.html`. Findings recorded 2026-09-04 after
+reading the file back through the design MCP. It delivers all 14 items of Prompt 7 plus three
+extras (leave-game confirm sheet, already-rated re-entry, cancelled with the host's reason) — this
+is a targeted revision, not a redo. The four blocking items are shipped features the redesign
+dropped, not new scope.
+
+```
+Revising SMASHIO Game Detail Redesign. The file is strong and mostly right: the four lifecycle
+modes, the status band, the CTA ladder, the pitch block, the venue card, the verified sheet, the
+chat strip, the safety sheet, the similar-games fix for a full game, the DONE mode both ways, and
+the edge states are all correct and should NOT be redrawn. Five changes below. Keep everything not
+named here exactly as it is, including the section order and the scroll length.
+
+=== BLOCKING — four shipped features the redesign dropped ===
+The current app has these and the redesign has nowhere to put them. They are not new scope, they
+are regressions. The five grey ListRows they used to live in are correctly dead, so decide where
+they go now and show me.
+
+1. ADD TO CALENDAR. Shipped today, two states: "Add to calendar" and "On your calendar, change".
+   Only approved players and the host see it. This is the single highest-value action after
+   joining and it is missing entirely.
+2. SHARE GAME LINK. Shipped today in two places, and it is how games actually fill. Missing.
+3. DUPLICATE THIS GAME. Host-only, seeds a new game from this one. Missing.
+4. RESERVED SPOTS. The named-hold manager is shipped and designed, and my brief said it keeps its
+   placement under the lineup. The redesign only shows "1 held" inside the summary line, with no
+   way for the host to name, invite or release that hold. Put the existing block back under the
+   lineup, unrestyled, and show its collapsed state for a non-host viewer.
+
+Design ONE answer for where secondary actions now live, and use it consistently. Argue for it:
+either a compact icon row pinned in the hero (share, calendar, overflow), or a low-contrast
+utility row sitting between GOOD TO KNOW and HOST. Not both, and not a return to five grey rows.
+Show the hero's own action affordances explicitly on the reference artboard, back included, so I
+can see what a viewer can reach without scrolling.
+
+=== BLOCKING — the host needs a full page, not a strip ===
+Artboard 10's host view is join requests plus a CTA. Draw the host's FULL page in UPCOMING mode.
+The host's job on this screen is GET PEOPLE IN, so it reads differently from a player's:
+ · A fill state up top that reads as a job, not a stat: "3 spots to fill, 3 days out."
+ · Share, invite from last game, copy for WhatsApp, reachable without opening the manage card.
+ · The COST card in host mode: what they are covering, what they have recouped as the roster
+   fills, and their break-even. My brief asked for this and the player-side card does not answer
+   it. "Court's $44. 5 in at $8, you're $4 short of covering it, 3 spots left."
+ · Reserved spots with the manage affordance.
+ · Join requests where they already are.
+ · Duplicate this game.
+Then draw the host's DONE page in the same way, since it currently only exists as an attendance
+card floating free of the page.
+
+=== SHOULD FIX ===
+The empty-note prompt (artboard 03) is right, but show it in situ on the host's full page too, so
+I can see it does not shout over the fill job.
+
+=== JUDGEMENT CALL, tell me what you think ===
+Approved-upcoming is deliberately the quietest bar in the ladder, and I agree with that. But once
+calendar and directions exist as real actions, the pinned bar for an approved player is arguably
+carrying nothing while the two things they actually want sit up the page. Look at it at real size
+and tell me whether the approved bar should hold "Add to calendar" as its action with "You're in"
+as its label, or stay a soft confirmation with the utility row doing the work. Pick one and say
+why.
+
+Everything else in the file stays exactly as it is.
+```
+
+---
+
 ## Notes for whoever runs these
 
 - Prompt 1 must settle **before** 2-5 — everything downstream inherits the type scale and the
@@ -823,5 +1059,10 @@ Everything else in the file stays exactly as it is.
   locking, extra fields behind one collapsed row with defaults pre-picked, the lineup strip as the
   people editor on exactly two surfaces, edit reusing the draft card, verify-an-existing-game out
   of scope.
+- Prompt 7's output is `SMASHIO Game Detail Redesign.html` (all 14 deliverables landed). Prompt 7a
+  is the revision pass against it — its four blocking items are shipped features the redesign
+  dropped (calendar, share, duplicate, reserved-spot manager), not new scope.
+- Prompt 7 (game detail) runs after prompt 6's file exists — it reuses that lineup strip verbatim
+  and must not restyle it. Reserved spots and edit/manage are shipped design, out of its scope.
 - Social (prompt 4) is unapproved scope — see [social-plan.md](social-plan.md) §11. Designing it is
   cheap; building it needs sign-off.

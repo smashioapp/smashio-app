@@ -63,7 +63,7 @@ export function ReservedSpots({
 
   return (
     <View>
-      <Text className="font-body-extrabold text-[13px] uppercase tracking-wide mt-5.5 mb-2.5" style={{ color: colors.textTertiary }}>
+      <Text className="font-body-extrabold text-[13px] uppercase tracking-wide mt-[22px] mb-2.5" style={{ color: colors.textTertiary }}>
         Held for friends ({named.length + anonymous})
       </Text>
 

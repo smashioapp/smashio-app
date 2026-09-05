@@ -388,7 +388,7 @@ export default function PostGame() {
         </View>
 
         <View className="px-5">
-          <Text className="text-[14.5px] mb-4.5" style={{ color: colors.textSecondary }}>
+          <Text className="text-[14.5px] mb-[18px]" style={{ color: colors.textSecondary }}>
             {game.venue} · {game.date}
           </Text>
 

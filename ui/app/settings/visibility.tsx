@@ -51,7 +51,7 @@ export default function VisibilitySettings() {
                   </Text>
                   {active && <Ionicons name="checkmark-circle" size={18} color={colors.base} />}
                 </View>
-                <Text className="text-[12.5px] mt-1.5 leading-4.5" style={{ color: active ? colors.baseAlt : colors.textSecondary }}>
+                <Text className="text-[12.5px] mt-1.5 leading-[18px]" style={{ color: active ? colors.baseAlt : colors.textSecondary }}>
                   {o.description}
                 </Text>
               </LinearGradient>

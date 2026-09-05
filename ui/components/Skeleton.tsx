@@ -75,7 +75,7 @@ export function ChatRowSkeletonList({ count = 5 }: { count?: number }) {
 
 export function GameDetailSkeleton() {
   return (
-    <View className="px-5 pt-4.5 gap-3.5">
+    <View className="px-5 pt-[18px] gap-3.5">
       <SkeletonBlock style={{ width: "70%", height: 22 }} />
       <SkeletonBlock style={{ width: "40%", height: 12 }} />
       <View className="flex-row gap-2 mt-2">

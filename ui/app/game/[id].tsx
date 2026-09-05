@@ -70,7 +70,7 @@ function goBack() {
 
 function SectionLabel({ children, right }: { children: React.ReactNode; right?: React.ReactNode }) {
   return (
-    <View className="flex-row items-center justify-between mt-5.5 mb-2.5">
+    <View className="flex-row items-center justify-between mt-[22px] mb-2.5">
       <Text className="font-body-extrabold text-[13px] uppercase tracking-wide" style={{ color: colors.textTertiary }}>
         {children}
       </Text>
@@ -599,7 +599,7 @@ export default function GameDetails() {
             </>
           )}
 
-          <View className="mt-5.5">
+          <View className="mt-[22px]">
             <ChatPreviewStrip gameId={gameId} memberCount={game.joinedCount + 1} />
           </View>
 

@@ -343,7 +343,7 @@ export default function VenueScreen() {
 
 function SectionLabel({ children }: { children: string }) {
   return (
-    <Text className="font-body-extrabold text-[13px] uppercase tracking-wide mt-5.5 mb-2.5" style={{ color: colors.textTertiary }}>
+    <Text className="font-body-extrabold text-[13px] uppercase tracking-wide mt-[22px] mb-2.5" style={{ color: colors.textTertiary }}>
       {children}
     </Text>
   );

@@ -10,6 +10,7 @@ import { Screen } from "../components/Screen";
 import { BackButton } from "../components/BackButton";
 import { Avatar } from "../components/Avatar";
 import { AvatarPicker } from "../components/AvatarPicker";
+import { OfflineStatus, SessionExpiredStatus } from "../components/SubscreenStatus";
 import type { AnimalKey } from "../lib/avatars";
 import { useSession } from "../lib/session";
 import { useProfile, useProfileSports, useUpdateProfile, useUpsertProfileSport, useUploadAvatar, useSetHomePoint } from "../lib/queries/profile";
@@ -19,6 +20,8 @@ import { supabase } from "../lib/supabase";
 import { newSessionToken, searchPlaces, getPlaceDetails } from "../lib/places";
 import { useVenuesDirectory } from "../lib/queries/venues";
 import { Sheet } from "../components/Sheet";
+import { useOnline } from "../lib/useOnline";
+import { isAuthSessionError } from "../lib/authError";
 
 const NIGHTS: { key: string; label: string }[] = [
   { key: "mon", label: "Mon" },
@@ -33,9 +36,10 @@ const NIGHTS: { key: string; label: string }[] = [
 const ABOUT_YOU_MAX = 240;
 
 export default function ProfileEdit() {
-  const { session } = useSession();
+  const { session, isLoading: sessionLoading } = useSession();
+  const online = useOnline();
   const userId = session?.user.id;
-  const { data: profile } = useProfile(userId);
+  const { data: profile, error: profileError, refetch: refetchProfile } = useProfile(userId);
   const { data: profileSports, isSuccess: sportsLoaded } = useProfileSports(userId);
   const { data: sports } = useSports();
   const { data: tiers } = useSkillTiers(SPORT_SLUG);
@@ -101,10 +105,13 @@ export default function ProfileEdit() {
     setUsualNights((prev) => (prev.includes(key) ? prev.filter((n) => n !== key) : [...prev, key]));
   };
 
-  const updateProfile = useUpdateProfile();
+  const updateProfile = useUpdateProfile(userId);
   const uploadAvatar = useUploadAvatar();
   const upsertProfileSport = useUpsertProfileSport();
   const setHomePoint = useSetHomePoint();
+
+  const sessionExpired =
+    (!sessionLoading && !session) || isAuthSessionError(profileError) || isAuthSessionError(updateProfile.error) || isAuthSessionError(uploadAvatar.error);
 
   const pickPhoto = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -195,6 +202,17 @@ export default function ProfileEdit() {
           Edit profile
         </Text>
       </View>
+      {!online ? (
+        <OfflineStatus onRetry={() => refetchProfile()} />
+      ) : sessionExpired ? (
+        <SessionExpiredStatus
+          onSignIn={() => {
+            supabase.auth.signOut().catch(() => {});
+            router.replace("/onboarding");
+          }}
+        />
+      ) : (
+      <>
       <ScrollView className="flex-1 px-6 pt-4" contentContainerStyle={{ paddingBottom: 24, gap: 14 }}>
         <Pressable onPress={changeAvatar} className="self-center mb-2" accessibilityRole="button" accessibilityLabel="Change avatar">
           <View style={{ width: 88, height: 88 }}>
@@ -411,6 +429,8 @@ export default function ProfileEdit() {
           setLocalPhotoUri(null);
         }}
       />
+      </>
+      )}
     </Screen>
   );
 }

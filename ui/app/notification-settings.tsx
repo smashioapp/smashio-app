@@ -7,6 +7,7 @@ import { colors, TIERS } from "../lib/theme";
 import { Button } from "../components/Button";
 import { Screen } from "../components/Screen";
 import { BackButton } from "../components/BackButton";
+import { OfflineStatus, SessionExpiredStatus } from "../components/SubscreenStatus";
 import { useMyAlerts, useDeleteAlert } from "../lib/queries/alerts";
 import {
   type NotificationCategory,
@@ -14,6 +15,10 @@ import {
   useSetNotificationCategory,
   useSetQuietHours,
 } from "../lib/queries/notificationPrefs";
+import { useSession } from "../lib/session";
+import { useOnline } from "../lib/useOnline";
+import { isAuthSessionError } from "../lib/authError";
+import { supabase } from "../lib/supabase";
 
 // §6.3 — one row per category, in the order the plan's table lists them (§4). Description lines
 // name the events that category covers so a toggle doesn't read as a mystery switch.
@@ -144,12 +149,17 @@ function AlertsSection() {
 
 export default function NotificationSettings() {
   const [status, setStatus] = useState<Notifications.PermissionStatus | null>(null);
+  const { session, isLoading: sessionLoading } = useSession();
+  const online = useOnline();
+  const { error: prefsError, refetch: refetchPrefs } = useNotificationPrefs();
 
   const refresh = useCallback(() => {
     Notifications.getPermissionsAsync().then((r) => setStatus(r.status));
   }, []);
 
   useFocusEffect(refresh);
+
+  const sessionExpired = (!sessionLoading && !session) || isAuthSessionError(prefsError);
 
   // Three permission states, not one (design-brief.md Prompt 8a group A3). A first-run user's
   // status is UNDETERMINED, and only an in-app prompt can move it to granted — a deep link to
@@ -173,6 +183,16 @@ export default function NotificationSettings() {
           Notifications
         </Text>
       </View>
+      {!online ? (
+        <OfflineStatus onRetry={() => refetchPrefs()} />
+      ) : sessionExpired ? (
+        <SessionExpiredStatus
+          onSignIn={() => {
+            supabase.auth.signOut().catch(() => {});
+            router.replace("/onboarding");
+          }}
+        />
+      ) : (
       <ScrollView contentContainerClassName="px-6 pt-4 pb-10 gap-4" showsVerticalScrollIndicator={false}>
         <View className="rounded-2xl p-4 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
           <Text className="font-body-bold text-[15.5px]" style={{ color: colors.text }}>
@@ -215,6 +235,7 @@ export default function NotificationSettings() {
 
         <AlertsSection />
       </ScrollView>
+      )}
     </Screen>
   );
 }

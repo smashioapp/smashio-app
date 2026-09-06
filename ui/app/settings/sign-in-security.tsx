@@ -4,7 +4,10 @@ import { colors } from "../../lib/theme";
 import { Screen } from "../../components/Screen";
 import { BackButton } from "../../components/BackButton";
 import { Badge } from "../../components/Badge";
+import { OfflineStatus, SessionExpiredStatus } from "../../components/SubscreenStatus";
 import { useSession } from "../../lib/session";
+import { useOnline } from "../../lib/useOnline";
+import { supabase } from "../../lib/supabase";
 
 function providerLabel(provider: string | undefined): string {
   if (provider === "google") return "Google";
@@ -45,10 +48,12 @@ function SoonTag() {
 // as a clearly labelled "needs backend" tier so it doesn't read as a dead sheet the way the old
 // "Sign-in method" popup did.
 export default function SignInSecurity() {
-  const { session } = useSession();
+  const { session, isLoading: sessionLoading } = useSession();
+  const online = useOnline();
   const email = session?.user.email;
   const emailVerified = !!session?.user.email_confirmed_at;
   const provider = session?.user.app_metadata?.provider as string | undefined;
+  const sessionExpired = !sessionLoading && !session;
 
   return (
     <Screen>
@@ -58,6 +63,16 @@ export default function SignInSecurity() {
           Sign-in & security
         </Text>
       </View>
+      {!online ? (
+        <OfflineStatus onRetry={() => {}} />
+      ) : sessionExpired ? (
+        <SessionExpiredStatus
+          onSignIn={() => {
+            supabase.auth.signOut().catch(() => {});
+            router.replace("/onboarding");
+          }}
+        />
+      ) : (
       <View className="px-5 pt-4">
         <Text className="font-body-extrabold text-[11px] uppercase tracking-wide mb-1" style={{ color: colors.textTertiary }}>
           How you sign in
@@ -76,6 +91,7 @@ export default function SignInSecurity() {
         <Row title="Passkey" subtitle="Sign in without a password" trailing={<SoonTag />} />
         <Row title="Sessions & devices" subtitle="See where you're signed in and sign out remotely" trailing={<SoonTag />} />
       </View>
+      )}
     </Screen>
   );
 }

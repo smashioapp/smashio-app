@@ -10,15 +10,18 @@ import { Screen } from "../components/Screen";
 import { BackButton } from "../components/BackButton";
 import { Badge } from "../components/Badge";
 import { ListRow, RowSectionLabel } from "../components/ListRow";
+import { OfflineStatus, SessionExpiredStatus } from "../components/SubscreenStatus";
 import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
 import { signOut } from "../lib/auth";
-import { useProfile, useReferralStats } from "../lib/queries/profile";
+import { useProfile, useReferralStats, useUpdateProfile } from "../lib/queries/profile";
 import { useBlockedPlayers } from "../lib/queries/settings";
 import { sound } from "../lib/sound";
 import { loadSoundEnabled, saveSoundEnabled } from "../lib/soundPrefs";
 import { haptics } from "../lib/haptics";
 import { loadHapticsEnabled, saveHapticsEnabled } from "../lib/hapticsPrefs";
+import { useOnline } from "../lib/useOnline";
+import { isAuthSessionError } from "../lib/authError";
 
 function Group({ children }: { children: React.ReactNode }) {
   return (
@@ -73,7 +76,8 @@ function matches(row: Row, query: string) {
 // account is alone in red — a danger box that fits both taught the user red means nothing
 // (item 9).
 export default function Settings() {
-  const { session } = useSession();
+  const { session, isLoading: sessionLoading } = useSession();
+  const online = useOnline();
   const userId = session?.user.id;
   const email = session?.user.email;
   const emailVerified = !!session?.user.email_confirmed_at;
@@ -81,6 +85,7 @@ export default function Settings() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
   const [query, setQuery] = useState("");
+  const updateProfile = useUpdateProfile(userId);
 
   useEffect(() => {
     loadSoundEnabled().then(setSoundEnabled);
@@ -100,9 +105,16 @@ export default function Settings() {
     if (v) haptics.tap();
   };
 
-  const { data: profile } = useProfile(userId);
-  const { data: blocked } = useBlockedPlayers();
-  const { data: referrals } = useReferralStats(userId);
+  const { data: profile, error: profileError, refetch: refetchProfile } = useProfile(userId);
+  const { data: blocked, error: blockedError } = useBlockedPlayers();
+  const { data: referrals, error: referralsError } = useReferralStats(userId);
+
+  const sessionExpired =
+    (!sessionLoading && !session) ||
+    isAuthSessionError(profileError) ||
+    isAuthSessionError(blockedError) ||
+    isAuthSessionError(referralsError) ||
+    isAuthSessionError(updateProfile.error);
 
   const resendVerification = async () => {
     if (!email) return;
@@ -166,10 +178,12 @@ export default function Settings() {
             trailingNode: (
               <ToggleSwitch
                 value={profile?.show_suburb ?? true}
-                onValueChange={async (v) => {
-                  const { error } = await supabase.from("profiles").update({ show_suburb: v }).eq("id", userId!);
-                  if (error) Alert.alert("Couldn't save that", error.message);
-                }}
+                onValueChange={(v) =>
+                  updateProfile.mutate(
+                    { show_suburb: v },
+                    { onError: (e) => Alert.alert("Couldn't save that", e instanceof Error ? e.message : "Give it another go.") }
+                  )
+                }
               />
             ),
           },
@@ -379,6 +393,17 @@ export default function Settings() {
         </Text>
       </View>
 
+      {!online ? (
+        <OfflineStatus onRetry={() => refetchProfile()} />
+      ) : sessionExpired ? (
+        <SessionExpiredStatus
+          onSignIn={() => {
+            supabase.auth.signOut().catch(() => {});
+            router.replace("/onboarding");
+          }}
+        />
+      ) : (
+      <>
       <View className="px-5 pt-3">
         <View className="rounded-2xl px-3.5 flex-row items-center gap-2" style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.cardBorder, height: 44 }}>
           <Ionicons name="search" size={15} color={colors.textTertiary} />
@@ -502,6 +527,8 @@ export default function Settings() {
           </>
         )}
       </ScrollView>
+      </>
+      )}
     </Screen>
   );
 }

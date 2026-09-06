@@ -5,6 +5,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../../lib/theme";
 import { Screen } from "../../components/Screen";
 import { BackButton } from "../../components/BackButton";
+import { OfflineStatus, SessionExpiredStatus } from "../../components/SubscreenStatus";
+import { useSession } from "../../lib/session";
+import { useOnline } from "../../lib/useOnline";
+import { supabase } from "../../lib/supabase";
 
 const HELD = [
   "Your profile: name, photo, suburb, about you, usual nights, home venue and skill level",
@@ -31,6 +35,9 @@ function SoonTag() {
 // with a stated SLA we can't keep. Delete is one tap away, on the existing screen.
 export default function YourData() {
   const [requested, setRequested] = useState(false);
+  const { session, isLoading: sessionLoading } = useSession();
+  const online = useOnline();
+  const sessionExpired = !sessionLoading && !session;
 
   const requestExport = () => {
     Alert.alert("Not ready yet", "Data export isn't live yet — this button is a placeholder for the work, not a working request.");
@@ -44,6 +51,16 @@ export default function YourData() {
           Your data
         </Text>
       </View>
+      {!online ? (
+        <OfflineStatus onRetry={() => {}} />
+      ) : sessionExpired ? (
+        <SessionExpiredStatus
+          onSignIn={() => {
+            supabase.auth.signOut().catch(() => {});
+            router.replace("/onboarding");
+          }}
+        />
+      ) : (
       <ScrollView contentContainerClassName="px-5 pt-4 pb-10 gap-4" showsVerticalScrollIndicator={false}>
         <View className="rounded-2xl p-4 border gap-3" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
           <Text className="font-body-bold text-[15px]" style={{ color: colors.text }}>
@@ -95,6 +112,7 @@ export default function YourData() {
           <Ionicons name="chevron-forward" size={16} color={colors.danger} />
         </Pressable>
       </ScrollView>
+      )}
     </Screen>
   );
 }

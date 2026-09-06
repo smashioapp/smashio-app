@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { File } from "expo-file-system";
 import { supabase } from "../supabase";
-import type { TablesUpdate } from "../db.types";
+import type { Database, TablesUpdate } from "../db.types";
 import { computeWeekStreak } from "../format";
 import { avatarColor } from "../theme";
 
@@ -341,16 +341,31 @@ export function useLateLeaveCount(profileId: string | undefined) {
 // instead of trusting a prop — right after signup the session context can lag a render
 // behind the SDK's own in-memory session, which would otherwise send id=eq.undefined.
 
-export function useUpdateProfile() {
+// `userId` is optional so existing untouched call sites keep the old pessimistic behaviour
+// (write, then invalidate). Passing it turns on the optimistic-then-revert pattern
+// useSetNotificationCategory already uses (lib/queries/notificationPrefs.ts) — flip the cache
+// immediately, and only fall back to the stale value if the write actually fails, instead of a
+// toggle that visually does nothing until a round trip completes or silently un-does itself.
+export function useUpdateProfile(userId?: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (patch: TablesUpdate<"profiles">) => {
-      const id = await currentUserId();
+      const id = userId ?? (await currentUserId());
       const { error } = await supabase.from("profiles").update(patch).eq("id", id);
       if (error) throw error;
       return id;
     },
-    onSuccess: (id) => queryClient.invalidateQueries({ queryKey: ["profile", id] }),
+    onMutate: async (patch) => {
+      if (!userId) return undefined;
+      await queryClient.cancelQueries({ queryKey: ["profile", userId] });
+      const previous = queryClient.getQueryData<Database["public"]["Tables"]["profiles"]["Row"]>(["profile", userId]);
+      queryClient.setQueryData(["profile", userId], (prev: typeof previous) => (prev ? { ...prev, ...patch } : prev));
+      return { previous };
+    },
+    onError: (_err, _patch, context) => {
+      if (userId && context?.previous) queryClient.setQueryData(["profile", userId], context.previous);
+    },
+    onSettled: (id) => queryClient.invalidateQueries({ queryKey: ["profile", id ?? userId] }),
   });
 }
 

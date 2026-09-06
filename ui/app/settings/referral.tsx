@@ -7,10 +7,14 @@ import { colors, gradients, avatarColor } from "../../lib/theme";
 import { Screen } from "../../components/Screen";
 import { BackButton } from "../../components/BackButton";
 import { Avatar } from "../../components/Avatar";
+import { OfflineStatus, SessionExpiredStatus } from "../../components/SubscreenStatus";
 import { useSession } from "../../lib/session";
 import { useReferralStats, useReferredFriends } from "../../lib/queries/profile";
 import { shareReferral } from "../../lib/share";
 import { haptics } from "../../lib/haptics";
+import { useOnline } from "../../lib/useOnline";
+import { isAuthSessionError } from "../../lib/authError";
+import { supabase } from "../../lib/supabase";
 
 // Referral & priority spots as a designed object (design-brief.md Prompt 8 item 11) — pulled out
 // of a Support row subtitle into its own screen with the credit balance legible. The invite code
@@ -18,10 +22,13 @@ import { haptics } from "../../lib/haptics";
 // is no invite-sent tracking table, so a "pending" row (Prompt 8a group C2) isn't drawn here
 // rather than faked.
 export default function Referral() {
-  const { session } = useSession();
+  const { session, isLoading: sessionLoading } = useSession();
+  const online = useOnline();
   const userId = session?.user.id;
-  const { data: referrals } = useReferralStats(userId);
-  const { data: friends } = useReferredFriends(userId);
+  const { data: referrals, error: referralsError, refetch: refetchReferrals } = useReferralStats(userId);
+  const { data: friends, error: friendsError } = useReferredFriends(userId);
+
+  const sessionExpired = (!sessionLoading && !session) || isAuthSessionError(referralsError) || isAuthSessionError(friendsError);
 
   const copyCode = async () => {
     if (!referrals?.code) return;
@@ -37,6 +44,16 @@ export default function Referral() {
           Referral & priority spots
         </Text>
       </View>
+      {!online ? (
+        <OfflineStatus onRetry={() => refetchReferrals()} />
+      ) : sessionExpired ? (
+        <SessionExpiredStatus
+          onSignIn={() => {
+            supabase.auth.signOut().catch(() => {});
+            router.replace("/onboarding");
+          }}
+        />
+      ) : (
       <ScrollView contentContainerClassName="px-5 pt-4 pb-10 gap-4" showsVerticalScrollIndicator={false}>
         <LinearGradient colors={gradients.accentDiagonal} className="rounded-2xl p-5 items-center">
           <Text className="font-body-bold text-[12px] uppercase" style={{ color: colors.base, letterSpacing: 0.6, opacity: 0.7 }}>
@@ -104,6 +121,7 @@ export default function Referral() {
           )}
         </View>
       </ScrollView>
+      )}
     </Screen>
   );
 }

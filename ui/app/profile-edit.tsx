@@ -17,6 +17,20 @@ import { useSports, useSkillTiers } from "../lib/queries/sports";
 import { SPORT_SLUG } from "../lib/queries/games";
 import { supabase } from "../lib/supabase";
 import { newSessionToken, searchPlaces, getPlaceDetails } from "../lib/places";
+import { useVenuesDirectory } from "../lib/queries/venues";
+import { Sheet } from "../components/Sheet";
+
+const NIGHTS: { key: string; label: string }[] = [
+  { key: "mon", label: "Mon" },
+  { key: "tue", label: "Tue" },
+  { key: "wed", label: "Wed" },
+  { key: "thu", label: "Thu" },
+  { key: "fri", label: "Fri" },
+  { key: "sat", label: "Sat" },
+  { key: "sun", label: "Sun" },
+];
+
+const ABOUT_YOU_MAX = 240;
 
 export default function ProfileEdit() {
   const { session } = useSession();
@@ -36,6 +50,18 @@ export default function ProfileEdit() {
   const [suburbTouched, setSuburbTouched] = useState(false);
   const [skillTouched, setSkillTouched] = useState(false);
 
+  // Edit profile v3 (design-brief.md Prompt 8 item 10) — the fields a host actually reads
+  // before approving someone, not just a skill tier.
+  const [aboutYou, setAboutYou] = useState(profile?.about_you ?? "");
+  const [aboutYouTouched, setAboutYouTouched] = useState(false);
+  const [usualNights, setUsualNights] = useState<string[]>(profile?.usual_nights ?? []);
+  const [nightsTouched, setNightsTouched] = useState(false);
+  const [homeVenueId, setHomeVenueId] = useState<string | null | undefined>(undefined);
+  const [homeVenueName, setHomeVenueName] = useState<string | null | undefined>(undefined);
+  const [venuePickerOpen, setVenuePickerOpen] = useState(false);
+  const [venueSearch, setVenueSearch] = useState("");
+  const { data: venueResults } = useVenuesDirectory({ search: venueSearch || undefined });
+
   // Sync from the query once it resolves instead of seeding the initial state from it — the
   // profile_sports fetch lands after first render, and without this, saving before it arrives
   // silently wrote every player back to the default "Intermediate" (profile-plan.md P0).
@@ -45,6 +71,35 @@ export default function ProfileEdit() {
       if (current) setSkill(current);
     }
   }, [sportsLoaded, profileSports, skillTouched]);
+
+  // Same "sync once resolved, never seed the initial render" shape as skill above — profile is
+  // fetched async, so seeding useState directly from it risks the same silent-overwrite bug P0
+  // already fixed once for skill tier.
+  useEffect(() => {
+    if (profile && !aboutYouTouched) setAboutYou(profile.about_you ?? "");
+  }, [profile, aboutYouTouched]);
+  useEffect(() => {
+    if (profile && !nightsTouched) setUsualNights(profile.usual_nights ?? []);
+  }, [profile, nightsTouched]);
+  useEffect(() => {
+    if (!profile || homeVenueId !== undefined) return;
+    setHomeVenueId(profile.home_venue_id ?? null);
+    if (profile.home_venue_id) {
+      supabase
+        .from("venues")
+        .select("name")
+        .eq("id", profile.home_venue_id)
+        .maybeSingle()
+        .then(({ data }) => setHomeVenueName(data?.name ?? null));
+    } else {
+      setHomeVenueName(null);
+    }
+  }, [profile, homeVenueId]);
+
+  const toggleNight = (key: string) => {
+    setNightsTouched(true);
+    setUsualNights((prev) => (prev.includes(key) ? prev.filter((n) => n !== key) : [...prev, key]));
+  };
 
   const updateProfile = useUpdateProfile();
   const uploadAvatar = useUploadAvatar();
@@ -95,6 +150,9 @@ export default function ProfileEdit() {
       await updateProfile.mutateAsync({
         display_name: name.trim(),
         home_suburb: trimmedSuburb || null,
+        about_you: aboutYou.trim() || null,
+        usual_nights: usualNights,
+        home_venue_id: homeVenueId ?? null,
         // Picking an animal clears photo_path; a fresh photo upload (above) leaves avatar_key
         // intact underneath as the fallback (avatars-plan.md P2).
         ...(avatarKeyChoice ? { avatar_key: avatarKeyChoice, photo_path: null } : {}),
@@ -218,11 +276,130 @@ export default function ProfileEdit() {
             })}
           </View>
         </View>
+
+        <View className="mt-1.5">
+          <Text className="font-body-extrabold text-[13px] uppercase tracking-wide" style={{ color: colors.textTertiary }}>
+            About you
+          </Text>
+          <Text className="text-[11.5px] mt-1 mb-2" style={{ color: colors.textTertiary }}>
+            One line hosts see before approving you. Optional.
+          </Text>
+          <TextInput
+            value={aboutYou}
+            onChangeText={(t) => {
+              setAboutYouTouched(true);
+              setAboutYou(t.slice(0, ABOUT_YOU_MAX));
+            }}
+            placeholder="e.g. Casual player, keen for doubles most weeks"
+            placeholderTextColor={colors.textMuted}
+            multiline
+            className="rounded-2xl px-4 py-4 border font-body-semibold text-[15px]"
+            style={{ backgroundColor: colors.surfaceAlt, borderColor: "rgba(255,255,255,0.1)", color: colors.text, minHeight: 72, textAlignVertical: "top" }}
+          />
+          <Text className="text-[11px] mt-1 text-right" style={{ color: colors.textMuted }}>
+            {aboutYou.length}/{ABOUT_YOU_MAX}
+          </Text>
+        </View>
+
+        <View className="mt-1.5">
+          <Text className="font-body-extrabold text-[13px] uppercase tracking-wide" style={{ color: colors.textTertiary }}>
+            Usual nights
+          </Text>
+          <Text className="text-[11.5px] mt-1 mb-2" style={{ color: colors.textTertiary }}>
+            When you're usually free to play. Optional.
+          </Text>
+          <View className="flex-row flex-wrap gap-2">
+            {NIGHTS.map((n) => {
+              const active = usualNights.includes(n.key);
+              return (
+                <Pressable
+                  key={n.key}
+                  onPress={() => toggleNight(n.key)}
+                  className="rounded-pill px-4 py-2.5 border-[1.5px]"
+                  style={{ backgroundColor: active ? colors.accent : colors.surface, borderColor: active ? colors.accent : "rgba(255,255,255,0.07)" }}
+                >
+                  <Text className="font-body-extrabold text-[13px]" style={{ color: active ? colors.base : colors.text }}>
+                    {n.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
+
+        <View className="mt-1.5">
+          <Text className="font-body-extrabold text-[13px] uppercase tracking-wide" style={{ color: colors.textTertiary }}>
+            Home venue
+          </Text>
+          <Text className="text-[11.5px] mt-1 mb-2" style={{ color: colors.textTertiary }}>
+            Where you usually play. Optional.
+          </Text>
+          <Pressable
+            onPress={() => setVenuePickerOpen(true)}
+            className="rounded-2xl px-4 py-4 border flex-row items-center justify-between"
+            style={{ backgroundColor: colors.surfaceAlt, borderColor: "rgba(255,255,255,0.1)" }}
+          >
+            <Text className="font-body-semibold text-[15px]" style={{ color: homeVenueName ? colors.text : colors.textMuted }} numberOfLines={1}>
+              {homeVenueName || "Pick a venue"}
+            </Text>
+            <Ionicons name="chevron-forward" size={16} color={colors.textTertiary} />
+          </Pressable>
+          {homeVenueId && (
+            <Pressable
+              onPress={() => {
+                setHomeVenueId(null);
+                setHomeVenueName(null);
+              }}
+              hitSlop={6}
+              className="mt-1.5 self-start"
+            >
+              <Text className="text-[12px] font-body-bold" style={{ color: colors.textSecondary }}>
+                Clear
+              </Text>
+            </Pressable>
+          )}
+        </View>
       </ScrollView>
 
       <View className="px-6 pb-2" style={{ paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.cardBorder }}>
         <Button label="Save changes" loading={saving} disabled={!displayName.trim() || !sportsLoaded} onPress={save} />
       </View>
+
+      <Sheet visible={venuePickerOpen} onClose={() => setVenuePickerOpen(false)} title="Pick your home venue">
+        <TextInput
+          value={venueSearch}
+          onChangeText={setVenueSearch}
+          placeholder="Search venues"
+          placeholderTextColor={colors.textMuted}
+          className="rounded-2xl px-4 py-3 border font-body-semibold text-[14.5px] mb-3"
+          style={{ backgroundColor: colors.surfaceAlt, borderColor: "rgba(255,255,255,0.1)", color: colors.text }}
+        />
+        {(venueResults ?? []).slice(0, 20).map((v) => (
+          <Pressable
+            key={v.id}
+            className="py-3"
+            style={{ borderTopWidth: 1, borderTopColor: colors.cardBorder }}
+            onPress={() => {
+              setHomeVenueId(v.id);
+              setHomeVenueName(v.name);
+              setVenuePickerOpen(false);
+              setVenueSearch("");
+            }}
+          >
+            <Text className="font-body-semibold text-[14px]" style={{ color: colors.text }}>
+              {v.name}
+            </Text>
+            <Text className="text-[12px] mt-0.5" style={{ color: colors.textTertiary }}>
+              {v.suburb}
+            </Text>
+          </Pressable>
+        ))}
+        {venueSearch && (venueResults ?? []).length === 0 && (
+          <Text className="text-[13px] text-center py-4" style={{ color: colors.textTertiary }}>
+            No venues found for "{venueSearch}"
+          </Text>
+        )}
+      </Sheet>
 
       <AvatarPicker
         visible={pickerVisible}

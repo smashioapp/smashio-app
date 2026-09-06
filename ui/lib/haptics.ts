@@ -4,22 +4,36 @@ import * as Haptics from "expo-haptics";
 // expo-haptics has no web implementation — guard so web preview doesn't throw.
 const supported = Platform.OS === "ios" || Platform.OS === "android";
 
+// Preferences + accessibility (design-brief.md Prompt 8 item 12) — a device-local on/off
+// switch, same shape as sound's mute (lib/sound.ts): haptics has no account-level state, so it
+// doesn't need a migration or to follow the user across devices, just like the existing sound
+// toggle it sits next to in Settings.
+let muted = false;
+
 function wait(ms: number) {
   return new Promise<void>((resolve) => setTimeout(resolve, ms));
 }
 
 export const haptics = {
-  tap: () => supported && Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light),
-  success: () => supported && Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success),
-  error: () => supported && Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error),
+  tap: () => supported && !muted && Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light),
+  success: () => supported && !muted && Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success),
+  error: () => supported && !muted && Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error),
 
   // Sharp, discrete tick — scrubbing, star selection, tab switch.
-  tick: () => supported && Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid),
+  tick: () => supported && !muted && Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Rigid),
+
+  setMuted(value: boolean) {
+    muted = value;
+  },
+
+  isMuted() {
+    return muted;
+  },
 
   // Escalating Light -> Heavy ticks over `ms`, for a sustained hold (HoldButton fill).
   // Returns a cancel function — call it if the hold is released early.
   ramp: (ms: number) => {
-    if (!supported) return () => {};
+    if (!supported || muted) return () => {};
     const steps: Haptics.ImpactFeedbackStyle[] = [
       Haptics.ImpactFeedbackStyle.Light,
       Haptics.ImpactFeedbackStyle.Light,
@@ -42,7 +56,7 @@ export const haptics = {
   // Heavy -> Heavy -> Medium -> Light sequenced over ~180ms. Reads as an "explosion" —
   // a single Heavy impact does not carry the same payoff.
   burst: async () => {
-    if (!supported) return;
+    if (!supported || muted) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     await wait(50);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);

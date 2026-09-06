@@ -62,11 +62,31 @@ export function useReferralStats(profileId: string | undefined) {
     queryFn: async () => {
       const [count, profile] = await Promise.all([
         supabase.from("profiles").select("id", { count: "exact", head: true }).eq("referred_by", profileId!),
-        supabase.from("profiles").select("referral_priority_credits").eq("id", profileId!).single(),
+        supabase.from("profiles").select("referral_priority_credits, referral_code").eq("id", profileId!).single(),
       ]);
       if (count.error) throw count.error;
       if (profile.error) throw profile.error;
-      return { count: count.count ?? 0, credits: profile.data.referral_priority_credits };
+      return { count: count.count ?? 0, credits: profile.data.referral_priority_credits, code: profile.data.referral_code };
+    },
+    enabled: !!profileId,
+  });
+}
+
+// Referral & priority spots as a designed object (design-brief.md Prompt 8 item 11) — the
+// friends who joined via this code, newest first. There's no invite-sent tracking table, so
+// this is "joined" only — no "pending" row, since a native share-sheet send carries no contact
+// we could record before signup happens.
+export function useReferredFriends(profileId: string | undefined) {
+  return useQuery({
+    queryKey: ["referred_friends", profileId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("id, display_name, avatar_key, photo_path, created_at")
+        .eq("referred_by", profileId!)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
     },
     enabled: !!profileId,
   });
@@ -144,6 +164,12 @@ export type PlayerCard = {
   followerCount: number;
   followingCount: number;
   isFollowing: boolean;
+  // Edit profile v3 — the fields a host actually reads before approving someone, not just a
+  // skill tier (design-brief.md Prompt 8 item 10). Identity info like name/suburb, not gated by
+  // profile_visibility. homeVenueName is text only, never lat/lng.
+  aboutYou: string | null;
+  usualNights: string[];
+  homeVenueName: string | null;
 };
 
 // The public player card (profile-plan.md P1) — security-definer RPC, not a view, because
@@ -189,6 +215,9 @@ export function usePlayerCard(targetId: string | undefined) {
         followerCount: data.follower_count,
         followingCount: data.following_count,
         isFollowing: data.is_following,
+        aboutYou: data.about_you,
+        usualNights: data.usual_nights ?? [],
+        homeVenueName: data.home_venue_name,
       };
     },
     enabled: !!targetId,

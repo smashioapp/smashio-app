@@ -1064,5 +1064,410 @@ Everything else in the file stays exactly as it is.
   dropped (calendar, share, duplicate, reserved-spot manager), not new scope.
 - Prompt 7 (game detail) runs after prompt 6's file exists — it reuses that lineup strip verbatim
   and must not restyle it. Reserved spots and edit/manage are shipped design, out of its scope.
+- Prompt 8 (profile & settings, the 4th tab) runs after prompt 1 and after Prompt 5's output
+  exists. It PLACES the reputation grid, trophy case and share card rather than redrawing them.
+  Two of Prompt 5's constraints are dead: the follow graph and the feed both shipped, so
+  followers/following and an author archive are in scope. Read [profile-plan.md](profile-plan.md)
+  (P0-P6 landed) and [social-plan.md](social-plan.md) §17 before changing it.
 - Social (prompt 4) is unapproved scope — see [social-plan.md](social-plan.md) §11. Designing it is
   cheap; building it needs sign-off.
+
+---
+
+## Prompt 8 — Profile & Settings, v3 (the 4th tab)
+
+Run **after** prompt 1, and after Prompt 5's output exists — this pass **places** the reputation
+block, trophy case and share card that Prompt 5 designed and we shipped, it does not redraw them.
+Redesign of shipped code — read `ui/app/(tabs)/profile.tsx`, `ui/app/settings.tsx`,
+`ui/app/settings/*`, `ui/app/profile-edit.tsx`, `ui/app/notification-settings.tsx`,
+`ui/app/delete-account.tsx`, `ui/app/player/[id].tsx`, [profile-plan.md](profile-plan.md) (P0-P6 all
+landed) and [social-plan.md](social-plan.md) §17 first.
+
+**Two things changed since Prompt 5 and override it:** the follow graph shipped (`follows`,
+follower/following counts and lists are live), and the feed shipped. Prompt 5's "NO
+followers/following" constraint is dead. Everything else in Prompt 5's privacy table still holds.
+
+```
+You are redesigning SMASHIO's fourth tab: Profile, and everything behind it. This is the tab
+people open when they want to know how they are doing, when they want to change something about
+themselves, and when something has gone wrong. It is also the tab that carries every legal,
+privacy and account-deletion obligation in the product.
+
+=== CONTEXT ===
+SMASHIO is a badminton player-matching app for Sydney, iOS + Android, React Native + Expo, private
+beta. Strangers meet strangers in a sports hall and one of them has taken the other's money for a
+court slot. The bottom nav is Discover | Feed | My Games | Profile. Profile is the last tab and the
+only one that is not about a game.
+
+Dark only. There is no light mode. Tokens (use these exactly):
+  base #0A0A0B · baseAlt #08080A · surface #141416 · surfaceAlt #1F1F24
+  card #18181C · cardAlt #0E0E10 · cardBorder rgba(255,255,255,0.08)
+  accent (lime) #D6FF3F · accentSoft #EBFF7A · accent2 #AEE62A
+  text #F5F5F7 · textDim #C7C7CE · textSecondary #96969E · textTertiary #7A7A82 · textMuted #5C5C64
+  tier colours: Beginner #6FCBFF · Intermediate #35D6A6 · Advanced #FFB648 · Pro #C08CFF
+  danger #FF6767
+  24px screen gutter. Radii: hero 26 · card 18 · rail 16 · sheet 28 · tile 16.
+  One lime "hero" anchor per screen, never two.
+Build on the imported SMASHIO component library. Do not invent a parallel kit.
+
+=== ALREADY DESIGNED AND SHIPPED, DO NOT REDRAW ===
+· The REPUTATION BLOCK (ReputationGrid: reliability · rating · peer-perceived tier · behaviour
+  badges, as four separate signals). Place it, do not restyle it.
+· The TROPHY CASE and the 8-achievement set, now backed by a real awards table.
+· The SHARE CARD as a designed 1:1 and 9:16 export object. It exists. Where it is TRIGGERED from is
+  in scope; the card artwork is not.
+· The Smashimal avatar picker (28 bust avatars) and the avatar upload path.
+· The VETTING STRIP — it belongs to game detail, not here.
+· Nav order and the four-item tab bar. Settled 2026-08-31. Do not move Profile.
+
+=== WHAT SHIPS TODAY — THE PROFILE TAB (/(tabs)/profile) ===
+One scrolling screen, pull-to-refresh, focus-invalidate:
+· A "Profile" title, and a 36px settings gear in the top-right corner.
+· 64px avatar with a lime pencil badge (taps through to Edit profile), display name, a games-played
+  tier pill (Bronze 0 / Silver 10 / Gold 25) and a "Member since 2026" pill. New users get
+  "New player · joined today" instead.
+· A follower / following count row, each tapping through to a list screen.
+· A full-width segmented toggle: Overview | History | Trophy case. History and Trophy case are
+  LOCKED until you have played or hosted one game.
+· OVERVIEW: the reputation grid under a "Reputation · what hosts and players see" label; a tier
+  progress card (tier name, games played, week-streak pill, progress bar, "3 games to Gold"); a
+  completeness meter, but ONLY for users with zero games; then Square/Story format pills and a
+  "Share my card ↗" button.
+· HISTORY: a 12-week heatmap card with this-month count, streak, regular spot and usual time along
+  its footer; a Regulars list ("Sam 5×"), each tapping to their player card; a distinct-venues stat.
+· TROPHY CASE: the 8-achievement case.
+· Zero state: a lime-tinted card, "Your reputation kicks off with game one", and one button to
+  Discover.
+· Errors: a proper "Couldn't load your reputation" state with Retry that never renders a 0.
+
+=== WHAT SHIPS TODAY — SETTINGS (behind the gear) ===
+`/settings` is one scroll of six labelled groups of gradient card rows, ~22 rows, no icons, no
+search:
+· ACCOUNT — Sign-in method (opens a sheet that says we cannot change it) · email + Verified or
+  Unverified badge + a resend link · Phone number ›
+· NOTIFICATIONS — four switches: Game reminders / Join requests / New messages / Product news &
+  promos, then a text link "All notification settings ›"
+· PRIVACY & VISIBILITY — Profile visibility › (Everyone | Players I've played with) · Show suburb
+  on profile (switch) · Blocked players ›
+· PREFERENCES — Distance units › (km | mi) · Preferred sports › · Sound effects (switch)
+· SUPPORT — Help centre · Contact us · Invite friends (its subtitle carries the referral count and
+  earned priority-spot credits) · Rate SMASHIO
+· LEGAL — Terms · Community guidelines · Privacy policy
+· DANGER ZONE — a red-bordered card holding Log out and Delete account › together
+· A version + build number line at the bottom.
+
+Satellite screens, each its own route with a back button and a title:
+· /settings/phone — one text field, Save
+· /settings/visibility — two big radio cards
+· /settings/units — two big radio cards
+· /settings/sports — per-sport tier rows
+· /settings/blocked — a list with Unblock
+· /notification-settings — a SECOND notification screen: OS permission state + Enable button, SIX
+  category switches (Join requests / Roster changes / Chat messages / Game changes / Reminders /
+  Discover alerts), a Quiet hours switch (fixed 22:00-07:00, silences low-priority only), and your
+  saved Discover alerts with a delete button each
+· /profile-edit — avatar (upload, camera, or pick a Smashimal), display name, suburb as free text,
+  a badminton skill-tier picker, Save
+· /delete-account — what gets deleted, what is retained, a block if you are hosting upcoming games,
+  and a hold-to-confirm
+· /player/[id] — the public card: a "Player" title, a ⋯ menu with Report and Block, and the
+  PlayerCard component rendered in "them" mode (or "me" mode if it is you)
+· /notifications — the realtime activity inbox. Reachable ONLY from a bell on Discover.
+
+=== THE EXACT DATA WE HAVE (do not design for data we cannot supply) ===
+One RPC returns, for any profile id: display name, photo, avatar key, suburb, member-since, games
+played, games hosted, reliability 0-100 + band, rating average + count, peer-perceived tier + vote
+count, behaviour badge counts, follower count, following count, per-sport tier, and games-together
+with the viewer.
+Also available: week streak · this-month count · most-played venue · most-played night · 12 weeks of
+played dates · regulars with counts · distinct venue count · 1-5 star distribution · late-leave
+count · earned achievement ids · referral count and earned priority-spot credits · blocked list ·
+phone · profile_visibility · show_suburb · distance_units · six notification categories plus a
+marketing category · quiet-hours window · saved Discover alerts · OS push permission state · auth
+provider · email + email-verified flag · app version and build number.
+NOT available: login history, a device or session list, a password-change endpoint, passkeys, 2FA,
+data export, or any per-post analytics. If you design a surface that needs one of these, label it
+explicitly so we can cost it. Do not quietly assume it.
+
+=== BENCHMARKS — 2026 STATE OF THE ART (mechanics, not screenshots — argue with these) ===
+SETTINGS AS A PRODUCT
+· iOS and Android system Settings — a SEARCH FIELD is the primary IA once a list runs past one
+  screen, and every row carries a coloured glyph tile. Ours has 22 rows, no search, no glyphs.
+· Instagram / Threads "Settings and activity" — search at the top, "how others see you" grouped
+  ABOVE account plumbing, destructive account actions pushed to the bottom of a long scroll.
+· Google Privacy Checkup / Apple Safety Check — a short GUIDED review beats a wall of toggles for
+  anything safety-shaped. Safety Check is the closest analogue to what a stranger-meeting app
+  needs: who can see me, who have I blocked, what am I sharing, in one flow.
+· LinkedIn / Facebook "View as" — the privacy-VERIFICATION primitive. A visibility setting whose
+  result the user can never see is a promise, not a control.
+· Discord and Google account "Devices" / "Where you're logged in" — sessions with a revoke button.
+· Passkeys are the 2025-2026 default across Apple, Google and Amazon. "Sign-in method" is now a
+  security surface, not a label.
+· Apple's Data & Privacy portal and Play's Data safety expectations — EXPORT sits above DELETE on
+  the data-rights ladder. Australian Privacy Act access rights point the same way.
+PROFILE AS IDENTITY
+· Strava — the profile IS the history: segmented activity and stats, the calendar as the spine,
+  trophies pinned, rolling stats at three time horizons.
+· Duolingo — badges pulled out of the drawer and made shareable; friend streaks as the social hook.
+· Every social product shipped since 2020 — the profile is the AUTHOR ARCHIVE. Your posts live on
+  your profile. We shipped a feed and our profile does not know it exists.
+· Playo — peer-validated skill as the thing that gets you accepted into games. Playtomic — a
+  reliability percentage as the system's CONFIDENCE in your level. Both already inherited, both
+  already built.
+· Airbnb — trust is stacked named signals, and the profile openly says which one you are missing.
+· Spotify Wrapped / Strava Year in Sport — the profile as a shareable object, seasonally.
+
+=== WHAT'S BROKEN — CHALLENGE OR CONFIRM, WORST FIRST ===
+1. TWO NOTIFICATION SCREENS THAT DISAGREE. The Settings block has four switches; the dedicated
+   screen has six, with different labels for the same columns ("Game reminders" vs "Reminders",
+   "New messages" vs "Chat messages"). Marketing exists only in the first. Roster changes, game
+   changes, Discover alerts and quiet hours exist only in the second. Two IAs over one table and
+   neither one is complete. This is the biggest fix.
+2. THE ACTIVITY INBOX IS ORPHANED FROM PROFILE. /notifications is realtime, drives the app badge,
+   and is reachable only from a bell on Discover. "What happened while I was away" is a Profile-tab
+   question in every app people have already used.
+3. NO "VIEW AS OTHERS SEE YOU". We ship a visibility setting, a suburb toggle, a block list and a
+   report flow, and the user can never see the result. For an app where strangers vet strangers,
+   this is the highest-value missing screen on the tab.
+4. STILL TWO-AND-A-HALF COMPOSITIONS OF ONE HUMAN. The Profile tab is a header plus a segmented
+   control; /player/[id] is a thin wrapper around PlayerCard; PlayerCard has its own "me" mode, so
+   opening your own card from a roster gives you a THIRD layout of yourself. Prompt 5 asked for one
+   identity and we shipped a compromise. Settle it, and defend the answer.
+5. THE FEED SHIPPED AND THE PROFILE DOES NOT KNOW. Follower and following counts render as plain
+   text, and there is no way to see anyone's posts from their profile, including your own.
+6. SIGN-IN METHOD IS A DEAD SHEET. It opens only to say we cannot change it. No password change, no
+   sessions, no passkey, no 2FA. Email verification is the only security verb on the whole tab.
+7. NO DATA EXPORT. Delete is the only data-rights action we offer. Deletion is the last rung of a
+   ladder whose first rungs we never built: see what we hold, download it, then decide.
+8. SETTINGS IS 22 UNDIFFERENTIATED ROWS. No search, no glyphs, no weight difference between
+   "Distance units" and "Delete account". Six group labels is the entire IA.
+9. LOG OUT IS NOT DANGEROUS. It sits inside a red danger box next to permanent account deletion, so
+   the box teaches the user that red means nothing.
+10. EDIT PROFILE IS A FORM, NOT AN IDENTITY EDITOR. Name, a free-text suburb, one avatar, one
+    badminton tier. None of the things a host actually reads before approving you: a line about
+    yourself, your usual nights, your home venue, what you are after. Suburb is typed here and
+    governed by a privacy toggle three screens away.
+11. THE ZERO STATE IS TWO LOCKED TABS AND A CARD. A brand-new user's entire identity surface is a
+    greyed-out segmented control. The completeness meter, the one element that tells them what to do
+    next, is buried under it and disappears the moment they play once, which is exactly when it
+    starts being useful.
+12. REFERRAL IS A SUPPORT ROW. It carries earned priority-spot credits, a real currency in this
+    product, rendered as a subtitle string between "Contact us" and "Rate SMASHIO".
+13. PREFERENCES IS A JUNK DRAWER, AND SOUND IS OUR ONLY ACCESSIBILITY CONTROL. Reduce-motion and
+    haptics are honoured in code and have no surface. An app whose hero interaction is a
+    haptic-ramping hold button owes the user a switch.
+14. SHARE MY CARD IS MID-SCROLL. Two format pills and a button, wedged between the reputation grid
+    and the history segment, on the one screen a person might actually want to show someone.
+15. NO SETTINGS-SCREEN STATES. Visibility, units and the suburb toggle write straight to the
+    database and surface failure as a system alert. There is no offline state, no expired-session
+    state, and no optimistic-then-reverted pattern anywhere on the tab.
+
+=== HARD CONSTRAINTS ===
+· Dark only. Mobile only, 393×852 and 430×932. No web profile.
+· PRIVACY IS NOT NEGOTIABLE, and Prompt 5's table still governs the "them" view: never show another
+  player their email, phone, exact location, the raw reliability integer, individual ratings, or who
+  rated them. Suburb is text, never a pin. Ratings stay hidden entirely below 5 of them. Rating is
+  always anonymous.
+· Account deletion must stay reachable IN THE APP — an App Store and Play policy obligation, not a
+  design choice. It must stay blocked while the user is hosting upcoming games.
+· Legal and account copy is accurate first, warm second. Everything else reads casually Australian,
+  contractions fine, no corporate phrasing, and never an em dash in user-facing text.
+· NO ELO or numeric skill level. NO city leaderboards. NO paid or purchasable badges. Every badge is
+  earned by playing.
+· Follows DO exist now and are fair game. They are a lightweight graph, not a friend-request system:
+  no approvals, no mutual state, no follower-count vanity framing.
+· Sport is a data concern. Badminton ships first; the design must hold 2-4 sports per profile
+  without a redesign.
+· No new visual language, no new colour ramp, no new kit.
+· Reduce-motion is honoured app-wide. Settings screens are not a motion showcase.
+
+=== USE THE REAL COMPONENTS ===
+PlayerCard, ReputationGrid, ReliabilityGauge, BehaviourBadges, RatingDistributionBars, TrophyCase,
+Heatmap, CompletenessMeter, ShareCard, SegmentedToggle, TierBadge, SkillPill, Avatar, AvatarPicker,
+FollowList, ListRow + RowSectionLabel, StatTile, RollingNumber, Chip, Badge, Sheet, Button,
+HoldButton, Burst, EmptyState, Skeleton, ReportSheet, Field, BackButton, Screen.
+
+=== DELIVER ===
+1. A DEFENDED IA FOR THE WHOLE FOURTH TAB. How many routes, what sits on the tab itself, what sits
+   behind the gear, and where these six currently-homeless things go: the activity inbox, your
+   posts, followers and following, the share card, the referral credits, and "view as others see
+   you". Draw the map before you draw a screen.
+2. THE PROFILE TAB AT THREE LIFE STAGES — 0 games (day one, nothing earned), 12 games (Silver, some
+   badges, a streak), 60 games (Gold, full case, long history). The zero state must sell the first
+   game and name what is missing, not render two locked tabs.
+3. THE ONE-IDENTITY DECISION, SETTLED. Show the same person as the Profile tab and as /player/[id]
+   side by side, and justify every difference. If you keep two routes, say what each one is FOR.
+4. POSTS ON THE PROFILE. Where the author archive lives, what an empty one says, and whether it is a
+   segment, a strip, or nothing at all. Argue it either way, but decide.
+5. SETTINGS v3 — the full re-sorted IA with search and row glyphs, showing all 22 rows in their new
+   order and groups, plus the search-results state and the no-results state.
+6. ONE NOTIFICATION SCREEN that replaces the two that disagree: all seven categories, quiet hours,
+   saved Discover alerts, and the OS permission state including the denied case. Say explicitly what
+   the Settings entry point becomes: a link, a summary row, or nothing.
+7. "HOW OTHERS SEE YOU" — the profile preview, plus a short guided safety review composed from
+   visibility, suburb, phone, blocks and reporting. Model it on Apple's Safety Check, not on a
+   toggle list.
+8. SIGN-IN & SECURITY — providers, email verification with a real verb, password change, and the
+   sessions/devices and passkey surfaces we do NOT have data for yet, drawn as a clearly labelled
+   "needs backend" tier so we can cost them separately.
+9. YOUR DATA — what we hold, download my data, and the deletion flow redesigned around it, including
+   the blocked state for a user hosting upcoming games, and a defended answer on grace period versus
+   immediate and irreversible.
+10. EDIT PROFILE v3 — the fields a host actually reads, the avatar entry point, suburb and its
+    visibility control co-located, and multi-sport tiers that hold four sports without a redesign.
+11. REFERRAL AND PRIORITY SPOTS as a designed object with the credit balance legible, and a call on
+    where it lives: profile, settings, or both.
+12. PREFERENCES + ACCESSIBILITY — units, sports, sound, motion, haptics, and a stated line on what
+    the OS owns versus what we own.
+13. THE DESTRUCTIVE-ACTION LADDER — log out, deactivate if you propose it, delete. Three different
+    weights, three different treatments, and red reserved for exactly one of them.
+14. STATES ACROSS THE TAB: loading skeletons, a failed profile fetch that never renders a
+    reliability of 0, a signed-out or expired session hit on a settings subscreen, a toggle whose
+    write fails, and offline.
+15. A MOTION BUDGET for the tab. What animates on Profile, and what animates in Settings. I expect
+    the second answer to be close to nothing, but tell me if I am wrong.
+```
+
+---
+
+## Prompt 8a — Profile & Settings v3, revision pass
+
+Run against `SMASHIO Profile Redesign v3.html`. All 15 deliverables landed and the IA is sound —
+this pass is regressions and unbacked features only. The seven blocking items are shipped
+functionality the redesign dropped; three more are surfaces drawn as live that have no data model
+behind them. Verified against `ui/components/PlayerCard.tsx`, `ui/app/player/[id].tsx`,
+`ui/app/notification-settings.tsx`, `ui/app/delete-account.tsx`, `ui/app/settings.tsx` and
+`ui/lib/queries/*` on 2026-09-05.
+
+```
+The v3 profile & settings file is good — the two-route IA, the six-homeless-things placement, the
+unified notification screen with its old-to-new mapping table, the search states, the safety
+review, the data ladder, the destructive ladder and the motion budget all hold. Do not re-open
+any of those decisions.
+
+This is a correctness pass. Three groups: functionality the redesign dropped, surfaces drawn as
+live that we cannot ship, and requested states that are missing. Fix them in place. Do not
+restyle anything that is not on this list.
+
+=== GROUP A — SHIPPED FUNCTIONALITY THE REDESIGN DROPPED (blocking) ===
+
+A1. FOLLOW IS GONE FROM THE "THEM" CARD. The shipped PlayerCard carries a Follow / Following
+    toggle plus tappable follower and following counts, for any player. Your roster-avatar sheet
+    shows only "Message" and your join-request sheet shows only Accept / Decline. Put follow and
+    the two counts back on the them-card, and say which of the three densities (strip / sheet /
+    vetting sheet) carries them — the strip almost certainly should not.
+
+A2. REPORT AND BLOCK ARE GONE FROM THE "THEM" CARD. The shipped /player/[id] has a ⋯ menu with
+    Block and a Report sheet carrying six reasons: harassment or abuse, made me feel unsafe,
+    no-showed without notice, fake profile, spam, something else. Your safety-review artboard
+    asserts "Report + block from any player card or chat" and then never draws it. This is the
+    screen where you meet a stranger and it is an App Store 1.2 obligation. Draw the ⋯ affordance
+    on the them-card, the report reason sheet, and the block confirm.
+
+A3. THE IN-APP "ENABLE NOTIFICATIONS" BUTTON IS GONE. Your notification screen draws only
+    "Enable in system settings", which is the DENIED state. A first-run user's permission status
+    is UNDETERMINED, and only an in-app prompt can move them from undetermined to granted — a
+    deep link to system settings cannot. Draw three permission states, not one: undetermined
+    (in-app "Enable notifications" primary button), denied (your current "Enable in system
+    settings"), and granted (categories live, no banner).
+
+A4. QUIET HOURS LOST ITS SWITCH. It renders as a static line, "Low-priority only, 10pm-7am,
+    fixed". It is a real toggle today, off by default. Draw it as a switch, keep the fixed window
+    as its subtitle, and keep the promise that join requests and cancellations still get through.
+
+A5. THE SHARE-CARD FORMAT SELECTOR IS GONE. Both the 1:1 and the 9:16 export are drawn, and the
+    shipped screen has Square / Story pills to choose between them. Your new "Share my card ↗"
+    row has no way to pick. Add the choice — a pre-share sheet with both formats previewed is
+    probably better than the old inline pills, but decide and draw it.
+
+A6. THE VERSION AND BUILD FOOTER IS GONE FROM SETTINGS v3. The older full-IA artboard has
+    "SMASHIO v2.4.1 · build 1026" and the v3 one ends at Delete account. We are in private beta;
+    the build number is how a tester tells us which build broke. Put it back.
+
+A7. THE DELETION DISCLOSURE LOST THREE PIECES. The shipped /delete-account screen carries "What
+    gets deleted", "What stays", a line saying backups roll off within 30 days with an email
+    address for chat-message removal, and a link to the full deletion policy. Your "Your data"
+    screen keeps only a "What we hold" list for the download. Restore all four elements — this is
+    a legal disclosure, not decoration, and "what stays" is the half people actually query.
+
+A8. THE UNVERIFIED-EMAIL STATE IS GONE. You draw email only as "Verified 12 Aug 2026 ✓". The
+    shipped row handles the unverified case with a badge, one line on what verification gates
+    (hosting games and password recovery) and a "Resend verification email" action. Draw both
+    states.
+
+=== GROUP B — DRAWN AS LIVE, NO DATA MODEL BEHIND IT (blocking) ===
+You tiered Password, Passkey and Sessions correctly with a SOON tag. These four needed the same
+treatment and did not get it.
+
+B1. "MESSAGE" ON THE THEM-CARD HAS NO DESTINATION. There is no one-to-one DM in this product.
+    Chat is per-game only — every route in the app is /chat/{gameId} and a thread exists only
+    because two people are in the same game. Either drop the Message button, or scope 1:1 DM
+    explicitly as a new feature with its own moderation and blocking surface, and say so. Do not
+    leave a primary action pointing at a screen that does not exist.
+
+B2. "WHO CAN MESSAGE ME · REGULARS ONLY" IS A PRIVACY CONTROL FOR A CAPABILITY WE DO NOT HAVE.
+    It sits third in the first settings group, which is the most load-bearing position on the
+    tab, and it governs B1's non-existent DM. Cut it, or make it explicitly conditional on B1
+    shipping and tag it the way you tagged Passkey.
+
+B3. "PHONE · NOT VERIFIED · VERIFY NOW" IMPLIES SMS OTP WE HAVE NOT BUILT. Phone is a plain text
+    field written straight to the profile, used only for game-day contact. There is no OTP send,
+    no verification state column, and no SMS provider. Either drop the verification affordance
+    from the phone row, or tag it SOON alongside Passkey and Sessions.
+
+B4. "DOWNLOAD MY DATA · WE'LL EMAIL A COPY WITHIN 48 HOURS" IS DRAWN AS A LIVE BUTTON WITH A
+    STATED SLA. There is no export job, no email pipeline and nobody on the hook for 48 hours.
+    Keep the ladder — download above delete is the right call and I want to keep it — but tag the
+    request button the same way as the other unbuilt capabilities, and draw the requested and
+    ready-to-download states so the surface can be costed as a real piece of work.
+
+=== GROUP C — DRAWN WITHOUT NAMING THE WORK (flag, don't redesign) ===
+These are fine as designs. They just need a visible "needs a migration" marker so nobody reads
+them as free.
+
+C1. EDIT PROFILE'S THREE NEW FIELDS — About you, Usual nights, Home venue — are three new profile
+    columns, and Home venue additionally needs a venue picker reading our venue directory. Mark
+    them.
+C2. THE REFERRAL DETAIL SCREEN shows an invite code ("RAVI-4F2") and a per-friend list with
+    joined / pending states. We store a referral count and a credit balance, nothing else — no
+    code, no per-friend rows. Mark the code and the list as new data.
+C3. SQUASH APPEARS AS A LIVE SPORT in Preferred sports and in Edit profile's sports list. Only
+    badminton exists. Keep the multi-sport layout — that is the point of the design — but label
+    the second sport as illustrative.
+
+=== GROUP D — REQUESTED WORK STILL MISSING ===
+
+D1. THREE OF THE FIVE STATES I ASKED FOR ARE NOT DRAWN. You delivered the loading skeleton and
+    the failed profile fetch. Still missing: a signed-out or expired session hit on a settings
+    subscreen, a toggle whose write fails (visibility, suburb and units all write straight to the
+    database today and surface failure as a system alert — show the optimistic-then-reverted
+    pattern instead), and offline. Draw all three.
+
+D2. THE COMPLETENESS METER STILL DISAPPEARS AT GAME ONE. It is on the day-one artboard and gone
+    from the 12-game one, which is the same behaviour we ship today and half of what I flagged.
+    "Why is nobody approving me" is a question people ask AFTER their first game, not before it.
+    Decide where it lives once a user has played — a collapsed strip, a completeness line inside
+    the reputation area, or an argued case for removing it — and draw that.
+
+D3. MOVING THE BELL OFF DISCOVER MOVES A BEHAVIOUR WITH IT. Discover's bell today does two jobs:
+    it opens the inbox, and when push permission is denied it deep-links to system settings
+    instead. Your Profile-header bell needs to say what happens to that second job — carry it,
+    hand it to the notification screen's denied banner, or drop it deliberately.
+
+D4. REDUCE MOTION AND HAPTICS NEED A PERSISTENCE STORY. Your note says both are "already honoured
+    in code". Reduce-motion is honoured from the OS setting; there is no in-app haptics switch at
+    all today. Say whether these two are device-local preferences (like the existing sound
+    toggle) or account-level ones that follow the user across devices, because that is the
+    difference between a one-line change and a migration.
+
+=== ONE CONSISTENCY NIT ===
+The Gold 60-game header drops the "Member since" pill that the Silver 12-game header carries, and
+replaces it with "Advanced · peer tier". Same component, two headers. Pick one.
+
+=== DELIVER ===
+Revised artboards for every item in Groups A, B and D, in place, in the same file. Groups A and B
+are the blocking ones — A is functionality we would lose on implementation, B is functionality we
+cannot ship. For each Group B item, state plainly which way you went: cut, or tagged as unbuilt.
+Add a short "what changed in 8a" note listing the resolutions so the next reader can see what was
+regression versus what was new scope.
+```

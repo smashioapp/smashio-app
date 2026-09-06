@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
-import { View, Text, Pressable, Linking, Alert, ScrollView, Switch, Platform } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import { View, Text, Pressable, Linking, Alert, ScrollView, Switch, Platform, TextInput } from "react-native";
 import { router } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import * as StoreReview from "expo-store-review";
 import Constants from "expo-constants";
 import { LinearGradient } from "expo-linear-gradient";
@@ -8,31 +9,16 @@ import { colors, gradients } from "../lib/theme";
 import { Screen } from "../components/Screen";
 import { BackButton } from "../components/BackButton";
 import { Badge } from "../components/Badge";
-import { Sheet } from "../components/Sheet";
 import { ListRow, RowSectionLabel } from "../components/ListRow";
 import { useSession } from "../lib/session";
 import { supabase } from "../lib/supabase";
 import { signOut } from "../lib/auth";
 import { useProfile, useReferralStats } from "../lib/queries/profile";
-import { useSetNotificationCategory, useNotificationPrefs } from "../lib/queries/notificationPrefs";
 import { useBlockedPlayers } from "../lib/queries/settings";
-import { shareReferral } from "../lib/share";
 import { sound } from "../lib/sound";
 import { loadSoundEnabled, saveSoundEnabled } from "../lib/soundPrefs";
-
-function referralSubtitle(referrals: { count: number; credits: number } | undefined): string | undefined {
-  if (!referrals) return undefined;
-  const { count, credits } = referrals;
-  const friends = count === 0 ? "No friends joined yet" : count === 1 ? "1 friend joined" : `${count} friends joined`;
-  if (credits > 0) return `${friends} · ${credits} priority spot${credits > 1 ? "s" : ""} ready to use`;
-  return friends;
-}
-
-function providerLabel(provider: string | undefined): string {
-  if (provider === "google") return "Google";
-  if (provider === "apple") return "Apple";
-  return "Email & password";
-}
+import { haptics } from "../lib/haptics";
+import { loadHapticsEnabled, saveHapticsEnabled } from "../lib/hapticsPrefs";
 
 function Group({ children }: { children: React.ReactNode }) {
   return (
@@ -47,27 +33,58 @@ function Group({ children }: { children: React.ReactNode }) {
 }
 
 function ToggleSwitch({ value, onValueChange }: { value: boolean; onValueChange: (v: boolean) => void }) {
+  return <Switch value={value} onValueChange={onValueChange} trackColor={{ true: colors.accent, false: "rgba(255,255,255,0.15)" }} />;
+}
+
+// The coloured glyph tile every row in the v3 IA carries (design-brief.md Prompt 8 item 5, "row
+// glyphs" — iOS/Android system Settings and Instagram's IA both use one per row once a list runs
+// past a single screen).
+function Glyph({ name, color }: { name: keyof typeof Ionicons.glyphMap; color: string }) {
   return (
-    <Switch value={value} onValueChange={onValueChange} trackColor={{ true: colors.accent, false: "rgba(255,255,255,0.15)" }} />
+    <View className="rounded-lg items-center justify-center" style={{ width: 28, height: 28, backgroundColor: color + "22" }}>
+      <Ionicons name={name} size={14} color={color} />
+    </View>
   );
 }
 
-// Identity and account settings are different products (profile-plan.md P4) — this is the
-// findable list that used to sit two rows from the tier badge. Rebuilt to the full six-group IA
-// from docs/design-brief.md's "Settings — full IA" artboard: everything the design put behind
-// the gear that the old three-card version never surfaced.
+type Row = {
+  key: string;
+  glyph: keyof typeof Ionicons.glyphMap;
+  glyphColor: string;
+  title: string;
+  subtitle?: string;
+  trailing?: string;
+  trailingNode?: React.ReactNode;
+  accessory?: "chevron" | "none";
+  onPress?: () => void;
+};
+
+function matches(row: Row, query: string) {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  return row.title.toLowerCase().includes(q) || (row.subtitle ?? "").toLowerCase().includes(q);
+}
+
+// Rebuilt to the v3 IA (docs/design-brief.md Prompt 8/8a): "You & privacy" leads — the highest
+// load-bearing group on a stranger-meeting app — over account plumbing (Instagram/Threads'
+// "Settings and activity" puts the same group first). A search field filters every row flat
+// once the list runs past one screen (iOS/Android system Settings' primary IA past that point).
+// The destructive ladder is three weights, not two: Log out is a neutral card on its own, Delete
+// account is alone in red — a danger box that fits both taught the user red means nothing
+// (item 9).
 export default function Settings() {
   const { session } = useSession();
   const userId = session?.user.id;
   const email = session?.user.email;
   const emailVerified = !!session?.user.email_confirmed_at;
-  const provider = session?.user.app_metadata?.provider as string | undefined;
   const [resending, setResending] = useState(false);
-  const [signInSheetOpen, setSignInSheetOpen] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [hapticsEnabled, setHapticsEnabled] = useState(true);
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     loadSoundEnabled().then(setSoundEnabled);
+    loadHapticsEnabled().then(setHapticsEnabled);
   }, []);
 
   const toggleSound = (v: boolean) => {
@@ -76,9 +93,14 @@ export default function Settings() {
     saveSoundEnabled(v);
   };
 
+  const toggleHaptics = (v: boolean) => {
+    setHapticsEnabled(v);
+    haptics.setMuted(!v);
+    saveHapticsEnabled(v);
+    if (v) haptics.tap();
+  };
+
   const { data: profile } = useProfile(userId);
-  const { data: prefs } = useNotificationPrefs();
-  const setCategory = useSetNotificationCategory();
   const { data: blocked } = useBlockedPlayers();
   const { data: referrals } = useReferralStats(userId);
 
@@ -101,7 +123,6 @@ export default function Settings() {
       { text: "Cancel", style: "cancel" },
       {
         text: "Log out",
-        style: "destructive",
         onPress: async () => {
           await signOut();
           router.replace("/onboarding");
@@ -120,10 +141,234 @@ export default function Settings() {
     Alert.alert("Not on the store yet", "SMASHIO is in private beta, thanks for testing it early!");
   };
 
-  const buildLabel =
-    Platform.OS === "ios"
-      ? Constants.expoConfig?.ios?.buildNumber
-      : Constants.expoConfig?.android?.versionCode;
+  const buildLabel = Platform.OS === "ios" ? Constants.expoConfig?.ios?.buildNumber : Constants.expoConfig?.android?.versionCode;
+
+  const groups: { label: string; rows: Row[] }[] = useMemo(
+    () => [
+      {
+        label: "You & privacy",
+        rows: [
+          {
+            key: "visibility",
+            glyph: "eye-outline",
+            glyphColor: colors.intermediate,
+            title: "Profile visibility",
+            subtitle: "Who can open your full profile",
+            trailing: profile?.profile_visibility === "players_only" ? "Players I've played with" : "Everyone",
+            accessory: "chevron",
+            onPress: () => router.push("/settings/visibility"),
+          },
+          {
+            key: "show-suburb",
+            glyph: "location-outline",
+            glyphColor: colors.beginner,
+            title: "Show suburb on profile",
+            trailingNode: (
+              <ToggleSwitch
+                value={profile?.show_suburb ?? true}
+                onValueChange={async (v) => {
+                  const { error } = await supabase.from("profiles").update({ show_suburb: v }).eq("id", userId!);
+                  if (error) Alert.alert("Couldn't save that", error.message);
+                }}
+              />
+            ),
+          },
+          {
+            key: "view-as",
+            glyph: "person-circle-outline",
+            glyphColor: colors.beginner,
+            title: "How others see you",
+            subtitle: "Preview your public profile",
+            accessory: "chevron",
+            onPress: () => router.push("/settings/view-as"),
+          },
+          {
+            key: "safety",
+            glyph: "shield-checkmark-outline",
+            glyphColor: colors.accent2,
+            title: "Safety review",
+            subtitle: "A quick check of what's shared and who's blocked",
+            accessory: "chevron",
+            onPress: () => router.push("/settings/safety-review"),
+          },
+          {
+            key: "blocked",
+            glyph: "ban-outline",
+            glyphColor: colors.danger,
+            title: "Blocked players",
+            trailing: String(blocked?.length ?? 0),
+            accessory: "chevron",
+            onPress: () => router.push("/settings/blocked"),
+          },
+        ],
+      },
+      {
+        label: "Account",
+        rows: [
+          {
+            key: "sign-in",
+            glyph: "key-outline",
+            glyphColor: colors.advanced,
+            title: "Sign-in & security",
+            subtitle: emailVerified ? "Verified" : "Email not verified",
+            accessory: "chevron",
+            onPress: () => router.push("/settings/sign-in-security"),
+          },
+          {
+            key: "phone",
+            glyph: "call-outline",
+            glyphColor: colors.textSecondary,
+            title: "Phone number",
+            subtitle: "Used only for game-day contact",
+            accessory: "chevron",
+            onPress: () => router.push("/settings/phone"),
+          },
+          {
+            key: "your-data",
+            glyph: "download-outline",
+            glyphColor: colors.textSecondary,
+            title: "Your data",
+            subtitle: "What we hold, download, or delete",
+            accessory: "chevron",
+            onPress: () => router.push("/settings/your-data"),
+          },
+        ],
+      },
+      {
+        label: "Notifications",
+        rows: [
+          {
+            key: "notifications",
+            glyph: "notifications-outline",
+            glyphColor: colors.accent,
+            title: "Notifications",
+            subtitle: "Every category, quiet hours and your saved alerts, in one place",
+            accessory: "chevron",
+            onPress: () => router.push("/notification-settings"),
+          },
+        ],
+      },
+      {
+        label: "Preferences & accessibility",
+        rows: [
+          {
+            key: "units",
+            glyph: "navigate-outline",
+            glyphColor: colors.beginner,
+            title: "Distance units",
+            trailing: profile?.distance_units === "mi" ? "Miles" : "Kilometres",
+            accessory: "chevron",
+            onPress: () => router.push("/settings/units"),
+          },
+          {
+            key: "sports",
+            glyph: "options-outline",
+            glyphColor: colors.pro,
+            title: "Preferred sports",
+            accessory: "chevron",
+            onPress: () => router.push("/settings/sports"),
+          },
+          {
+            key: "sound",
+            glyph: "volume-high-outline",
+            glyphColor: colors.textSecondary,
+            title: "Sound effects",
+            subtitle: "Hero moments only — joining, publishing, streaks",
+            trailingNode: <ToggleSwitch value={soundEnabled} onValueChange={toggleSound} />,
+          },
+          {
+            key: "haptics",
+            glyph: "pulse-outline",
+            glyphColor: colors.textSecondary,
+            title: "Haptics",
+            subtitle: "Vibration on taps, holds and celebrations",
+            trailingNode: <ToggleSwitch value={hapticsEnabled} onValueChange={toggleHaptics} />,
+          },
+          {
+            key: "reduce-motion",
+            glyph: "contrast-outline",
+            glyphColor: colors.textSecondary,
+            title: "Reduce motion",
+            subtitle: "Controlled by your phone's system setting, not SMASHIO",
+          },
+        ],
+      },
+      {
+        label: "Support",
+        rows: [
+          {
+            key: "help",
+            glyph: "help-circle-outline",
+            glyphColor: colors.textSecondary,
+            title: "Help centre",
+            accessory: "chevron",
+            onPress: () => Linking.openURL("https://smashio.com.au/support.html"),
+          },
+          {
+            key: "contact",
+            glyph: "chatbubble-ellipses-outline",
+            glyphColor: colors.textSecondary,
+            title: "Contact us",
+            accessory: "chevron",
+            onPress: () => Linking.openURL("mailto:hello@smashio.com.au"),
+          },
+          {
+            key: "referral",
+            glyph: "gift-outline",
+            glyphColor: colors.accent,
+            title: "Referral & priority spots",
+            subtitle: referrals ? `${referrals.credits} credit${referrals.credits === 1 ? "" : "s"} · ${referrals.count} friend${referrals.count === 1 ? "" : "s"} joined` : undefined,
+            accessory: "chevron",
+            onPress: () => router.push("/settings/referral"),
+          },
+          {
+            key: "rate",
+            glyph: "star-outline",
+            glyphColor: colors.advanced,
+            title: "Rate SMASHIO",
+            accessory: "chevron",
+            onPress: rateApp,
+          },
+        ],
+      },
+      {
+        label: "Legal",
+        rows: [
+          {
+            key: "terms",
+            glyph: "document-text-outline",
+            glyphColor: colors.textSecondary,
+            title: "Terms of service",
+            accessory: "chevron",
+            onPress: () => Linking.openURL("https://smashio.com.au/terms.html"),
+          },
+          {
+            key: "guidelines",
+            glyph: "people-outline",
+            glyphColor: colors.textSecondary,
+            title: "Community guidelines",
+            accessory: "chevron",
+            onPress: () => Linking.openURL("https://smashio.com.au/community-guidelines.html"),
+          },
+          {
+            key: "privacy-policy",
+            glyph: "shield-outline",
+            glyphColor: colors.textSecondary,
+            title: "Privacy policy",
+            accessory: "chevron",
+            onPress: () => Linking.openURL("https://smashio.com.au/privacy.html"),
+          },
+        ],
+      },
+    ],
+    [profile, blocked, referrals, emailVerified, soundEnabled, hapticsEnabled]
+  );
+
+  const searching = query.trim().length > 0;
+  const flatResults = useMemo(() => {
+    if (!searching) return [];
+    return groups.flatMap((g) => g.rows.filter((r) => matches(r, query)).map((r) => ({ ...r, group: g.label })));
+  }, [groups, query, searching]);
 
   return (
     <Screen>
@@ -134,199 +379,129 @@ export default function Settings() {
         </Text>
       </View>
 
-      <ScrollView contentContainerClassName="px-5 pt-4 pb-10 gap-5" showsVerticalScrollIndicator={false}>
-        <View className="gap-2">
-          <RowSectionLabel label="Account" />
-          <Group>
-            <ListRow
-              title="Sign-in method"
-              trailing={providerLabel(provider)}
-              accessory="chevron"
-              divider
-              onPress={() => setSignInSheetOpen(true)}
-            />
-            <View className="py-2.5">
-              <View className="flex-row justify-between items-center">
-                <Text className="text-[13.5px] font-body-semibold flex-1 pr-2" style={{ color: colors.text }} numberOfLines={1}>
-                  {email ?? "Email"}
+      <View className="px-5 pt-3">
+        <View className="rounded-2xl px-3.5 flex-row items-center gap-2" style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.cardBorder, height: 44 }}>
+          <Ionicons name="search" size={15} color={colors.textTertiary} />
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search settings"
+            placeholderTextColor={colors.textMuted}
+            className="flex-1 text-[13.5px] font-body-semibold"
+            style={{ color: colors.text }}
+          />
+          {searching && (
+            <Pressable onPress={() => setQuery("")} hitSlop={8}>
+              <Ionicons name="close-circle" size={16} color={colors.textTertiary} />
+            </Pressable>
+          )}
+        </View>
+      </View>
+
+      <ScrollView contentContainerClassName="px-5 pt-4 pb-10 gap-5" showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+        {searching ? (
+          <View className="gap-2">
+            <RowSectionLabel label={flatResults.length > 0 ? `${flatResults.length} result${flatResults.length === 1 ? "" : "s"}` : "No results"} />
+            {flatResults.length === 0 ? (
+              <View className="items-center py-10 gap-2">
+                <Ionicons name="search" size={22} color={colors.textMuted} />
+                <Text className="text-[13px]" style={{ color: colors.textSecondary }}>
+                  No settings match "{query}"
                 </Text>
-                {emailVerified ? <Badge state="verified" label="Verified" /> : <Badge state="pending" label="Unverified" />}
               </View>
-              {!emailVerified && (
-                <View className="mt-1.5 gap-1.5">
-                  <Text className="text-[12px] leading-4" style={{ color: colors.textTertiary }}>
-                    Verify your email to host games and recover your password.
-                  </Text>
-                  <Pressable onPress={resendVerification} disabled={resending} hitSlop={6}>
-                    <Text className="text-[13px] font-body-bold" style={{ color: colors.accent }}>
-                      {resending ? "Sending…" : "Resend verification email"}
-                    </Text>
-                  </Pressable>
-                </View>
-              )}
-            </View>
-            <ListRow
-              title="Phone number"
-              subtitle="Used only for game-day contact"
-              accessory="chevron"
-              divider={false}
-              onPress={() => router.push("/settings/phone")}
-            />
-          </Group>
-        </View>
-
-        <View className="gap-2">
-          <RowSectionLabel label="Notifications" />
-          <Group>
-            <ListRow
-              title="Game reminders"
-              subtitle="1 hour before kickoff"
-              trailingNode={
-                <ToggleSwitch
-                  value={prefs?.reminders ?? true}
-                  onValueChange={(v) => setCategory.mutate({ category: "reminders", enabled: v })}
-                />
-              }
-            />
-            <ListRow
-              title="Join requests"
-              trailingNode={
-                <ToggleSwitch
-                  value={prefs?.joinRequests ?? true}
-                  onValueChange={(v) => setCategory.mutate({ category: "join_requests", enabled: v })}
-                />
-              }
-            />
-            <ListRow
-              title="New messages"
-              trailingNode={
-                <ToggleSwitch value={prefs?.chat ?? true} onValueChange={(v) => setCategory.mutate({ category: "chat", enabled: v })} />
-              }
-            />
-            <ListRow
-              title="Product news & promos"
-              trailingNode={
-                <ToggleSwitch
-                  value={prefs?.marketing ?? false}
-                  onValueChange={(v) => setCategory.mutate({ category: "marketing", enabled: v })}
-                />
-              }
-              divider={false}
-            />
-          </Group>
-          <Pressable className="px-1 pt-1" onPress={() => router.push("/notification-settings")} hitSlop={6}>
-            <Text className="text-[13px] font-body-bold" style={{ color: colors.textSecondary }}>
-              All notification settings ›
-            </Text>
-          </Pressable>
-        </View>
-
-        <View className="gap-2">
-          <RowSectionLabel label="Privacy & visibility" />
-          <Group>
-            <ListRow
-              title="Profile visibility"
-              subtitle="Who can open your full profile"
-              trailing={profile?.profile_visibility === "players_only" ? "Players I've played with" : "Everyone"}
-              accessory="chevron"
-              onPress={() => router.push("/settings/visibility")}
-            />
-            <ListRow
-              title="Show suburb on profile"
-              trailingNode={
-                <ToggleSwitch
-                  value={profile?.show_suburb ?? true}
-                  onValueChange={async (v) => {
-                    const { error } = await supabase.from("profiles").update({ show_suburb: v }).eq("id", userId!);
-                    if (error) Alert.alert("Couldn't save that", error.message);
-                  }}
-                />
-              }
-            />
-            <ListRow
-              title="Blocked players"
-              trailing={String(blocked?.length ?? 0)}
-              accessory="chevron"
-              divider={false}
-              onPress={() => router.push("/settings/blocked")}
-            />
-          </Group>
-        </View>
-
-        <View className="gap-2">
-          <RowSectionLabel label="Preferences" />
-          <Group>
-            <ListRow
-              title="Distance units"
-              trailing={profile?.distance_units === "mi" ? "Miles" : "Kilometres"}
-              accessory="chevron"
-              onPress={() => router.push("/settings/units")}
-            />
-            <ListRow title="Preferred sports" accessory="chevron" onPress={() => router.push("/settings/sports")} />
-            <ListRow
-              title="Sound effects"
-              subtitle="Hero moments only — joining, publishing, streaks"
-              trailingNode={<ToggleSwitch value={soundEnabled} onValueChange={toggleSound} />}
-              divider={false}
-            />
-          </Group>
-        </View>
-
-        <View className="gap-2">
-          <RowSectionLabel label="Support" />
-          <Group>
-            <ListRow title="Help centre" accessory="chevron" onPress={() => Linking.openURL("https://smashio.com.au/support.html")} />
-            <ListRow title="Contact us" accessory="chevron" onPress={() => Linking.openURL("mailto:hello@smashio.com.au")} />
-            <ListRow
-              title="Invite friends"
-              subtitle={referralSubtitle(referrals)}
-              accessory="chevron"
-              onPress={() => userId && shareReferral(userId)}
-            />
-            <ListRow title="Rate SMASHIO" accessory="chevron" divider={false} onPress={rateApp} />
-          </Group>
-        </View>
-
-        <View className="gap-2">
-          <RowSectionLabel label="Legal" />
-          <Group>
-            <ListRow title="Terms of service" accessory="chevron" onPress={() => Linking.openURL("https://smashio.com.au/terms.html")} />
-            <ListRow title="Community guidelines" accessory="chevron" onPress={() => Linking.openURL("https://smashio.com.au/community-guidelines.html")} />
-            <ListRow title="Privacy policy" accessory="chevron" divider={false} onPress={() => Linking.openURL("https://smashio.com.au/privacy.html")} />
-          </Group>
-        </View>
-
-        <View className="gap-2">
-          <Text className="font-body-bold text-[12px] uppercase px-1" style={{ color: colors.danger, letterSpacing: 0.6 }}>
-            Danger zone
-          </Text>
-          <View
-            className="rounded-2xl border overflow-hidden px-3.5"
-            style={{ borderColor: "rgba(255,103,103,0.28)", backgroundColor: "rgba(255,103,103,0.05)" }}
-          >
-            <ListRow title="Log out" danger testID="settings-logout" onPress={handleLogout} />
-            <ListRow
-              title="Delete account"
-              subtitle="permanent"
-              accessory="chevron"
-              danger
-              divider={false}
-              onPress={() => router.push("/delete-account")}
-            />
+            ) : (
+              <Group>
+                {flatResults.map((r, i) => (
+                  <ListRow
+                    key={r.key}
+                    title={r.title}
+                    subtitle={r.subtitle ?? r.group}
+                    trailing={r.trailing}
+                    trailingNode={r.trailingNode}
+                    accessory={r.accessory ?? "none"}
+                    leading={<Glyph name={r.glyph} color={r.glyphColor} />}
+                    divider={i < flatResults.length - 1}
+                    onPress={r.onPress}
+                  />
+                ))}
+              </Group>
+            )}
           </View>
-        </View>
+        ) : (
+          <>
+            {groups.map((g) => (
+              <View className="gap-2" key={g.label}>
+                <RowSectionLabel label={g.label} />
+                <Group>
+                  {g.rows.map((r, i) => (
+                    <View key={r.key}>
+                      <ListRow
+                        title={r.title}
+                        subtitle={r.subtitle}
+                        trailing={r.trailing}
+                        trailingNode={r.trailingNode}
+                        accessory={r.accessory ?? "none"}
+                        leading={<Glyph name={r.glyph} color={r.glyphColor} />}
+                        divider={i < g.rows.length - 1}
+                        onPress={r.onPress}
+                      />
+                      {r.key === "sign-in" && !emailVerified && (
+                        <View className="pb-2.5 -mt-1.5 pl-[38px]">
+                          <Pressable onPress={resendVerification} disabled={resending} hitSlop={6}>
+                            <Text className="text-[12.5px] font-body-bold" style={{ color: colors.accent }}>
+                              {resending ? "Sending…" : "Resend verification email"}
+                            </Text>
+                          </Pressable>
+                        </View>
+                      )}
+                    </View>
+                  ))}
+                </Group>
+              </View>
+            ))}
 
-        <Text className="text-center text-[11px] mt-1" style={{ color: colors.textMuted }}>
-          SMASHIO v{Constants.expoConfig?.version ?? "—"} · build {buildLabel ?? "—"}
-        </Text>
+            <View className="gap-2">
+              <Text className="font-body-bold text-[12px] uppercase px-1" style={{ color: colors.textTertiary, letterSpacing: 0.6 }}>
+                Session
+              </Text>
+              <Group>
+                <ListRow
+                  title="Log out"
+                  subtitle="You can jump back in any time"
+                  leading={<Glyph name="log-out-outline" color={colors.textSecondary} />}
+                  divider={false}
+                  testID="settings-logout"
+                  onPress={handleLogout}
+                />
+              </Group>
+            </View>
+
+            <View className="gap-2">
+              <Text className="font-body-bold text-[12px] uppercase px-1" style={{ color: colors.danger, letterSpacing: 0.6 }}>
+                Danger zone
+              </Text>
+              <View
+                className="rounded-2xl border overflow-hidden px-3.5"
+                style={{ borderColor: "rgba(255,103,103,0.28)", backgroundColor: "rgba(255,103,103,0.05)" }}
+              >
+                <ListRow
+                  title="Delete account"
+                  subtitle="permanent"
+                  accessory="chevron"
+                  danger
+                  divider={false}
+                  leading={<Glyph name="trash-outline" color={colors.danger} />}
+                  onPress={() => router.push("/delete-account")}
+                />
+              </View>
+            </View>
+
+            <Text className="text-center text-[11px] mt-1" style={{ color: colors.textMuted }}>
+              SMASHIO v{Constants.expoConfig?.version ?? "—"} · build {buildLabel ?? "—"}
+            </Text>
+          </>
+        )}
       </ScrollView>
-
-      <Sheet visible={signInSheetOpen} onClose={() => setSignInSheetOpen(false)} title="Sign-in method">
-        <Text className="text-[13.5px] leading-5" style={{ color: colors.textSecondary }}>
-          You signed up with {providerLabel(provider)}. SMASHIO doesn't support switching sign-in
-          methods yet, so get in touch with support if you need a different one linked to this account.
-        </Text>
-      </Sheet>
     </Screen>
   );
 }

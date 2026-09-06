@@ -22,6 +22,7 @@ import { buildWeekHeatmap } from "../../lib/format";
 import { useSession } from "../../lib/session";
 import { usePlayerCard, useLateLeaveCount, useProfileStreak, useProfileActivity } from "../../lib/queries/profile";
 import { useAchievementAwards } from "../../lib/queries/achievements";
+import { useUnreadNotificationCount } from "../../lib/queries/notifications";
 import { haptics } from "../../lib/haptics";
 import { supabase } from "../../lib/supabase";
 
@@ -35,6 +36,7 @@ type Tab = "overview" | "history" | "trophy";
 export default function Profile() {
   const [tab, setTab] = useState<Tab>("overview");
   const [reliabilitySheetOpen, setReliabilitySheetOpen] = useState(false);
+  const [shareSheetOpen, setShareSheetOpen] = useState(false);
   const [shareFormat, setShareFormat] = useState<ShareCardFormat>("square");
   const [sharing, setSharing] = useState(false);
   const { session } = useSession();
@@ -46,6 +48,7 @@ export default function Profile() {
   const { data: lateLeaves } = useLateLeaveCount(userId);
   const { data: streak } = useProfileStreak(userId);
   const { data: activity } = useProfileActivity(userId);
+  const { data: unreadCount } = useUnreadNotificationCount();
 
   const shotRef = useRef<ViewShotRef>(null);
   const tabBarSpace = useTabBarSpace();
@@ -119,15 +122,35 @@ export default function Profile() {
           <Text className="font-display text-[26px]" style={{ color: colors.text }}>
             Profile
           </Text>
-          <Pressable
-            onPress={() => router.push("/settings")}
-            hitSlop={8}
-            className="w-9 h-9 rounded-full items-center justify-center border"
-            style={{ backgroundColor: colors.surface, borderColor: colors.cardBorder }}
-            testID="profile-settings-gear"
-          >
-            <Ionicons name="settings-outline" size={16} color={colors.textTertiary} />
-          </Pressable>
+          <View className="flex-row gap-2">
+            {/* Six-homeless-things IA (design-brief.md Prompt 8): the activity inbox gets a bell
+                on the Profile header — Discover keeps its own bell untouched. */}
+            <Pressable
+              onPress={() => router.push("/notifications")}
+              hitSlop={8}
+              className="w-9 h-9 rounded-full items-center justify-center border"
+              style={{ backgroundColor: colors.surface, borderColor: colors.cardBorder }}
+            >
+              <View>
+                <Ionicons name="notifications-outline" size={16} color={colors.textTertiary} />
+                {!!unreadCount && unreadCount > 0 && (
+                  <View
+                    className="absolute rounded-full"
+                    style={{ top: -1, right: -1, width: 7, height: 7, backgroundColor: colors.accent, borderWidth: 1.5, borderColor: colors.base }}
+                  />
+                )}
+              </View>
+            </Pressable>
+            <Pressable
+              onPress={() => router.push("/settings")}
+              hitSlop={8}
+              className="w-9 h-9 rounded-full items-center justify-center border"
+              style={{ backgroundColor: colors.surface, borderColor: colors.cardBorder }}
+              testID="profile-settings-gear"
+            >
+              <Ionicons name="settings-outline" size={16} color={colors.textTertiary} />
+            </Pressable>
+          </View>
         </View>
 
         {cardLoading && (
@@ -302,15 +325,10 @@ export default function Profile() {
 
                   {hasPlayedAnything && (
                     <>
-                      <View className="flex-row justify-center mt-5" style={{ gap: 8 }}>
-                        <FormatPill label="Square" active={shareFormat === "square"} onPress={() => setShareFormat("square")} />
-                        <FormatPill label="Story" active={shareFormat === "story"} onPress={() => setShareFormat("story")} />
-                      </View>
                       <Pressable
-                        onPress={shareCard}
-                        disabled={sharing}
-                        className="rounded-pill items-center justify-center flex-row mt-3"
-                        style={{ height: 52, backgroundColor: colors.surfaceAlt, borderWidth: 1, borderColor: colors.cardBorder, opacity: sharing ? 0.6 : 1, gap: 8 }}
+                        onPress={() => setShareSheetOpen(true)}
+                        className="rounded-pill items-center justify-center flex-row mt-5"
+                        style={{ height: 52, backgroundColor: colors.surfaceAlt, borderWidth: 1, borderColor: colors.cardBorder, gap: 8 }}
                       >
                         <Text className="font-body-bold text-[13.5px]" style={{ color: colors.text }}>
                           Share my card ↗
@@ -450,6 +468,29 @@ export default function Profile() {
           <Text className="text-[13.5px] mt-1" style={{ color: colors.textTertiary }}>
             {reliabilityLedgerLabel(lateLeaves ?? 0, gamesPlayed)}
           </Text>
+        </Sheet>
+
+        {/* Pre-share sheet: pick a format before sharing (design-brief.md Prompt 8a group A5) —
+            the old inline Square/Story pills sat wedged mid-scroll with no way to preview
+            either before committing. */}
+        <Sheet visible={shareSheetOpen} onClose={() => setShareSheetOpen(false)} title="Share your card">
+          <View className="flex-row justify-center" style={{ gap: 10 }}>
+            <FormatPill label="Square · 1:1" active={shareFormat === "square"} onPress={() => setShareFormat("square")} />
+            <FormatPill label="Story · 9:16" active={shareFormat === "story"} onPress={() => setShareFormat("story")} />
+          </View>
+          <Pressable
+            onPress={async () => {
+              setShareSheetOpen(false);
+              await shareCard();
+            }}
+            disabled={sharing}
+            className="rounded-pill items-center justify-center mt-4"
+            style={{ height: 52, backgroundColor: colors.accent, opacity: sharing ? 0.6 : 1 }}
+          >
+            <Text className="font-body-extrabold text-[13.5px]" style={{ color: colors.base }}>
+              Share {shareFormat === "square" ? "square" : "story"} card
+            </Text>
+          </Pressable>
         </Sheet>
       </ScrollView>
     </Screen>

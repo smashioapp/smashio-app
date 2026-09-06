@@ -16,6 +16,8 @@ import { SessionProvider } from "../lib/session";
 import * as Linking from "expo-linking";
 import { sound } from "../lib/sound";
 import { loadSoundEnabled } from "../lib/soundPrefs";
+import { haptics } from "../lib/haptics";
+import { loadHapticsEnabled } from "../lib/hapticsPrefs";
 import { trackAppOpenFirst } from "../lib/analytics";
 import { usePushRegistration, useTrackActiveRoute } from "../lib/notifications";
 import { useAppIconBadgeSync, useNotificationRealtimeSync } from "../lib/queries/notifications";
@@ -66,6 +68,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     loadSoundEnabled().then((enabled) => sound.setMuted(!enabled));
+    loadHapticsEnabled().then((enabled) => haptics.setMuted(!enabled));
   }, []);
 
   useEffect(() => {

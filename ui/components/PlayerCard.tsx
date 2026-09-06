@@ -11,6 +11,14 @@ import { usePlayerCard } from "../lib/queries/profile";
 import { useFollowPlayer, useUnfollowPlayer } from "../lib/queries/follows";
 import { supabase } from "../lib/supabase";
 
+const NIGHT_LABELS: Record<string, string> = { mon: "Mon", tue: "Tue", wed: "Wed", thu: "Thu", fri: "Fri", sat: "Sat", sun: "Sun" };
+const NIGHT_ORDER = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+
+function formatNights(nights: string[]): string {
+  const ordered = NIGHT_ORDER.filter((n) => nights.includes(n)).map((n) => NIGHT_LABELS[n]);
+  return `Usually ${ordered.join(", ")}`;
+}
+
 function StatTile({ value, label, onPress }: { value: number; label: string; onPress?: () => void }) {
   const Wrap = onPress ? Pressable : View;
   return (
@@ -285,6 +293,38 @@ export function PlayerCard({
             </View>
           )}
         </>
+      )}
+
+      {/* Edit profile v3 (design-brief.md Prompt 8 item 10) — the fields a host actually reads
+          before approving someone: a line about them, when they usually play, where. */}
+      {!restricted && (card.aboutYou || card.usualNights.length > 0 || card.homeVenueName) && (
+        <View className="px-5 mt-3.5 gap-2">
+          {card.aboutYou && (
+            <Text className="text-[13.5px] leading-5" style={{ color: colors.textDim }}>
+              {card.aboutYou}
+            </Text>
+          )}
+          {(card.usualNights.length > 0 || card.homeVenueName) && (
+            <View className="flex-row flex-wrap gap-2">
+              {card.usualNights.length > 0 && (
+                <View className="rounded-pill px-3 py-1.5 flex-row items-center gap-1.5" style={{ backgroundColor: colors.surface }}>
+                  <Ionicons name="calendar-outline" size={12} color={colors.textTertiary} />
+                  <Text className="text-[11.5px] font-body-bold" style={{ color: colors.textSecondary }}>
+                    {formatNights(card.usualNights)}
+                  </Text>
+                </View>
+              )}
+              {card.homeVenueName && (
+                <View className="rounded-pill px-3 py-1.5 flex-row items-center gap-1.5" style={{ backgroundColor: colors.surface }}>
+                  <Ionicons name="location-outline" size={12} color={colors.textTertiary} />
+                  <Text className="text-[11.5px] font-body-bold" style={{ color: colors.textSecondary }}>
+                    {card.homeVenueName}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
+        </View>
       )}
 
       {/* Multi-sport ready (profile-plan.md P3): every sport this profile has a tier in, not

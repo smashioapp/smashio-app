@@ -17,6 +17,9 @@ import {
 
 // §6.3 — one row per category, in the order the plan's table lists them (§4). Description lines
 // name the events that category covers so a toggle doesn't read as a mystery switch.
+// Everything that used to live in two disagreeing screens — Settings' four switches and this
+// screen's six — now lives here, once (design-brief.md Prompt 8, "what's broken" item 1).
+// Settings' Notifications group is a summary row pointing here (settings.tsx).
 const CATEGORIES: { key: NotificationCategory; label: string; description: string }[] = [
   { key: "join_requests", label: "Join requests", description: "Someone wants in on your game" },
   { key: "roster_changes", label: "Roster changes", description: "A player pulls out or your game fills up" },
@@ -24,6 +27,7 @@ const CATEGORIES: { key: NotificationCategory; label: string; description: strin
   { key: "game_changes", label: "Game changes", description: "Cancellations, reschedules, and edits to games you're in" },
   { key: "reminders", label: "Reminders", description: "Upcoming games and post-game rating nudges" },
   { key: "alerts", label: "Discover alerts", description: "New games matching what you're after" },
+  { key: "marketing", label: "Product news & promos", description: "What's new with SMASHIO, every so often" },
 ];
 
 function CategoryToggles() {
@@ -147,15 +151,19 @@ export default function NotificationSettings() {
 
   useFocusEffect(refresh);
 
+  // Three permission states, not one (design-brief.md Prompt 8a group A3). A first-run user's
+  // status is UNDETERMINED, and only an in-app prompt can move it to granted — a deep link to
+  // system settings can't summon the OS prompt a second time. Once the OS has recorded a denial,
+  // requestPermissionsAsync silently re-resolves "denied" without showing anything (iOS never
+  // re-prompts), so that path has to deep-link instead.
+  const undetermined = status === null || status === Notifications.PermissionStatus.UNDETERMINED;
+  const denied = status === Notifications.PermissionStatus.DENIED;
+  const granted = status === Notifications.PermissionStatus.GRANTED;
+
   const enable = async () => {
     const result = await Notifications.requestPermissionsAsync();
     setStatus(result.status);
-    if (result.status !== "granted") {
-      Linking.openSettings();
-    }
   };
-
-  const granted = status === Notifications.PermissionStatus.GRANTED;
 
   return (
     <Screen>
@@ -175,13 +183,20 @@ export default function NotificationSettings() {
           </Text>
           <View className="rounded-pill self-start px-2.5 py-1.5 mt-3" style={{ backgroundColor: granted ? "rgba(53,214,166,0.15)" : "rgba(255,182,72,0.15)" }}>
             <Text className="font-body-extrabold text-[11.5px] uppercase" style={{ color: granted ? colors.intermediate : colors.advanced }}>
-              {status === null ? "Checking…" : granted ? "Enabled" : "Off"}
+              {undetermined ? "Not set up" : granted ? "Enabled" : "Off"}
             </Text>
           </View>
         </View>
 
-        {!granted && (
+        {undetermined && (
           <Button label={Platform.OS === "web" ? "Not available on web" : "Enable notifications"} onPress={enable} disabled={Platform.OS === "web"} />
+        )}
+        {denied && (
+          <Pressable onPress={() => Linking.openSettings()} className="rounded-pill py-3.5 items-center" style={{ backgroundColor: colors.surfaceAlt }}>
+            <Text className="text-[14.5px] font-body-bold" style={{ color: colors.text }}>
+              Enable in system settings
+            </Text>
+          </Pressable>
         )}
         {granted && (
           <Pressable onPress={() => Linking.openSettings()}>

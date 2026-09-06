@@ -1250,6 +1250,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          about_you: string | null
           avatar_key: string | null
           created_at: string
           deleted_at: string | null
@@ -1259,16 +1260,20 @@ export type Database = {
           following_count: number
           home_point: unknown
           home_suburb: string | null
+          home_venue_id: string | null
           id: string
           photo_path: string | null
           profile_visibility: string
+          referral_code: string
           referral_priority_credits: number
           referred_by: string | null
           reliability_score: number
           show_suburb: boolean
           timezone: string
+          usual_nights: string[]
         }
         Insert: {
+          about_you?: string | null
           avatar_key?: string | null
           created_at?: string
           deleted_at?: string | null
@@ -1278,16 +1283,20 @@ export type Database = {
           following_count?: number
           home_point?: unknown
           home_suburb?: string | null
+          home_venue_id?: string | null
           id: string
           photo_path?: string | null
           profile_visibility?: string
+          referral_code: string
           referral_priority_credits?: number
           referred_by?: string | null
           reliability_score?: number
           show_suburb?: boolean
           timezone?: string
+          usual_nights?: string[]
         }
         Update: {
+          about_you?: string | null
           avatar_key?: string | null
           created_at?: string
           deleted_at?: string | null
@@ -1297,16 +1306,26 @@ export type Database = {
           following_count?: number
           home_point?: unknown
           home_suburb?: string | null
+          home_venue_id?: string | null
           id?: string
           photo_path?: string | null
           profile_visibility?: string
+          referral_code?: string
           referral_priority_credits?: number
           referred_by?: string | null
           reliability_score?: number
           show_suburb?: boolean
           timezone?: string
+          usual_nights?: string[]
         }
         Relationships: [
+          {
+            foreignKeyName: "profiles_home_venue_id_fkey"
+            columns: ["home_venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "profiles_referred_by_fkey"
             columns: ["referred_by"]
@@ -2306,6 +2325,7 @@ export type Database = {
           venue_suburb: string
         }[]
       }
+      generate_referral_code: { Args: never; Returns: string }
       invite_to_reserved_spot: {
         Args: { p_profile_id: string; p_spot_id: string }
         Returns: undefined
@@ -2450,6 +2470,7 @@ export type Database = {
       player_card: {
         Args: { target_id: string }
         Returns: {
+          about_you: string
           avatar_key: string
           badge_counts: Json
           display_name: string
@@ -2459,6 +2480,7 @@ export type Database = {
           games_played: number
           games_together: number
           home_suburb: string
+          home_venue_name: string
           host_badge_counts: Json
           host_rating_avg: number
           host_rating_count: number
@@ -2474,6 +2496,7 @@ export type Database = {
           reliability_score: number
           restricted: boolean
           sports: Json
+          usual_nights: string[]
         }[]
       }
       post_game_roster: {

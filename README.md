@@ -85,7 +85,7 @@ smashio-app/
 ## 1. Clone
 
 ```bash
-git clone https://github.com/ajayaradhya/smashio-app.git
+git clone https://github.com/smashioapp/smashio-app.git
 cd smashio-app
 ```
 

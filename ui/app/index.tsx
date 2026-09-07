@@ -1,17 +1,13 @@
 import { useEffect, useState } from "react";
 import { Redirect, router } from "expo-router";
-import { useSession } from "../lib/session";
-import { useProfile, useProfileSports } from "../lib/queries/profile";
+import { useAppReady } from "../lib/appReady";
 import { consumePendingPath } from "../lib/pendingGame";
 
 export default function Index() {
-  const { session, isLoading: sessionLoading } = useSession();
-  const userId = session?.user.id;
-  const { data: profile, isLoading: profileLoading } = useProfile(userId);
-  const { data: profileSports, isLoading: sportsLoading } = useProfileSports(userId);
+  // Shared with AnimatedSplash so the splash can't lift before this screen can route — see
+  // lib/appReady.ts.
+  const { ready, target, onboarded } = useAppReady();
   const [pendingGameChecked, setPendingGameChecked] = useState(false);
-
-  const onboarded = !!profile?.display_name && (profileSports?.length ?? 0) > 0;
 
   // Resume a shared game link that forced a login/signup detour (game/[id].tsx) once the
   // account is actually ready to view it — before onboarding finishes there's no profile yet.
@@ -23,15 +19,14 @@ export default function Index() {
     });
   }, [onboarded]);
 
-  if (sessionLoading) return null;
-  // G5 (gtm-plan.md §3.2): a session-less viewer browses Discover read-only instead of hitting
-  // the onboarding wall immediately — join/host still gate to login (game/[id].tsx's
-  // GamePreviewTeaser, and the host CTAs in Discover/TabBar).
-  if (!session) return <Redirect href="/(tabs)/discover" />;
-  if (profileLoading || sportsLoading) return null;
+  // These `null`s are no longer a visible black frame: AnimatedSplash covers the whole of this
+  // resolve now, because it waits on the same useAppReady().
+  if (!ready) return null;
   if (onboarded && !pendingGameChecked) return null;
 
   // Signed in but no profile yet goes to setup, not the landing screen — the landing screen
   // is now the sign-in surface, and offering it to someone already signed in is a dead end.
-  return <Redirect href={onboarded ? "/(tabs)/discover" : "/onboarding/setup"} />;
+  // A session-less viewer gets read-only Discover rather than the onboarding wall (G5,
+  // gtm-plan.md §3.2); join/host still gate to login further in.
+  return <Redirect href={target === "onboarding" ? "/onboarding/setup" : "/(tabs)/discover"} />;
 }

@@ -62,9 +62,9 @@ export default function RootLayout() {
   const fontsLoaded = spaceGroteskLoaded && manropeLoaded;
   const [showSplash, setShowSplash] = useState(true);
 
-  useEffect(() => {
-    if (fontsLoaded) SplashScreen.hideAsync().catch(() => {});
-  }, [fontsLoaded]);
+  // Note: hiding the native splash is AnimatedSplash's job now, off its own onLayout — see the
+  // comment there. Doing it here on fontsLoaded made the two splashes serial instead of
+  // overlapping, which is what pushed a cold start past 2s.
 
   useEffect(() => {
     loadSoundEnabled().then((enabled) => sound.setMuted(!enabled));
@@ -77,8 +77,9 @@ export default function RootLayout() {
 
   const onLayoutRootView = useCallback(() => {}, []);
 
-  if (!fontsLoaded) return null;
-
+  // The providers mount before the fonts land, so auth and the profile fetch start during the
+  // splash instead of after it, and so AnimatedSplash can read useAppReady() at all. Only the
+  // Stack waits on fonts — rendering screens in a fallback face would flash on swap.
   return (
     <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
       <ErrorBoundary>
@@ -87,21 +88,23 @@ export default function RootLayout() {
             <PushRegistration />
             <SafeAreaProvider>
               <StatusBar style="light" />
-              <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#0A0A0B" } }}>
-                <Stack.Screen name="index" />
-                <Stack.Screen name="onboarding" />
-                <Stack.Screen name="(tabs)" />
-                <Stack.Screen name="game/[id]" options={{ presentation: "card" }} />
-                <Stack.Screen name="venue/[id]" options={{ presentation: "card" }} />
-                <Stack.Screen name="venues/index" options={{ presentation: "card" }} />
-                <Stack.Screen name="game/edit/[id]" options={{ presentation: "modal" }} />
-                <Stack.Screen name="my-games/past" options={{ presentation: "card" }} />
-                <Stack.Screen name="chat/[id]" options={{ presentation: "card" }} />
-                <Stack.Screen name="post-game/[id]" options={{ presentation: "card" }} />
-                <Stack.Screen name="notifications" options={{ presentation: "card" }} />
-                <Stack.Screen name="wizard" options={{ presentation: "modal" }} />
-                <Stack.Screen name="compose" options={{ presentation: "modal" }} />
-              </Stack>
+              {fontsLoaded && (
+                <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: "#0A0A0B" } }}>
+                  <Stack.Screen name="index" />
+                  <Stack.Screen name="onboarding" />
+                  <Stack.Screen name="(tabs)" />
+                  <Stack.Screen name="game/[id]" options={{ presentation: "card" }} />
+                  <Stack.Screen name="venue/[id]" options={{ presentation: "card" }} />
+                  <Stack.Screen name="venues/index" options={{ presentation: "card" }} />
+                  <Stack.Screen name="game/edit/[id]" options={{ presentation: "modal" }} />
+                  <Stack.Screen name="my-games/past" options={{ presentation: "card" }} />
+                  <Stack.Screen name="chat/[id]" options={{ presentation: "card" }} />
+                  <Stack.Screen name="post-game/[id]" options={{ presentation: "card" }} />
+                  <Stack.Screen name="notifications" options={{ presentation: "card" }} />
+                  <Stack.Screen name="wizard" options={{ presentation: "modal" }} />
+                  <Stack.Screen name="compose" options={{ presentation: "modal" }} />
+                </Stack>
+              )}
               {showSplash && <AnimatedSplash onFinish={() => setShowSplash(false)} />}
             </SafeAreaProvider>
           </SessionProvider>

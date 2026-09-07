@@ -63,7 +63,7 @@ function jsonLdFor(v, canonicalUrl) {
 function notFoundHero() {
   return `
     <img src="/assets/smashio-mark.svg" alt="" class="rise rise-1" style="width:48px; height:48px; object-fit:contain; animation-name:smash-in, smash-drift; animation-duration:.6s, 3.4s; animation-timing-function:cubic-bezier(.16,1,.3,1), ease-in-out; animation-iteration-count:1, infinite; animation-direction:normal, alternate; animation-delay:.10s, .7s; animation-fill-mode:forwards, none" />
-    <h1 class="rise rise-2" style="margin:0; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:clamp(26px,7vw,34px); line-height:1.1; letter-spacing:-.03em">Venue not found</h1>
+    <h1 class="rise rise-2" style="margin:0; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:clamp(26px,7vw,34px); line-height:1.1; letter-spacing:-.03em">Venue not found</h1>
     <p class="rise rise-3" style="margin:0; max-width:42ch; font-size:14.5px; line-height:1.6; color:#96969E">This link doesn't point to a venue we know. Browse every court Smashio tracks in Sydney instead.</p>
     <a class="rise rise-3" href="/sydney" style="font-size:13.5px; font-weight:700">Browse all Sydney venues →</a>
     ${ctaButtons()}`;
@@ -75,7 +75,7 @@ function thinHero(v) {
       <span style="width:6px; height:6px; border-radius:50%; background:#D6FF3F"></span>
       <span style="font-size:11px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:#D6FF3F">Badminton · ${esc(v.suburb)}</span>
     </div>
-    <h1 class="rise rise-2" style="margin:0; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:clamp(28px,7vw,40px); line-height:1.05; letter-spacing:-.03em">${esc(v.name)}</h1>
+    <h1 class="rise rise-2" style="margin:0; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:clamp(28px,7vw,40px); line-height:1.05; letter-spacing:-.03em">${esc(v.name)}</h1>
     <p class="rise rise-3" style="margin:0; max-width:42ch; font-size:14.5px; line-height:1.6; color:#96969E">Full court details for this venue aren't in yet. Open it in the Smashio app to see what's on there.</p>
     ${ctaButtons()}`;
 }
@@ -87,7 +87,7 @@ function venueHero(v) {
       <span style="width:6px; height:6px; border-radius:50%; background:#D6FF3F; animation:smash-pulse 1.6s ease-in-out infinite"></span>
       <span style="font-size:11px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:#D6FF3F">Badminton · ${esc(v.suburb)}, Sydney</span>
     </div>
-    <h1 class="rise rise-2" style="margin:0; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:clamp(30px,7vw,42px); line-height:1.03; letter-spacing:-.03em; text-wrap:balance">${esc(v.name)}</h1>
+    <h1 class="rise rise-2" style="margin:0; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:clamp(30px,7vw,42px); line-height:1.03; letter-spacing:-.03em; text-wrap:balance">${esc(v.name)}</h1>
     ${v.address ? `<div class="rise rise-2" style="display:flex; align-items:center; gap:6px; color:#96969E; font-size:14px; font-weight:600"><ion-icon name="location-outline" style="font-size:15px; color:#7A7A82"></ion-icon><span>${esc(v.address)}</span></div>` : ""}
     <div class="rise rise-3" style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center">
       ${v.profile?.courts_total ? `<span class="stat"><ion-icon name="grid-outline" style="font-size:14px; color:#96969E"></ion-icon>${esc(v.profile.courts_total)} court${v.profile.courts_total === 1 ? "" : "s"}</span>` : ""}
@@ -109,7 +109,7 @@ function venueBody(v) {
   if (hoursRows.length > 0) {
     sections.push(`
       <div>
-        <h2 style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:16px; margin:0 0 12px">Opening hours</h2>
+        <h2 style="font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:16px; margin:0 0 12px">Opening hours</h2>
         <div style="display:grid; grid-template-columns:1fr auto; gap:6px 16px; font-size:13.5px">
           ${hoursRows.map((r) => `<span style="color:#96969E">${esc(r.day)}</span><span style="color:#F5F5F7; font-weight:600; text-align:right">${esc(r.label)}</span>`).join("")}
         </div>
@@ -119,7 +119,7 @@ function venueBody(v) {
   if (bands.length > 0) {
     sections.push(`
       <div>
-        <h2 style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:16px; margin:0 0 12px">Pricing</h2>
+        <h2 style="font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:16px; margin:0 0 12px">Pricing</h2>
         <div style="display:flex; flex-direction:column; gap:8px">
           ${bands
             .map(
@@ -135,7 +135,7 @@ function venueBody(v) {
   if (amenities.length > 0) {
     sections.push(`
       <div>
-        <h2 style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:16px; margin:0 0 12px">Amenities</h2>
+        <h2 style="font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:16px; margin:0 0 12px">Amenities</h2>
         <div style="display:flex; flex-wrap:wrap; gap:8px">
           ${amenities.map((a) => `<span class="chip">${esc(a.label)}</span>`).join("")}
         </div>

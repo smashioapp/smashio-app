@@ -38,7 +38,7 @@ module.exports = async function handler(req, res) {
       <span style="width:6px; height:6px; border-radius:50%; background:#D6FF3F; animation:smash-pulse 1.6s ease-in-out infinite"></span>
       <span style="font-size:11px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:#D6FF3F">${esc(venues.length)} venues tracked</span>
     </div>
-    <h1 class="rise rise-2" style="margin:0; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:clamp(30px,7vw,42px); line-height:1.03; letter-spacing:-.03em">Badminton courts in Sydney</h1>
+    <h1 class="rise rise-2" style="margin:0; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:clamp(30px,7vw,42px); line-height:1.03; letter-spacing:-.03em">Badminton courts in Sydney</h1>
     <p class="rise rise-3" style="margin:0; max-width:52ch; font-size:14.5px; line-height:1.65; color:#96969E">Every badminton venue Smashio tracks across Sydney, with courts, opening hours and pricing. Pick one to see what's on there — or open the app to see games happening tonight.</p>
     ${ctaButtons()}`;
 
@@ -50,7 +50,7 @@ module.exports = async function handler(req, res) {
             .map(
               (suburb) => `
             <div>
-              <h2 style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:15px; margin:0 0 12px; color:#F5F5F7">${esc(suburb)}</h2>
+              <h2 style="font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15px; margin:0 0 12px; color:#F5F5F7">${esc(suburb)}</h2>
               <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:10px">
                 ${bySuburb
                   .get(suburb)
@@ -81,14 +81,14 @@ module.exports = async function handler(req, res) {
       ? ""
       : `<div class="rise rise-4" style="display:flex; flex-direction:column; gap:32px; padding-top:32px; margin-top:32px; border-top:1px solid rgba(255,255,255,.06)">
           <div>
-            <h2 style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:19px; margin:0 0 4px; color:#F5F5F7">Sydney badminton clubs</h2>
+            <h2 style="font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:19px; margin:0 0 4px; color:#F5F5F7">Sydney badminton clubs</h2>
             <p style="margin:0; font-size:12.5px; color:#7A7A82">Pulled from Badminton NSW's club directory. Run one of these? <a href="mailto:hello@smashio.com.au?subject=Claim%20our%20club%20page">Get in touch</a> to claim your page.</p>
           </div>
           ${clubSuburbs
             .map(
               (suburb) => `
             <div>
-              <h3 style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:14px; margin:0 0 12px; color:#F5F5F7">${esc(suburb)}</h3>
+              <h3 style="font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14px; margin:0 0 12px; color:#F5F5F7">${esc(suburb)}</h3>
               <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:10px">
                 ${clubsBySuburb
                   .get(suburb)

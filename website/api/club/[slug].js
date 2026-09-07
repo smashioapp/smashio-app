@@ -47,7 +47,7 @@ function footerNote(c) {
 function notFoundHero() {
   return `
     <img src="/assets/smashio-mark.svg" alt="" class="rise rise-1" style="width:48px; height:48px; object-fit:contain; animation-name:smash-in, smash-drift; animation-duration:.6s, 3.4s; animation-timing-function:cubic-bezier(.16,1,.3,1), ease-in-out; animation-iteration-count:1, infinite; animation-direction:normal, alternate; animation-delay:.10s, .7s; animation-fill-mode:forwards, none" />
-    <h1 class="rise rise-2" style="margin:0; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:clamp(26px,7vw,34px); line-height:1.1; letter-spacing:-.03em">Club not found</h1>
+    <h1 class="rise rise-2" style="margin:0; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:clamp(26px,7vw,34px); line-height:1.1; letter-spacing:-.03em">Club not found</h1>
     <p class="rise rise-3" style="margin:0; max-width:42ch; font-size:14.5px; line-height:1.6; color:#96969E">This link doesn't point to a club we know. Browse Sydney badminton venues instead.</p>
     <a class="rise rise-3" href="/sydney" style="font-size:13.5px; font-weight:700">Browse all Sydney venues →</a>
     ${ctaButtons()}`;
@@ -59,7 +59,7 @@ function clubHero(c) {
       <span style="width:6px; height:6px; border-radius:50%; background:#D6FF3F"></span>
       <span style="font-size:11px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:#D6FF3F">Badminton club${c.hall_suburb ? ` · ${esc(c.hall_suburb)}, Sydney` : ""}</span>
     </div>
-    <h1 class="rise rise-2" style="margin:0; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:clamp(28px,7vw,40px); line-height:1.05; letter-spacing:-.03em; text-wrap:balance">${esc(c.name)}</h1>
+    <h1 class="rise rise-2" style="margin:0; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:clamp(28px,7vw,40px); line-height:1.05; letter-spacing:-.03em; text-wrap:balance">${esc(c.name)}</h1>
     ${
       c.hall_name
         ? `<div class="rise rise-2" style="display:flex; align-items:center; gap:6px; color:#96969E; font-size:14px; font-weight:600"><ion-icon name="location-outline" style="font-size:15px; color:#7A7A82"></ion-icon><span>Plays at ${esc(c.hall_name)}</span></div>`

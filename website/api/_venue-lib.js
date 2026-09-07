@@ -60,7 +60,7 @@ ${canonicalUrl ? `<meta property="og:url" content="${esc(canonicalUrl)}" />` : "
 ${jsonLd ? `<script type="application/ld+json">${JSON.stringify(jsonLd)}</script>` : ""}
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
 <script type="module" src="https://unpkg.com/ionicons@7.4.0/dist/ionicons/ionicons.esm.js"></script>
 <style>
   html { scroll-behavior: smooth; }
@@ -110,7 +110,7 @@ ${jsonLd ? `<script type="application/ld+json">${JSON.stringify(jsonLd)}</script
   <div style="max-width:880px; margin:0 auto; padding:14px 20px; display:flex; align-items:center; justify-content:space-between; gap:16px">
     <a href="/" style="display:flex; align-items:center; gap:6px; color:#F5F5F7">
       <img src="/assets/smashio-mark.svg" alt="Smashio" style="width:17px; height:17px" />
-      <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:19px; letter-spacing:-.02em">Smashio</span>
+      <span style="font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:19px; letter-spacing:-.02em">Smashio</span>
     </a>
     <a href="/sydney" class="nav-link" style="align-items:center; color:#96969E; font-size:13px; font-weight:600">All Sydney venues</a>
   </div>

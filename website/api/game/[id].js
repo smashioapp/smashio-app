@@ -78,7 +78,7 @@ ${ogUrl ? `<meta property="og:url" content="${esc(ogUrl)}" />` : ""}
 <meta name="twitter:image" content="https://smashio.com.au/assets/og-image.png" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
 <script type="module" src="https://unpkg.com/ionicons@7.4.0/dist/ionicons/ionicons.esm.js"></script>
 <style>
   html { scroll-behavior: smooth; }
@@ -124,7 +124,7 @@ ${ogUrl ? `<meta property="og:url" content="${esc(ogUrl)}" />` : ""}
   <div style="max-width:720px; margin:0 auto; padding:14px 20px; display:flex; align-items:center; justify-content:space-between; gap:16px">
     <a href="/" style="display:flex; align-items:center; gap:6px; color:#F5F5F7">
       <img src="/assets/smashio-mark.svg" alt="Smashio" style="width:17px; height:17px" />
-      <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:19px; letter-spacing:-.02em">Smashio</span>
+      <span style="font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:19px; letter-spacing:-.02em">Smashio</span>
     </a>
     <a href="/" class="nav-link" style="align-items:center; color:#96969E; font-size:13px; font-weight:600">Back to smashio.com.au</a>
   </div>
@@ -199,7 +199,7 @@ function notFoundHero({ heading, body }) {
       <span style="font-size:11px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:#D6FF3F">Shared game link</span>
     </div>
     <img src="/assets/smashio-mark.svg" alt="" class="rise rise-2" style="width:48px; height:48px; object-fit:contain; animation-name:smash-in, smash-drift; animation-duration:.6s, 3.4s; animation-timing-function:cubic-bezier(.16,1,.3,1), ease-in-out; animation-iteration-count:1, infinite; animation-direction:normal, alternate; animation-delay:.10s, .7s; animation-fill-mode:forwards, none" />
-    <h1 class="rise rise-2" style="margin:0; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:clamp(28px,7vw,38px); line-height:1.05; letter-spacing:-.03em; text-wrap:balance">${esc(heading)}</h1>
+    <h1 class="rise rise-2" style="margin:0; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:clamp(28px,7vw,38px); line-height:1.05; letter-spacing:-.03em; text-wrap:balance">${esc(heading)}</h1>
     <p class="rise rise-3" style="margin:0; max-width:42ch; font-size:15px; line-height:1.6; color:#96969E">${esc(body)}</p>
     ${ctaButtons()}`;
 }
@@ -225,7 +225,7 @@ function gameHero(preview) {
 
     <span class="rise rise-2" style="background:${chip.bg}; color:${chip.fg}; font-size:10.5px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; padding:5px 12px; border-radius:100px">${esc(chip.label)}</span>
 
-    <h1 class="rise rise-2" style="margin:0; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:clamp(32px,8vw,46px); line-height:1.02; letter-spacing:-.035em; text-wrap:balance">${esc(preview.venue_name)}</h1>
+    <h1 class="rise rise-2" style="margin:0; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:clamp(32px,8vw,46px); line-height:1.02; letter-spacing:-.035em; text-wrap:balance">${esc(preview.venue_name)}</h1>
 
     <div class="rise rise-2" style="display:flex; align-items:center; gap:6px; color:#96969E; font-size:14px; font-weight:600">
       <ion-icon name="calendar-outline" style="font-size:15px; color:#7A7A82"></ion-icon>

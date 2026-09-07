@@ -14,11 +14,15 @@
 // TypeScript (unit-tested in format.test.ts). Event matrix and tiers: docs/notifications-plan.md §4.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import {
+  achievementEarnedBody,
+  type ActorSummary,
   alertMatchBody,
   bookingVerifiedBody,
   CATEGORY_FOR_TYPE,
+  chatMentionBody,
   detailsChangedBody,
   expoMessages,
+  followedPostedBody,
   gameCancelledBody,
   gameFullBody,
   gameInviteBody,
@@ -30,11 +34,16 @@ import {
   type MessageSummary,
   messageBody,
   messageCoalescedBody,
+  newFollowerBody,
   nudgePendingBody,
   nudgeUnderfilledBody,
   playerLeftBody,
+  type PostSummary,
   postGameAttendanceBody,
   postGameRateBody,
+  postReactionBody,
+  postReplyBody,
+  postReplyCoalescedBody,
   type PushBody,
   type PushChannel,
   type PushTier,
@@ -42,12 +51,14 @@ import {
   holdNudgeBody,
   reminder24hBody,
   reminder2hBody,
+  replyToThreadBody,
   spotDeclinedBody,
+  waitlistPromotedBody,
 } from "./format.ts";
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
 
-type Recipient = { profile_id: string; expo_token: string };
+type Recipient = { profile_id: string; expo_token: string; platform?: string };
 
 type NotificationRow = {
   id: string;
@@ -89,13 +100,22 @@ const CHANNEL_FOR_TYPE: Record<string, PushChannel> = {
   nudge_pending: "reminders",
   alert_match: "discovery",
   message: "chat",
+  chat_mention: "chat",
+  waitlist_promoted: "requests",
+  post_reply: "social",
+  reply_to_thread: "social",
+  post_reaction: "social",
+  new_follower: "social",
+  followed_posted: "social",
+  achievement_earned: "social",
 };
 
-// §4A/§4E: A2 and E2 are the only two coalescing rules the plan defines. Window in minutes,
-// threshold = how many pending (sent_at is null) rows sharing a recipient + collapse_key inside
-// that window trigger the coalesced copy instead of N individual pushes.
-const COALESCE_WINDOW_MIN: Record<string, number> = { join_request: 10, message: 5 };
-const COALESCE_THRESHOLD: Record<string, number> = { join_request: 2, message: 3 };
+// §4A/§4E, extended by notifications-v2-plan.md §3F2: A2, E2 and F2 are the coalescing rules the
+// plan defines. Window in minutes, threshold = how many pending (sent_at is null) rows sharing a
+// recipient + collapse_key inside that window trigger the coalesced copy instead of N individual
+// pushes.
+const COALESCE_WINDOW_MIN: Record<string, number> = { join_request: 10, message: 5, post_reply: 15 };
+const COALESCE_THRESHOLD: Record<string, number> = { join_request: 2, message: 3, post_reply: 3 };
 
 // §6.5. Low tier is "silent, respects quiet hours" — the only tier that ever drops. Evaluated per
 // recipient, in their own timezone (profiles.timezone, bug #9), right before send.
@@ -116,6 +136,7 @@ async function sendExpoPush(
     data: Record<string, unknown>;
     tier: PushTier;
     channelId: PushChannel;
+    expand?: string;
     badge?: number;
   },
 ) {
@@ -220,11 +241,29 @@ const getUnreadCount = makeCache(async (profileId: string) => {
   return (data as number | null) ?? 0;
 });
 
-type Rendered = { body: PushBody; screen: string };
+const getActorSummary = makeCache(async (profileId: string) => {
+  const { data, error } = await supabase.rpc("push_actor_summary", { p_profile_id: profileId }).single();
+  if (error) {
+    if (error.code === "PGRST116") return null;
+    throw error;
+  }
+  return data as ActorSummary | null;
+});
+
+const getPostSummary = makeCache(async (postId: string) => {
+  const { data, error } = await supabase.rpc("push_post_summary", { p_post_id: postId }).single();
+  if (error) {
+    if (error.code === "PGRST116") return null;
+    throw error;
+  }
+  return data as PostSummary | null;
+});
+
+type Rendered = { body: PushBody; screen: string; extra?: Record<string, unknown> };
 
 // One row, one recipient — every notification type's individual (non-coalesced) copy.
 async function renderIndividual(row: NotificationRow): Promise<Rendered | null> {
-  if (row.type === "message") {
+  if (row.type === "message" || row.type === "chat_mention") {
     const { data: msgSummary, error } = await supabase
       .rpc("push_message_summary", { p_message_id: row.params.message_id })
       .single();
@@ -233,7 +272,47 @@ async function renderIndividual(row: NotificationRow): Promise<Rendered | null> 
       throw error;
     }
     if (!msgSummary) return null;
-    return { body: messageBody(msgSummary as MessageSummary), screen: "chat" };
+    const body = row.type === "chat_mention"
+      ? chatMentionBody(msgSummary as MessageSummary)
+      : messageBody(msgSummary as MessageSummary);
+    return { body, screen: "chat" };
+  }
+
+  // F-series social types (notifications-v2-plan.md §3F) have no game_id — they're anchored to a
+  // post or a follow relationship instead.
+  switch (row.type) {
+    case "post_reply": {
+      const post = await getPostSummary(row.params.post_id as string);
+      if (!post) return null;
+      const actor = row.actor_id ? await getActorName(row.actor_id) : "Someone";
+      const { data: reply } = await supabase.from("post_replies").select("body").eq("id", row.params.reply_id).maybeSingle();
+      return { body: postReplyBody(actor, (reply?.body as string | undefined) ?? "", post), screen: "post", extra: { post_id: row.params.post_id } };
+    }
+    case "reply_to_thread": {
+      const actor = row.actor_id ? await getActorName(row.actor_id) : "Someone";
+      const { data: reply } = await supabase.from("post_replies").select("body").eq("id", row.params.reply_id).maybeSingle();
+      return { body: replyToThreadBody(actor, (reply?.body as string | undefined) ?? ""), screen: "post", extra: { post_id: row.params.post_id } };
+    }
+    case "post_reaction": {
+      const post = await getPostSummary(row.params.post_id as string);
+      if (!post) return null;
+      const actor = row.actor_id ? await getActorName(row.actor_id) : "Someone";
+      const othersCount = Math.max(0, ((row.params.count as number) ?? 1) - 1);
+      return { body: postReactionBody(actor, othersCount, post), screen: "post", extra: { post_id: row.params.post_id } };
+    }
+    case "new_follower": {
+      const actor = row.actor_id ? await getActorName(row.actor_id) : "Someone";
+      const summary = row.actor_id ? await getActorSummary(row.actor_id) : null;
+      return { body: newFollowerBody(actor, summary ?? undefined), screen: "player", extra: { player_id: row.actor_id } };
+    }
+    case "followed_posted": {
+      const post = await getPostSummary(row.params.post_id as string);
+      if (!post) return null;
+      const actor = row.actor_id ? await getActorName(row.actor_id) : "Someone";
+      return { body: followedPostedBody(actor, post), screen: "post", extra: { post_id: row.params.post_id } };
+    }
+    case "achievement_earned":
+      return { body: achievementEarnedBody(row.params.achievement_id as string), screen: "profile" };
   }
 
   if (!row.game_id) return null;
@@ -243,7 +322,8 @@ async function renderIndividual(row: NotificationRow): Promise<Rendered | null> 
   switch (row.type) {
     case "join_request": {
       const actor = row.actor_id ? await getActorName(row.actor_id) : "A player";
-      return { body: joinRequestBody(actor, summary), screen: "game_requests" };
+      const actorSummary = row.actor_id ? await getActorSummary(row.actor_id) : null;
+      return { body: joinRequestBody(actor, summary, actorSummary ?? undefined), screen: "game_requests" };
     }
     case "player_left": {
       const actor = row.actor_id ? await getActorName(row.actor_id) : "A player";
@@ -264,6 +344,8 @@ async function renderIndividual(row: NotificationRow): Promise<Rendered | null> 
       // A declined player is sent looking for another game, not back to the one that said no.
       return { body: joinDecisionBody(status, summary), screen: status === "rejected" ? "discover" : "game" };
     }
+    case "waitlist_promoted":
+      return { body: waitlistPromotedBody(summary), screen: "game" };
     case "nudge_underfilled":
       return { body: nudgeUnderfilledBody(summary), screen: "game" };
     case "nudge_pending":
@@ -293,26 +375,37 @@ async function renderIndividual(row: NotificationRow): Promise<Rendered | null> 
   }
 }
 
-async function renderCoalesced(type: string, count: number, gameId: string): Promise<Rendered | null> {
-  const summary = await getGameSummary(gameId);
-  if (!summary) return null;
-  if (type === "join_request") return { body: joinRequestCoalescedBody(count, summary), screen: "game_requests" };
-  if (type === "message") return { body: messageCoalescedBody(count, summary), screen: "chat" };
+async function renderCoalesced(row: NotificationRow, count: number): Promise<Rendered | null> {
+  if (row.type === "join_request" && row.game_id) {
+    const summary = await getGameSummary(row.game_id);
+    if (!summary) return null;
+    return { body: joinRequestCoalescedBody(count, summary), screen: "game_requests" };
+  }
+  if (row.type === "message" && row.game_id) {
+    const summary = await getGameSummary(row.game_id);
+    if (!summary) return null;
+    return { body: messageCoalescedBody(count, summary), screen: "chat" };
+  }
+  if (row.type === "post_reply") {
+    const post = await getPostSummary(row.params.post_id as string);
+    if (!post) return null;
+    return { body: postReplyCoalescedBody(count, post), screen: "post", extra: { post_id: row.params.post_id } };
+  }
   return null;
 }
 
-async function fetchTokens(profileIds: string[]): Promise<Map<string, string>> {
+async function fetchTokens(profileIds: string[]): Promise<Map<string, Recipient>> {
   if (profileIds.length === 0) return new Map();
-  const { data } = await supabase.from("push_tokens").select("profile_id, expo_token").in("profile_id", profileIds);
-  const map = new Map<string, string>();
-  for (const row of (data ?? []) as Recipient[]) map.set(row.profile_id, row.expo_token);
+  const { data } = await supabase.from("push_tokens").select("profile_id, expo_token, platform").in("profile_id", profileIds);
+  const map = new Map<string, Recipient>();
+  for (const row of (data ?? []) as Recipient[]) map.set(row.profile_id, row);
   return map;
 }
 
-async function markSent(ids: string[], title?: string, body?: string): Promise<void> {
+async function markSent(ids: string[], title?: string, body?: string, expand?: string): Promise<void> {
   await supabase
     .from("notifications")
-    .update({ sent_at: new Date().toISOString(), ...(title !== undefined ? { title, body } : {}) })
+    .update({ sent_at: new Date().toISOString(), ...(title !== undefined ? { title, body, expand: expand ?? null } : {}) })
     .in("id", ids);
 }
 
@@ -340,7 +433,7 @@ async function dispatchNotifications(ids: string[]): Promise<void> {
 
     try {
       const threshold = row.collapse_key ? COALESCE_THRESHOLD[row.type] : undefined;
-      if (groupKey && threshold && row.game_id) {
+      if (groupKey && threshold) {
         const windowMin = COALESCE_WINDOW_MIN[row.type];
         // Count every sibling in the window, sent or not — most rows get individually dispatched
         // within milliseconds of being enqueued, so gating on "still unsent" almost never catches a
@@ -361,7 +454,7 @@ async function dispatchNotifications(ids: string[]): Promise<void> {
         const unsent = siblingRows.filter((s) => s.sent_at === null).map((s) => s.id);
         if (count >= threshold) {
           idsToStamp = unsent.length > 0 ? unsent : [row.id];
-          rendered = await renderCoalesced(row.type, count, row.game_id);
+          rendered = await renderCoalesced(row, count);
         } else {
           rendered = await renderIndividual(row);
         }
@@ -384,15 +477,16 @@ async function dispatchNotifications(ids: string[]): Promise<void> {
       continue;
     }
 
-    const { title, body } = rendered.body;
-    const token = tokens.get(row.profile_id);
-    if (token) {
+    const { title, body, expand } = rendered.body;
+    const recipient = tokens.get(row.profile_id);
+    if (recipient) {
       const badge = await getUnreadCount(row.profile_id);
       const categoryId = CATEGORY_FOR_TYPE[row.type];
-      await sendExpoPush([{ profile_id: row.profile_id, expo_token: token }], {
+      await sendExpoPush([recipient], {
         title,
         body,
-        data: { type: row.type, screen: rendered.screen, game_id: row.game_id, notification_id: row.id },
+        expand,
+        data: { type: row.type, screen: rendered.screen, game_id: row.game_id, notification_id: row.id, ...(rendered.extra ?? {}) },
         tier: row.priority as PushTier,
         channelId: CHANNEL_FOR_TYPE[row.type] ?? "reminders",
         ...(categoryId ? { categoryId } : {}),
@@ -400,7 +494,7 @@ async function dispatchNotifications(ids: string[]): Promise<void> {
       });
     }
 
-    await markSent(idsToStamp, title, body);
+    await markSent(idsToStamp, title, body, expand);
   }
 }
 

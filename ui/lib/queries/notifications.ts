@@ -11,21 +11,37 @@ export type NotificationItem = {
   id: string;
   type: string;
   gameId: string | null;
+  actorId: string | null;
+  actorDisplayName: string | null;
+  actorPhotoPath: string | null;
+  actorAvatarKey: string | null;
   params: Record<string, unknown>;
   title: string | null;
   body: string | null;
+  // notifications-v2-plan.md §4.1 — the "why am I seeing this" second line, shown as a third
+  // line here since the inbox has room the lock screen doesn't.
+  expand: string | null;
   createdAt: string;
   readAt: string | null;
 };
 
-function toItem(row: Row): NotificationItem {
+type RowWithActor = Row & {
+  actor: { display_name: string | null; photo_path: string | null; avatar_key: string | null } | null;
+};
+
+function toItem(row: RowWithActor): NotificationItem {
   return {
     id: row.id,
     type: row.type,
     gameId: row.game_id,
+    actorId: row.actor_id,
+    actorDisplayName: row.actor?.display_name ?? null,
+    actorPhotoPath: row.actor?.photo_path ?? null,
+    actorAvatarKey: row.actor?.avatar_key ?? null,
     params: (row.params as Record<string, unknown>) ?? {},
     title: row.title,
     body: row.body,
+    expand: (row as Row & { expand?: string | null }).expand ?? null,
     createdAt: row.created_at,
     readAt: row.read_at,
   };
@@ -33,7 +49,24 @@ function toItem(row: Row): NotificationItem {
 
 // §7 "Tap routing" — mirrors push-dispatch's screen mapping (index.ts's `rendered.screen`) since
 // an inbox row and the push that (may have) accompanied it should land in the same place.
+// notifications-v2-plan.md §3F widens this to post/player destinations, which have no game_id.
 export function routeForNotification(item: NotificationItem): string | null {
+  switch (item.type) {
+    case "post_reply":
+    case "reply_to_thread":
+    case "post_reaction":
+    case "followed_posted":
+      return typeof item.params.post_id === "string" ? `/post/${item.params.post_id}` : null;
+    case "new_follower":
+      return item.actorId ? `/player/${item.actorId}` : null;
+    case "achievement_earned":
+      return "/(tabs)/profile";
+    case "chat_mention":
+      return item.gameId ? `/chat/${item.gameId}` : null;
+    case "waitlist_promoted":
+      return item.gameId ? `/game/${item.gameId}` : null;
+  }
+
   if (!item.gameId) return null;
   switch (item.type) {
     case "join_request":
@@ -92,12 +125,12 @@ export function useNotificationsInbox() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("notifications")
-        .select("*")
+        .select("*, actor:profiles!notifications_actor_id_fkey(display_name, photo_path, avatar_key)")
         .not("sent_at", "is", null)
         .order("created_at", { ascending: false })
         .limit(50);
       if (error) throw error;
-      return (data ?? []).map(toItem);
+      return (data ?? []).map((row) => toItem(row as unknown as RowWithActor));
     },
   });
 }

@@ -52,9 +52,20 @@ function tierColor(label) {
   return TIER_COLORS[key] || "#D6FF3F";
 }
 
+// notifications-v2-plan.md §6.2 V2.0: "pick one at request time from the data game_preview
+// already returns" — a badminton intermediate game no longer looks identical to a club page.
+// Templates pre-rendered by scripts/generate-og-templates.js (no build step gained: website/
+// stays dependency-free per §6.2's 2026-09-07 decision).
+function ogImageFor(tierLabel) {
+  const key = String(tierLabel || "").toLowerCase();
+  const known = ["beginner", "intermediate", "advanced", "pro"];
+  const tier = known.includes(key) ? key : "intermediate";
+  return `https://smashio.com.au/assets/og/og-badminton-${tier}.png`;
+}
+
 // Shared head block + brand chrome (header/footer/background) — only the hero content differs
 // between a real game and the not-found fallback.
-function shell({ title, ogTitle, ogDescription, ogUrl, heroContent }) {
+function shell({ title, ogTitle, ogDescription, ogUrl, ogImage, heroContent }) {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -69,13 +80,15 @@ function shell({ title, ogTitle, ogDescription, ogUrl, heroContent }) {
 ${ogUrl ? `<meta property="og:url" content="${esc(ogUrl)}" />` : ""}
 <meta property="og:title" content="${esc(ogTitle)}" />
 <meta property="og:description" content="${esc(ogDescription)}" />
-<meta property="og:image" content="https://smashio.com.au/assets/og-image.png" />
+<meta property="og:image" content="${esc(ogImage || "https://smashio.com.au/assets/og-image.png")}" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="${esc(ogTitle)}" />
+<meta property="og:site_name" content="Smashio" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="${esc(ogTitle)}" />
 <meta name="twitter:description" content="${esc(ogDescription)}" />
-<meta name="twitter:image" content="https://smashio.com.au/assets/og-image.png" />
+<meta name="twitter:image" content="${esc(ogImage || "https://smashio.com.au/assets/og-image.png")}" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
@@ -312,6 +325,7 @@ module.exports = async function handler(req, res) {
     ogTitle,
     ogDescription,
     ogUrl: canonicalUrl,
+    ogImage: ogImageFor(preview.skill_tier_label),
     heroContent: gameHero(preview),
   }));
 };

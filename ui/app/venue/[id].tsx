@@ -13,8 +13,7 @@ import { HatchPattern } from "../../components/HatchPattern";
 import { haptics } from "../../lib/haptics";
 import { formatTimeShort } from "../../lib/format";
 import { useAppStore } from "../../lib/store";
-import { track } from "../../lib/analytics";
-import { Share } from "react-native";
+import { shareVenue } from "../../lib/share";
 
 const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const AMENITY_CATEGORY_LABELS: Record<string, string> = {
@@ -41,14 +40,6 @@ function unitLabel(unit: string): string {
   if (unit === "court_hour") return "/court/hr";
   if (unit === "person_hour") return "/person/hr";
   return "/person";
-}
-
-async function shareVenue(id: string, name: string) {
-  const url = `https://smashio.com.au/venue/${id}`;
-  try {
-    const result = await Share.share({ message: `Check out ${name} on Smashio`, url });
-    if (result.action === Share.sharedAction) track("share_sent", { kind: "venue", venue_id: id });
-  } catch {}
 }
 
 export default function VenueScreen() {

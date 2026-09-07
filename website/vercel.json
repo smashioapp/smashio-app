@@ -13,6 +13,7 @@
     { "source": "/game/:id", "destination": "/api/game/:id" },
     { "source": "/venue/:slug", "destination": "/api/venue/:slug" },
     { "source": "/club/:slug", "destination": "/api/club/:slug" },
+    { "source": "/post/:id", "destination": "/api/post/:id" },
     { "source": "/sydney", "destination": "/api/sydney" },
     { "source": "/sitemap.xml", "destination": "/api/sitemap" },
     { "source": "/player/:id", "destination": "/player.html" }

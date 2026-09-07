@@ -47,6 +47,7 @@ const ANDROID_CHANNELS: { id: string; name: string; importance: Notifications.An
   { id: "chat", name: "Chat messages", importance: Notifications.AndroidImportance.HIGH },
   { id: "reminders", name: "Reminders", importance: Notifications.AndroidImportance.DEFAULT },
   { id: "discovery", name: "Games near you", importance: Notifications.AndroidImportance.LOW },
+  { id: "social", name: "Social", importance: Notifications.AndroidImportance.LOW },
 ];
 
 // Action buttons P3. Android actions per category; iOS categories registered separately via
@@ -65,11 +66,16 @@ const ANDROID_ACTION_GROUPS: Record<string, Notifications.NotificationAction[]> 
       options: { opensAppToForeground: false },
     },
   ],
+  // notifications-v2-plan.md §5.4: the Reply button used to open the app and do nothing
+  // (opensAppToForeground: true, no textInput) — a button that costs a tap and teaches people
+  // the action is fake. textInput + opensAppToForeground: false lets Android's own RemoteInput
+  // UI collect the reply without leaving the notification shade.
   chat_actions: [
     {
       identifier: "reply_chat",
       buttonTitle: "Reply",
-      options: { opensAppToForeground: true, isDestructive: false },
+      textInput: { submitButtonTitle: "Send", placeholder: "Type a reply…" },
+      options: { opensAppToForeground: false, isDestructive: false },
     },
   ],
 };
@@ -131,7 +137,8 @@ async function registerForPush(profileId: string) {
       {
         identifier: "reply_chat",
         buttonTitle: "Reply",
-        options: { opensAppToForeground: true, isDestructive: false },
+        textInput: { submitButtonTitle: "Send", placeholder: "Type a reply…" },
+        options: { opensAppToForeground: false, isDestructive: false },
       },
     ]);
   }
@@ -207,9 +214,24 @@ async function handleNotificationAction(response: Notifications.NotificationResp
     return;
   }
 
-  // P3 chat reply action (E1): placeholder for now. Full implementation requires a compose UI.
+  // notifications-v2-plan.md §5.4: real inline reply. userText comes from the textInput action
+  // registered above; a response without one (a plain tap on the button, if the OS ever allows
+  // it without opening the field) falls back to opening the chat rather than sending nothing.
   if (actionId === "reply_chat") {
-    router.push(`/chat/${data.game_id}`);
+    const userText = (response as Notifications.NotificationResponse & { userText?: string }).userText;
+    if (!userText || !data.notification_id) {
+      router.push(`/chat/${data.game_id}`);
+      return;
+    }
+    try {
+      await supabase.rpc("send_chat_reply", {
+        p_notification_id: data.notification_id,
+        p_game_id: data.game_id,
+        p_text: userText,
+      });
+    } catch {
+      // Best-effort — the player can still open the chat and retry manually.
+    }
     return;
   }
 }

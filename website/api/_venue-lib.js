@@ -33,7 +33,7 @@ async function callRpc(name, body) {
 // Shared head block + brand chrome. `indexable` controls whether crawlers are told to index this
 // page — real venue content is, the generic not-found/thin fallback isn't (duplicate/empty pages
 // hurt more than they help). `jsonLd` is an optional object serialised as a schema.org block.
-function shell({ title, description, canonicalUrl, indexable, jsonLd, heroContent, bodyContent }) {
+function shell({ title, description, canonicalUrl, indexable, jsonLd, heroContent, bodyContent, ogType }) {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -46,13 +46,15 @@ ${canonicalUrl ? `<link rel="canonical" href="${esc(canonicalUrl)}" />` : ""}
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
 <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png" />
 <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
-<meta property="og:type" content="website" />
+<meta property="og:type" content="${esc(ogType || "website")}" />
 ${canonicalUrl ? `<meta property="og:url" content="${esc(canonicalUrl)}" />` : ""}
 <meta property="og:title" content="${esc(title)}" />
 <meta property="og:description" content="${esc(description)}" />
 <meta property="og:image" content="https://smashio.com.au/assets/og-image.png" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
+<meta property="og:image:alt" content="${esc(title)}" />
+<meta property="og:site_name" content="Smashio" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="${esc(title)}" />
 <meta name="twitter:description" content="${esc(description)}" />

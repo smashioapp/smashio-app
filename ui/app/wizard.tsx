@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { View, Text, Pressable, ScrollView, Alert, Image, TextInput, ActivityIndicator, PanResponder, Share, Platform } from "react-native";
+import { View, Text, Pressable, ScrollView, Alert, Image, TextInput, ActivityIndicator, PanResponder } from "react-native";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
@@ -29,6 +29,7 @@ import {
 } from "../lib/queries/games";
 import { usePlayerSearch } from "../lib/queries/reservedSpots";
 import { newSessionToken, searchPlaces, getPlaceDetails, type PlacePrediction } from "../lib/places";
+import { shareGame } from "../lib/share";
 import { Burst } from "../components/Burst";
 import { Glow } from "../components/Glow";
 import { PropOverlay } from "../components/PropOverlay";
@@ -961,11 +962,13 @@ export default function Wizard() {
               <Pressable
                 onPress={async () => {
                   haptics.tap();
-                  const url = `https://smashio.com.au/game/${createdGameId}`;
-                  const text = `Come play badminton with me at ${venue?.name ?? "the courts"} · ${formatDate(wizard.startsAt.toISOString())} ${formatTimeShort(wizard.startsAt.toISOString())}`;
-                  try {
-                    await Share.share(Platform.OS === "ios" ? { message: text, url } : { message: `${text} — ${url}` });
-                  } catch {}
+                  if (!createdGameId) return;
+                  await shareGame({
+                    id: createdGameId,
+                    venue: venue?.name ?? "the courts",
+                    date: formatDate(wizard.startsAt.toISOString()),
+                    time: formatTimeShort(wizard.startsAt.toISOString()),
+                  });
                 }}
                 className="w-full rounded-pill py-4 items-center flex-row justify-center gap-2"
                 style={{ backgroundColor: colors.accent }}

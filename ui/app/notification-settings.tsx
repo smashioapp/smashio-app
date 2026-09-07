@@ -32,6 +32,8 @@ const CATEGORIES: { key: NotificationCategory; label: string; description: strin
   { key: "game_changes", label: "Game changes", description: "Cancellations, reschedules, and edits to games you're in" },
   { key: "reminders", label: "Reminders", description: "Upcoming games and post-game rating nudges" },
   { key: "alerts", label: "Discover alerts", description: "New games matching what you're after" },
+  { key: "social", label: "Social", description: "Replies, reactions, new followers and achievements" },
+  { key: "social_activity", label: "People you follow", description: "When someone you follow needs players" },
   { key: "marketing", label: "Product news & promos", description: "What's new with Smashio, every so often" },
 ];
 
@@ -78,6 +80,8 @@ function toField(key: NotificationCategory) {
     game_changes: "gameChanges",
     alerts: "alerts",
     nudges: "nudges",
+    social: "social",
+    social_activity: "socialActivity",
     // Not in CATEGORIES above — marketing consent lives in Settings' Notifications group
     // (settings.tsx), not this screen. Listed here only so the map stays exhaustive over
     // NotificationCategory.

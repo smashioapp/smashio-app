@@ -1,11 +1,14 @@
 import { assertEquals, assertMatch } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
+  achievementEarnedBody,
   alertMatchBody,
   bookingVerifiedBody,
+  chatMentionBody,
   clockTime,
   dayLabel,
   detailsChangedBody,
   expoMessages,
+  followedPostedBody,
   gameCancelledBody,
   gameFullBody,
   type GameSummary,
@@ -16,17 +19,24 @@ import {
   messageBody,
   messageCoalescedBody,
   money,
+  newFollowerBody,
   nudgePendingBody,
   nudgeUnderfilledBody,
   pick,
   playerLeftBody,
+  type PostSummary,
   postGameRateBody,
+  postReactionBody,
+  postReplyBody,
+  postReplyCoalescedBody,
   holdAutoReleasedBody,
   holdNudgeBody,
   reminder24hBody,
   reminder2hBody,
+  replyToThreadBody,
   shortTime,
   spotDeclinedBody,
+  waitlistPromotedBody,
 } from "./format.ts";
 
 // --- shortTime: the timezone bug -------------------------------------------------------------
@@ -434,4 +444,133 @@ Deno.test("expoMessages maps tier to priority, sound and interruptionLevel", () 
 Deno.test("expoMessages always carries a channelId", () => {
   const recipients = [{ profile_id: "1", expo_token: "ExponentPushToken[abc]" }];
   assertEquals(expoMessages(recipients, opts("low"))[0].channelId, "requests");
+});
+
+// --- notifications-v2-plan.md §4.1: the expand line ---------------------------------------------
+
+Deno.test("joinRequestBody carries an expand line only when an actor summary is given", () => {
+  const bare = joinRequestBody("Sam", summary);
+  assertEquals(bare.expand, undefined);
+
+  const withActor = joinRequestBody("Sam", summary, {
+    display_name: "Sam",
+    tier_label: "Intermediate",
+    games_played: 12,
+    reliability_label: "Good",
+    suburb: "Homebush",
+  });
+  assertMatch(withActor.expand!, /Intermediate · 12 games played · Good reliability/);
+});
+
+Deno.test("gameCancelledBody's expand offers a next step, not a restatement", () => {
+  assertMatch(gameCancelledBody(summary).expand!, /other games on near you/);
+});
+
+Deno.test("nudgeUnderfilledBody's expand states the current fill and typical timing", () => {
+  const { expand } = nudgeUnderfilledBody(withSummary({ spots_left: 3, max_players: 8 }));
+  assertMatch(expand!, /5 of 8 in/);
+});
+
+Deno.test("postGameRateBody's expand names the people, when given", () => {
+  assertEquals(postGameRateBody(summary, 3).expand, undefined);
+  assertMatch(postGameRateBody(summary, 3, ["Sam", "Alex", "Jo"]).expand!, /^Sam, Alex and Jo\. Ratings stay private/);
+  assertMatch(postGameRateBody(summary, 1, ["Sam"]).expand!, /^Sam\. Ratings stay private/);
+});
+
+Deno.test("bookingVerifiedBody's expand explains why it matters", () => {
+  assertMatch(bookingVerifiedBody(summary).expand!, /not getting cancelled for a booking clash/);
+});
+
+Deno.test("gameFullBody's expand offers the one thing still possible", () => {
+  assertMatch(gameFullBody(summary).expand!, /reserved spot for a mate/);
+});
+
+Deno.test("alertMatchBody's expand names the alert when known, else a generic fallback", () => {
+  assertMatch(alertMatchBody(summary, "Weeknight intermediate").expand!, /Matches your 'Weeknight intermediate' alert/);
+  assertMatch(alertMatchBody(summary).expand!, /Matches one of your saved alerts/);
+});
+
+// --- G1 chat_mention ----------------------------------------------------------------------------
+
+Deno.test("chatMentionBody names the sender and carries where/when in the expand line", () => {
+  const { title, body, expand } = chatMentionBody({
+    chat_mode: "normal",
+    sender_name: "Riya",
+    venue_name: "Test Courts",
+    sport_name: "Badminton",
+    kind: "text",
+    body: "@you can you cover my spot?",
+    starts_at: "2026-06-15T04:00:00Z",
+  });
+  assertEquals(title, "Riya mentioned you");
+  assertMatch(body, /cover my spot/);
+  assertMatch(expand!, /In Badminton at Test Courts, Mon 2:00 pm\./);
+});
+
+// --- H1 waitlist_promoted ------------------------------------------------------------------------
+
+Deno.test("waitlistPromotedBody explains it was a promotion, not a manual approval", () => {
+  const { title, expand } = waitlistPromotedBody(summary);
+  assertEquals(title, "A spot opened up, you're in");
+  assertMatch(expand!, /next on the waitlist/);
+});
+
+// --- F1-F7 social ---------------------------------------------------------------------------------
+
+const post: PostSummary = {
+  author_id: "cccccccc-0000-0000-0000-000000000001",
+  body: "Looking for a fourth on Thursday night, anyone keen?",
+  kind: "looking_for_players",
+  sport_name: "Badminton",
+  venue_name: "Test Courts",
+  game_id: null,
+  starts_at: "2026-06-18T09:00:00Z",
+  spots_left: 1,
+};
+
+Deno.test("postReplyBody names the actor and quotes the post", () => {
+  const { title, expand } = postReplyBody("Sam", "I'm in!", post);
+  assertEquals(title, "Sam replied");
+  assertMatch(expand!, /On your post: 'Looking for a fourth on Thursday night, anyone keen\?'/);
+});
+
+Deno.test("postReplyCoalescedBody states the count, not a name", () => {
+  const { title } = postReplyCoalescedBody(4, post);
+  assertEquals(title, "4 replies on your post");
+});
+
+Deno.test("postReactionBody names an actor plus a count of others, coalesced-only", () => {
+  assertEquals(postReactionBody("Sam", 2, post).title, "Sam and 2 others backed your post");
+  assertEquals(postReactionBody("Sam", 0, post).title, "Sam backed your post");
+});
+
+Deno.test("replyToThreadBody says someone joined the thread, not that they replied to you", () => {
+  assertEquals(replyToThreadBody("Alex", "count me in too").title, "Alex joined a thread you're in");
+});
+
+Deno.test("newFollowerBody carries tier/games/suburb when known, and always nudges a follow-back", () => {
+  const withSummaryLine = newFollowerBody("Priya", {
+    display_name: "Priya",
+    tier_label: "Advanced",
+    games_played: 30,
+    reliability_label: "Excellent",
+    suburb: "Chatswood",
+  });
+  assertMatch(withSummaryLine.body, /Advanced · 30 games played · plays around Chatswood/);
+  assertMatch(withSummaryLine.expand!, /Follow back/);
+
+  assertEquals(newFollowerBody("Priya").body, "Check out their profile on Smashio.");
+});
+
+Deno.test("followedPostedBody states the game, not just that someone posted", () => {
+  const { title, body } = followedPostedBody("Sam", post);
+  assertEquals(title, "Sam needs players");
+  assertMatch(body, /Badminton at Test Courts/);
+  assertMatch(body, /1 spots/);
+});
+
+Deno.test("achievementEarnedBody looks up the name and blurb, with a safe fallback", () => {
+  assertEquals(achievementEarnedBody("played_10").title, "10 games played unlocked");
+  assertMatch(achievementEarnedBody("played_10").expand!, /share it/);
+  assertEquals(achievementEarnedBody("not_a_real_id").title, "New achievement unlocked");
 });

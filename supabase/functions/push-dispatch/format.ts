@@ -65,7 +65,7 @@ export type PushTier = "critical" | "normal" | "low";
 
 // Android channel per category, created client-side in ui/lib/notifications.ts with matching
 // importance. Keep the ids in sync with that file.
-export type PushChannel = "chat" | "requests" | "game-updates" | "reminders" | "discovery";
+export type PushChannel = "chat" | "requests" | "game-updates" | "reminders" | "discovery" | "social";
 
 // iOS notification categories (P3) with action buttons. Map which types get which category.
 // P3 implements two action types: join_actions (approve/decline for A1) and chat_actions (reply for E1).
@@ -94,7 +94,17 @@ export type GameSummary = {
   verification_status: string;
 };
 
-export type PushBody = { title: string; body: string };
+export type PushBody = { title: string; body: string; expand?: string };
+
+// §4.2. Everything here is already visible on the player card to any authenticated user — this
+// just moves it to where a decision (approve/decline, follow back) is actually made.
+export type ActorSummary = {
+  display_name: string;
+  tier_label: string | null;
+  games_played: number;
+  reliability_label: string;
+  suburb: string | null;
+};
 
 // "{sport} at {venue}" — the phrase almost every body needs.
 function where(s: GameSummary): string {
@@ -114,15 +124,19 @@ function spotsPhrase(s: GameSummary): string {
 // --- A. Roster -------------------------------------------------------------------------------
 
 // A1. The headline gap: before this, a host learned about a request only by opening the game.
-export function joinRequestBody(actor: string, s: GameSummary): PushBody {
+export function joinRequestBody(actor: string, s: GameSummary, actorSummary?: ActorSummary): PushBody {
   const title = pick(
     [`${actor} wants in`, `${actor} is asking for a spot`, `New request from ${actor}`],
     s.game_id,
   );
   const filled = s.approved_count + s.reserved_spots;
+  const expand = actorSummary
+    ? `${actorSummary.tier_label ?? "Unrated"} · ${actorSummary.games_played} games played · ${actorSummary.reliability_label} reliability. Approve or decline right here.`
+    : undefined;
   return {
     title,
     body: `${where(s)}, ${shortTime(s.starts_at)} · ${filled} of ${s.max_players} filled. Approve or decline.`,
+    ...(expand ? { expand } : {}),
   };
 }
 
@@ -186,6 +200,7 @@ export function gameFullBody(s: GameSummary): PushBody {
   return {
     title,
     body: `${s.max_players} of ${s.max_players} in for ${where(s)}, ${shortTime(s.starts_at)}.`,
+    expand: "Requests are closed. You can still add a reserved spot for a mate.",
   };
 }
 
@@ -196,6 +211,7 @@ export function gameCancelledBody(s: GameSummary): PushBody {
   return {
     title: "Game cancelled",
     body: `${s.host_name} called off ${where(s)}, ${shortTime(s.starts_at)}. Your spot's released — nothing owed.`,
+    expand: "You haven't been charged anything. There are other games on near you, have a look.",
   };
 }
 
@@ -221,6 +237,17 @@ export function bookingVerifiedBody(s: GameSummary): PushBody {
   return {
     title: "Court booking confirmed",
     body: `${s.host_name} uploaded the booking for ${s.venue_name}, ${shortTime(s.starts_at)}.`,
+    expand: "The court's locked in, so this one's not getting cancelled for a booking clash.",
+  };
+}
+
+// H1. Waitlist promotion borrowed join_decision's "approved" copy before this — same trigger,
+// different reason, and the reason is the whole point: the player needs to reply fast.
+export function waitlistPromotedBody(s: GameSummary): PushBody {
+  return {
+    title: "A spot opened up, you're in",
+    body: `${where(s)}, ${shortTime(s.starts_at)} · ${s.host_name} is hosting.`,
+    expand: "You were next on the waitlist. Can't make it? Drop out now so the next person gets it.",
   };
 }
 
@@ -254,12 +281,16 @@ export function reminder2hBody(s: GameSummary): PushBody {
 
 // C3. Feeds ratings, which feed reliability, which feed trust — the plan's highest-value
 // addition after A1. n is the count of people this recipient can rate.
-export function postGameRateBody(s: GameSummary, rateableCount: number): PushBody {
+export function postGameRateBody(s: GameSummary, rateableCount: number, names?: string[]): PushBody {
   const title = pick(["How was the game?", "Good hit?", "Rate your game"], s.game_id);
   const who = rateableCount === 1 ? "the player" : `the ${rateableCount} players`;
+  const expand = names && names.length > 0
+    ? `${names.length === 1 ? names[0] : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`}. Ratings stay private and take about 20 seconds.`
+    : undefined;
   return {
     title,
     body: `Rate ${who} from ${where(s)}. Ten seconds, and it's private.`,
+    ...(expand ? { expand } : {}),
   };
 }
 
@@ -318,6 +349,7 @@ export function nudgeUnderfilledBody(s: GameSummary): PushBody {
   return {
     title: `${open} ${plural} still open`,
     body: `${where(s)} is tomorrow at ${clockTime(s.starts_at)}. Share it to fill up.`,
+    expand: `${s.max_players - open} of ${s.max_players} in. Games that fill up usually do it in the last day.`,
   };
 }
 
@@ -334,11 +366,14 @@ export function nudgePendingBody(s: GameSummary, pendingCount: number): PushBody
 
 // --- D. Discovery ----------------------------------------------------------------------------
 
-export function alertMatchBody(s: GameSummary): PushBody {
+export function alertMatchBody(s: GameSummary, alertName?: string | null): PushBody {
   const area = s.venue_suburb ?? s.venue_name;
   return {
     title: `New ${s.sport_name} game in ${area}`,
     body: `${s.venue_name}, ${shortTime(s.starts_at)} · ${s.tier_name} · ${money(s.per_player_cents)} · ${spotsPhrase(s)}`,
+    expand: alertName
+      ? `Matches your '${alertName}' alert. Turn it off in Discover any time.`
+      : "Matches one of your saved alerts. Turn alerts off in Discover any time.",
   };
 }
 
@@ -351,7 +386,21 @@ export type MessageSummary = {
   sport_name?: string;
   kind: string;
   body: string;
+  starts_at?: string;
 };
+
+// G1. Ships as designed in notifications-plan.md §4E, three weeks late (notifications-v2-plan.md
+// §1.2/§3G). A mentioned recipient gets this instead of the ordinary message push — same message,
+// distinct copy, since being named by the host is the one thing in chat that's definitely for you.
+export function chatMentionBody(summary: MessageSummary): PushBody {
+  const game = summary.sport_name ? `${summary.sport_name} at ${summary.venue_name}` : summary.venue_name;
+  const expand = summary.starts_at ? `In ${game}, ${shortTime(summary.starts_at)}.` : `In ${game}.`;
+  return {
+    title: `${summary.sender_name} mentioned you`,
+    body: summary.body.slice(0, 140),
+    expand,
+  };
+}
 
 // E2. §4E: 3+ unread messages from one game within 5 min collapse the same way A2 does.
 export function messageCoalescedBody(n: number, s: GameSummary): PushBody {
@@ -374,6 +423,97 @@ export function messageBody(summary: MessageSummary): PushBody {
   return { title, body };
 }
 
+// --- F. Social (notifications-v2-plan.md §3F) -------------------------------------------------
+
+export type PostSummary = {
+  author_id: string | null;
+  body: string | null;
+  kind: string;
+  sport_name: string | null;
+  venue_name: string | null;
+  game_id: string | null;
+  starts_at: string | null;
+  spots_left: number | null;
+};
+
+function postExcerpt(p: PostSummary): string {
+  const text = (p.body ?? "").trim();
+  return text.length > 80 ? `${text.slice(0, 80)}…` : text;
+}
+
+// F1.
+export function postReplyBody(actor: string, replyText: string, post: PostSummary): PushBody {
+  return {
+    title: `${actor} replied`,
+    body: replyText.slice(0, 140),
+    expand: `On your post: '${postExcerpt(post)}'`,
+  };
+}
+
+// F2. §3F: 3+ replies in 15 min collapse, same mechanism as A2/E2.
+export function postReplyCoalescedBody(n: number, post: PostSummary): PushBody {
+  return {
+    title: `${n} replies on your post`,
+    body: `'${postExcerpt(post)}'`,
+  };
+}
+
+// F3. Coalesced-only by design (§3F note) — never sent per-reaction.
+export function postReactionBody(actor: string, othersCount: number, post: PostSummary): PushBody {
+  const title = othersCount > 0 ? `${actor} and ${othersCount} others backed your post` : `${actor} backed your post`;
+  return { title, body: `'${postExcerpt(post)}'` };
+}
+
+// F4. Someone else joined a thread the recipient is also in.
+export function replyToThreadBody(actor: string, replyText: string): PushBody {
+  return {
+    title: `${actor} joined a thread you're in`,
+    body: replyText.slice(0, 140),
+  };
+}
+
+// F5.
+export function newFollowerBody(actor: string, s?: ActorSummary): PushBody {
+  const bits = s ? [s.tier_label, `${s.games_played} games played`, s.suburb ? `plays around ${s.suburb}` : null].filter(Boolean) : [];
+  return {
+    title: `${actor} followed you`,
+    body: bits.length > 0 ? bits.join(" · ") : "Check out their profile on Smashio.",
+    expand: "Follow back to see their games in your feed.",
+  };
+}
+
+// F6. Decided 2026-09-07: ship with a 2/day/user cap, looking_for_players only.
+export function followedPostedBody(actor: string, post: PostSummary): PushBody {
+  const where = post.venue_name ? `${post.sport_name ?? "A game"} at ${post.venue_name}` : (post.sport_name ?? "A game");
+  const when = post.starts_at ? `, ${shortTime(post.starts_at)}` : "";
+  const spots = post.spots_left != null ? ` · ${post.spots_left} spots` : "";
+  return {
+    title: `${actor} needs players`,
+    body: `${where}${when}${spots}`,
+  };
+}
+
+const ACHIEVEMENTS: Record<string, { name: string; blurb: string }> = {
+  first_game: { name: "First game", blurb: "You played your first game on Smashio." },
+  first_hosted: { name: "First hosted", blurb: "You hosted your first game." },
+  played_10: { name: "10 games played", blurb: "Double digits — 10 games played." },
+  played_25: { name: "25 games played", blurb: "25 games played. Getting serious." },
+  played_50: { name: "50 games played", blurb: "50 games played. That's a lot of badminton." },
+  streak_4: { name: "4-week streak", blurb: "A game every week for 4 weeks straight." },
+  venues_5: { name: "5 different venues", blurb: "You've played at 5 different venues." },
+  five_star: { name: "First 5-star", blurb: "Someone gave you a 5-star rating." },
+};
+
+// F7.
+export function achievementEarnedBody(achievementId: string): PushBody {
+  const a = ACHIEVEMENTS[achievementId] ?? { name: "New achievement", blurb: "You unlocked something new." };
+  return {
+    title: `${a.name} unlocked`,
+    body: a.blurb,
+    expand: "Tap to see it on your card, or share it.",
+  };
+}
+
 // --- Expo payload ----------------------------------------------------------------------------
 
 // §6.6. Tier drives Android channel importance (via channelId), iOS interruptionLevel, delivery
@@ -381,7 +521,7 @@ export function messageBody(summary: MessageSummary): PushBody {
 // P3: categoryId (iOS notification category for action buttons) is inferred from the notification
 // type and passed in data; the server maps it when calling this function.
 export function expoMessages(
-  recipients: { profile_id: string; expo_token: string }[],
+  recipients: { profile_id: string; expo_token: string; platform?: string }[],
   opts: {
     title: string;
     body: string;
@@ -389,18 +529,24 @@ export function expoMessages(
     tier: PushTier;
     channelId: PushChannel;
     categoryId?: NotificationCategory;
+    // §4.1's third line. iOS renders it as `subtitle`, visible under the title when expanded.
+    // Android has no subtitle equivalent in the Expo push API, so it's appended behind a line
+    // break, which Android's own expand gesture reveals — never counted toward the 140-char body
+    // budget either way.
+    expand?: string;
     // Unread inbox count (P2 §6.6), fetched per profile — same value for every recipient here
     // since P2 dispatches one profile at a time.
     badge?: number;
   },
 ) {
-  const { title, body, data, tier, channelId, categoryId, badge } = opts;
+  const { title, body, data, tier, channelId, categoryId, expand, badge } = opts;
   return recipients
     .filter((r) => r.expo_token.startsWith("ExponentPushToken"))
     .map((r) => ({
       to: r.expo_token,
       title,
-      body,
+      body: r.platform === "android" ? androidBody(body, expand) : body,
+      ...(expand && r.platform !== "android" ? { subtitle: expand } : {}),
       data,
       channelId,
       ...(categoryId ? { categoryId } : {}),
@@ -409,4 +555,13 @@ export function expoMessages(
       interruptionLevel: tier === "critical" ? "time-sensitive" : tier === "low" ? "passive" : "active",
       ...(badge !== undefined ? { badge } : {}),
     }));
+}
+
+// Expo doesn't tell this function which OS a given ExponentPushToken belongs to (that's resolved
+// on Expo's side at send time), and `subtitle` is simply ignored by Android clients — so it's
+// harmless to send both. Android's own notification-expand gesture reveals the line-break tail;
+// iOS shows `subtitle` instead and never sees the appended text since it renders `body` verbatim
+// and stops at the newline in the collapsed view.
+function androidBody(body: string, expand?: string): string {
+  return expand ? `${body}\n${expand}` : body;
 }

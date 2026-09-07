@@ -879,6 +879,8 @@ export type Database = {
           quiet_start: string
           reminders: boolean
           roster_changes: boolean
+          social: boolean
+          social_activity: boolean
           updated_at: string
         }
         Insert: {
@@ -895,6 +897,8 @@ export type Database = {
           quiet_start?: string
           reminders?: boolean
           roster_changes?: boolean
+          social?: boolean
+          social_activity?: boolean
           updated_at?: string
         }
         Update: {
@@ -911,6 +915,8 @@ export type Database = {
           quiet_start?: string
           reminders?: boolean
           roster_changes?: boolean
+          social?: boolean
+          social_activity?: boolean
           updated_at?: string
         }
         Relationships: [
@@ -929,6 +935,7 @@ export type Database = {
           body: string | null
           collapse_key: string | null
           created_at: string
+          expand: string | null
           game_id: string | null
           id: string
           params: Json
@@ -944,6 +951,7 @@ export type Database = {
           body?: string | null
           collapse_key?: string | null
           created_at?: string
+          expand?: string | null
           game_id?: string | null
           id?: string
           params?: Json
@@ -959,6 +967,7 @@ export type Database = {
           body?: string | null
           collapse_key?: string | null
           created_at?: string
+          expand?: string | null
           game_id?: string | null
           id?: string
           params?: Json
@@ -1089,6 +1098,7 @@ export type Database = {
           payload: Json | null
           point: unknown
           reaction_count: number
+          reaction_notified_count: number
           reply_count: number
           sport_id: string | null
           status: string
@@ -1107,6 +1117,7 @@ export type Database = {
           payload?: Json | null
           point?: unknown
           reaction_count?: number
+          reaction_notified_count?: number
           reply_count?: number
           sport_id?: string | null
           status?: string
@@ -1125,6 +1136,7 @@ export type Database = {
           payload?: Json | null
           point?: unknown
           reaction_count?: number
+          reaction_notified_count?: number
           reply_count?: number
           sport_id?: string | null
           status?: string
@@ -2205,6 +2217,7 @@ export type Database = {
       dispatch_nudge_pending_requests: { Args: never; Returns: undefined }
       dispatch_nudge_underfilled: { Args: never; Returns: undefined }
       dispatch_post_game_prompts: { Args: never; Returns: undefined }
+      dispatch_post_reaction_digest: { Args: never; Returns: undefined }
       enqueue_notifications: {
         Args: {
           p_actor_id: string
@@ -2319,6 +2332,7 @@ export type Database = {
           max_players: number
           skill_tier_label: string
           sport_slug: string
+          spots_left: number
           starts_at: string
           status: string
           venue_name: string
@@ -2536,6 +2550,16 @@ export type Database = {
         }[]
       }
       push_actor_name: { Args: { p_profile_id: string }; Returns: string }
+      push_actor_summary: {
+        Args: { p_profile_id: string; p_sport_id?: string }
+        Returns: {
+          display_name: string
+          games_played: number
+          reliability_label: string
+          suburb: string
+          tier_label: string
+        }[]
+      }
       push_game_summary: {
         Args: { p_game_id: string }
         Returns: {
@@ -2566,6 +2590,7 @@ export type Database = {
           kind: string
           sender_name: string
           sport_name: string
+          starts_at: string
           venue_name: string
         }[]
       }
@@ -2573,6 +2598,19 @@ export type Database = {
         Args: { p_game_id: string }
         Returns: {
           profile_id: string
+        }[]
+      }
+      push_post_summary: {
+        Args: { p_post_id: string }
+        Returns: {
+          author_id: string
+          body: string
+          game_id: string
+          kind: string
+          sport_name: string
+          spots_left: number
+          starts_at: string
+          venue_name: string
         }[]
       }
       push_recipients_for_game: {

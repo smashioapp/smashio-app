@@ -4,7 +4,7 @@ import type { Database } from "../db.types";
 
 type Row = Database["public"]["Tables"]["notification_prefs"]["Row"];
 type Insert = Database["public"]["Tables"]["notification_prefs"]["Insert"];
-type BooleanColumn = "join_requests" | "roster_changes" | "chat" | "reminders" | "game_changes" | "alerts" | "nudges" | "marketing";
+type BooleanColumn = "join_requests" | "roster_changes" | "chat" | "reminders" | "game_changes" | "alerts" | "nudges" | "marketing" | "social" | "social_activity";
 
 // §6.3: seven categories, all defaulting true, plus the quiet-hours window. Mirrors the plan's
 // category names 1:1 so a toggle here lines up with the p_pref_key strings the recipient SQL
@@ -19,7 +19,9 @@ export type NotificationCategory =
   | "game_changes"
   | "alerts"
   | "nudges"
-  | "marketing";
+  | "marketing"
+  | "social"
+  | "social_activity";
 
 export type NotificationPrefs = {
   joinRequests: boolean;
@@ -30,6 +32,10 @@ export type NotificationPrefs = {
   alerts: boolean;
   nudges: boolean;
   marketing: boolean;
+  // notifications-v2-plan.md §3F: F1-F5/F7 gate on `social`; F6 (followed_posted) gets its own
+  // `social_activity` category so someone following 40 players can silence it while keeping F1.
+  social: boolean;
+  socialActivity: boolean;
   quietHoursEnabled: boolean;
   quietStart: string;
   quietEnd: string;
@@ -44,6 +50,8 @@ const DEFAULTS: NotificationPrefs = {
   alerts: true,
   nudges: true,
   marketing: false,
+  social: true,
+  socialActivity: true,
   quietHoursEnabled: false,
   quietStart: "22:00",
   quietEnd: "07:00",
@@ -60,6 +68,8 @@ function fromRow(row: Row | null): NotificationPrefs {
     alerts: row.alerts,
     nudges: row.nudges,
     marketing: row.marketing,
+    social: row.social,
+    socialActivity: row.social_activity,
     quietHoursEnabled: row.quiet_hours_enabled,
     quietStart: row.quiet_start.slice(0, 5),
     quietEnd: row.quiet_end.slice(0, 5),
@@ -88,6 +98,8 @@ const COLUMN: Record<NotificationCategory, BooleanColumn> = {
   alerts: "alerts",
   nudges: "nudges",
   marketing: "marketing",
+  social: "social",
+  social_activity: "social_activity",
 };
 
 export function useSetNotificationCategory() {
@@ -147,6 +159,8 @@ function toFieldName(category: NotificationCategory): keyof NotificationPrefs {
     alerts: "alerts",
     nudges: "nudges",
     marketing: "marketing",
+    social: "social",
+    social_activity: "socialActivity",
   };
   return map[category];
 }

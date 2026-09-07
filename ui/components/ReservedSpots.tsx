@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { View, Text, Pressable, TextInput, Alert, Share, ActivityIndicator } from "react-native";
+import { View, Text, Pressable, TextInput, Alert, ActivityIndicator } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, initial } from "../lib/theme";
@@ -16,7 +16,7 @@ import {
   type ReservedSpot,
 } from "../lib/queries/reservedSpots";
 import { Sheet } from "./Sheet";
-import { track } from "../lib/analytics";
+import { shareInvite } from "../lib/share";
 
 // band 12e's row countdown — "1h 40m" style, matching format.ts's formatCountdown shape but
 // driven off a plain ms-left number since it's computed once above, not from an ISO string.
@@ -200,10 +200,8 @@ function ManageHoldSheet({ gameId, spot, onClose }: { gameId: string; spot: Rese
 
   const copyForWhatsApp = async () => {
     if (!link) return;
-    await Clipboard.setStringAsync(`Here's your spot: ${link}`);
     haptics.success();
-    track("share_sent", { kind: "invite" });
-    Share.share({ message: `Here's your spot: ${link}` }).catch(() => null);
+    await shareInvite(link);
   };
 
   const saveName = () => {

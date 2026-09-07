@@ -242,7 +242,27 @@ point on the player profile and the roster's empty slots.
 > **The difference:** an invite goes into a **reserved spot on a game**, not to an arbitrary player
 > from their profile. The entry point this item asked for — an invite button on
 > `ui/app/player/[id].tsx` — was never added, and the roster's empty slots is where it landed
-> instead. Whether the profile-side entry point is still wanted is an open call, not a gap.
+> instead.
+>
+> **Code check 2026-09-07 — this item is NOT closed, and it is now cheaper than the estimate.**
+> - The **backend already supports the full ask.** `invite_to_reserved_spot(p_spot_id, p_profile_id)`
+>   takes an arbitrary profile id. Its only guards are: caller is the organizer, the spot is
+>   unclaimed, the target isn't the organizer, isn't already `approved`/`invited` on the game, and
+>   isn't blocked either way (`blocked_between` — deliberate, so an invite can't walk around the
+>   block that already hides the game on Discover). **No "must have played together" rule exists in
+>   SQL.**
+> - **The UI is what narrows it.** `InviteCoplayerSheet.tsx` is the only entry point, and it is fed
+>   by `recent_coplayers(p_game_id)`, which filters `where g.organizer_id = v_organizer_id` — people
+>   from *this host's own past games*, minus anyone already on or invited to this game. So a host
+>   who spots a promising player on Discover, in the feed, or on a roster they don't share history
+>   with **cannot invite them at all**.
+> - `ui/app/player/[id].tsx` carries a back button and a block/report menu. No invite affordance.
+>
+> **Rescoped work:** an "Invite to a game" row on the player profile that picks one of the host's
+> upcoming games, holds a spot (`add_reserved_spot`) and calls `invite_to_reserved_spot`. **No new
+> RPC** — the original "New RPC mirroring `request_to_join`" line above is obsolete, as is the
+> notification work (the invite already fires the existing push). Realistically ~1–2h of UI, down
+> from ~2–3h. Still unapproved; still a real gap.
 
 ### 3.4 Search — **shipped 2026-08-31**
 

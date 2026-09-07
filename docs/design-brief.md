@@ -64,6 +64,36 @@ S or a shuttle-blade-derived detail). Show each in lime-on-black and white-on-bl
 > Space Grotesk tops out at **700**, so the 800 weight the site leans on has no equivalent; picking
 > Space Grotesk for the site means re-deciding the hero weight, not just swapping the family.
 >
+> **DECIDED 2026-09-07: the website moves to Space Grotesk. The app does not move.**
+> Delegated to and recommended by the docs drift audit; recorded here so it isn't re-argued.
+>
+> **Why the site moves and not the app.** The app is where the cost sits — `font-display*` resolves
+> through `ui/tailwind.config.js` into 77 components across eight shipped design passes (v2 P0–P8,
+> v3 Prompts 5–8), and moving it back to Bricolage would unpick `v2-design-plan.md` §3.2, a signed
+> and shipped decision. The website is **one file** with a Google Fonts `<link>` and ~30 inline
+> `font-family` declarations, plus the four `website/api/*` renderers that inherit the same styling.
+> The asymmetry is roughly two orders of magnitude. Space Grotesk is on Google Fonts, so the site's
+> existing `<link>` mechanism is unchanged — swap the family name and the weight list.
+>
+> **The 800-weight problem, and why it is already solved.** Space Grotesk tops out at 700 and the
+> site's hero leans on 800. This is the *same* problem v2-design-plan §3.2 hit in the app, and it
+> recorded the answer: *"Space Grotesk tops out at 700, so the old 800 display weight is gone; the
+> design compensates with size + colour."* The site should copy the app's validated answer rather
+> than invent a second one — the hero is already `clamp(44px,9vw,88px)`, which is far past the size
+> where 700-vs-800 is legible as weight rather than as noise.
+>
+> **Not done here — this audit was docs-only, no code changed.** The work is a ~1h pass over
+> `website/index.html`: swap the Google Fonts href to
+> `family=Space+Grotesk:wght@500;600;700`, replace `'Bricolage Grotesque'` with `'Space Grotesk'`
+> throughout, drop every `font-weight:800` on a display element to `700`, and re-check the three
+> hero/section headings and the phone-mockup numerals at 375 px. Body stays Manrope on both
+> surfaces, unchanged. `website/api/_venue-lib.js` and the three page renderers share the site's
+> styling and need the same swap.
+>
+> **What this closes:** the "Same family must work on the static website" constraint stated below
+> and in "Notes for whoever runs these" becomes satisfiable, and app and site share a display face
+> again for the first time since 2026-08-16.
+
 > The prompt text below is kept verbatim because Prompts 2–8 were run against it.
 
 Current: Bricolage Grotesque (display) + Manrope (body). I want to move to something nicer.
@@ -1085,9 +1115,11 @@ Everything else in the file stays exactly as it is.
     2026-09-07 (see the LOGO note above).
 - Font pick has a hard implementation constraint: `@expo-google-fonts` package or a bundled
   variable `.ttf`, weights 400-800, tabular figures. Same family must work on the static website.
-  - ↳ **This constraint is currently unmet.** App = Space Grotesk (max weight 700) + Manrope.
-    Website = Bricolage Grotesque 800 + Manrope. See the annotation under "TYPEFACE CHANGE" in
-    Prompt 1. Needs a decision before any further type work.
+  - ↳ **Unmet on 2026-09-07, and resolved the same day by decision, not yet by code.** App = Space
+    Grotesk (max weight 700) + Manrope. Website = Bricolage Grotesque 800 + Manrope. **Decision:
+    the website moves to Space Grotesk**, compensating for the lost 800 with size + colour exactly
+    as v2-design-plan §3.2 did for the app. Full reasoning and the ~1h implementation checklist are
+    under "TYPEFACE CHANGE" in Prompt 1. Until that pass lands, the two surfaces still diverge.
 - The mark itself is frozen. Only the wordmark typeface is in play. **No longer true from
   2026-09-07** — the mark was redesigned; see the note under "LOGO" above.
 - Prompt 5 is a redesign of shipped code, not greenfield — read [profile-plan.md](profile-plan.md)

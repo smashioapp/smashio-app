@@ -267,15 +267,25 @@ true no-filter cold start.
 pre-launch impression not ready to install is lost. **~2h. Not required — Android ships next
 week (2026-09-07 target), so no Android-beta waitlist needed.**
 
-> **Amended 2026-09-07 (docs drift audit): that target date is today, and the premise it rested on
-> is not confirmed.** "Android ships next week" was written 2026-08-31. As of 2026-09-07 the repo
-> shows the signing half done (release keystore + all four `ANDROID_*` secrets, `8cb98ec`) and
-> `build-android.yml` able to produce an apk or aab, but **nothing in the repo shows a Play Console
-> listing or a completed device-verification step**, and `build-android.yml` is
-> `workflow_dispatch`-only. So G15's dismissal is now resting on an unverified assumption. Either
-> confirm Android actually shipped, or G15 goes back to being a real ~2h gap. See
-> [store-readiness-plan.md](store-readiness-plan.md)'s 2026-09-07 amendment for what is and isn't
-> verifiable here.
+> **Amended 2026-09-07: Android did NOT ship. G15 is a live gap again, and G2 is still a blocker.**
+> "Android ships next week (2026-09-07 target)" was written 2026-08-31. Confirmed with the owner on
+> 2026-09-07: **Android has not shipped** — Play Store install/verification is still in progress,
+> being worked through with a friend who has a physical device (the verification step cannot be
+> done on an emulator).
+>
+> Consequences for this doc, all of them real:
+> - **G15 is un-dismissed.** The reason for skipping the Android-beta signup was "Android ships next
+>   week". It didn't. An Android-beta waitlist on the website is a ~2h gap again, and it is worth
+>   more now than when it was written, because there is a known interval where Android interest has
+>   nowhere to land.
+> - **G2 remains the top blocker**, exactly as §3.1 states. Do not read the shipped signing work
+>   (keystore + all four `ANDROID_*` secrets, `8cb98ec`) as G2 being closed — that closed the
+>   *signing* half only. `build-android.yml` can produce a signed apk/aab on
+>   `workflow_dispatch`; nothing past that is done.
+> - **§5's 90-day sequence still can't start.** Phase 1 launches the clusters, and §3.1 is explicit
+>   that Android is ~40–45% of AU handsets and skews toward exactly the cohorts §2.1 names.
+> - Every beta metric stays an **iOS-only read**, per §17.1's caveat in
+>   [social-plan.md](social-plan.md).
 
 ### 3.4 Fix order
 

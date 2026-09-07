@@ -15,12 +15,19 @@ Fixed in passing: missing `expo-asset` peer dep (required by `expo-audio` — ap
 > with it). So the blocker below and the same claim under [Release pipeline](#release-pipeline--updated-2026-08-15)
 > are both out of date on secrets.
 >
-> **What is still open on Android**, as best this repo can show: the Play Console listing itself,
-> and the physical-device verification step Play requires — which cannot be done on an emulator.
-> Whether a Play Console account now exists is **not verifiable from the repo**; treat it as
-> unconfirmed rather than absent. Note `ui/eas.json` *does* now carry
-> `submit.production.android` (track `internal`), which the parenthetical below calls moot and the
-> "Next session" list still asks for.
+> **What is still open on Android — confirmed with the owner 2026-09-07: Android has not shipped.**
+> Play Store install/verification is in progress, being worked through with a friend who has a
+> physical device (the verification step cannot be done on an emulator, which is the same wall
+> recorded earlier). So this blocker stays open — but the reason it is open has moved from *"no
+> keystore, no secrets"* to *"the listing and device verification aren't finished"*. Anyone picking
+> this up should not re-do the signing work.
+>
+> Knock-on: [gtm-plan.md](gtm-plan.md) G15 dismissed the website's Android-beta waitlist on the
+> grounds that Android was about to ship. It didn't, so G15 is a live ~2h gap again and is
+> annotated there.
+>
+> Note `ui/eas.json` *does* now carry `submit.production.android` (track `internal`), which the
+> parenthetical below calls moot and the "Next session" list still asks for.
 >
 > **Back up the keystore.** quick-wins §1.2's warning is worth repeating here where release work
 > actually happens: the keystore file and its password live nowhere but the GitHub secret. Losing

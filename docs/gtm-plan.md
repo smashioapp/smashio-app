@@ -100,6 +100,13 @@ reminders, cost split — all shipped), not the player on a new app.
 
 Audited against the repo 2026-08-26. Ordered by marketing damage, not by effort.
 
+> **Note added 2026-09-07 (docs drift audit): the "56 venues" figure used throughout this doc is
+> stale and understates the asset.** It is the 2026-08-15 count. The P2 enrichment queue was
+> finished 2026-08-17 (`20260817000200_p2_enrichment.sql`: 21 new venues, 9 rows upgraded), so the
+> directory covers **~98 venues**. This makes G9's search argument and G11's SEO argument *stronger*
+> than written, not weaker. [venues-plan.md](venues-plan.md) §8's A6 row is the authority on the
+> count; its own header was also stale and is annotated there.
+
 ### 3.1 P0 — fix before a single dollar or flyer goes out
 
 **G1. No product analytics.** No PostHog/Amplitude/Firebase in `ui/package.json`; Sentry only
@@ -134,6 +141,8 @@ skill tier, and max players; falls back to a generic "open in app" card for a ba
 cancelled id. The `og:image` itself is still the one static image (dynamic per-game images need
 an image-generation pipeline — bigger scope, not attempted here). `website/venue.html` and
 `player.html` are still 31-line stubs with the same problem, not fixed by this pass.
+*(Noted 2026-09-07: `venue.html` was fixed later the same day by G11 below and no longer exists.
+`player.html` is still the stub.)*
 Restyled 2026-08-31 to match `index.html`'s dark/lime brand (radial background blooms, pulsing
 live badge, homepage-style countdown chip, skill-tier colours, staggered fade-up entrance,
 gradient CTA + QR block) instead of the plain `venue.html`/`player.html` card it launched with.
@@ -257,6 +266,16 @@ true no-filter cold start.
 **G15. Website has no capture.** No email/waitlist capture, no Android-beta signup. Every
 pre-launch impression not ready to install is lost. **~2h. Not required — Android ships next
 week (2026-09-07 target), so no Android-beta waitlist needed.**
+
+> **Amended 2026-09-07 (docs drift audit): that target date is today, and the premise it rested on
+> is not confirmed.** "Android ships next week" was written 2026-08-31. As of 2026-09-07 the repo
+> shows the signing half done (release keystore + all four `ANDROID_*` secrets, `8cb98ec`) and
+> `build-android.yml` able to produce an apk or aab, but **nothing in the repo shows a Play Console
+> listing or a completed device-verification step**, and `build-android.yml` is
+> `workflow_dispatch`-only. So G15's dismissal is now resting on an unverified assumption. Either
+> confirm Android actually shipped, or G15 goes back to being a real ~2h gap. See
+> [store-readiness-plan.md](store-readiness-plan.md)'s 2026-09-07 amendment for what is and isn't
+> verifiable here.
 
 ### 3.4 Fix order
 

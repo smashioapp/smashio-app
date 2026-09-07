@@ -1,5 +1,19 @@
 # Create-a-Game Plan — v2 of hosting
 
+> **Status corrected 2026-09-07 (docs drift audit): it was built.** "build not started" and "Build
+> order: after the feed" below were true for one day. `e6a712b` (2026-09-01) shipped Host a Game v3
+> — draft card, lineup strip, atomic publish, migration `20260901120000_host_a_game_v3.sql`
+> (ordering fix `9a7c0e7`) — and P1–P7 followed: `46ed3aa` (P1 create-side drift), `562c631`
+> (P2+P3 edit screen), `3f72a22` (P4 claim screen, `20260903010000_claim_screen_backend.sql`),
+> `08b7aef` (P5 hold ladder + manage-in-place sheet), `e0f3c7f` (P6 hold expiry + auto-release cron,
+> `20260903020000_reserved_spot_expiry.sql`), `63d1f00` (P7 join-requests reconciliation). §10 below
+> is that build's deviation log and is current — read it as the authority on what actually shipped.
+>
+> Two later fixes belong to this area and postdate §10: `bebb72a` revokes `PUBLIC` execute on
+> `sweep_reserved_spot_holds` (`20260904000000_sweep_holds_revoke_public.sql`), and `4e5265d`
+> closes v3 design gaps in the quick-invite row and calendar gating, backed by
+> `20260904010000_recent_coplayers.sql`. §9's settled decisions are unaffected by any of it.
+
 Status: **structure signed off 2026-09-01, scope of §5 fields signed off, build not started.**
 Written 2026-09-01. Read §9 first — it records the settled decisions and overrides anything in
 the body still phrased as an option. Design pass runs through
@@ -413,7 +427,8 @@ Ordered, additive, no destructive migration.
 | **E6** | `duration_minutes` migration (§6.1). | 1 d |
 | **E7** | §5 fields, whichever get signed off. | 0.5–2 d each |
 
-E0 and E1 are independent of everything else and could land this week.
+E0 and E1 are independent of everything else and could land in the same week this was written
+(week of 2026-09-01).
 
 ---
 

@@ -7,6 +7,22 @@ off 2026-08-20 per AGENTS.md's "ask before scope beyond MVP" rule — an activit
 [mvp-spec.md](mvp-spec.md). P3 is still proposed.
 Written 2026-08-20.
 
+> **Corrected 2026-09-07 (docs drift audit): P3 shipped too, the same day.** `d11e708` (SQL
+> triggers + copy for B3/B4/C4/C5, the D1 cap) and `5821751` (action buttons, handlers, RPCs)
+> landed it, backed by `supabase/migrations/20260820000600_notifications_p3.sql`.
+> [quick-wins.md](quick-wins.md)'s opening paragraph already describes P3's inline
+> Approve/Decline categories as shipped infrastructure. Later fixes on top:
+> `85840c1` guards `notification_id` before the join-action RPCs, `8f1fe86`/`9e63666` fix the bell
+> badge and the app icon badge, `916148e` fixes a push timezone bug, and
+> `20260903000000_game_details_changed_push.sql` adds a details-changed push that postdates this
+> doc entirely.
+>
+> One claim in §"Scheduled jobs" is worth reconciling against
+> [backend-plan.md](backend-plan.md), which still describes a single T-2h reminder from slice 8:
+> there are **two** reminders now, T-24h and T-2h, and the T-2h one is suppressed 22:00–07:00
+> Sydney because the 24h one already covered the early game
+> (`20260820000200_notifications_p0.sql`).
+
 Scope: every push/in-app notification in SMASHIO — when it fires, who receives it, what it says,
 where it lands on tap. Covers the two complaints that triggered this doc: a host is never told
 that someone asked to join their game, and the copy on the notifications that do fire is thin.

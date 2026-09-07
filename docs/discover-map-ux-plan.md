@@ -1,6 +1,15 @@
 # Discover map — human-centred redesign
 
 Status: **proposed, not approved.** Needs sign-off before code lands.
+
+> **Corrected 2026-09-07 (docs drift audit): approved and shipped, all four phases, 2026-08-20.**
+> `6174644` (P0, the map/sheet contradiction), `a6ada55` (P1+P2, pin taxonomy and Games/Courts
+> modes), `cd8ebd3` (P3 density — court cap, cluster nouns, open-now), `9ffdb2f` (P3 geocoded
+> search, backlog B8). §7 of this doc already says "P3 is now fully shipped" and §5 carries an
+> "Ownership corrected 2026-08-22" note, so the header is the only part still reading as a
+> proposal. Follow-ups landed after: `3a571b9` (map defaults/visibility), `68562b2` (court
+> visibility owned by `GameMap`, exit moved into the sheet), and a v3 design pass in `1f47449` +
+> `8c6f3e2` (back-to-list, mode toggle, pin polish, tier legend).
 Written 2026-08-20. Supersedes nothing — it is the second pass on
 [map-plan.md](map-plan.md), whose §5 design was right and whose §5.10 execution is what broke.
 

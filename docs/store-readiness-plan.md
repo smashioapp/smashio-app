@@ -6,6 +6,26 @@ Fixed in passing: missing `expo-asset` peer dep (required by `expo-audio` — ap
 
 ## Blockers — must fix before submitting
 
+> **Amended 2026-09-07 (docs drift audit): the signing half of the Android blocker is closed.**
+> [quick-wins.md](quick-wins.md) §1.2 records that on 2026-08-24 a release keystore was generated
+> (`smashio-upload` alias, PKCS12) and all four secrets `build-android.yml` expects —
+> `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`,
+> `ANDROID_KEY_PASSWORD` — were set. Durable evidence: `website/.well-known/assetlinks.json` carries
+> that keystore's real SHA-256 fingerprint (`8cb98ec` replaced the temporary CI fingerprint step
+> with it). So the blocker below and the same claim under [Release pipeline](#release-pipeline--updated-2026-08-15)
+> are both out of date on secrets.
+>
+> **What is still open on Android**, as best this repo can show: the Play Console listing itself,
+> and the physical-device verification step Play requires — which cannot be done on an emulator.
+> Whether a Play Console account now exists is **not verifiable from the repo**; treat it as
+> unconfirmed rather than absent. Note `ui/eas.json` *does* now carry
+> `submit.production.android` (track `internal`), which the parenthetical below calls moot and the
+> "Next session" list still asks for.
+>
+> **Back up the keystore.** quick-wins §1.2's warning is worth repeating here where release work
+> actually happens: the keystore file and its password live nowhere but the GitHub secret. Losing
+> them means a new Play listing, permanently.
+
 - [ ] **No Android release path.** Play Console isn't set up and the `ANDROID_*` signing secrets don't exist, so [build-android.yml](../.github/workflows/build-android.yml) can't get past the keystore step. Needs a Play Console account, an upload keystore, and those secrets. (The old `eas.json` `submit.production.android` gap is moot now that releases go through GitHub Actions — see [Release pipeline](#release-pipeline--updated-2026-08-15).)
 - [x] ~~**Google Maps API key unrestricted, and publicly leaked.**~~ Old key (flagged by the code's own comment in [app.config.js:57-58](../ui/app.config.js)) was committed in plaintext and got flagged in a public GitHub issue. Rotated 2026-08-18 — new key set in `ui/.env` (gitignored) and the GitHub Actions secret. Still TODO: delete old key from GCP Console, and restrict new key by Android package name + SHA-1 and iOS bundle ID before shipping.
 - [x] ~~**Sentry is inert — both halves missing.**~~ Fixed 2026-08-24, confirmed 2026-08-31. `EXPO_PUBLIC_SENTRY_DSN` and `SENTRY_AUTH_TOKEN` both exist as GitHub secrets; `SENTRY_ORG`/`SENTRY_PROJECT` are hardcoded in [build-ios.yml](../.github/workflows/build-ios.yml) and [build-android.yml](../.github/workflows/build-android.yml). No `SENTRY_DISABLE_AUTO_UPLOAD` remains in either workflow, so symbol upload runs.
@@ -104,6 +124,13 @@ Found while testing 2026-08-15, fixed same day, confirmed live 2026-08-31: **`se
 - Icons: `icon.png` is 1024×1024, no alpha channel (App Store compliant). Android adaptive icon (foreground/background/monochrome) and all notification-icon densities present and wired in the manifest.
 - Permission strings (location, photos) present and user-facing descriptive, via `expo-location` / `expo-image-picker` plugin config.
 - Apple sign-in implemented via Supabase OAuth (web-based, [lib/auth.ts:52](../ui/lib/auth.ts)) — satisfies App Store Guideline 4.8 (must offer Sign in with Apple if offering Google) without needing the native `expo-apple-authentication` SDK.
+  - **Still true 2026-09-07, but for a different reason.** `lib/auth.ts` has since gained the
+    native path (`expo-apple-authentication` + `signInWithIdToken`), and it is **deliberately
+    gated off at build level** — `ios.usesAppleSignIn` and the plugin are commented out of
+    `app.config.js` because the entitlement they add can't be signed by the provisioning profile in
+    `IOS_PROVISIONING_PROFILE_BASE64`. Apple therefore still runs on hosted OAuth, still 4.8
+    compliant. Four steps to turn it on, listed in
+    [auth-onboarding-plan.md](auth-onboarding-plan.md) §5. The `:52` line number predates all of it.
 - `versionCode 1` / `versionName "1.0.0"` — fine defaults for a first submission.
 
 ## Can't verify from repo — do in the store consoles
@@ -145,6 +172,27 @@ Found while testing 2026-08-15, fixed same day, confirmed live 2026-08-31: **`se
     cost) is kept as part of the game's history."
 
 ## Next session — pick up here
+
+> **Amended 2026-09-07 (docs drift audit): three of these five are done, and one is moot.** The
+> list below was written 2026-08-09 and never pruned; it now contradicts the blockers section above
+> it. Current state:
+> 1. **Still open.** Maps key restriction — the only item here that is genuinely outstanding, and
+>    the same key that gates the brand Map ID on Android ([map-plan.md](map-plan.md)'s 2026-09-07
+>    amendment).
+> 2. **Done, and moot.** `ui/eas.json` has `submit.production.android` (track `internal`) — but
+>    releases go through GitHub Actions, not `eas submit`, so it buys nothing either way.
+> 3. **Still open.** `SYSTEM_ALERT_WINDOW` has not been confirmed absent from a release build.
+>    Check it with a release Gradle build, not `eas build` — that command is no longer the pipeline.
+> 4. **Done 2026-08-15** — both platforms are `com.smashio.app`, per the resolved blocker above.
+> 5. **Done 2026-08-24, confirmed 2026-08-31** — `SENTRY_ORG`/`SENTRY_PROJECT` hardcoded in both
+>    build workflows, DSN and auth token as secrets, symbol upload running.
+>
+> Two things this section predates and should point at: the **iOS runner image / Xcode /
+> `expo-modules-jsi` coupling** above (added 2026-09-02 — read it before touching any of the
+> three), and the **store-console privacy answers** under "Can't verify from repo", which are
+> drafted and ready to paste. Also note `versionCode 1 / versionName "1.0.0"` under "Verified
+> good" is half stale: `version` is still `1.0.0`, but `buildNumber`/`versionCode` are now driven
+> by `BUILD_NUMBER` (`GITHUB_RUN_NUMBER + 1000`) in both workflows.
 
 1. Restrict the Maps API key (Google Cloud Console: package name + SHA-1 for Android, bundle ID for iOS).
 2. Add `submit.production.android` to `eas.json` (needs a Play Console service account key).

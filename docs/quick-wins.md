@@ -7,6 +7,12 @@ items off it; don't treat the ordering as a roadmap.
 Scope rule: an item earns a place here only if it is **≤1 day of work** and does **not** need
 sign-off against [mvp-spec.md](mvp-spec.md). Anything bigger belongs in its own plan doc.
 
+> **Note added 2026-09-07 (docs drift audit): "56 enriched venues" in §1.3 and §3.4 is the
+> 2026-08-15 count.** The P2 queue was finished 2026-08-17
+> (`20260817000200_p2_enrichment.sql`), taking the directory to **~98 venues**. See
+> [venues-plan.md](venues-plan.md) §8. Items amended below: §1.4 (shipped), §2.2 (half done),
+> §3.3 (shipped in a different shape), and §1.3's `venue.html` (replaced by a server-rendered page).
+
 **Context.** The app is already dense — haptics wired through 31 files, push notification
 categories with inline Approve/Decline actions ([notifications-plan.md](notifications-plan.md) P3),
 calendar, share cards, store review, Universal Links, Sentry. So the gaps below are narrow and
@@ -74,13 +80,28 @@ Static fallback pages `website/venue.html` and `website/player.html` added (dark
 `/venue/:id → /venue.html` and `/player/:id → /player.html`, mirroring the existing `/game/:id`
 rewrite.
 
+> **Superseded 2026-08-31, noted 2026-09-07.** `website/venue.html` and the `/game/:id` static
+> rewrite are both gone. [gtm-plan.md](gtm-plan.md) G3 replaced the game page with
+> `website/api/game/[id].js` and G11 replaced the venue stub with `website/api/venue/[slug].js` —
+> real server-rendered content off anon-safe RPCs, indexable, with the uuid URLs canonicalised to
+> the slug. `website/player.html` is still the 31-line stub. The AASA/`assetlinks` paths this item
+> widened are unaffected.
+
 **Why it hurts.** There are 56 enriched venues and a real venue detail screen
 (`ui/app/venue/[id].tsx`, [venues-plan.md](venues-plan.md) A1–A6) plus `ui/app/player/[id].tsx`.
 Neither is linkable. Sharing a venue is free top-of-funnel and currently impossible.
 
 **Effort:** ~30min plus whatever the web fallback pages cost.
 
-### 1.4 Product analytics — none installed
+### 1.4 Product analytics — none installed ✅ done 2026-08-31
+
+**Shipped.** `posthog-react-native` in `ui/package.json`, wrapper in `ui/lib/analytics.ts`, gated
+on `EXPO_PUBLIC_POSTHOG_KEY` (blank locally, real key as a CI secret in prod — project 586186, US
+Cloud). Ten-event funnel as the note below recommends. `4c658e9`, closing
+[gtm-plan.md](gtm-plan.md) G1, which already recorded it as shipped while this item still read
+"none installed". Feed-specific metrics were instrumented separately in `83bd69e`
+([social-plan.md](social-plan.md) §14). The privacy-policy obligation flagged below was handled by
+gtm-plan G13 (`5ca3eea`).
 
 **Gap.** No PostHog, Amplitude, or Firebase Analytics in `ui/package.json`. Sentry is present but
 only covers crashes and errors.
@@ -126,6 +147,17 @@ scroll of Discover, the venue directory, and chat. Venue photos landed with
 
 2.2 is the one worth doing first — silent failure is the worst failure mode, and chat is on
 Supabase Realtime with no reconnect surface.
+
+> **Amended 2026-09-07 (docs drift audit): 2.2 is half done.** `expo-network` **is** installed and
+> `ui/lib/useOnline.ts` wraps it; `d1f1d8a` drew offline states across `settings.tsx` and its
+> subscreens, `profile-edit.tsx` and `notification-settings.tsx`. What the item asked for and did
+> **not** get: a *global* banner, pausing TanStack Query, and a Realtime disconnect surface on
+> chat — which is the half the "silent failure is the worst failure mode" argument was about. So
+> the gap line "no connectivity handling anywhere in `ui/`" is wrong; the recommendation stands.
+>
+> Also on this table: 2.1 (`expo-quick-actions`), 2.4 (`expo-keep-awake`) and 2.5 (rich push
+> images) are all still genuinely absent, and 1.5 (`expo-image`) is too — `ui/package.json` has
+> `expo-image-manipulator` and `expo-image-picker`, neither of which is `expo-image`.
 
 **Explicitly not here:** iOS Home Screen widgets and Live Activities. Both are genuinely valuable
 for a "next game at 7pm" glanceable, and both need a native target plus a config plugin. That is a
@@ -189,7 +221,7 @@ a live/upcoming one. No schema change, no new store or schedule code. True recur
 series cancellation semantics, per-instance rosters) is still a real design problem — give it its
 own doc if the duplicate button proves demand.
 
-### 3.3 Invite a specific player to a game
+### 3.3 Invite a specific player to a game — **shipped in a different shape 2026-08-24**
 
 **Gap.** `useRequestToJoin` exists in `ui/lib/queries/gamePlayers.ts`; there is no inverse. A host
 looking at `ui/app/player/[id].tsx` cannot pull that player into a game.
@@ -198,6 +230,19 @@ looking at `ui/app/player/[id].tsx` cannot pull that player into a game.
 point on the player profile and the roster's empty slots.
 
 **Effort:** ~2–3h.
+
+> **Amended 2026-09-07 (docs drift audit).** The capability exists, but it arrived through
+> [post-game-plan.md](post-game-plan.md) rather than as this item, and the shape differs in one way
+> worth knowing. `20260824000000_host_slot_reserved_spots.sql` adds `invite_to_reserved_spot`,
+> `create_reserved_spot_invite` (a shareable link) and `respond_to_game_invite`, with
+> `preview_reserved_spot_invite` for the claim screen
+> (`20260903010000_claim_screen_backend.sql`). The UI is `ui/components/InviteCoplayerSheet.tsx` on
+> the game screen, seeded by `20260904010000_recent_coplayers.sql`.
+>
+> **The difference:** an invite goes into a **reserved spot on a game**, not to an arbitrary player
+> from their profile. The entry point this item asked for — an invite button on
+> `ui/app/player/[id].tsx` — was never added, and the roster's empty slots is where it landed
+> instead. Whether the profile-side entry point is still wanted is an open call, not a gap.
 
 ### 3.4 Search — **shipped 2026-08-31**
 

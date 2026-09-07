@@ -2,6 +2,20 @@
 
 Written 2026-08-11. Goal: make Discover the best-in-class landing page for pickup badminton — judged on UX, UI, creativity, retention, and information density. Companion to [ux-plan.md](ux-plan.md) (which covered app-wide polish); this doc is only the Discover tab.
 
+> **Status added 2026-09-07 (docs drift audit): shipped, then rebuilt twice more.** All of §4's
+> phases are ticked and this doc has no status line, so here it is. Discover landed `b215ffe` +
+> `5a84ab7` (2026-08-11), was rebuilt to the v2 composition in
+> [v2-design-plan.md](v2-design-plan.md) P3 (`65d9f11`), had its header and filters redesigned
+> (`9efda1d`), and got a v3 design pass in `8523f13`. The map half is owned by
+> [discover-map-ux-plan.md](discover-map-ux-plan.md), not by §7 here — §7 was amended 2026-08-22
+> to record that.
+>
+> Four things now on this screen postdate the doc entirely, all from
+> [gtm-plan.md](gtm-plan.md): session-less browsing off the anon `nearby_games_public` RPC (G5,
+> `c85190f`), the `ColdStartEmpty` state that widens to 50 km before giving up (G14, `6c877e8`),
+> the Search pill routing to `/venues` (G9, `e55161b`), and `c15c942` excluding your own hosted and
+> joined games from the list. Read those before changing the empty-state ladder or the filter row.
+
 Scope: [ui/app/(tabs)/discover.tsx](../ui/app/(tabs)/discover.tsx), [GameCard.tsx](../ui/components/GameCard.tsx), [GameMap.tsx](../ui/components/GameMap.tsx), plus the `nearby_games` RPC. Backend changes are called out per phase — most of this is UI, but two phases need SQL.
 
 ---

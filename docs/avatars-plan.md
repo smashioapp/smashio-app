@@ -1,7 +1,18 @@
 # Avatars & Game Covers Plan — SMASHIO
 
 Written 2026-08-24. **Status: approved 2026-08-24, P0 → P1 → P2 shipped same day.** P3/P4
-(covers, chat list identity) stay parked per §6.6. Sibling to [ux-plan.md](ux-plan.md) (behaviour) and
+(covers, chat list identity) stay parked per §6.6.
+
+> **Header corrected 2026-09-07 (docs drift audit).** The P3/P4 sentence contradicts this doc's own
+> §P3 and §P4, which were updated at the time and the header was not. Actual state: **P3 unparked
+> 2026-08-25 and shipped** as an AI-generated cover pack (`589d3b9`, migration
+> `20260824000300_smashimals_and_covers.sql`, follow-ups `04f8731` crop/scrim and `781ea00` flat
+> scrim; `6233c66`/`20260825000100_chat_threads_cover_key.sql` carried covers into chat threads).
+> **P4 shipped its cover half only** — the `member_avatar_keys` stack described in §P4 was not
+> added, so P4 is partial, not parked.
+>
+> One dead pointer while you're in here: §1 and §P4 point at `ui/app/(tabs)/chat.tsx`, which
+> social-plan slice N1 (`5e2a93e`) moved to `ui/app/chat/index.tsx` when Chat merged into My Games. Sibling to [ux-plan.md](ux-plan.md) (behaviour) and
 [not-boring-plan.md](not-boring-plan.md) (feel) — this one covers *identity*: making every player
 and every game visually distinct without asking anyone to upload anything.
 

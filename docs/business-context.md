@@ -4,7 +4,7 @@
 
 - Country: Australia
 - ABN: registered, sole trader ("Individual/Sole Trader" subtype)
-- Business name: "SMASHIO" — submitted to ASIC names determination review, pending at last check
+- Business name: "SMASHIO" — submitted to ASIC names determination review, pending as at 2026-08-07 (the last date this was recorded). **Not verifiable from the repo; re-check before relying on it.** Note the app, store listings and website all now render the name title-case as "Smashio", not all-caps — see the brand-mark change of 2026-09-07.
 - Domain: smashio.com.au (eventual — website is marketing/info + app store links only, no in-app functionality on web)
 
 ## Market

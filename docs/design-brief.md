@@ -17,6 +17,10 @@ the core action is finding people to play with; the venue is a detail on the gam
 Platform: iOS + Android only, React Native + Expo. No web app. smashio.com.au is a marketing page
 only, and it must match whatever system we land here.
 
+> **Count stale 2026-09-07.** `ui/components/` holds **77** components today, and the design
+> project was re-synced at 76 on 2026-08-31. The "51" below is the 2026-08-16 figure. The
+> instruction it carries — build on the real kit, don't invent a parallel one — is unchanged.
+
 This project already has SMASHIO's real component library imported (51 React Native components:
 GameCard, PlayerCard, TabBar, HoldButton, Burst, ReliabilityGauge, VenueCourtHeader, MapSheet,
 Sheet, Chip, Badge, TierBadge, EmptyState, etc.). Build on those, do not invent a parallel kit.
@@ -45,6 +49,23 @@ condensed/expanded sports display, and one with a subtle custom cut (e.g. an ang
 S or a shuttle-blade-derived detail). Show each in lime-on-black and white-on-black.
 
 === TYPEFACE CHANGE (whole app + website) ===
+> **Superseded 2026-09-07 — the app already made this move; the website did not.** The "Current"
+> line below was written on 2026-08-16 and described the state that existed for a few hours that
+> same day. [v2-design-plan.md](v2-design-plan.md) §3.2 (commit `141a439`) swapped the display face
+> to **Space Grotesk**: `ui/tailwind.config.js` resolves `font-display` / `-bold` to
+> `SpaceGrotesk_700Bold`, `-semibold` to `600SemiBold`, `-medium` to `500Medium`, and
+> `ui/app/_layout.tsx` loads exactly those three weights. Body is still Manrope 500/600/700/800.
+> Bricolage is gone from the app entirely.
+>
+> **`website/index.html` is still on Bricolage Grotesque 800** (the Google Fonts `<link>` on line 28
+> and ~30 inline `font-family:'Bricolage Grotesque'` declarations). So the hard constraint stated
+> below — *"Same family must work on the static website"* — is currently **violated**: app and site
+> do not share a display face. That is an open decision, not a bug to silently patch. Also note
+> Space Grotesk tops out at **700**, so the 800 weight the site leans on has no equivalent; picking
+> Space Grotesk for the site means re-deciding the hero weight, not just swapping the family.
+>
+> The prompt text below is kept verbatim because Prompts 2–8 were run against it.
+
 Current: Bricolage Grotesque (display) + Manrope (body). I want to move to something nicer.
 Hard constraint: it must be loadable via @expo-google-fonts (Google Fonts) OR be a variable font I
 can bundle as a .ttf, and it must have 400/500/600/700/800 with tabular figures (we render scores,
@@ -1051,14 +1072,29 @@ Everything else in the file stays exactly as it is.
 
 ## Notes for whoever runs these
 
+> **Amended 2026-09-07 (docs drift audit).** Three bullets below had gone stale as work shipped
+> past them. Corrections are inline, marked `↳`; the original lines are left so the prompts that
+> were written against them still make sense.
+
 - Prompt 1 must settle **before** 2-5 — everything downstream inherits the type scale and the
   elevation ladder.
+  - ↳ **Overtaken by events.** Prompt 1 never ran as written. The display face was decided
+    separately in [v2-design-plan.md](v2-design-plan.md) §3.2 (Space Grotesk, 2026-08-16) and
+    Prompts 5–8 were run and shipped on top of it. Prompt 1's *unrun* half is the wordmark
+    exploration, and even that is partly answered — the mark and wordmark were both replaced
+    2026-09-07 (see the LOGO note above).
 - Font pick has a hard implementation constraint: `@expo-google-fonts` package or a bundled
   variable `.ttf`, weights 400-800, tabular figures. Same family must work on the static website.
+  - ↳ **This constraint is currently unmet.** App = Space Grotesk (max weight 700) + Manrope.
+    Website = Bricolage Grotesque 800 + Manrope. See the annotation under "TYPEFACE CHANGE" in
+    Prompt 1. Needs a decision before any further type work.
 - The mark itself is frozen. Only the wordmark typeface is in play. **No longer true from
   2026-09-07** — the mark was redesigned; see the note under "LOGO" above.
 - Prompt 5 is a redesign of shipped code, not greenfield — read [profile-plan.md](profile-plan.md)
   (P0-P6 all landed) before running it, so the agent is not handed problems we already fixed.
+- ↳ **Prompt 6 has since been built.** "Host a Game v3" landed `e6a712b` (2026-09-01) and P1–P7
+  followed through `63d1f00` (2026-09-03), with the deviations recorded in
+  [create-game-plan.md](create-game-plan.md) §10. The don't-reopen list below still stands.
 - Prompt 6 is next in build order, after the feed. Its structural decisions were settled
   2026-09-01 and are recorded in [create-game-plan.md](create-game-plan.md) §9 — read that before
   changing anything in the prompt, and don't re-open: two steps not six, high-confidence-only
@@ -1077,6 +1113,11 @@ Everything else in the file stays exactly as it is.
   (P0-P6 landed) and [social-plan.md](social-plan.md) §17 before changing it.
 - Social (prompt 4) is unapproved scope — see [social-plan.md](social-plan.md) §11. Designing it is
   cheap; building it needs sign-off.
+  - ↳ **No longer true from 2026-08-31.** social-plan §17 decision 3 approved the feed, and the
+    whole §13.1 slice shipped 2026-08-31 → 2026-09-01 (follows, `posts`, `feed_home`, composer,
+    moderation, the N1 nav merge), then got its own v3 design pass in `3e0f7e7`. This bullet
+    already contradicts the Prompt 8 bullet above it, which says the feed shipped. What is still
+    unapproved is §13.4's B3 and everything in social-plan §2 marked build-later.
 
 ---
 

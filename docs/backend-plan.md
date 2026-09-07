@@ -2,6 +2,38 @@
 
 Written 2026-08-07. Covers building the Supabase backend and replacing the mocked UI prototype with real data.
 
+> **Amended 2026-09-07 (docs drift audit).** This doc is a build record for slices 0–9 and is
+> accurate about them. What has gone stale is everything it describes as *deferred* or *stubbed*,
+> plus the local-dev section. In order:
+>
+> 1. **`ai-proxy` is no longer stubbed, and it is not Anthropic.** §"Edge functions" and open
+>    question 4 both describe a fake `parsed` payload behind an Anthropic call that was never
+>    written. Real parsing shipped in `f830a36` (receipt-first hosting) against **Google Gemini** —
+>    `071531e`. `ANTHROPIC_API_KEY` is dead; the secret is `GEMINI_API_KEY`. Two `ai-proxy` modes
+>    exist now: `parse` (booking confirmations) and `classify` (post moderation). The "Remaining
+>    smaller follow-ups" item *"Real `ai-proxy` LLM call to replace the stub"* is **done**.
+> 2. **Event-verified is a real check now.** §"Verification badges" says the badge flips on any
+>    upload because the parser always approves. `reviewStatusFor()` in `ai-proxy` now returns
+>    `verified` or `rejected` off the parsed content.
+> 3. **Four edge functions, not two.** `delete-account` (2026-08-12, see
+>    [store-readiness-plan.md](store-readiness-plan.md)) and `purge-confirmations` (the 7-day photo
+>    retention job, `20260815000600_purge_confirmations_cron.sql`) both postdate this doc.
+> 4. **Reminders: two, not one.** §"Scheduled jobs" describes a single ~T-2h reminder. There is now
+>    a T-24h and a T-2h, the T-2h suppressed 22:00–07:00 Sydney — see
+>    [notifications-plan.md](notifications-plan.md) and `20260820000200_notifications_p0.sql`.
+> 5. **Reliability weights are still a placeholder.** That follow-up is genuinely still open;
+>    open question 1's "never reconciled back to the original design" also still stands.
+> 6. **Mobile-verified is still deferred.** `ui/app/settings/phone.tsx` exists but stores a
+>    game-day contact number in `profile_private.phone` — there is no OTP anywhere in the repo, so
+>    it confers no badge. The deferral in the Auth decision table is intact.
+> 7. **`supabase/seed.sql` and `ui/.env` both flipped — see the correction on
+>    §"Test data & local login" below.**
+>
+> Everything downstream of slice 9 lives in its own plan doc. The schema in §"Data model" is the
+> slice-0–9 shape and has been extended many times since (reserved spots, notifications, chat v2,
+> venue directory, follows, posts, clubs, achievements); `supabase/migrations/` is the source of
+> truth, not this section.
+
 Stack is already decided in [tech-stack.md](tech-stack.md) — this doc is the *how*, not a re-decision.
 
 ## Starting point
@@ -139,6 +171,27 @@ Slices 0–6 are the MVP loop. 7–8 are required for ship quality. 9 is require
 - Two Supabase projects: `dev` and `prod`. Migrations promote dev → prod; prod is never hand-edited in the dashboard.
 
 ## Test data & local login (added 2026-08-09)
+
+> **Reversed 2026-09-07 (docs drift audit): local dev now runs against the local stack, and
+> `seed.sql` carries the test accounts.** Every claim in this section about where `.env` points and
+> what `seed.sql` contains is the opposite of what is true today. Current state, per `ui/.env`'s own
+> header comment, `supabase/seed.sql`, and CLAUDE.md:
+> - **`ui/.env` points at the local `supabase start` stack** and is checked in. `npm start`,
+>   `run:ios`, `run:android`, jest and the Maestro e2e run all use it, no setup needed.
+> - **`ui/.env.production` (gitignored) holds the hosted project's URL/key**, and is used only by
+>   `eas build` / `expo export` — real device and store builds always load it, local dev never does.
+> - **`supabase/seed.sql` now seeds the test accounts itself**, so the last bullet of this section
+>   ("untouched — still just sports/tiers/venues, no test users/games") is wrong. It creates
+>   `test@smashio.dev`, six bots `bot1..bot6@smashio.dev`, and `onboarding@smashio.dev` (a
+>   profile-less user for the e2e onboarding walk), all `Test1234!`, plus profiles, venues and
+>   games. It is replayed by `supabase db reset`, so it is rerun-safe by construction — unlike
+>   `seed-test-data.sql` below.
+> - `test@smashio.dev` / `Test1234!` **also** exists on the hosted project for manual testing there,
+>   which is the part of this section that still holds.
+> - **`ui/app/onboarding/login.tsx` no longer exists.** `eb0a083` deleted it and moved the
+>   email/password form into `ui/components/AuthPanel.tsx` on the landing screen — see
+>   [auth-onboarding-plan.md](auth-onboarding-plan.md) P1.
+> - Bot count drifted: this section says seven bots, `seed.sql` creates six.
 
 Hosted project (`ajbsvsfwjfeofvjuhzrw`, the one `ui/.env` points at) has seeded test accounts + data — no local Supabase stack in use, `.env` targets hosted directly.
 

@@ -1,5 +1,21 @@
 # Chat Plan — the game thread
 
+> **Status corrected 2026-09-07 (docs drift audit): this shipped, twice.** The header below still
+> reads "proposed" and never got updated.
+> - **Chat v2** landed the same day it was written — `d265894` (2026-08-15), migration
+>   `20260815000700_chat_v2.sql`: game timeline, host controls, notifications, images.
+> - **Chat redesign** followed — `8c6f8c5` (2026-08-20), migration `20260821000000_chat_redesign.sql`:
+>   reactions, quoted replies, game-share, broadcast settings. Then `181a2da` (2026-08-23)
+>   redesigned the thread list (sections, search, unread badges), and `c44afba` (2026-08-24) closes
+>   a thread when its game is cancelled or completed (`20260824000200_close_chat_on_cancel_complete.sql`).
+> - **The `(tabs)/chat.tsx` in the scope line no longer exists.** social-plan §13.5 slice N1
+>   (`5e2a93e`, 2026-08-31) merged Chat into My Games and gave the tab slot to the feed; the thread
+>   list is now `ui/app/chat/index.tsx`, reached from My Games. `ui/app/chat/[id].tsx` is unchanged
+>   and still the thread screen.
+>
+> Read this doc as a record of what was built, not as a proposal. The line-numbered pointers into
+> `chat/[id].tsx` and `queries/messages.ts` below predate all of the above and will not line up.
+
 Status: proposed, 2026-08-15. Covers `ui/app/chat/[id].tsx`, `ui/app/(tabs)/chat.tsx`,
 `ui/lib/queries/messages.ts`, `supabase/migrations/20260808000100_messages.sql` and the
 `message` branch of `supabase/functions/push-dispatch`.

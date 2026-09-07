@@ -986,6 +986,35 @@ claimed clubs are publishing weekly — a ladder with nobody in it is worse than
 All open items were resolved. These override anything in the body that still reads as a
 proposal.
 
+> **Amended 2026-09-07 (docs drift audit) — decision 3 was overtaken by the v3 design build, in
+> both directions.** Recording what the code now does; not reopening the argument.
+>
+> **(a) Plain `text` posts were cut entirely, not merely sequenced last.** Decision 3 says
+> "`looking_for_players` ships before plain `text`". `3e0f7e7` (2026-09-01) removed `text` from the
+> product: `20260901110000_drop_text_posts.sql` deletes existing `text` rows, tightens
+> `posts_kind_check` to `('question','looking_for_players','system')`, and stops `create_post`
+> accepting it. Its own header notes `compose.tsx` never offered `text` in the UI to begin with. So
+> a player creates exactly two kinds — `looking_for_players` and `question` — plus `system` posts
+> the triggers write. §13.1's "text feed" naming is now a misnomer.
+>
+> **(b) Replies and reactions shipped, having been cut from v1 and held in B3.** Decision 3 cuts
+> "images (`post_media`), comments and reactions". `20260901100000_feed_v3_replies_reactions.sql`
+> (`3e0f7e7`) adds `post_replies` (flat, single-level, no nesting), reactions, a suggested-follow
+> query, and widens `feed_home` with the mode/kind filters the v3 Filters sheet needs; it also
+> wires `posts.accepted_answer_id`, which `posts_feed.sql` had created and nothing ever set. The
+> reply/accept UI is `ui/app/post/[id].tsx`. **Images are still cut** — no `post_media` table
+> exists, so B3's image-classification gate in §13.4 is untouched and still the real blocker.
+>
+> Everything else in §17 held. §13.1 shipped in full (B0 `7b64ee4`, B0.5 `c1aa9c7`, B1+B7
+> `14b8e27`, B5 `c048712` + the server-side enforcement fix `ade2a78`, B2 `14ac1cf`, N1 `5e2a93e`),
+> C0 shipped standalone and first (`f4b63c1`) as decision 8 required, and §14's metrics were
+> instrumented (`83bd69e`). Decision 7's tab set is live: `Discover | Feed | My Games | Profile`.
+>
+> One stale pointer in §13.5's body: it says "`BottomRail` slots are unaffected — `HostFab` stays
+> mounted on Discover and My Games". **`BottomRail.tsx` and `HostFab.tsx` were deleted on
+> 2026-08-16** by [v2-design-plan.md](v2-design-plan.md) P2/P6; the host action lives in the tab
+> bar. The intent (no host FAB on the Feed tab) is unaffected — there is no FAB to place.
+
 1. **Positioning split — APPROVED.** Roadmap widens to "everything badminton"; the launch message
    stays "there's a game tonight, near you, at your level". **Trigger to widen: ≥8 weekly liquid
    suburbs *and* ≥30 hosts publishing weekly** (§1). gtm-plan §1's "never say book courts"

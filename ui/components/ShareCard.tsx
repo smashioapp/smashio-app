@@ -35,7 +35,7 @@ export function ShareCard({
           className="font-body-extrabold text-[12px] uppercase"
           style={{ color: colors.textSecondary, letterSpacing: 2, textAlign: "center", marginTop: 30 }}
         >
-          SMASHIO
+          Smashio
         </Text>
         <View className="items-center" style={{ marginTop: 50 }}>
           <Avatar id={card.id} name={card.displayName} color={avatarColor(card.id)} size={80} photoUri={photoUrl} avatarKey={card.avatarKey} />
@@ -69,7 +69,7 @@ export function ShareCard({
       <LinearGradient colors={["#151810", colors.base]} style={{ position: "absolute", inset: 0 } as never} />
       <View style={{ position: "absolute", top: 24, left: 24 }}>
         <Text className="font-body-extrabold text-[11px] uppercase" style={{ color: colors.textSecondary, letterSpacing: 1.5 }}>
-          SMASHIO
+          Smashio
         </Text>
       </View>
       <View className="rounded-pill" style={{ position: "absolute", top: 20, right: 24, backgroundColor: tier.color + "22", paddingHorizontal: 9, paddingVertical: 4 }}>

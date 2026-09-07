@@ -45,7 +45,7 @@ export function OfflineStatus({ onRetry }: { onRetry: () => void }) {
     <SubscreenStatus
       icon="cloud-offline-outline"
       title="You're offline"
-      subtitle="Can't reach SMASHIO right now, check your connection and give it another go."
+      subtitle="Can't reach Smashio right now, check your connection and give it another go."
       ctaLabel="Try again"
       onCta={onRetry}
     />

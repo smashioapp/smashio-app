@@ -32,7 +32,7 @@ const CATEGORIES: { key: NotificationCategory; label: string; description: strin
   { key: "game_changes", label: "Game changes", description: "Cancellations, reschedules, and edits to games you're in" },
   { key: "reminders", label: "Reminders", description: "Upcoming games and post-game rating nudges" },
   { key: "alerts", label: "Discover alerts", description: "New games matching what you're after" },
-  { key: "marketing", label: "Product news & promos", description: "What's new with SMASHIO, every so often" },
+  { key: "marketing", label: "Product news & promos", description: "What's new with Smashio, every so often" },
 ];
 
 function CategoryToggles() {

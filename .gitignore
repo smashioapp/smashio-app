@@ -28,3 +28,6 @@ data/venues/leads.json
 data/venues/leads-to-enrich.csv
 data/venues/.geocode-cache.json
 data/venues/.pipeline/
+
+# Python bytecode from the brand asset generators
+__pycache__/

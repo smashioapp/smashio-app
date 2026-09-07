@@ -174,9 +174,9 @@ export default function Splash() {
               style={[
                 {
                   position: "absolute",
-                  width: 77,
-                  height: 77,
-                  borderRadius: 38,
+                  width: 87,
+                  height: 87,
+                  borderRadius: 43,
                   borderWidth: 1.5,
                   borderColor: colors.accent,
                 },
@@ -186,19 +186,19 @@ export default function Splash() {
             <Animated.View style={logoStyle}>
               <Image
                 source={require("../../assets/smashio-logo.png")}
-                style={{ width: 67, height: 67 }}
+                style={{ width: 69, height: 69 }}
                 resizeMode="contain"
               />
             </Animated.View>
           </View>
 
-          <Animated.View style={[{ alignItems: "center", marginTop: 22 }, markStyle]}>
+          <Animated.View style={[{ alignItems: "center", marginTop: 12 }, markStyle]}>
             <Text
               className="font-display text-[46px] text-center"
               numberOfLines={1}
               style={{ color: colors.text, letterSpacing: -1 }}
             >
-              SMASH<Text style={{ color: colors.accent }}>IO</Text>
+              Smash<Text style={{ color: colors.accent }}>io</Text>
             </Text>
           </Animated.View>
 

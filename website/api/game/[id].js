@@ -122,8 +122,8 @@ ${ogUrl ? `<meta property="og:url" content="${esc(ogUrl)}" />` : ""}
 
 <header style="position:sticky; top:0; z-index:50; backdrop-filter:blur(18px); background:rgba(10,10,11,.72); border-bottom:1px solid rgba(255,255,255,.06)">
   <div style="max-width:720px; margin:0 auto; padding:14px 20px; display:flex; align-items:center; justify-content:space-between; gap:16px">
-    <a href="/" style="display:flex; align-items:center; gap:9px; color:#F5F5F7">
-      <img src="/assets/smashio-logo.png" alt="Smashio" style="width:30px; height:30px; object-fit:contain" />
+    <a href="/" style="display:flex; align-items:center; gap:6px; color:#F5F5F7">
+      <img src="/assets/smashio-mark.svg" alt="Smashio" style="width:17px; height:17px" />
       <span style="font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:19px; letter-spacing:-.02em">Smashio</span>
     </a>
     <a href="/" class="nav-link" style="align-items:center; color:#96969E; font-size:13px; font-weight:600">Back to smashio.com.au</a>
@@ -198,7 +198,7 @@ function notFoundHero({ heading, body }) {
       <span style="width:6px; height:6px; border-radius:50%; background:#D6FF3F; animation:smash-pulse 1.6s ease-in-out infinite"></span>
       <span style="font-size:11px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:#D6FF3F">Shared game link</span>
     </div>
-    <img src="/assets/smashio-logo.png" alt="" class="rise rise-2" style="width:48px; height:48px; object-fit:contain; animation-name:smash-in, smash-drift; animation-duration:.6s, 3.4s; animation-timing-function:cubic-bezier(.16,1,.3,1), ease-in-out; animation-iteration-count:1, infinite; animation-direction:normal, alternate; animation-delay:.10s, .7s; animation-fill-mode:forwards, none" />
+    <img src="/assets/smashio-mark.svg" alt="" class="rise rise-2" style="width:48px; height:48px; object-fit:contain; animation-name:smash-in, smash-drift; animation-duration:.6s, 3.4s; animation-timing-function:cubic-bezier(.16,1,.3,1), ease-in-out; animation-iteration-count:1, infinite; animation-direction:normal, alternate; animation-delay:.10s, .7s; animation-fill-mode:forwards, none" />
     <h1 class="rise rise-2" style="margin:0; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:clamp(28px,7vw,38px); line-height:1.05; letter-spacing:-.03em; text-wrap:balance">${esc(heading)}</h1>
     <p class="rise rise-3" style="margin:0; max-width:42ch; font-size:15px; line-height:1.6; color:#96969E">${esc(body)}</p>
     ${ctaButtons()}`;

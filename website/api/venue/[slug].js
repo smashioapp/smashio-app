@@ -62,7 +62,7 @@ function jsonLdFor(v, canonicalUrl) {
 
 function notFoundHero() {
   return `
-    <img src="/assets/smashio-logo.png" alt="" class="rise rise-1" style="width:48px; height:48px; object-fit:contain; animation-name:smash-in, smash-drift; animation-duration:.6s, 3.4s; animation-timing-function:cubic-bezier(.16,1,.3,1), ease-in-out; animation-iteration-count:1, infinite; animation-direction:normal, alternate; animation-delay:.10s, .7s; animation-fill-mode:forwards, none" />
+    <img src="/assets/smashio-mark.svg" alt="" class="rise rise-1" style="width:48px; height:48px; object-fit:contain; animation-name:smash-in, smash-drift; animation-duration:.6s, 3.4s; animation-timing-function:cubic-bezier(.16,1,.3,1), ease-in-out; animation-iteration-count:1, infinite; animation-direction:normal, alternate; animation-delay:.10s, .7s; animation-fill-mode:forwards, none" />
     <h1 class="rise rise-2" style="margin:0; font-family:'Bricolage Grotesque',sans-serif; font-weight:800; font-size:clamp(26px,7vw,34px); line-height:1.1; letter-spacing:-.03em">Venue not found</h1>
     <p class="rise rise-3" style="margin:0; max-width:42ch; font-size:14.5px; line-height:1.6; color:#96969E">This link doesn't point to a venue we know. Browse every court Smashio tracks in Sydney instead.</p>
     <a class="rise rise-3" href="/sydney" style="font-size:13.5px; font-weight:700">Browse all Sydney venues →</a>

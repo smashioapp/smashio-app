@@ -150,7 +150,7 @@ export default function Settings() {
         return;
       }
     } catch {}
-    Alert.alert("Not on the store yet", "SMASHIO is in private beta, thanks for testing it early!");
+    Alert.alert("Not on the store yet", "Smashio is in private beta, thanks for testing it early!");
   };
 
   const buildLabel = Platform.OS === "ios" ? Constants.expoConfig?.ios?.buildNumber : Constants.expoConfig?.android?.versionCode;
@@ -303,7 +303,7 @@ export default function Settings() {
             glyph: "contrast-outline",
             glyphColor: colors.textSecondary,
             title: "Reduce motion",
-            subtitle: "Controlled by your phone's system setting, not SMASHIO",
+            subtitle: "Controlled by your phone's system setting, not Smashio",
           },
         ],
       },
@@ -339,7 +339,7 @@ export default function Settings() {
             key: "rate",
             glyph: "star-outline",
             glyphColor: colors.advanced,
-            title: "Rate SMASHIO",
+            title: "Rate Smashio",
             accessory: "chevron",
             onPress: rateApp,
           },
@@ -522,7 +522,7 @@ export default function Settings() {
             </View>
 
             <Text className="text-center text-[11px] mt-1" style={{ color: colors.textMuted }}>
-              SMASHIO v{Constants.expoConfig?.version ?? "—"} · build {buildLabel ?? "—"}
+              Smashio v{Constants.expoConfig?.version ?? "—"} · build {buildLabel ?? "—"}
             </Text>
           </>
         )}

@@ -17,17 +17,11 @@ const LOGO = require("../assets/splash-icon.png");
 
 // Must match expo-splash-screen's `imageWidth` in app.config.js: the animation starts with the
 // logo at exactly the size and position the native splash left it at, so there is no jump on the
-// handoff — the shuttle simply starts moving.
+// handoff — the mark simply starts spinning.
 const SIZE = 144;
 
-// A shuttlecock rotates about its cork, not its bounding box: the weight is all in the base and
-// the feathers are drag. Offset from the image centre to the cork in the artwork, so the flip
-// pivots where the mass actually is.
-const PIVOT_X = -18;
-const PIVOT_Y = 29;
-
 export function AnimatedSplash({ onFinish }: { onFinish: () => void }) {
-  // One continuous 0 -> 1 turnover: feathers over the top, cork swinging down to lead.
+  // One continuous 0 -> 1 turn of the rosette about its own centre.
   const turn = useSharedValue(0);
   const lift = useSharedValue(0);
   const wobble = useSharedValue(0);
@@ -37,8 +31,8 @@ export function AnimatedSplash({ onFinish }: { onFinish: () => void }) {
 
   useEffect(() => {
     // Hold on the native splash pose first, so the handoff reads as one image, then one
-    // continuous turnover: feathers go over the top, cork whips back under, and drag makes
-    // the last few degrees crawl. A single curve — no mid-flip seam to snap on.
+    // continuous spin that drag pulls out of, so the last few degrees crawl. A single curve —
+    // no mid-flip seam to snap on.
     turn.value = withDelay(
       100,
       withTiming(1, { duration: 640, easing: Easing.bezier(0.3, 0.04, 0.16, 1) })
@@ -89,12 +83,10 @@ export function AnimatedSplash({ onFinish }: { onFinish: () => void }) {
     return {
       transform: [
         { translateY: -34 * l },
-        // Pivot about the cork: shift the pivot to the origin, rotate, shift back.
-        { translateX: PIVOT_X },
-        { translateY: PIVOT_Y },
+        // The mark is a radial rosette with no cork and no leading edge, so it spins about its
+        // own centre — the old canted shuttlecock needed an offset pivot, this doesn't. Twelve-
+        // fold symmetry also means the full turn has no seam: it lands on the pose it started on.
         { rotate: `${t * 360 + w * 11}deg` },
-        { translateX: -PIVOT_X },
-        { translateY: -PIVOT_Y },
         { scale: 1 - 0.1 * l + w * 0.06 },
       ],
     };

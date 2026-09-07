@@ -367,6 +367,10 @@ Requirements:
    inside the app and across the website, but the brand mark is untouched — the beta already
    shipped with it and store listings are live. The OG image is the obvious first thing to revisit
    once cast art exists.
+   **Reversed 2026-09-07**, and not by the Smashimals work: the brand mark itself was redesigned
+   (twelve-petal radial rosette, black on lime), so all four of those assets were regenerated from
+   it and the OG image was rebuilt around the new lockup. The part that still holds is the reason
+   this decision existed — Smashimals stay out of the icon slots.
 4. **No reliability mood states, and the galah is never pointed at a player.** A droopy avatar for
    low reliability, and a galah on the no-show flow, were both proposed and both rejected: in a
    small named beta community that is a joke aimed at a real person. The galah is used for **app**

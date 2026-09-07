@@ -77,7 +77,7 @@ export default function SignInSecurity() {
         <Text className="font-body-extrabold text-[11px] uppercase tracking-wide mb-1" style={{ color: colors.textTertiary }}>
           How you sign in
         </Text>
-        <Row title={providerLabel(provider)} subtitle="SMASHIO doesn't support switching sign-in methods yet — get in touch with support if you need a different one linked to this account." />
+        <Row title={providerLabel(provider)} subtitle="Smashio doesn't support switching sign-in methods yet — get in touch with support if you need a different one linked to this account." />
         <Row
           title={email ?? "Email"}
           subtitle={emailVerified ? "Verifies you to host games and recover your password" : "Not verified — you can't host games until you verify"}

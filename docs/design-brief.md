@@ -28,6 +28,11 @@ Sheet, Chip, Badge, TierBadge, EmptyState, etc.). Build on those, do not invent 
 Deliver as visual specimens I can look at, not just a list of names.
 
 === LOGO — DO NOT REDESIGN THE MARK ===
+> **Superseded 2026-09-07.** The mark below is the *old* one. It was replaced by a twelve-petal
+> radial rosette, black on a lime tile, traced from a generated source and shipped across every
+> icon slot, the website and the OG image. The wordmark is now title-case "Smashio", not all-caps.
+> The paragraph below is kept because the prompts underneath it were written against it.
+
 The mark is a stylised shuttlecock: four overlapping feather blades fanning up-right from a rounded
 cork base, in acid lime (#D6FF3F → #AEE62A), on near-black. Flat, no gradients inside the blades,
 thin black gaps between blades. It stays exactly as is. It is also the app icon and splash.
@@ -1050,7 +1055,8 @@ Everything else in the file stays exactly as it is.
   elevation ladder.
 - Font pick has a hard implementation constraint: `@expo-google-fonts` package or a bundled
   variable `.ttf`, weights 400-800, tabular figures. Same family must work on the static website.
-- The mark itself is frozen. Only the wordmark typeface is in play.
+- The mark itself is frozen. Only the wordmark typeface is in play. **No longer true from
+  2026-09-07** — the mark was redesigned; see the note under "LOGO" above.
 - Prompt 5 is a redesign of shipped code, not greenfield — read [profile-plan.md](profile-plan.md)
   (P0-P6 all landed) before running it, so the agent is not handed problems we already fixed.
 - Prompt 6 is next in build order, after the feed. Its structural decisions were settled

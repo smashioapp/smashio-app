@@ -32,7 +32,7 @@ module.exports = {
       package: "com.smashio.app",
       versionCode: Number(process.env.BUILD_NUMBER ?? 1),
       adaptiveIcon: {
-        backgroundColor: "#0A0A0B",
+        backgroundColor: "#D6FF3F",
         foregroundImage: "./assets/android-icon-foreground.png",
         backgroundImage: "./assets/android-icon-background.png",
         monochromeImage: "./assets/android-icon-monochrome.png",
@@ -128,8 +128,8 @@ module.exports = {
       [
         "expo-notifications",
         {
-          icon: "./assets/icon.png",
-          color: "#0A0A0B",
+          icon: "./assets/notification-icon.png",
+          color: "#D6FF3F",
         },
       ],
       [

@@ -51,6 +51,32 @@ Sport: badminton only (data model stays multi-sport ready). Platform: mobile.
 
 ## Open questions (not yet decided)
 
+> **Amended 2026-09-07 (docs drift audit): four of these five are decided.** They were resolved in
+> [backend-plan.md](backend-plan.md) §"Open questions — resolved 2026-08-08" and by work since;
+> this list was never updated. Kept in place because later docs quote it.
+>
+> - **Cost split — decided: per-player price, entered directly.** `e6c55d0` added per-player
+>   pricing and `b890b22` made it a free price entry. Not the derived even split described in
+>   backend-plan.
+> - **Reliability score formula — STILL OPEN.** Shipped as 0–100, `not null default 100`, 100 minus
+>   5 per late leave. No-shows and ratings are not inputs yet. This is the one genuinely
+>   undecided item here, and [post-game-plan.md](post-game-plan.md) has since added no-show marking,
+>   so the data exists.
+> - **Verified badge — decided: auto-parse, no manual queue.** `ai-proxy` `mode: 'parse'` reads the
+>   uploaded confirmation with Gemini and `reviewStatusFor()` returns verified/rejected. Split into
+>   email-verified (profile) and event-verified (game); mobile-verified stays deferred with OTP.
+> - **Venue data source — decided twice.** Google Places for host-entered venues (slice 9), then a
+>   curated facility directory on top ([venues-plan.md](venues-plan.md)): 56 venues, 37 P1 leads
+>   enriched by hand, 51 P2 still queued.
+> - **AI features — decided.** Booking-confirmation parsing and post moderation, both through
+>   `ai-proxy`, both on Gemini. See [tech-stack.md](tech-stack.md)'s 2026-09-07 amendment.
+>
+> Two body claims also drifted: §1's "Sign up: phone/email or social login" — **there is no phone
+> signup**, it is email + Google + Apple (Apple currently on the hosted-OAuth path, see
+> [auth-onboarding-plan.md](auth-onboarding-plan.md) §5). And §4's "Notification: 2 hours before
+> game" — there are **two** reminders now, T-24h and T-2h, per
+> [notifications-plan.md](notifications-plan.md).
+
 - Cost split mechanics — even split only, or organizer sets shares?
 - Reliability score formula — weight of late cancels vs no-shows vs reviews
 - Verified badge — manual review of booking confirmation, or OCR auto-parse?

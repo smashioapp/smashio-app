@@ -9,6 +9,21 @@
 > dot, and `HostFab` stays mounted on Discover and My Games only (2a), i.e. **not** on the new Feed
 > tab. Icon pair for Feed follows the same filled/outline convention as the other four.
 
+> **Amendment 2026-09-07 (docs drift audit) — `HostFab` and `BottomRail` no longer exist.** Phase 2
+> below builds both, and the 2026-08-31 amendment above still talks about where `HostFab` is
+> mounted. Both components were **deleted on 2026-08-16** by [v2-design-plan.md](v2-design-plan.md)
+> P2/P6 (`9fd6daa`, `a874e1f`): the host action became the centre FAB *inside* the tab bar, the
+> List↔Map switch moved into the Discover header, and `useTabBarSpace()` lost its `withRail`
+> argument. v2-design-plan §"Known loose end from P2 — resolved" records this.
+>
+> So: Phase 2's *problem statement* (floating controls hand-positioning themselves and colliding)
+> was real and is fixed — just not by the component this doc names. Everything else here still
+> holds, including the whole measured layout (56×52 targets, 24px icons, always-visible labels,
+> the active pill, the 375 pt / fontScale 1.3 truncation pass) and Phase 4's validation evidence.
+> [social-plan.md](social-plan.md) §13.5 and [my-games-plan.md](my-games-plan.md) §6.1 carry the
+> same dead `BottomRail`/`HostFab` reference; the tab **set** they describe is live and correct.
+> The tab bar itself is `ui/components/TabBar.tsx`, restyled again by the v3 pass in `8523f13`.
+
 Written 2026-08-12. **Status: shipped** — phases 0–4 landed same day (labelled/sized tab bar with active-pill morph and a11y, `useTabBarSpace()` + `BottomRail` so `HostFab` and the Discover map toggle stop hand-positioning and colliding, a symmetric Map↔List toggle with Android back handling, and scroll-aware bar minimise + scroll-to-top-on-repress). Scope: the bottom navigation bar only ([TabBar.tsx](../ui/components/TabBar.tsx), [(tabs)/_layout.tsx](../ui/app/(tabs)/_layout.tsx)) plus the content padding it forces on the four tab screens. Native only, matches [ux-plan.md](ux-plan.md).
 
 Problem statement: bar reads as small, ambiguous and cramped. Icons are undersized, nothing is labelled, the centre `+` collides with screen content, and nothing accounts for the device's bottom inset.

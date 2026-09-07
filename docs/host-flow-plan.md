@@ -1,5 +1,23 @@
 # Host Flow Plan — receipt-first hosting
 
+> **Status corrected 2026-09-07 (docs drift audit).** This shipped the day it was written —
+> `f830a36` "Implement receipt-first hosting (host-flow-plan.md)" (2026-08-15). The header below
+> still says "proposed".
+>
+> **The LLM prereq below is wrong now.** `ai-proxy` does **not** call Anthropic. It was swapped to
+> **Google Gemini** in `071531e` (2026-08-15, same day as this doc);
+> `supabase/functions/ai-proxy/index.ts` uses `GEMINI_API_KEY` against
+> `generativelanguage.googleapis.com` on the `gemini-flash-latest` **alias** (deliberately not a
+> pinned version — `2338911` fixed a production outage caused by `gemini-2.5-flash` being retired).
+> Ignore the `claude-api` prereq; there is no Anthropic request in this codebase.
+>
+> Downstream consequence worth carrying: because photos go to a third-party model provider,
+> [gtm-plan.md](gtm-plan.md) G13 and [store-readiness-plan.md](store-readiness-plan.md) both carry
+> the Gemini disclosure and the 7-day retention rule (`purge-confirmations`).
+>
+> The **next** pass on hosting is [create-game-plan.md](create-game-plan.md), which supersedes
+> nothing here but builds on top of it — read that first for current shape.
+
 Status: proposed, 2026-08-15. Covers `ui/app/wizard.tsx`, `supabase/functions/ai-proxy`,
 the `confirmations` bucket and `game_confirmations`.
 

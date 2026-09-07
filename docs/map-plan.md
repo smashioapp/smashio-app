@@ -7,6 +7,21 @@ three commits: Google Maps + brand style + venue clustering + bottom sheet, a ma
 directions, and dimmed no-game venue pins (§5.10). iOS only for now — Android isn't on the Play
 Store yet (§6 "Later / not now" is still open).
 
+> **Amended 2026-09-07 (docs drift audit): "iOS only" is now imprecise, and this doc's execution
+> was superseded.**
+> - **Both platforms render Google Maps.** `ui/components/GameMap.tsx` passes `PROVIDER_GOOGLE`
+>   unconditionally. What is still iOS-only is the **cloud-styled brand Map ID** —
+>   `googleMapId={Platform.OS === "ios" ? GOOGLE_MAP_ID : undefined}` — so Android gets Google
+>   tiles in default styling, not the brand style. README.md and CLAUDE.md say "Google Maps on both
+>   platforms with a cloud-styled brand Map ID"; that is right about the provider and loose about
+>   the styling. Applying the Map ID on Android needs an Android-restricted Maps key, which is also
+>   the open item in [store-readiness-plan.md](store-readiness-plan.md).
+> - **§5.10's execution is what broke, and was redone.**
+>   [discover-map-ux-plan.md](discover-map-ux-plan.md) is the second pass over this surface (pin
+>   taxonomy, Games/Courts modes, density rules, geocoded search) and shipped 2026-08-20; the map
+>   then got a v3 design pass in `1f47449` + `8c6f3e2`. Read discover-map-ux-plan before touching
+>   the map — §5 of this doc is the design intent, not the current code.
+
 Scope: the Discover map overlay ([discover.tsx](../ui/app/(tabs)/discover.tsx)) and
 [GameMap.tsx](../ui/components/GameMap.tsx). iOS only for now — Android isn't on the Play Store yet.
 

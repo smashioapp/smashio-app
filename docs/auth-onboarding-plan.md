@@ -82,6 +82,22 @@ Both providers need a fresh native build — iOS ships via GitHub Actions, not E
 - No phone/OTP — still deferred ([backend-plan.md](backend-plan.md) §17: SMS provider + AU sender ID).
 - No biometric unlock or "remember me" — `persistSession: true` makes it implicit and always-on.
 - No suggested-follows step; [social-plan.md](social-plan.md) is unapproved and it would re-inflate onboarding.
+
+> **Amended 2026-09-07 (docs drift audit).** Three notes on this list. The decisions all still
+> hold; two of the *reasons* have changed.
+> - **backend-plan has no §17.** That anchor is dead. The phone/OTP deferral is in backend-plan's
+>   "Decisions made 2026-08-07" table (Auth for MVP row) and again under "Verification badges".
+>   The deferral itself is intact: `ui/app/settings/phone.tsx` stores a game-day contact number in
+>   `profile_private.phone` and there is no OTP anywhere in the repo.
+> - **social-plan is no longer unapproved.** §17 decision 3 approved the feed 2026-08-31 and the
+>   whole §13.1 slice shipped, follows included (`7b64ee4`,
+>   `20260901010000_follows.sql`). The *outcome* is unchanged and was decided on purpose:
+>   social-plan §17 decision 8 independently defers suggested-follows at onboarding, so v1 starts
+>   every user at zero follows. Same answer, live reason.
+> - **§7's A6 gap is closed on the fixture.** `supabase/seed.sql` now seeds
+>   `onboarding@smashio.dev`, a profile-less auth user, exactly for this. The flow still needs
+>   writing against the single `setup.tsx` — see [e2e-test-plan.md](e2e-test-plan.md)'s 2026-09-07
+>   amendment.
 - No change to the boot splash ([AnimatedSplash.tsx](../ui/components/AnimatedSplash.tsx)) or the landing animation — the parts that already worked.
 
 ---

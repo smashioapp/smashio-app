@@ -29,24 +29,29 @@ Visual verification of UI changes: `npm run web` + Browser pane at the mobile vi
 
 `ui/.env` is checked in pointing at the local `supabase start` stack — `npm start` / `run:ios` / `run:android` / jest / Maestro e2e all use it, no setup needed. `ui/.env.production` (gitignored) holds the hosted project's URL/key for `eas build`/`expo export` only — real device/store builds always use it, local dev never does. `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` blank = grey map tiles + no venue search in the wizard. Test login: `test@smashio.dev` / `Test1234!` (email/password, no Google needed) — seeded into both the local db (`supabase/seed.sql`) and the hosted project.
 
-Store builds go through EAS (`ui/eas.json`): `eas build --profile production --platform ios`.
+Store builds run in **self-managed GitHub Actions, not EAS** (corrected 2026-09-07 — the EAS line here was stale since 2026-08-15). iOS: `.github/workflows/build-ios.yml` (`workflow_dispatch` or a published release) prebuilds, archives, exports and uploads to TestFlight via `fastlane pilot`. Android: `.github/workflows/build-android.yml` (`workflow_dispatch`, apk or aab). `ui/eas.json` still exists but nothing in the release path reads it. **EAS is still used for OTA JS updates** — `.github/workflows/ota-update.yml` runs `eas update` on every push to `main` touching `ui/**`. Before touching the iOS runner image, the Xcode version, or the `expo-modules-jsi` pin, read [store-readiness-plan.md](docs/store-readiness-plan.md) §"iOS runner image / Xcode / expo-modules-jsi".
+
+AI calls go through `supabase/functions/ai-proxy`, which runs on **Google Gemini** (`gemini-flash-latest`, `GEMINI_API_KEY`), not Anthropic — two modes, `parse` (booking confirmations) and `classify` (post moderation). The rule that matters is unchanged: server-side only, never from the client.
 
 ## Architecture
 
 ```
 ui/            Expo Router app (React Native, TypeScript) — the only client
-  app/         file-based routes: (tabs), game, chat, wizard, onboarding, post-game, venue(s)
+  app/         file-based routes: (tabs) = discover/feed/my-games/profile, game, chat, wizard,
+               onboarding, post-game, venue(s), player, post, compose, settings/*, notifications
   components/  shared UI components
   lib/         supabase client, react-query hooks (lib/queries/), zustand store, helpers
 supabase/
   migrations/  ordered SQL — schema, RLS, RPCs (source of truth for DB shape; read before writing queries)
   functions/   ai-proxy, push-dispatch, delete-account (Deno Edge Functions)
   seed.sql     local dev seed data
-website/       static marketing site (smashio.com.au) — no app functionality, no build step
+website/       marketing site (smashio.com.au) — static HTML, no build step, plus `api/` Vercel
+               serverless functions server-rendering /game/:id, /venue/:slug, /club/:slug,
+               /sydney and /sitemap.xml from anon-safe RPCs. Still no app functionality on web.
 docs/          product/tech/business plan docs — read the relevant one before touching that area
 ```
 
-State: TanStack Query owns server cache (`ui/lib/queries/*.ts`, one file per domain: games, gamePlayers, messages, profile, ratings, sports, venues, account, alerts). Zustand (`ui/lib/store.ts`) owns client/UI state. `ui/lib/session.tsx` holds auth session context.
+State: TanStack Query owns server cache (`ui/lib/queries/*.ts`, one file per domain: games, gamePlayers, messages, profile, ratings, sports, venues, account, alerts, plus achievements, feed, follows, notifications, notificationPrefs, reservedSpots, settings). Zustand (`ui/lib/store.ts`) owns client/UI state. `ui/lib/session.tsx` holds auth session context.
 
 Data flow: client → `supabase-js` for Postgres/Auth/Realtime/Storage directly (RLS-enforced), except AI calls, account deletion, and push dispatch, which go through JWT-authed Edge Functions. Chat is Supabase Realtime channels (no third-party chat SDK). The Discover map is Google Maps (`react-native-maps`) on both platforms with a cloud-styled brand Map ID — not Apple Maps.
 

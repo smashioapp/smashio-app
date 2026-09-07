@@ -4,6 +4,27 @@ Written 2026-08-20, after the Maestro/emulator harness came good (API 35 AVD, sw
 
 Status: **proposed, not approved**. No flows have been written from this doc yet.
 
+> **Corrected 2026-09-07 (docs drift audit).** The second sentence is false. `ui/.maestro/` holds
+> **17 flow files** today: `auth-persists-relaunch`, `cancel-game`, `chat-send`, `discover-load`,
+> `discover-map-toggle`, `host-approve-remove`, `join-full-game`, `join-request`, `leave-game`,
+> `login`, `login-form`, `login-no-reonboard`, `login-wrong-password`, `logout`,
+> `my-games-and-join`, `rating-no-reprompt`, `rating-submit`. Nine of them landed in `4bc643c`
+> (2026-08-21, "Expand Maestro e2e coverage: 9 new P0 flows"), and
+> [auth-onboarding-plan.md](auth-onboarding-plan.md) §7 already treats this doc's flow names as
+> real when it records updating `login-form.yaml` and adding `login-no-reonboard.yaml`.
+>
+> What is still genuinely unapproved is the **gate policy** — the tiers in §1, the
+> block-the-release rule, and any CI wiring. `.github/workflows/ci.yml` runs typecheck, unit tests
+> and a `db reset` on pushes to `main` (`3f6b8fc`); it does **not** run Maestro. So: the flows
+> exist and are run by hand via `ui/scripts/e2e.sh`; the release gate does not.
+>
+> Two other corrections. **A6** (§ "Onboarding: profile-less user → photo step → skill step") is
+> stale twice over: the fixture it was blocked on now exists (`onboarding@smashio.dev`, seeded in
+> `supabase/seed.sql`), and there is no longer a photo step or a skill step — `eb0a083` collapsed
+> both into one `ui/app/onboarding/setup.tsx` (see [auth-onboarding-plan.md](auth-onboarding-plan.md)
+> P4), so A6 needs rewriting against the single screen, not just writing. And paths in this doc are
+> written as `.maestro/…`; they resolve under `ui/`, not the repo root.
+
 ## 1. Gate tiers
 
 Three gates, different costs, different triggers.

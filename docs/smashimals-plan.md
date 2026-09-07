@@ -1,5 +1,25 @@
 # Smashimals Expansion Plan — SMASHIO
 
+> **Status corrected 2026-09-07 (docs drift audit): the app half is built; the website half is not.**
+> "no implementation started" below was overtaken by `d5ac3ab` (2026-08-26, "smashimals props,
+> empty-state cast, and quokka motion rig"). Against §8's phase table:
+> - **A0 ✅** — six props in `ui/assets/props/` (banner, medal, racquet, shuttlecock, speech-bubble,
+>   trophy) + `ui/components/PropOverlay.tsx`.
+> - **A1 ✅** — props wired into the wizard and post-game success moments.
+> - **B0 ✅** — cast art in `ui/assets/smashimals/{quokka,kookaburra,wombat,galah}/`.
+> - **B1 ✅** — `EmptyState.tsx` takes a `character` prop; six keys ship (`kookaburra-shade`,
+>   `kookaburra-asleep`, `wombat-racquet`, `quokka-shelf`, `quokka-map`, `galah-net`).
+>   [gtm-plan.md](gtm-plan.md) G14's cold-start empty state already depends on the kookaburra one.
+> - **C0/C1 ⚠️ shipped reduced** — `ui/components/SmashimalRig.tsx` exists and is wired into
+>   onboarding setup. **Idle sway and blink only: the quokka arm wave and celebrate were dropped
+>   2026-08-26** (broken shoulder seam, wrong-arm bugs). §4's motion list still describes wave and
+>   celebrate as in scope; they are not.
+> - **W0 / W1 ❌ not started.** `website/` has no cast art, no `404.html`, and no `#how` step
+>   characters. §3.4 is untouched work.
+>
+> §6's four settled decisions are not reopened by any of this — but note decision 3 already carries
+> its own "superseded 2026-09-07" annotation (the icon/splash/favicon/og-image *were* replaced).
+
 Written 2026-08-25. **Status: direction signed off 2026-08-25 (§6), no implementation started.**
 Sibling to [avatars-plan.md](avatars-plan.md), which shipped the 28 circular bust avatars —
 this one covers what happens *after* identity: props, a full-body brand cast, motion, and the
@@ -123,8 +143,12 @@ gains a `character` prop; each of the six call sites picks one.
    Near-zero work, high charm.
 4. **`#get-app`** (line 600) — **Quokka holding the banner**, banner carries the CTA. Same asset as
    the app, which is what ties the two surfaces together.
-5. **[player.html](../website/player.html) / [venue.html](../website/venue.html)** — 31-line
+5. **[player.html](../website/player.html) / ~~`venue.html`~~** — 31-line
    deep-link stubs. A waiting Smashimal instead of a bare redirect.
+   **Amended 2026-09-07:** `website/venue.html` no longer exists. [gtm-plan.md](gtm-plan.md) G11
+   replaced it with a server-rendered `website/api/venue/[slug].js` (real venue content, JSON-LD,
+   indexable), so venue links are no longer a stub to warm up. `player.html` is still the 31-line
+   stub described here.
 6. **[support.html](../website/support.html) / [delete-account.html](../website/delete-account.html)**
    — a small bust warms up the admin pages. **Not** privacy or terms; those stay plain (CLAUDE.md:
    legal text is accurate first).

@@ -49,6 +49,21 @@ reserved pool to `approved_count` — net zero, capacity stays honest.
 
 ## Decisions (2026-08-24)
 
+> **Amended 2026-09-07 (docs drift audit): D3 was superseded on purpose by later approved work.**
+> Not reopened here — recording where it moved. D3 says *"An unclaimed reserved spot stays held
+> forever. Only the host releases it."* [create-game-plan.md](create-game-plan.md) P6 replaced that
+> with an expiry ladder — `e0f3c7f`, `20260903020000_reserved_spot_expiry.sql`:
+> `game_reserved_spots` gained `expires_at`, `pinned` and `nudged_at`; new holds default to
+> **4 hours before start** (not 24 — a same-day Sydney weeknight social would release a hold the
+> instant it was created); inside the last 2 hours the host gets one nudge; the spot then
+> auto-releases unless pinned. Existing holds were backfilled to the same default rather than left
+> null. **Pinning is how a host now gets D3's old behaviour**, per-spot instead of globally.
+> `bebb72a` later revoked `PUBLIC` execute on the sweep function.
+>
+> D1, D2, D4–D12 are unaffected, and so is the capacity formula below — a claimed hold still
+> converts to an `approved` row. Everything in "Schema" is still accurate as the 2026-08-24 shape;
+> the three columns above are additive on top of it.
+
 | # | Decision |
 |---|---|
 | D1 | `max_players` includes the host. `4` means host + 3 others. |

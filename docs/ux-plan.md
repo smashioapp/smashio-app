@@ -45,6 +45,23 @@ Currently zero. Two entry points missing entirely.
 
 ## Phase 4 — native-only cleanup
 
+> **Amended 2026-09-07 (docs drift audit): the two unticked items below are effectively done, and
+> the ticked one needs a caveat.**
+> - **"Verify Map view actually works on a real device"** — done by shipping. The map was rebuilt
+>   twice since ([map-plan.md](map-plan.md) 2026-08-12, then
+>   [discover-map-ux-plan.md](discover-map-ux-plan.md) 2026-08-20), and
+>   discover-map-ux-plan exists *because* of a screenshot from a real device.
+> - **"Full pass on iOS + Android simulators"** — superseded by a real harness rather than a manual
+>   pass: `ui/.maestro/` holds 17 Maestro flows run against an Android emulator via
+>   `ui/scripts/e2e.sh` ([e2e-test-plan.md](e2e-test-plan.md)), plus iOS TestFlight builds in
+>   private beta. Push notifications and native maps/directions remain manual-only.
+> - **The ticked "strip `Platform.OS === 'web'` shell code"** did happen for `Screen.tsx`,
+>   `wizard.tsx` and `TabBar.tsx` — but web preview was **not** dropped as the phase assumed. It is
+>   still a documented dev workflow in CLAUDE.md (`npm run web`, `smashio-web-alt` on port 8083),
+>   `ui/components/GameMap.web.tsx` exists as the web stub, and `notification-settings.tsx` still
+>   branches on `"web"`. "Not doing: no web app" in this doc still holds — web is a dev convenience,
+>   never a shipped surface.
+
 Do this once web preview is no longer needed for dev/demo — it's still useful until then, don't rip out early.
 
 - [x] Strip `Platform.OS === "web"` shell code from Screen.tsx, wizard.tsx, TabBar.tsx (the 430px phone-frame hack) once web target is formally dropped.

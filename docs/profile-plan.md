@@ -1,5 +1,28 @@
 # Profile Plan — SMASHIO
 
+> **Status added 2026-09-07 (docs drift audit): P0–P6 all landed. Every checkbox in §4 is still
+> unticked and none of them should be read as open work.** This doc never carried a status line, so
+> the unticked boxes were the only signal and they are wrong. The build history:
+> - `26faea2` (2026-08-15) implemented the plan end to end — public player card, reputation,
+>   identity, settings — over `20260815000100_player_card.sql` and `20260815000000_rating_tags.sql`.
+> - `03c5432` (2026-08-20) redesigned the profile screen: segmented tabs, reputation grid, trophy case.
+> - `ad0d427` (2026-08-21) landed the full Settings IA (P4) — `ui/app/settings.tsx` plus ten
+>   `ui/app/settings/*` subscreens.
+> - `20260822000000_profile_settings.sql` added `blocks`, `user_reports`, `profile_visibility` and
+>   `profile_private.phone`. Note this is the migration [social-plan.md](social-plan.md) §0
+>   reconciles — it shipped in a **different shape** than social-plan originally proposed.
+> - `ee7e20f` + `d1f1d8a` (2026-09-06) rebuilt the whole surface again as Profile & Settings v3
+>   ([design-brief.md](design-brief.md) Prompt 8/8a), migration `20260906000000_profile_v3_fields.sql`.
+>
+> Two of this doc's constraints are dead, per design-brief's Prompt 8 note: §7's "no public
+> follower/following graph" was reversed by social-plan slice B0 (`7b64ee4`,
+> `20260901010000_follows.sql`, `ui/app/player-followers/[id].tsx` and `player-following/[id].tsx`),
+> and there is now a feed, so an author archive is in scope. Achievements moved server-side —
+> `20260901030000_achievement_awards.sql` is the single source of truth, per social-plan §17.
+> **Post-game rating and reliability work has since been superseded** by
+> [post-game-plan.md](post-game-plan.md), which explicitly supersedes P2; read that before touching
+> ratings.
+
 Written 2026-08-15. Companion to [discover-plan.md](discover-plan.md) and [my-games-plan.md](my-games-plan.md), same method: who's on the screen, what the best products do, what's broken in our code today, then a phased plan judged on UX, UI, creativity, retention and information density.
 
 Scope: [ui/app/(tabs)/profile.tsx](../ui/app/(tabs)/profile.tsx), [profile-edit.tsx](../ui/app/profile-edit.tsx), [queries/profile.ts](../ui/lib/queries/profile.ts), [queries/ratings.ts](../ui/lib/queries/ratings.ts), a new `app/player/[id].tsx`, and the reputation surfaces that read them ([GameCard.tsx](../ui/components/GameCard.tsx), [game/[id].tsx](../ui/app/game/[id].tsx), [post-game/[id].tsx](../ui/app/post-game/[id].tsx)). Two migrations.

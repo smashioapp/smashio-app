@@ -190,6 +190,20 @@ replacing the Chat tab badge, and `/chat` kept as the full list for threads whos
 out of the immediate agenda. `useTabBarSpace()` and `BottomRail` are unaffected — `HostFab` stays
 mounted here per [nav-plan.md](nav-plan.md) 2a.
 
+> **Amended 2026-09-07 (docs drift audit).** Two corrections to this §6.1, neither of which changes
+> the decision:
+> - **N1 shipped** (`5e2a93e`, 2026-08-31), plus `fbd995b` fixing the resulting tab order and
+>   `0ecbfec` making the chat entry point always visible on this screen. The list lives at
+>   `ui/app/chat/index.tsx`; `ui/app/(tabs)/chat.tsx` is gone.
+> - **`BottomRail` and `HostFab` do not exist.** Both were deleted 2026-08-16 by
+>   [v2-design-plan.md](v2-design-plan.md) P2/P6 — the host action is the centre FAB inside
+>   `TabBar.tsx`, and `useTabBarSpace()` no longer takes a `withRail` argument. Same dead reference
+>   appears in nav-plan's 2026-08-31 amendment and social-plan §13.5.
+>
+> Separately, §4's M-phase list points at `ui/components/Rail.tsx`, which was never created under
+> that name — the horizontal rail primitive shipped as `ui/components/RailCard.tsx` in
+> v2-design-plan P1 (`7de7a75`).
+
 **Rejected: moving My Games under Profile** to free the slot instead. §1 is the reason — this screen
 is ~95% future-facing (Attendee 55%, Day-of 20%, Host 20%, Returner 5%), so burying it costs the
 day-of cohort the "zero taps to navigate" criterion in §1, orphans the pending-request badge, and

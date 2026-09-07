@@ -8,6 +8,34 @@ Read [backend-plan.md](backend-plan.md) and [map-plan.md](map-plan.md) first —
 extends `public.venues`, `venues_near`, and the Discover map, and deliberately does not touch
 their existing contracts except where called out.
 
+> **Status corrected 2026-09-07 (docs drift audit).** The two paragraphs below are the
+> *pre-sign-off* snapshot and were never updated. Actual state: **signed off 2026-08-15, A1–A6(P1)
+> shipped**, which §8's status table already records but the header contradicts.
+> - Migrations that landed: `20260815000800_venue_directory_schema.sql`,
+>   `…000900_venue_photos_corrections.sql`, `…001000_venues_near_directory_fields.sql`,
+>   `…001100_venue_detail_rpc.sql`, `…001400_venue_directory_seed.sql`, four P1 enrichment
+>   migrations (`…001500` chain, `…001600` non-chain, `…001700` halls, `…002200` multi-purpose),
+>   plus `20260817000100_venues_directory_rpc.sql` and `20260817000200_p2_enrichment.sql`.
+> - Code that landed: `ui/app/venue/[id].tsx`, `ui/app/venues/index.tsx`, `scripts/venues/`.
+> - **All 37 P1 leads enriched (2026-08-15), and P2 too (2026-08-17).** §8's A6 row is the
+>   authority: 46 of the 51 P2 queue rows were real (5 were stale re-listings of NBC sites already
+>   done in the P1 chain pass) → 21 new venues inserted, 9 low-confidence rows upgraded, 16
+>   confirmed no-badminton or duplicate and deliberately left out. **Directory covers ~98 venues,
+>   not 56.** The 56 figure is the 2026-08-15 snapshot and is repeated stale in
+>   [AGENTS.md](../AGENTS.md), [gtm-plan.md](gtm-plan.md) (G9, G11, §2) and
+>   [quick-wins.md](quick-wins.md) — treat all of those as pre-2026-08-17.
+> - **What is actually left in Phase A:** the 238 P4-bucket leads (low-precision Places sweep hits,
+>   never triaged for a P3 pass), the deferred amenity-filter UI from A4, and the pending-photo
+>   moderation queue UI from A5.
+> - Two things built *after* this doc that read from its data: the amenity filters
+>   (`20260823000000_amenity_filters.sql`, `a2d73a3`) and the server-rendered venue SEO pages
+>   (`20260831020000_venue_seo_pages.sql` + `website/api/venue/[slug].js`,
+>   [gtm-plan.md](gtm-plan.md) G11). G11's rule still bites the *remaining* unenriched rows: a venue
+>   without a slug and a profile stays `noindex` and out of the sitemap.
+> - "Phase B (social layer) lives in social-plan.md" above is still the right pointer, but
+>   social-plan was rewritten 2026-08-31 and its feed slice has since shipped — read its §0 and
+>   §17, not its body.
+
 **Status 2026-08-15.** Proposed, not approved. No migration written, no code changed. The §3
 discovery sweep **has been run** — results and the corrections it forced on this plan are in
 [data/venues/SWEEP-FINDINGS.md](../data/venues/SWEEP-FINDINGS.md). Read that before starting A0;

@@ -72,6 +72,30 @@ jobs:
             ./gradlew assembleRelease
           fi
 
+      # A keystore property Gradle does not pick up is silent: the release
+      # buildType falls back to the debug keystore, the build goes green, and
+      # Play rejects the upload with "signed in debug mode" (hit once on
+      # run 34116459654's predecessor). Fail here instead of in the console.
+      - name: Verify release signing certificate
+        working-directory: ui/android
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event.inputs.buildType }}" = "aab" ]; then
+            artifact=$(ls app/build/outputs/bundle/release/*.aab | head -1)
+            unzip -p "$artifact" 'META-INF/*.RSA' > /tmp/signer.rsa
+            [ -s /tmp/signer.rsa ] || { echo "::error::No v1 signature block in $artifact"; exit 1; }
+            certinfo=$(keytool -printcert -file /tmp/signer.rsa)
+          else
+            artifact=$(ls app/build/outputs/apk/release/*.apk | head -1)
+            apksigner=$(ls "$ANDROID_SDK_ROOT"/build-tools/*/apksigner | tail -1)
+            certinfo=$("$apksigner" verify --print-certs "$artifact")
+          fi
+          echo "$certinfo" | grep -iE 'owner:|subject:|SHA-?256'
+          if echo "$certinfo" | grep -qi 'CN=Android Debug'; then
+            echo "::error::$artifact is signed with the Android debug key. The ORG_GRADLE_PROJECT_MYAPP_UPLOAD_* properties were not applied."
+            exit 1
+          fi
+
       - uses: actions/upload-artifact@v4
         with:
           name: android-${{ github.event.inputs.buildType }}

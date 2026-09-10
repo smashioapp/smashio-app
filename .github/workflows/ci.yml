@@ -45,6 +45,9 @@ jobs:
       - name: Replay migrations + seed
         run: supabase db reset
 
+      - name: Assert no PUBLIC-executable security definer functions
+        run: supabase db query --local "select public.assert_no_public_definer_execute();"
+
   test:
     runs-on: ubuntu-latest
     defaults:

@@ -48,6 +48,8 @@ supabase/
 website/       marketing site (smashio.com.au) — static HTML, no build step, plus `api/` Vercel
                serverless functions server-rendering /game/:id, /venue/:slug, /club/:slug,
                /sydney and /sitemap.xml from anon-safe RPCs. Still no app functionality on web.
+               docs/website-plan.md is the v2 plan — read its §5 before exposing any new data
+               to anonymous callers.
 docs/          product/tech/business plan docs — read the relevant one before touching that area
 ```
 

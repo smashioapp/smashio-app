@@ -82,16 +82,17 @@ S or a shuttle-blade-derived detail). Show each in lime-on-black and white-on-bl
 > than invent a second one — the hero is already `clamp(44px,9vw,88px)`, which is far past the size
 > where 700-vs-800 is legible as weight rather than as noise.
 >
-> **Not done here — this audit was docs-only, no code changed.** The work is a ~1h pass over
-> `website/index.html`: swap the Google Fonts href to
-> `family=Space+Grotesk:wght@500;600;700`, replace `'Bricolage Grotesque'` with `'Space Grotesk'`
-> throughout, drop every `font-weight:800` on a display element to `700`, and re-check the three
-> hero/section headings and the phone-mockup numerals at 375 px. Body stays Manrope on both
-> surfaces, unchanged. `website/api/_venue-lib.js` and the three page renderers share the site's
-> styling and need the same swap.
+> **DONE 2026-09-07** (commit `b82a6a0`, same day as the decision). All 12 website files swapped —
+> `index.html`, the four legal pages, `player.html`, `delete-account.html`,
+> `community-guidelines.html`, and the five `website/api/*` SSR renderers (`_venue-lib.js` plus the
+> club/game/sydney/venue routes; the audit's "three page renderers" undercounted, there were five).
+> Google Fonts hrefs now `family=Space+Grotesk:wght@500;600;700` (or `@600;700` where 500 wasn't
+> used), every `'Bricolage Grotesque'` renamed to `'Space Grotesk'`, every `font-weight:800` on a
+> Space Grotesk element dropped to `700`. Body stays Manrope on both surfaces, unchanged. Checked
+> the hero at 375px — holds up at 700.
 >
-> **What this closes:** the "Same family must work on the static website" constraint stated below
-> and in "Notes for whoever runs these" becomes satisfiable, and app and site share a display face
+> **What this closed:** the "Same family must work on the static website" constraint stated below
+> and in "Notes for whoever runs these" is now satisfied, and app and site share a display face
 > again for the first time since 2026-08-16.
 
 > The prompt text below is kept verbatim because Prompts 2–8 were run against it.

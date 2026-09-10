@@ -281,6 +281,18 @@ T7 is the item most likely to be waved away and the one with actual downside. Do
 Keep `stale-while-revalidate=86400` throughout as now. Any page rendering spot counts renders its
 own generation time server-side, never with client JS.
 
+### 5.7 Serverless function budget
+
+Vercel Hobby caps a deployment at **12 serverless functions**. Every file under `website/api/`
+(except `_venue-lib.js`, underscore-prefixed so Vercel treats it as a shared module, not a
+function) counts toward that cap — `production` deploys hard-fail over it (hit 2026-09-10 at 13
+functions, fixed by merging `api/sydney.js` + `api/sydney/[suburb].js` into one optional
+catch-all, `api/sydney/[[...suburb]].js`). Before adding a new file under `website/api/`, either
+confirm the deployment is still under 12 (`find website/api -type f | grep -v _venue-lib`) or fold
+the new route into an existing handler (optional catch-all `[[...param]].js`, or a query-string
+branch) instead of adding a file. The alternative is Vercel Pro, which removes the cap — needs
+explicit sign-off, it is not free.
+
 ---
 
 ## 6. Slices

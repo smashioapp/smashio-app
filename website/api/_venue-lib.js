@@ -14,6 +14,11 @@ const ANDROID_BETA_MAILTO =
 // Internal test track: the opt-in link only works once the tester's Google account is on the list.
 const PLAY_BETA_URL = "https://play.google.com/apps/internaltest/4701589643775421350";
 
+// Same project ui/lib/analytics.ts writes to — a write-only key, safe to embed the same way the
+// Supabase anon key above already is (website-plan.md W1). Nothing here reads the key back out.
+const POSTHOG_KEY = "phc_yoGdyfhrcu6GoAMxVNb37xquGmRLumfrVbK8r4FLoST2";
+const POSTHOG_HOST = "https://us.i.posthog.com";
+
 function esc(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 }
@@ -37,7 +42,7 @@ async function callRpc(name, body) {
 // Shared head block + brand chrome. `indexable` controls whether crawlers are told to index this
 // page — real venue content is, the generic not-found/thin fallback isn't (duplicate/empty pages
 // hurt more than they help). `jsonLd` is an optional object serialised as a schema.org block.
-function shell({ title, description, canonicalUrl, indexable, jsonLd, heroContent, bodyContent, ogType }) {
+function shell({ title, description, canonicalUrl, indexable, jsonLd, heroContent, bodyContent, ogType, captureSuburb }) {
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -68,6 +73,7 @@ ${jsonLd ? `<script type="application/ld+json">${JSON.stringify(jsonLd)}</script
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
 <script type="module" src="https://unpkg.com/ionicons@7.4.0/dist/ionicons/ionicons.esm.js"></script>
+<script defer src="/_vercel/insights/script.js"></script>
 <style>
   html { scroll-behavior: smooth; }
   body { margin: 0; background: #0A0A0B; color: #F5F5F7; font-family: Manrope, system-ui, sans-serif; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
@@ -151,12 +157,13 @@ ${jsonLd ? `<script type="application/ld+json">${JSON.stringify(jsonLd)}</script
 
 <footer style="border-top:1px solid rgba(255,255,255,.06)">
   <div style="max-width:640px; margin:0 auto; padding:22px 20px 14px">
-    ${captureForm()}
+    ${captureForm(captureSuburb)}
   </div>
   <div style="max-width:640px; margin:0 auto; padding:14px 20px 22px; display:flex; flex-wrap:wrap; gap:10px; justify-content:space-between; font-size:12px; color:#5C5C64; border-top:1px solid rgba(255,255,255,.06)">
     <span>© 2026 Smashio. Made in Sydney.</span>
     <span style="display:flex; gap:14px">
       <a href="/sydney" style="color:#5C5C64; font-size:12px">All venues</a>
+      <a href="/guides/cost-of-badminton-in-sydney" style="color:#5C5C64; font-size:12px">Guides</a>
       <a href="/privacy.html" style="color:#5C5C64; font-size:12px">Privacy</a>
     </span>
   </div>
@@ -165,6 +172,7 @@ ${jsonLd ? `<script type="application/ld+json">${JSON.stringify(jsonLd)}</script
 </div>
 
 ${captureFormScript()}
+${analyticsScripts()}
 
 </body>
 </html>`;
@@ -173,14 +181,21 @@ ${captureFormScript()}
 // Footer capture form (W4, gtm-plan G15). Posts to /api/subscribe rather than inserting directly
 // — see that file's header for why. Honeypot field is visually hidden, not `type="hidden"`, since
 // some scrapers skip hidden inputs but still fill anything visually offscreen.
-function captureForm() {
+// `suburb` (W6) tags a suburb-page submission with the suburb the visitor was reading about, so
+// web_signup's p_suburb column (already there since W4) carries real intent instead of null.
+function captureForm(suburb) {
+  const suburbField = suburb
+    ? `<input type="hidden" name="suburb" value="${esc(suburb)}" />`
+    : "";
+  const placeholder = suburb ? `Tell me when a game opens in ${esc(suburb)}` : "you@example.com";
   return `
     <form id="smashio-capture-form" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center">
       <div style="position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden" aria-hidden="true">
         <label for="smashio-capture-website">Leave this field empty</label>
         <input type="text" id="smashio-capture-website" name="website" tabindex="-1" autocomplete="off" />
       </div>
-      <input type="email" name="email" required placeholder="you@example.com" aria-label="Email address"
+      ${suburbField}
+      <input type="email" name="email" required placeholder="${placeholder}" aria-label="Email address"
         style="flex:1; min-width:180px; background:#141416; border:1px solid rgba(255,255,255,.12); border-radius:12px; padding:11px 14px; color:#F5F5F7; font-size:13px; font-family:inherit" />
       <button type="submit" class="btn btn-primary" style="width:auto; padding:11px 18px">
         <span class="btn-main" style="font-size:13px">Notify me</span>
@@ -199,12 +214,14 @@ function captureFormScript() {
     var msg = document.getElementById("smashio-capture-msg");
     var email = form.email.value.trim();
     var website = form.website.value;
+    var suburbField = form.querySelector('[name="suburb"]');
+    var source = suburbField ? "suburb_page" : "footer";
     var btn = form.querySelector("button[type=submit]");
     btn.disabled = true;
     fetch("/api/subscribe", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: email, website: website, source: "footer" }),
+      body: JSON.stringify({ email: email, website: website, suburb: suburbField ? suburbField.value : "", source: source }),
     })
       .then(function (r) { return r.json(); })
       .then(function (data) {
@@ -213,6 +230,7 @@ function captureFormScript() {
           msg.textContent = "Sorted, we'll let you know.";
           msg.style.color = "#D6FF3F";
           form.reset();
+          if (window.posthog) window.posthog.capture("web_signup", { source: source });
         } else {
           msg.textContent = "That didn't work, mind trying again?";
           msg.style.color = "#FF6767";
@@ -225,6 +243,27 @@ function captureFormScript() {
       });
   });
 })();
+</script>`;
+}
+
+// PostHog web snippet (website-plan.md W1) plus a delegated click listener that tags every store
+// badge (TestFlight/Play) so a web session ending in an install is attributable — the whole point
+// of shipping this before anything else in the plan (§6, "everything after it is unmeasurable
+// without it"). Autocapture/pageview off by default in the snippet's own config would be the
+// safer default on most sites, but this site's entire job is the page-to-install funnel, so
+// pageviews stay on and nothing else is tracked beyond this one click event.
+function analyticsScripts() {
+  return `<script>
+!function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init capture register register_once register_for_session unregister unregister_for_session getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSurveysLoaded onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey getNextSurveyStep identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException loadToolbar get_property getSurveysCompleted".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+posthog.init("${POSTHOG_KEY}", { api_host: "${POSTHOG_HOST}", person_profiles: "identified_only" });
+document.addEventListener("click", function (e) {
+  var a = e.target.closest && e.target.closest("a[href]");
+  if (!a) return;
+  var href = a.href || "";
+  var store = href.indexOf("testflight.apple.com") !== -1 ? "ios" : href.indexOf("play.google.com") !== -1 ? "android" : null;
+  if (!store) return;
+  posthog.capture("store_link_click", { store: store, page: location.pathname });
+});
 </script>`;
 }
 
@@ -243,4 +282,4 @@ function ctaButtons() {
     <p class="rise rise-5" style="margin:0; font-size:12px; color:#5C5C64">Private beta. iPhone through TestFlight, Android through Google Play. Android testers need their Google account on the list first, so <a href="${ANDROID_BETA_MAILTO}" style="color:#96969E; text-decoration:underline">email us</a> and we'll add you.</p>`;
 }
 
-module.exports = { esc, callRpc, shell, ctaButtons, captureForm, captureFormScript };
+module.exports = { esc, callRpc, shell, ctaButtons, captureForm, captureFormScript, analyticsScripts };

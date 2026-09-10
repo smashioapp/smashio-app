@@ -7,11 +7,18 @@ const { callRpc } = require("./_venue-lib");
 const STATIC_URLS = [
   { loc: "https://smashio.com.au/", changefreq: "weekly", priority: "1.0" },
   { loc: "https://smashio.com.au/sydney", changefreq: "weekly", priority: "0.9" },
+  { loc: "https://smashio.com.au/badminton-near-me", changefreq: "weekly", priority: "0.7" },
   { loc: "https://smashio.com.au/support.html", changefreq: "monthly", priority: "0.5" },
   { loc: "https://smashio.com.au/terms.html", changefreq: "monthly", priority: "0.3" },
   { loc: "https://smashio.com.au/privacy.html", changefreq: "monthly", priority: "0.3" },
   { loc: "https://smashio.com.au/delete-account.html", changefreq: "monthly", priority: "0.3" },
 ];
+
+const GUIDE_SLUGS = ["cost-of-badminton-in-sydney", "beginners-guide-to-badminton", "where-to-play-indoor-badminton-sydney"];
+
+function slugifySuburb(suburb) {
+  return String(suburb).toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
 
 function xmlEsc(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
@@ -49,7 +56,30 @@ module.exports = async function handler(req, res) {
       priority: "0.5",
     }));
 
-  const urls = [...STATIC_URLS, ...venueUrls, ...clubUrls]
+  // DEC6 threshold, venue-count half only (2+ tracked venues) — the live-games half of the page's
+  // own indexable check is deliberately left out here so the sitemap doesn't churn as game counts
+  // change hour to hour. A suburb below this bar can still rank on its own if a game pushes it
+  // over the threshold at request time; it just isn't submitted to crawlers proactively.
+  const bySuburb = new Map();
+  for (const v of venues) {
+    if (!v.suburb) continue;
+    bySuburb.set(v.suburb, (bySuburb.get(v.suburb) || 0) + 1);
+  }
+  const suburbUrls = [...bySuburb.entries()]
+    .filter(([, count]) => count >= 2)
+    .map(([suburb]) => ({
+      loc: `https://smashio.com.au/sydney/${slugifySuburb(suburb)}`,
+      changefreq: "daily",
+      priority: "0.7",
+    }));
+
+  const guideUrls = GUIDE_SLUGS.map((slug) => ({
+    loc: `https://smashio.com.au/guides/${slug}`,
+    changefreq: "monthly",
+    priority: "0.6",
+  }));
+
+  const urls = [...STATIC_URLS, ...venueUrls, ...clubUrls, ...suburbUrls, ...guideUrls]
     .map((u) => `  <url>\n    <loc>${xmlEsc(u.loc)}</loc>\n    <changefreq>${u.changefreq}</changefreq>\n    <priority>${u.priority}</priority>\n  </url>`)
     .join("\n");
 

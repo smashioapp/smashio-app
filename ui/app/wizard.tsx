@@ -874,7 +874,7 @@ export default function Wizard() {
       <RowLabel>Visibility</RowLabel>
       <View className="flex-row gap-2 mb-4">
         {[
-          { v: "public" as const, label: "Public", desc: "Shows on Discover" },
+          { v: "public" as const, label: "Public", desc: "Shows on Discover, and may appear on smashio.com.au" },
           { v: "link_only" as const, label: "Link only", desc: "Only people you share the link with" },
         ].map((o) => (
           <Pressable

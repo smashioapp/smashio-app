@@ -287,7 +287,12 @@ own generation time server-side, never with client JS.
 
 Sequenced. Days are build days, not calendar days.
 
-**W0 — Truth pass. 0.5 d.** Copy across all nine surfaces: badge, hero, `ctaButtons()`, footer,
+**Amendment 2026-09-10 — every ungated slice shipped.** W2-W4 landed first (`70c75a0`), then W1,
+W4.5, W6, W7, W8 and W10 the same day. Nine of thirteen slices done. The four still open (W0, W5,
+W9, W11) are each blocked on something outside this repo, not on build time — see their own notes
+below. AGENTS.md carries the same dated note.
+
+**W0 — Truth pass. 0.5 d. Not shipped — blocked on the Play console change below.** Copy across all nine surfaces: badge, hero, `ctaButtons()`, footer,
 meta descriptions, OG text. Wording is "open beta testing, Sydney" plus a November 2026 launch line,
 not "private beta". Kill the Android allowlist mailto and the "Android spots are invite only"
 footer.
@@ -299,49 +304,52 @@ before the track has actually changed, or the site claims open access it does no
 `PLAY_BETA_URL` constant in `website/api/_venue-lib.js` changes to the open-testing URL at the same
 time.
 
-**W1 — Analytics. 0.5 d.** Vercel Web Analytics plus a PostHog web snippet on the app's existing
+**W1 — Analytics. 0.5 d. Shipped 2026-09-10.** Vercel Web Analytics plus a PostHog web snippet on the app's existing
 project, so a web session ending in an install is attributable. Tag every store-link click. Closes
 the web half of gtm G1, and ships early because everything after it is unmeasurable without it.
 
-**W2 — Visibility fix plus the SEO RPC layer. 1 d.** The §5.2 filter on both functions. A migration
+**W2 — Visibility fix plus the SEO RPC layer. 1 d. Shipped (`70c75a0`).** The §5.2 filter on both functions. A migration
 adding `games_seo_feed`, `games_seo_at_venue` and `city_seo_stats` with the §5.3 allowlist.
 Regenerate `ui/lib/db.types.ts`. No page changes.
 
-**W3 — Real games on the home page and `/sydney`. 2 d.** Replace the mock hero cards with three
+**W3 — Real games on the home page and `/sydney`. 2 d. Shipped (`70c75a0`).** Replace the mock hero cards with three
 live rows and the live counts from `city_seo_stats`. Add a "Games this week" block to `/sydney`
 above the venue grid. Freshness stamp per T6. An empty state that is honest and still converts.
 Fixes D1 and D3.
 
-**W4 — Capture. 1.5 d.** A `web_signups` table, service-role insert behind a Vercel function and
+**W4 — Capture. 1.5 d. Shipped (`70c75a0`), minus Turnstile/double opt-in (DEC7 still open).** A `web_signups` table, service-role insert behind a Vercel function and
 never a direct anon insert, honeypot plus Turnstile, double opt-in email. Two entry points: the
 footer on every page, and a "tell me when a game opens near me" field on suburb pages with the
 suburb attached. Closes G15.
 
-**W4.5 — Host consent. 0.5 d.** The one `ui/` change this plan carries. A line in the create-game
+**W4.5 — Host consent. 0.5 d. Shipped 2026-09-10.** The one `ui/` change this plan carries. A line in the create-game
 visibility picker saying a public game may appear on smashio.com.au, and a matching clause in
 `website/privacy.html`. Ships before W5, per DEC2 in §10. Games created before this is live stay
 suburb-level only for 30 days.
 
-**W5 — Games on venue pages. 1 d.** `games_seo_at_venue` into `api/venue/[slug].js`, plus
+**W5 — Games on venue pages. 1 d. Not shipped.** `games_seo_at_venue` into `api/venue/[slug].js`, plus
 `SportsEvent` JSON-LD per game and `SportsActivityLocation` on the venue. This is where freshness
 buys ranking, because venue pages are the deepest indexable layer we have. **Gated on W4.5 and its
-30-day window**, per T7.
+30-day window**, per T7 — W4.5 shipped 2026-09-10, so this unblocks 2026-10-10.
 
-**W6 — Suburb pages. 1.5 d.** `/sydney/:suburb`, generated from the distinct suburbs in
+**W6 — Suburb pages. 1.5 d. Shipped 2026-09-10.** `/sydney/:suburb`, generated from the distinct suburbs in
 `venue_seo_directory`, roughly 30 to 40 pages. Venues in the suburb, live games there, neighbouring
 suburbs, breadcrumbs, capture field. Same thin-page rule as venues. The sitemap picks them up.
 Fixes D7.
 
-**W7 — `/badminton-near-me`. 0.5 d.** One page answering the literal query, geolocating in the
-browser to pick a suburb and linking into W6. Pattern lifted from It's Crowded.
+**W7 — `/badminton-near-me`. 0.5 d. Shipped 2026-09-10.** One page answering the literal query, geolocating in the
+browser to pick a suburb and linking into W6. Pattern lifted from It's Crowded. Built as a manual
+suburb list (never empty) plus geolocation as a progressive enhancement through a new
+`/api/geocode`, which reverse-geocodes server-side via Nominatim rather than shipping any
+coordinates to the client or hand-guessing suburb centroids.
 
-**W8 — Guides. 1.5 d.** Three hand-written pages under `website/guides/`, no build step, sharing the
+**W8 — Guides. 1.5 d. Shipped 2026-09-10.** Three hand-written pages under `website/guides/`, no build step, sharing the
 same shell: cost of badminton in Sydney, a beginner's guide, and where to play indoors (DEC3 in §10).
 `FAQPage` JSON-LD, internal links down into venue and suburb pages. The three cut targets — skill
 tiers explained, finding players without a club, venue comparison — are held until Search Console
 shows which queries actually land. Fixes D8.
 
-**W9 — Home page redesign, shell unification and performance. 4.5 d.** Per DEC4 in §10 this is a full
+**W9 — Home page redesign, shell unification and performance. 4.5 d. Not shipped.** Per DEC4 in §10 this is a full
 rebuild of `index.html`, not a patch. Needs a design pass through `docs/design-brief.md` first, in
 the same per-screen-prompt style as the v3 app passes, and that pass should be treated as a
 prerequisite rather than part of the 4.5 days. Includes: the page rebuilt on a shared `_shell.js`
@@ -353,11 +361,12 @@ Sequencing note: W3 puts live data into the **current** home page. W9 then redes
 block that already works. Doing it the other way means designing against mock data again, which is
 D1 all over.
 
-**W10 — Player share pages. 1 d.** Replace `player.html` with `api/player/[id].js` rendering an
+**W10 — Player share pages. 1 d. Shipped 2026-09-10.** Replace `player.html` with `api/player/[id].js` rendering an
 aggregate-only card that honours `profile_visibility`, **always noindex**, never in the sitemap.
-Fixes D6 within the §5.4 line.
+Fixes D6 within the §5.4 line. Backed by a new `player_seo` RPC, kept deliberately narrower than
+`player_card` (no name, photo, or rating — ever) rather than a trimmed reuse of it.
 
-**W11 — Launch surface. 1 d.** November: store badges swap from beta to public, a `/press` kit, a
+**W11 — Launch surface. 1 d. Not shipped.** November: store badges swap from beta to public, a `/press` kit, a
 launch-day home page, schema updated. Depends on store state, not on us.
 
 **Total roughly 17 days**, after the §10 decisions: guides down 1.5, home page redesign up 3, host

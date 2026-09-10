@@ -11,6 +11,7 @@
 // supabase/migrations/20260820000100_game_preview_anon.sql).
 const SUPABASE_URL = "https://ajbsvsfwjfeofvjuhzrw.supabase.co";
 const SUPABASE_ANON_KEY = "sb_publishable_VsirTXudBTJT4kNF4deNkw_hVl54eBx";
+const { analyticsScripts } = require("../_venue-lib");
 
 const TESTFLIGHT_URL = "https://testflight.apple.com/join/cJMZQmbn";
 const ANDROID_BETA_MAILTO =
@@ -95,6 +96,7 @@ ${ogUrl ? `<meta property="og:url" content="${esc(ogUrl)}" />` : ""}
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
 <script type="module" src="https://unpkg.com/ionicons@7.4.0/dist/ionicons/ionicons.esm.js"></script>
+<script defer src="/_vercel/insights/script.js"></script>
 <style>
   html { scroll-behavior: smooth; }
   body { margin: 0; background: #0A0A0B; color: #F5F5F7; font-family: Manrope, system-ui, sans-serif; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
@@ -178,6 +180,8 @@ ${ogUrl ? `<meta property="og:url" content="${esc(ogUrl)}" />` : ""}
 </footer>
 
 </div>
+
+${analyticsScripts()}
 
 </body>
 </html>`;

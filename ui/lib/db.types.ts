@@ -2550,6 +2550,7 @@ export type Database = {
           usual_nights: string[]
         }[]
       }
+      player_seo: { Args: { p_id: string }; Returns: Json }
       post_game_roster: {
         Args: { p_game_id: string }
         Returns: {

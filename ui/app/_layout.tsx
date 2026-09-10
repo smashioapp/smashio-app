@@ -105,7 +105,9 @@ export default function RootLayout() {
                   <Stack.Screen name="compose" options={{ presentation: "modal" }} />
                 </Stack>
               )}
-              {showSplash && <AnimatedSplash onFinish={() => setShowSplash(false)} />}
+              {showSplash && (
+                <AnimatedSplash fontsLoaded={fontsLoaded} onFinish={() => setShowSplash(false)} />
+              )}
             </SafeAreaProvider>
           </SessionProvider>
         </QueryClientProvider>

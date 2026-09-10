@@ -1,52 +1,61 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Text, useWindowDimensions, View } from "react-native";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Text, useWindowDimensions } from "react-native";
 import * as SplashScreen from "expo-splash-screen";
+import Svg, { Circle } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   Easing,
+  type SharedValue,
   cancelAnimation,
-  interpolate,
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
   withRepeat,
-  withSequence,
-  withSpring,
   withTiming,
 } from "react-native-reanimated";
 import { colors } from "../lib/theme";
 import { haptics } from "../lib/haptics";
 import { useReduceMotion } from "../lib/motion";
 import { useAppReady } from "../lib/appReady";
+import { ANIMALS } from "../lib/avatars";
 import { NAV, tabBarBottom } from "../lib/nav";
 
 const LOGO = require("../assets/splash-icon.png");
-const SHUTTLE = require("../assets/props/shuttlecock.png");
 
-// Must match expo-splash-screen's `imageWidth` in app.config.js: the animation starts with the
-// logo at exactly the size and position the native splash left it at, so there is no jump on the
-// handoff — the mark simply starts the rally.
+// Must match expo-splash-screen's `imageWidth` in app.config.js. The overlay opens with the mark
+// at exactly the size and position the native splash left it at — same 144px, same dead centre —
+// so the handoff is one continuous image and the mark never resizes or jumps.
 const SIZE = 144;
-const SHUTTLE_SIZE = 46;
 
-// The fixed brand beat. Nothing here waits on data — it is the deliberate cost of having a
-// launch moment at all, and it runs while fonts, auth and the profile fetch are still in flight
-// underneath. Everything after it is governed by readiness, not by a clock.
-const HOLD = 120; // dead hold, so the native -> JS handoff reads as one continuous image
-const RALLY = 440; // shuttle travels in
-const CONTACT = HOLD + RALLY; // 560ms — impact, haptic, spin starts
-const SPIN = 480; // one full turn, lands on the pose it started on
-const BEAT = CONTACT + SPIN; // 1040ms
+const RING_COUNT = 10;
+const DISC = 52;
 
-// Past the beat the mark idles until useAppReady() says yes. Two safety valves: a thin progress
-// arc once the wait stops looking like animation, and a hard ceiling so a dead network can never
-// hold the app hostage — past it we drop the user into the app and let the screens show skeletons.
-const SLOW_AT = 2200; // total elapsed before the progress arc fades in
-const GATE_CEILING = 1800; // max additional wait after the beat
+// The fixed brand beat: the lobby fills. Nothing here waits on data — it runs while fonts, auth
+// and the profile fetch are still in flight underneath. Everything after it is governed by
+// readiness, not by a clock.
+const HOLD = 90; // dead hold, so the native -> JS handoff reads as one continuous image
+const HALO_IN = 360;
+const DISC_FIRST = 170; // first avatar lands
+const DISC_STAGGER = 32;
+const DISC_IN = 340;
+const RING_DONE = DISC_FIRST + DISC_STAGGER * (RING_COUNT - 1) + DISC_IN; // 798ms
+const WORD_AT = 470;
+const WORD_IN = 320;
+const TAG_AT = 630;
+const TAG_IN = 240;
+const BEAT = 900;
+
+// Past the beat the ring idles until useAppReady() says yes. The idle is a slow ripple around
+// the ring rather than a spinner: a wait that still reads as "finding players". The hard ceiling
+// means a dead network can never hold the app hostage — past it we drop the user into the app
+// and let the screens show skeletons.
+const RIPPLE_PERIOD = 1800;
+const GATE_CEILING = 1200; // max additional wait after the beat
 
 const EXIT_MORPH = 380; // mark flies into the Discover tab icon
 const EXIT_FADE = 280; // plain dissolve, when there is no tab bar to fly to
+const EXIT_CLEAR = 160; // ring, wordmark and tagline get out of the mark's way first
 
 /**
  * Where the Discover glyph will be once the tab bar mounts, so the mark can land on it instead
@@ -64,27 +73,52 @@ function discoverTabCenter(width: number, height: number, insetBottom: number) {
   return { x, y };
 }
 
-export function AnimatedSplash({ onFinish }: { onFinish: () => void }) {
+/**
+ * Ring radius. Wide enough to clear the 144px mark, narrow enough that no avatar clips the
+ * screen edge on a 320pt phone — which is why this is derived rather than a constant.
+ */
+function ringRadius(width: number): number {
+  const maxFit = width / 2 - DISC / 2 - 16;
+  return Math.max(SIZE / 2 + DISC / 2 + 26, Math.min(132, maxFit));
+}
+
+export function AnimatedSplash({
+  onFinish,
+  fontsLoaded,
+}: {
+  onFinish: () => void;
+  fontsLoaded: boolean;
+}) {
   const { ready, target } = useAppReady();
   const reduceMotion = useReduceMotion();
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
 
-  const turn = useSharedValue(0); // the one full 360 the contact knocks out of the mark
-  const idle = useSharedValue(0); // slow continuous rotation while gated
-  const crouch = useSharedValue(0); // anticipation dip just before contact
-  const wobble = useSharedValue(0);
-  const bloom = useSharedValue(0);
-  const rally = useSharedValue(0); // shuttle flying in
-  const deflect = useSharedValue(0); // shuttle leaving after the hit
-  const arc = useSharedValue(0);
+  const halo = useSharedValue(0);
+  const ring = useSharedValue(0); // 0 -> 1 drives the whole cascade; each disc reads its own slice
+  const ripple = useSharedValue(-1); // -1 = off; loops 0 -> 1 only while gated
+  const word = useSharedValue(0);
+  const tag = useSharedValue(0);
   const exit = useSharedValue(0);
+  const clear = useSharedValue(0); // ring + text get out of the way before the mark flies
   const overlayOpacity = useSharedValue(1);
-  const tagline = useSharedValue(0);
 
   const [beatDone, setBeatDone] = useState(false);
   const [gateExpired, setGateExpired] = useState(false);
   const exiting = useRef(false);
+
+  // Ten of the 28, reshuffled every launch. The roster is the point — a different ten each cold
+  // start is the whole reason this reads as players rather than decoration.
+  const cast = useMemo(() => {
+    const pool = [...ANIMALS];
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    return pool.slice(0, RING_COUNT);
+  }, []);
+
+  const R = ringRadius(width);
 
   // The native splash stays up until our overlay has actually painted a frame in the identical
   // pose. Hiding it off a font-loaded effect instead (as this used to) meant the two were serial:
@@ -96,68 +130,62 @@ export function AnimatedSplash({ onFinish }: { onFinish: () => void }) {
   useEffect(() => {
     if (reduceMotion === null) return; // still asking the OS; hold the static pose
     if (reduceMotion) {
-      // No rally, no spin, no morph. The mark just sits in the handoff pose until ready.
+      // No cascade, no ripple. The full lobby is simply already there, and it waits.
+      halo.value = 1;
+      ring.value = 1;
+      tag.value = 1;
       setBeatDone(true);
       const ceiling = setTimeout(() => setGateExpired(true), GATE_CEILING);
       return () => clearTimeout(ceiling);
     }
 
-    rally.value = withDelay(HOLD, withTiming(1, { duration: RALLY, easing: Easing.bezier(0.4, 0, 0.7, 1) }));
-    crouch.value = withDelay(
-      CONTACT - 120,
-      withSequence(
-        withTiming(1, { duration: 120, easing: Easing.out(Easing.quad) }),
-        withTiming(0, { duration: 90, easing: Easing.out(Easing.quad) })
-      )
-    );
+    halo.value = withDelay(HOLD, withTiming(1, { duration: HALO_IN, easing: Easing.bezier(0.2, 0.8, 0.2, 1) }));
+    // One driver for all ten avatars: `ring` runs 0 -> 1 across the cascade's full span and each
+    // disc maps its own window out of it. Ten separate timers would drift against each other.
+    ring.value = withDelay(DISC_FIRST, withTiming(1, { duration: RING_DONE - DISC_FIRST, easing: Easing.linear }));
+    tag.value = withDelay(TAG_AT, withTiming(1, { duration: TAG_IN, easing: Easing.out(Easing.quad) }));
 
-    // Contact. The spin is recoil off the hit, not decoration — it starts here, not on mount.
-    turn.value = withDelay(CONTACT, withTiming(1, { duration: SPIN, easing: Easing.bezier(0.16, 0.8, 0.24, 1) }));
-    deflect.value = withDelay(CONTACT, withTiming(1, { duration: 240, easing: Easing.out(Easing.quad) }));
-    bloom.value = withDelay(
-      CONTACT,
-      withSequence(
-        withTiming(1, { duration: 150, easing: Easing.out(Easing.quad) }),
-        withTiming(0, { duration: 380, easing: Easing.in(Easing.quad) })
-      )
-    );
-    wobble.value = withDelay(
-      CONTACT,
-      withSequence(
-        withTiming(1, { duration: 1 }, (finished) => {
-          if (finished) runOnJS(haptics.tap)();
-        }),
-        withSpring(0, { damping: 7, stiffness: 170, mass: 0.6 })
-      )
-    );
-    tagline.value = withDelay(200, withTiming(1, { duration: 300 }));
-
+    // One tap as the ring closes. The lobby is full — that is the only moment worth feeling.
+    const tap = setTimeout(() => haptics.tap(), RING_DONE);
     const beat = setTimeout(() => setBeatDone(true), BEAT);
     const ceiling = setTimeout(() => setGateExpired(true), BEAT + GATE_CEILING);
-    const slow = setTimeout(() => {
-      arc.value = withTiming(1, { duration: 260 });
-    }, SLOW_AT);
 
     return () => {
+      clearTimeout(tap);
       clearTimeout(beat);
       clearTimeout(ceiling);
-      clearTimeout(slow);
     };
   }, [reduceMotion]);
 
-  // The gate. Idle only exists so a slow cold start reads as working rather than frozen; on a
-  // warm-ish launch `ready` is already true when the beat lands and this never spins up.
+  // The wordmark waits on Space Grotesk rather than on the clock. Rendering it in the system
+  // fallback and swapping mid-animation is worse than showing it a beat late.
+  useEffect(() => {
+    if (!fontsLoaded) return;
+    if (reduceMotion) {
+      word.value = 1;
+      return;
+    }
+    word.value = withDelay(WORD_AT, withTiming(1, { duration: WORD_IN, easing: Easing.bezier(0.2, 0.8, 0.2, 1) }));
+  }, [fontsLoaded, reduceMotion]);
+
+  // The gate. The ripple only exists so a slow cold start reads as working rather than frozen;
+  // on a warm-ish launch `ready` is already true when the beat lands and this never spins up.
   useEffect(() => {
     if (!beatDone || ready || reduceMotion) return;
-    idle.value = withRepeat(withTiming(1, { duration: 8000, easing: Easing.linear }), -1, false);
-    return () => cancelAnimation(idle);
+    ripple.value = 0;
+    ripple.value = withRepeat(withTiming(1, { duration: RIPPLE_PERIOD, easing: Easing.linear }), -1, false);
+    return () => {
+      cancelAnimation(ripple);
+      ripple.value = -1;
+    };
   }, [beatDone, ready, reduceMotion]);
 
   useEffect(() => {
     if (!beatDone || exiting.current) return;
     if (!ready && !gateExpired) return;
     exiting.current = true;
-    cancelAnimation(idle);
+    cancelAnimation(ripple);
+    ripple.value = -1;
 
     const done = (finished?: boolean) => {
       "worklet";
@@ -167,13 +195,17 @@ export function AnimatedSplash({ onFinish }: { onFinish: () => void }) {
     // Morph only makes sense when there is a tab bar underneath to land on. Onboarding has none,
     // and reduce-motion asked for no travel at all, so both take a plain dissolve.
     if (!reduceMotion && target === "tabs") {
-      exit.value = withTiming(1, { duration: EXIT_MORPH, easing: Easing.bezier(0.5, 0, 0.2, 1) });
-      arc.value = withTiming(0, { duration: 140 });
+      // Ring and text clear first so the mark flies across an empty screen, not through a crowd.
+      clear.value = withTiming(1, { duration: EXIT_CLEAR, easing: Easing.in(Easing.quad) });
+      exit.value = withDelay(
+        EXIT_CLEAR - 60,
+        withTiming(1, { duration: EXIT_MORPH, easing: Easing.bezier(0.5, 0, 0.2, 1) })
+      );
       // Overlay clears slightly ahead of the mark's arrival so Discover is already visible
       // behind it for the last stretch of the flight.
-      overlayOpacity.value = withTiming(0, { duration: EXIT_MORPH - 60 });
+      overlayOpacity.value = withDelay(EXIT_CLEAR - 60, withTiming(0, { duration: EXIT_MORPH - 60 }));
       // The real Discover glyph cross-fades in underneath over the final 60ms.
-      setTimeout(() => onFinish(), EXIT_MORPH);
+      setTimeout(() => onFinish(), EXIT_CLEAR - 60 + EXIT_MORPH);
       return;
     }
 
@@ -194,45 +226,28 @@ export function AnimatedSplash({ onFinish }: { onFinish: () => void }) {
       transform: [
         { translateX: dx * e },
         { translateY: dy * e },
-        // The mark is a radial rosette with no cork and no leading edge, so it spins about its
-        // own centre. Twelve-fold symmetry also means the full turn has no seam: it lands on the
-        // pose it started on, which is what lets the idle loop pick up without a visible join.
-        { rotate: `${turn.value * 360 + idle.value * 360 + wobble.value * 11}deg` },
-        { scale: (1 - 0.03 * crouch.value + wobble.value * 0.06) * (1 - (1 - endScale) * e) },
+        { scale: 1 - (1 - endScale) * e },
       ],
     };
   });
 
-  const shuttleStyle = useAnimatedStyle(() => {
-    const r = rally.value;
-    const d = deflect.value;
-    // Off-screen top-right, down onto the mark, then knocked out through bottom-left.
-    const x = interpolate(r, [0, 1], [width * 0.62, 0]) + interpolate(d, [0, 1], [0, -width * 0.55]);
-    const y = interpolate(r, [0, 1], [-height * 0.42, 0]) + interpolate(d, [0, 1], [0, height * 0.5]);
-    return {
-      opacity: (r > 0 ? 1 : 0) * (1 - d),
-      transform: [
-        { translateX: x },
-        { translateY: y },
-        { rotate: `${interpolate(r, [0, 1], [-35, 12]) + d * 55}deg` },
-        { scale: 0.8 + r * 0.2 },
-      ],
-    };
-  });
-
-  const bloomStyle = useAnimatedStyle(() => ({
-    opacity: bloom.value * (1 - exit.value),
-    transform: [{ scale: 0.7 + bloom.value * 0.55 }],
+  const haloStyle = useAnimatedStyle(() => ({
+    opacity: halo.value * 0.9 * (1 - clear.value),
+    transform: [{ scale: 0.82 + halo.value * 0.18 }],
   }));
 
-  const arcStyle = useAnimatedStyle(() => ({
-    opacity: arc.value,
-    transform: [{ rotate: `${idle.value * 720}deg` }],
+  const wordStyle = useAnimatedStyle(() => ({
+    opacity: word.value * (1 - clear.value),
+    transform: [{ translateY: (1 - word.value) * 10 }, { scale: 0.96 + word.value * 0.04 }],
   }));
 
-  const taglineStyle = useAnimatedStyle(() => ({ opacity: tagline.value * (1 - exit.value) }));
+  const tagStyle = useAnimatedStyle(() => ({
+    opacity: tag.value * 0.9 * (1 - clear.value),
+  }));
 
   const overlayStyle = useAnimatedStyle(() => ({ opacity: overlayOpacity.value }));
+
+  const wordTop = height / 2 + R + DISC / 2 + 34;
 
   return (
     <Animated.View
@@ -252,37 +267,35 @@ export function AnimatedSplash({ onFinish }: { onFinish: () => void }) {
         overlayStyle,
       ]}
     >
-      {/* Impact bloom: stacked lime discs stand in for a radial gradient, which neither
-          expo-linear-gradient nor a plain View can draw. */}
-      <Animated.View style={[{ position: "absolute", pointerEvents: "none" }, bloomStyle]}>
-        <View style={{ position: "absolute", left: -170, top: -170, width: 340, height: 340, borderRadius: 170, backgroundColor: "rgba(214,255,63,0.05)" }} />
-        <View style={{ position: "absolute", left: -115, top: -115, width: 230, height: 230, borderRadius: 115, backgroundColor: "rgba(214,255,63,0.07)" }} />
-        <View style={{ position: "absolute", left: -66, top: -66, width: 132, height: 132, borderRadius: 66, backgroundColor: "rgba(214,255,63,0.09)" }} />
+      {/* The court ring the lobby gathers on. Dashed rather than solid so it reads as a marking
+          on a surface, not as a progress track — the old splash's dotted arc was the thing that
+          made a slow launch look like a spinner. */}
+      <Animated.View style={[{ position: "absolute" }, haloStyle]} pointerEvents="none">
+        <Svg width={R * 2 + 4} height={R * 2 + 4}>
+          <Circle
+            cx={R + 2}
+            cy={R + 2}
+            r={R}
+            stroke={colors.accent}
+            strokeOpacity={0.22}
+            strokeWidth={1}
+            strokeDasharray="3 8"
+            fill="none"
+          />
+        </Svg>
       </Animated.View>
 
-      {/* Only drawn once the wait has stopped reading as animation. A dotted ring is as much
-          progress as we can honestly show — none of the pending work reports a percentage. */}
-      <Animated.View
-        pointerEvents="none"
-        style={[
-          {
-            position: "absolute",
-            width: SIZE + 44,
-            height: SIZE + 44,
-            borderRadius: (SIZE + 44) / 2,
-            borderWidth: 1.5,
-            borderColor: "rgba(214,255,63,0.28)",
-            borderTopColor: colors.accent,
-          },
-          arcStyle,
-        ]}
-      />
-
-      <Animated.Image
-        source={SHUTTLE}
-        resizeMode="contain"
-        style={[{ position: "absolute", width: SHUTTLE_SIZE, height: SHUTTLE_SIZE }, shuttleStyle]}
-      />
+      {cast.map((animal, i) => (
+        <RingDisc
+          key={animal.key}
+          src={animal.src}
+          index={i}
+          radius={R}
+          ring={ring}
+          ripple={ripple}
+          clear={clear}
+        />
+      ))}
 
       <Animated.Image
         source={LOGO}
@@ -290,11 +303,104 @@ export function AnimatedSplash({ onFinish }: { onFinish: () => void }) {
         style={[{ position: "absolute", width: SIZE, height: SIZE }, logoStyle]}
       />
 
-      <Animated.View style={[{ position: "absolute", bottom: 64, alignItems: "center" }, taglineStyle]}>
-        <Text style={{ color: colors.textSecondary, fontSize: 13, fontWeight: "500" }}>
-          Made with ❤️ in Australia
+      <Animated.View style={[{ position: "absolute", top: wordTop, alignItems: "center" }, wordStyle]}>
+        <Text
+          style={{
+            fontFamily: "SpaceGrotesk_700Bold",
+            color: colors.text,
+            fontSize: 27,
+            letterSpacing: 5,
+          }}
+        >
+          SMASHIO
         </Text>
       </Animated.View>
+
+      <Animated.View style={[{ position: "absolute", top: wordTop + 42, alignItems: "center" }, tagStyle]}>
+        <Text style={{ fontFamily: "Manrope_500Medium", color: colors.textSecondary, fontSize: 13 }}>
+          Find your game
+        </Text>
+      </Animated.View>
+    </Animated.View>
+  );
+}
+
+/**
+ * One avatar on the ring. Its own component because `useAnimatedStyle` cannot be called inside
+ * a map callback, and because each disc needs its own slice of the shared cascade and ripple
+ * drivers rather than its own timers.
+ */
+function RingDisc({
+  src,
+  index,
+  radius,
+  ring,
+  ripple,
+  clear,
+}: {
+  src: number;
+  index: number;
+  radius: number;
+  ring: SharedValue<number>;
+  ripple: SharedValue<number>;
+  clear: SharedValue<number>;
+}) {
+  // Exact even spacing, first avatar at twelve o'clock. An earlier pass jittered these by a few
+  // degrees to look hand-placed and it just read as sloppy.
+  const angle = (-90 + index * (360 / RING_COUNT)) * (Math.PI / 180);
+  const x = Math.cos(angle) * radius;
+  const y = Math.sin(angle) * radius;
+
+  // This disc's window inside the cascade, as a 0..1 slice of `ring`.
+  const span = RING_DONE - DISC_FIRST;
+  const start = (index * DISC_STAGGER) / span;
+  const end = start + DISC_IN / span;
+
+  const style = useAnimatedStyle(() => {
+    const t = Math.max(0, Math.min(1, (ring.value - start) / (end - start)));
+    // Overshoot on the way in: back-out, so each avatar arrives with a small pop.
+    const c = 1.7;
+    const p = t - 1;
+    const eased = t >= 1 ? 1 : 1 + (c + 1) * p * p * p + c * p * p;
+
+    // Idle ripple: a bump travelling around the ring, one lap per period. Off (-1) unless the
+    // gate is actually holding us.
+    let bump = 0;
+    if (ripple.value >= 0) {
+      let phase = ripple.value - index / RING_COUNT;
+      phase = phase - Math.floor(phase);
+      // A short raised-cosine over the first fifth of the lap, flat for the rest.
+      if (phase < 0.2) bump = (1 - Math.cos((phase / 0.2) * 2 * Math.PI)) / 2;
+    }
+
+    return {
+      opacity: t * (1 - clear.value),
+      transform: [
+        { translateX: x },
+        { translateY: y },
+        { scale: (0.4 + eased * 0.6 + bump * 0.07) * (1 - clear.value * 0.2) },
+      ],
+    };
+  });
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        {
+          position: "absolute",
+          width: DISC,
+          height: DISC,
+          borderRadius: DISC / 2,
+          overflow: "hidden",
+          borderWidth: 1,
+          borderColor: colors.cardBorder,
+          backgroundColor: colors.surface,
+        },
+        style,
+      ]}
+    >
+      <Animated.Image source={src} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
     </Animated.View>
   );
 }

@@ -304,17 +304,16 @@ W4.5, W6, W7, W8 and W10 the same day. Nine of thirteen slices done. The four st
 W9, W11) are each blocked on something outside this repo, not on build time — see their own notes
 below. AGENTS.md carries the same dated note.
 
-**W0 — Truth pass. 0.5 d. Not shipped — blocked on the Play console change below.** Copy across all nine surfaces: badge, hero, `ctaButtons()`, footer,
-meta descriptions, OG text. Wording is "open beta testing, Sydney" plus a November 2026 launch line,
-not "private beta". Kill the Android allowlist mailto and the "Android spots are invite only"
-footer.
+**Amendment 2026-09-10 (later same day) — DEC1 reversed, W0 cancelled.** Android stays on Play
+internal testing, not open testing. See §10 DEC1 and W0's own note.
 
-**Prerequisite, console-only, not a code change:** move the Android app from the Play **internal**
-test track to **open testing** (DEC1 in §10). Internal testing is a 100-account allowlist, so the
-opt-in link currently on the site fails for anyone not already added. W0 must not ship its copy
-before the track has actually changed, or the site claims open access it does not have. The
-`PLAY_BETA_URL` constant in `website/api/_venue-lib.js` changes to the open-testing URL at the same
-time.
+**W0 — Truth pass. Cancelled 2026-09-10 (DEC1 reversed).** Was: copy across all nine surfaces to
+"open beta testing, Sydney" once Android moved to Play open testing. Android stays on the
+**internal** test track instead (allowlist, no console change), so this whole slice is off the
+table until that decision changes again. What shipped in its place: the mailto "email us" links for
+Android access were replaced with an inline email-capture form (`hero_android` /
+`get_app_android` sources) so interested testers leave an email instead of composing a mail client
+message — same manual-add-to-allowlist flow, just a form instead of a mailto link.
 
 **W1 — Analytics. 0.5 d. Shipped 2026-09-10.** Vercel Web Analytics plus a PostHog web snippet on the app's existing
 project, so a web session ending in an install is attributable. Tag every store-link click. Closes
@@ -381,11 +380,11 @@ Fixes D6 within the §5.4 line. Backed by a new `player_seo` RPC, kept deliberat
 **W11 — Launch surface. 1 d. Not shipped.** November: store badges swap from beta to public, a `/press` kit, a
 launch-day home page, schema updated. Depends on store state, not on us.
 
-**Total roughly 17 days**, after the §10 decisions: guides down 1.5, home page redesign up 3, host
-consent up 0.5. Order: W0, W1, W2, W3, W4, W4.5, W5, W6, W7, W8, W9, W10, W11.
+**Total roughly 16.5 days**, after the §10 decisions: guides down 1.5, home page redesign up 3, host
+consent up 0.5, W0 cancelled. Order: W1, W2, W3, W4, W4.5, W5, W6, W7, W8, W9, W10, W11.
 
-Two things sit outside that count and gate slices rather than consume build days: the Play
-open-testing track change before W0, and the `design-brief.md` pass before W9.
+One thing sits outside that count and gates a slice rather than consuming build days: the
+`design-brief.md` pass before W9. W0 no longer gates anything — it's cancelled, not blocked.
 
 If only three ship: **W2, W3, W4.** Correct data, live listings, an email field.
 
@@ -450,12 +449,19 @@ The baseline is zero, which is why W1 is second.
 
 ### Taken 2026-09-10
 
-**DEC1. Android moves to Play open testing.** The app is on the **internal** test track, which is a
+**DEC1. Android moves to Play open testing.** ~~The app is on the **internal** test track, which is a
 100-account allowlist — the opt-in link on the website resolves only for Google accounts already
 added in Play Console, so the "just use the link" story does not hold for strangers. Decision: move
 to **open testing**, which gives a public opt-in URL with no allowlist and no cap while the listing
 still reads as beta. Website copy becomes "open beta testing". This is a Play Console change with
-no code in it, and W0 is gated on it actually being done.
+no code in it, and W0 is gated on it actually being done.~~ **Reversed same day, 2026-09-10.**
+Android stays on the **internal** test track until further notice — no console change. Instead of
+widening the allowlist, the site's Android CTAs now pair the existing internal-testing link with an
+email-capture form (`source: hero_android` / `get_app_android` in `web_signups`): a visitor drops
+their email, a human adds their Google account to the Play Console allowlist and replies, no
+auto-add. W0 (open-beta copy pass) is cancelled along with it — copy stays "private beta" /
+"invite only" for Android. See `website/index.html` (hero + `#get-app` section) and
+`website/api/subscribe.js`.
 
 **DEC2. Host disclosure ships before venue-level listings.** New slice W4.5: a line in the
 create-game visibility picker plus a privacy clause, then W5 behind it, with games created earlier

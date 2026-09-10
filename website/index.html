@@ -130,7 +130,17 @@
       </a>
     </div>
 
-    <p style="margin:-8px 0 0; font-size:12.5px; color:#5C5C64">Private beta. iPhone through TestFlight, Android through Google Play. Android testers need their Google account on the list first, so <a href="mailto:hello@smashio.com.au?subject=Android%20beta%20-%20add%20me&amp;body=Hi%20Smashio%2C%20please%20add%20me%20to%20the%20Android%20beta.%20My%20Google%20account%20email%20is%3A" style="color:#96969E; text-decoration:underline">email us</a> and we'll add you.</p>
+    <p style="margin:-8px 0 0; font-size:12.5px; color:#5C5C64">Private beta. iPhone through TestFlight, Android through Google Play. Android testers need their Google account on the list first, drop your email below and we'll add you.</p>
+
+    <form class="smashio-capture-form" data-source="hero_android" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:center; margin-top:-4px">
+      <div style="position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden" aria-hidden="true">
+        <label>Leave this field empty<input type="text" name="website" tabindex="-1" autocomplete="off" /></label>
+      </div>
+      <input type="email" name="email" required placeholder="you@example.com" aria-label="Email address"
+        style="min-width:180px; background:#141416; border:1px solid rgba(255,255,255,.12); border-radius:12px; padding:10px 13px; color:#F5F5F7; font-size:12.5px; font-family:inherit" />
+      <button type="submit" style="background:linear-gradient(135deg,#EBFF7A,#AEE62A); color:#0A0A0B; font-size:12.5px; font-weight:800; padding:10px 16px; border-radius:11px; border:none; cursor:pointer">Add me to Android beta</button>
+      <p class="smashio-capture-msg" style="width:100%; margin:0; font-size:11.5px; color:#7A7A82; text-align:center"></p>
+    </form>
 
     <div style="display:flex; align-items:center; gap:14px; background:rgba(20,20,22,.7); border:1px solid rgba(255,255,255,.07); padding:12px 18px 12px 12px; border-radius:18px; margin-top:6px">
       <div style="background:#0A0A0B; border:1px solid rgba(214,255,63,.25); border-radius:12px; padding:7px; line-height:0">
@@ -642,7 +652,7 @@
   <div style="position:relative; max-width:820px; margin:0 auto; padding:96px 20px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:24px">
     <img src="assets/smashio-mark.svg" alt="" style="width:56px; height:56px; object-fit:contain; animation:smash-drift 3.4s ease-in-out infinite alternate" />
     <h2 style="margin:0; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:clamp(32px,6vw,60px); line-height:1; letter-spacing:-.035em; text-wrap:balance">Sydney courts are<br />waiting. So are we.</h2>
-    <p style="margin:0; max-width:46ch; font-size:16px; line-height:1.6; color:#96969E">Smashio is in private beta in Sydney. iPhone testers join through TestFlight, Android testers through Google Play. Android spots are invite only for now, so email us your Google account and we'll add you to the tester list.</p>
+    <p style="margin:0; max-width:46ch; font-size:16px; line-height:1.6; color:#96969E">Smashio is in private beta in Sydney. iPhone testers join through TestFlight. Android spots are invite only for now, drop your email below and we'll add you to the tester list.</p>
     <div style="display:flex; flex-wrap:wrap; gap:12px; justify-content:center">
       <a href="https://testflight.apple.com/join/cJMZQmbn" target="_blank" rel="noopener" style="display:flex; align-items:center; gap:11px; background:linear-gradient(135deg,#EBFF7A,#AEE62A); padding:14px 24px 14px 20px; border-radius:14px; color:#0A0A0B; box-shadow:0 0 44px rgba(214,255,63,.28)">
         <ion-icon name="logo-apple" style="font-size:24px"></ion-icon>
@@ -651,14 +661,16 @@
           <span style="font-size:16px; font-weight:800; letter-spacing:-.01em">TestFlight beta</span>
         </span>
       </a>
-      <a href="https://play.google.com/apps/internaltest/4701589643775421350" target="_blank" rel="noopener" style="display:flex; align-items:center; gap:11px; background:#141416; border:1px solid rgba(255,255,255,.12); padding:14px 24px 14px 20px; border-radius:14px; color:#F5F5F7">
-        <ion-icon name="logo-google-playstore" style="font-size:22px"></ion-icon>
-        <span style="display:flex; flex-direction:column; align-items:flex-start; line-height:1.15">
-          <span style="font-size:9.5px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:#7A7A82">Android beta on</span>
-          <span style="font-size:16px; font-weight:800; letter-spacing:-.01em">Google Play</span>
-        </span>
-      </a>
     </div>
+    <form class="smashio-capture-form" data-source="get_app_android" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:center; max-width:400px">
+      <div style="position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden" aria-hidden="true">
+        <label>Leave this field empty<input type="text" name="website" tabindex="-1" autocomplete="off" /></label>
+      </div>
+      <input type="email" name="email" required placeholder="you@example.com" aria-label="Email address"
+        style="flex:1; min-width:180px; background:#141416; border:1px solid rgba(255,255,255,.12); border-radius:12px; padding:10px 13px; color:#F5F5F7; font-size:12.5px; font-family:inherit" />
+      <button type="submit" style="background:#141416; border:1px solid rgba(255,255,255,.12); color:#F5F5F7; font-size:12.5px; font-weight:800; padding:10px 16px; border-radius:11px; cursor:pointer">Add me to Android beta</button>
+      <p class="smashio-capture-msg" style="width:100%; margin:0; font-size:11.5px; color:#7A7A82; text-align:center"></p>
+    </form>
   </div>
 </section>
 
@@ -695,15 +707,14 @@
     <div style="display:flex; flex-direction:column; gap:10px; max-width:280px">
       <span style="font-size:10.5px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:#5C5C64">Not ready yet?</span>
       <p style="margin:0; font-size:12.5px; line-height:1.5; color:#7A7A82">Leave your email and we'll ping you when there's a game near you.</p>
-      <form id="smashio-capture-form" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center">
+      <form class="smashio-capture-form" data-source="home_footer" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center">
         <div style="position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden" aria-hidden="true">
-          <label for="smashio-capture-website">Leave this field empty</label>
-          <input type="text" id="smashio-capture-website" name="website" tabindex="-1" autocomplete="off" />
+          <label>Leave this field empty<input type="text" name="website" tabindex="-1" autocomplete="off" /></label>
         </div>
         <input type="email" name="email" required placeholder="you@example.com" aria-label="Email address"
           style="flex:1; min-width:150px; background:#141416; border:1px solid rgba(255,255,255,.12); border-radius:12px; padding:10px 13px; color:#F5F5F7; font-size:12.5px; font-family:inherit" />
         <button type="submit" style="background:linear-gradient(135deg,#EBFF7A,#AEE62A); color:#0A0A0B; font-size:12.5px; font-weight:800; padding:10px 16px; border-radius:11px; border:none; cursor:pointer">Notify me</button>
-        <p id="smashio-capture-msg" style="width:100%; margin:0; font-size:11.5px; color:#7A7A82"></p>
+        <p class="smashio-capture-msg" style="width:100%; margin:0; font-size:11.5px; color:#7A7A82"></p>
       </form>
     </div>
   </div>
@@ -719,37 +730,39 @@
 
 <script>
 (function () {
-  var form = document.getElementById("smashio-capture-form");
-  if (!form) return;
-  form.addEventListener("submit", function (e) {
-    e.preventDefault();
-    var msg = document.getElementById("smashio-capture-msg");
-    var email = form.email.value.trim();
-    var website = form.website.value;
-    var btn = form.querySelector("button[type=submit]");
-    btn.disabled = true;
-    fetch("/api/subscribe", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: email, website: website, source: "home_footer" }),
-    })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        btn.disabled = false;
-        if (data.ok) {
-          msg.textContent = "Sorted, we'll let you know.";
-          msg.style.color = "#D6FF3F";
-          form.reset();
-        } else {
+  var forms = document.querySelectorAll(".smashio-capture-form");
+  forms.forEach(function (form) {
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var msg = form.querySelector(".smashio-capture-msg");
+      var email = form.email.value.trim();
+      var website = form.website.value;
+      var source = form.getAttribute("data-source") || "home_footer";
+      var btn = form.querySelector("button[type=submit]");
+      btn.disabled = true;
+      fetch("/api/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email, website: website, source: source }),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          btn.disabled = false;
+          if (data.ok) {
+            msg.textContent = "Sorted, we'll let you know.";
+            msg.style.color = "#D6FF3F";
+            form.reset();
+          } else {
+            msg.textContent = "That didn't work, mind trying again?";
+            msg.style.color = "#FF6767";
+          }
+        })
+        .catch(function () {
+          btn.disabled = false;
           msg.textContent = "That didn't work, mind trying again?";
           msg.style.color = "#FF6767";
-        }
-      })
-      .catch(function () {
-        btn.disabled = false;
-        msg.textContent = "That didn't work, mind trying again?";
-        msg.style.color = "#FF6767";
-      });
+        });
+    });
   });
 })();
 </script>

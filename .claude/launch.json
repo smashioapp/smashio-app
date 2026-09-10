@@ -5,6 +5,8 @@
       "name": "smashio-web",
       "runtimeExecutable": "npm",
       "runtimeArgs": [
+        "--prefix",
+        "ui",
         "run",
         "web",
         "--",

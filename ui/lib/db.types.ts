@@ -1982,6 +1982,33 @@ export type Database = {
         }
         Relationships: []
       }
+      web_signups: {
+        Row: {
+          confirmed: boolean
+          created_at: string
+          email: string
+          id: string
+          source: string
+          suburb: string | null
+        }
+        Insert: {
+          confirmed?: boolean
+          created_at?: string
+          email: string
+          id?: string
+          source?: string
+          suburb?: string | null
+        }
+        Update: {
+          confirmed?: boolean
+          created_at?: string
+          email?: string
+          id?: string
+          source?: string
+          suburb?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       games_public: {
@@ -2103,6 +2130,7 @@ export type Database = {
       }
       approved_player_count: { Args: { p_game_id: string }; Returns: number }
       assert_is_organizer: { Args: { p_game_id: string }; Returns: undefined }
+      assert_no_public_definer_execute: { Args: never; Returns: undefined }
       auto_close_stale_chats: { Args: never; Returns: undefined }
       blocked_between: { Args: { a: string; b: string }; Returns: boolean }
       can_post_in_chat: {
@@ -2136,6 +2164,7 @@ export type Database = {
           venue_name: string
         }[]
       }
+      city_seo_stats: { Args: never; Returns: Json }
       claim_reserved_spot: { Args: { p_token: string }; Returns: string }
       claimed_reserved_count: { Args: { p_game_id: string }; Returns: number }
       classify_post_text: {
@@ -2234,69 +2263,38 @@ export type Database = {
         Args: { p_game_id: string }
         Returns: undefined
       }
-      feed_home:
-        | {
-            Args: {
-              p_cursor_created_at?: string
-              p_cursor_id?: string
-              p_lat: number
-              p_limit?: number
-              p_lng: number
-              p_radius_m: number
-              p_sport_slug: string
-            }
-            Returns: {
-              author_avatar_key: string
-              author_display_name: string
-              author_id: string
-              author_photo_path: string
-              body: string
-              club_id: string
-              created_at: string
-              distance_bucket: string
-              game_id: string
-              id: string
-              is_followed_author: boolean
-              kind: string
-              payload: Json
-              reaction_count: number
-              reply_count: number
-              venue_id: string
-              venue_name: string
-            }[]
-          }
-        | {
-            Args: {
-              p_cursor_created_at?: string
-              p_cursor_id?: string
-              p_kind?: string[]
-              p_lat: number
-              p_limit?: number
-              p_lng: number
-              p_mode?: string
-              p_radius_m: number
-              p_sport_slug: string
-            }
-            Returns: {
-              author_avatar_key: string
-              author_display_name: string
-              author_id: string
-              author_photo_path: string
-              body: string
-              club_id: string
-              created_at: string
-              distance_bucket: string
-              game_id: string
-              id: string
-              is_followed_author: boolean
-              kind: string
-              payload: Json
-              reaction_count: number
-              reply_count: number
-              venue_id: string
-              venue_name: string
-            }[]
-          }
+      feed_home: {
+        Args: {
+          p_cursor_created_at?: string
+          p_cursor_id?: string
+          p_kind?: string[]
+          p_lat: number
+          p_limit?: number
+          p_lng: number
+          p_mode?: string
+          p_radius_m: number
+          p_sport_slug: string
+        }
+        Returns: {
+          author_avatar_key: string
+          author_display_name: string
+          author_id: string
+          author_photo_path: string
+          body: string
+          club_id: string
+          created_at: string
+          distance_bucket: string
+          game_id: string
+          id: string
+          is_followed_author: boolean
+          kind: string
+          payload: Json
+          reaction_count: number
+          reply_count: number
+          venue_id: string
+          venue_name: string
+        }[]
+      }
       filter_quiet_recipients: {
         Args: { p_profile_ids: string[] }
         Returns: string[]
@@ -2336,6 +2334,45 @@ export type Database = {
           starts_at: string
           status: string
           venue_name: string
+          venue_suburb: string
+        }[]
+      }
+      games_seo_at_venue: {
+        Args: { p_limit?: number; p_venue_slug: string }
+        Returns: {
+          cost_per_player_cents: number
+          courts_booked: number
+          ends_at: string
+          format_label: string
+          id: string
+          max_players: number
+          open_spots: number
+          skill_tier_label: string
+          starts_at: string
+          venue_name: string
+          venue_slug: string
+          venue_suburb: string
+        }[]
+      }
+      games_seo_feed: {
+        Args: {
+          p_from?: string
+          p_limit?: number
+          p_suburb?: string
+          p_to?: string
+        }
+        Returns: {
+          cost_per_player_cents: number
+          courts_booked: number
+          ends_at: string
+          format_label: string
+          id: string
+          max_players: number
+          open_spots: number
+          skill_tier_label: string
+          starts_at: string
+          venue_name: string
+          venue_slug: string
           venue_suburb: string
         }[]
       }
@@ -2526,6 +2563,22 @@ export type Database = {
           rated_host: boolean
           rated_player: boolean
           skill_voted: boolean
+        }[]
+      }
+      post_preview: {
+        Args: { p_post_id: string }
+        Returns: {
+          author_display_name: string
+          body: string
+          created_at: string
+          id: string
+          kind: string
+          reaction_count: number
+          reply_count: number
+          sport_name: string
+          status: string
+          venue_name: string
+          venue_suburb: string
         }[]
       }
       preview_reserved_spot_invite: {
@@ -2834,6 +2887,15 @@ export type Database = {
       }
       waitlist_count: { Args: { p_game_id: string }; Returns: number }
       waitlist_position: { Args: { p_game_id: string }; Returns: number }
+      web_signup: {
+        Args: {
+          p_email: string
+          p_honeypot?: string
+          p_source?: string
+          p_suburb?: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

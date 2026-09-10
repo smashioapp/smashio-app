@@ -25,6 +25,48 @@ module.exports = async function handler(req, res) {
     clubs = [];
   }
 
+  let games = [];
+  try {
+    games = await callRpc("games_seo_feed", { p_limit: 12 });
+  } catch {
+    games = [];
+  }
+
+  const generatedAt = new Date();
+  const timeFmt = new Intl.DateTimeFormat("en-AU", { hour: "numeric", minute: "2-digit", timeZone: "Australia/Sydney" });
+  const dayFmt = new Intl.DateTimeFormat("en-AU", { weekday: "short", timeZone: "Australia/Sydney" });
+
+  const gamesSection =
+    games.length === 0
+      ? `<div class="rise rise-4" style="padding-top:8px; border-top:1px solid rgba(255,255,255,.06)">
+          <h2 style="font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:19px; margin:0 0 6px; color:#F5F5F7">Games this week</h2>
+          <p style="margin:0; font-size:13px; color:#7A7A82">Nothing open right now &mdash; open the app to host one and it'll show up here.</p>
+        </div>`
+      : `<div class="rise rise-4" style="display:flex; flex-direction:column; gap:14px; padding-top:8px; border-top:1px solid rgba(255,255,255,.06)">
+          <div>
+            <h2 style="font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:19px; margin:0 0 4px; color:#F5F5F7">Games this week</h2>
+            <p style="margin:0; font-size:11.5px; color:#5C5C64">Checked ${esc(timeFmt.format(generatedAt))} &middot; live from the app</p>
+          </div>
+          <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(230px, 1fr)); gap:10px">
+            ${games
+              .map((g) => {
+                const cost = g.cost_per_player_cents != null ? `$${(g.cost_per_player_cents / 100).toFixed(0)}/player` : "";
+                const spots = g.open_spots === 1 ? "1 spot left" : `${g.open_spots} spots left`;
+                const href = g.venue_slug ? `/venue/${esc(g.venue_slug)}` : "/sydney";
+                return `
+                <a class="venue-card" href="${href}">
+                  <div style="display:flex; align-items:center; justify-content:space-between; gap:8px">
+                    <span style="font-size:13.5px; font-weight:700; color:#F5F5F7">${esc(g.venue_name)}</span>
+                    <span style="font-size:11px; font-weight:800; color:${g.open_spots > 0 ? "#D6FF3F" : "#7A7A82"}">${esc(spots)}</span>
+                  </div>
+                  <div style="font-size:12px; color:#7A7A82; margin-top:3px">${esc(dayFmt.format(new Date(g.starts_at)))} ${esc(timeFmt.format(new Date(g.starts_at)))} &middot; ${esc(g.venue_suburb || "")}</div>
+                  <div style="font-size:11.5px; color:#5C5C64; margin-top:5px">${esc(g.skill_tier_label || "")}${g.skill_tier_label && cost ? " · " : ""}${esc(cost)}</div>
+                </a>`;
+              })
+              .join("")}
+          </div>
+        </div>`;
+
   const bySuburb = new Map();
   for (const v of venues) {
     const key = v.suburb || "Sydney";
@@ -42,10 +84,10 @@ module.exports = async function handler(req, res) {
     <p class="rise rise-3" style="margin:0; max-width:52ch; font-size:14.5px; line-height:1.65; color:#96969E">Every badminton venue Smashio tracks across Sydney, with courts, opening hours and pricing. Pick one to see what's on there — or open the app to see games happening tonight.</p>
     ${ctaButtons()}`;
 
-  const bodyContent =
+  const venuesSection =
     venues.length === 0
       ? ""
-      : `<div class="rise rise-4" style="display:flex; flex-direction:column; gap:32px; padding-top:8px; border-top:1px solid rgba(255,255,255,.06)">
+      : `<div class="rise rise-4" style="display:flex; flex-direction:column; gap:32px; padding-top:32px; margin-top:32px; border-top:1px solid rgba(255,255,255,.06)">
           ${suburbs
             .map(
               (suburb) => `
@@ -106,6 +148,6 @@ module.exports = async function handler(req, res) {
     canonicalUrl: "https://smashio.com.au/sydney",
     indexable: true,
     heroContent,
-    bodyContent: bodyContent + clubsSection,
+    bodyContent: gamesSection + venuesSection + clubsSection,
   }));
 };

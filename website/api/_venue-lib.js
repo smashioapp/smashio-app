@@ -29,6 +29,8 @@ async function callRpc(name, body) {
     body: JSON.stringify(body),
   });
   if (!r.ok) throw new Error(`${name} ${r.status}`);
+  // void-returning RPCs (e.g. web_signup) come back 204 No Content — .json() throws on an empty body.
+  if (r.status === 204) return null;
   return r.json();
 }
 
@@ -148,7 +150,10 @@ ${jsonLd ? `<script type="application/ld+json">${JSON.stringify(jsonLd)}</script
 </section>
 
 <footer style="border-top:1px solid rgba(255,255,255,.06)">
-  <div style="max-width:640px; margin:0 auto; padding:22px 20px; display:flex; flex-wrap:wrap; gap:10px; justify-content:space-between; font-size:12px; color:#5C5C64">
+  <div style="max-width:640px; margin:0 auto; padding:22px 20px 14px">
+    ${captureForm()}
+  </div>
+  <div style="max-width:640px; margin:0 auto; padding:14px 20px 22px; display:flex; flex-wrap:wrap; gap:10px; justify-content:space-between; font-size:12px; color:#5C5C64; border-top:1px solid rgba(255,255,255,.06)">
     <span>© 2026 Smashio. Made in Sydney.</span>
     <span style="display:flex; gap:14px">
       <a href="/sydney" style="color:#5C5C64; font-size:12px">All venues</a>
@@ -159,8 +164,68 @@ ${jsonLd ? `<script type="application/ld+json">${JSON.stringify(jsonLd)}</script
 
 </div>
 
+${captureFormScript()}
+
 </body>
 </html>`;
+}
+
+// Footer capture form (W4, gtm-plan G15). Posts to /api/subscribe rather than inserting directly
+// — see that file's header for why. Honeypot field is visually hidden, not `type="hidden"`, since
+// some scrapers skip hidden inputs but still fill anything visually offscreen.
+function captureForm() {
+  return `
+    <form id="smashio-capture-form" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center">
+      <div style="position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden" aria-hidden="true">
+        <label for="smashio-capture-website">Leave this field empty</label>
+        <input type="text" id="smashio-capture-website" name="website" tabindex="-1" autocomplete="off" />
+      </div>
+      <input type="email" name="email" required placeholder="you@example.com" aria-label="Email address"
+        style="flex:1; min-width:180px; background:#141416; border:1px solid rgba(255,255,255,.12); border-radius:12px; padding:11px 14px; color:#F5F5F7; font-size:13px; font-family:inherit" />
+      <button type="submit" class="btn btn-primary" style="width:auto; padding:11px 18px">
+        <span class="btn-main" style="font-size:13px">Notify me</span>
+      </button>
+      <p id="smashio-capture-msg" style="width:100%; margin:0; font-size:12px; color:#7A7A82"></p>
+    </form>`;
+}
+
+function captureFormScript() {
+  return `<script>
+(function () {
+  var form = document.getElementById("smashio-capture-form");
+  if (!form) return;
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var msg = document.getElementById("smashio-capture-msg");
+    var email = form.email.value.trim();
+    var website = form.website.value;
+    var btn = form.querySelector("button[type=submit]");
+    btn.disabled = true;
+    fetch("/api/subscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email, website: website, source: "footer" }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        btn.disabled = false;
+        if (data.ok) {
+          msg.textContent = "Sorted, we'll let you know.";
+          msg.style.color = "#D6FF3F";
+          form.reset();
+        } else {
+          msg.textContent = "That didn't work, mind trying again?";
+          msg.style.color = "#FF6767";
+        }
+      })
+      .catch(function () {
+        btn.disabled = false;
+        msg.textContent = "That didn't work, mind trying again?";
+        msg.style.color = "#FF6767";
+      });
+  });
+})();
+</script>`;
 }
 
 function ctaButtons() {
@@ -178,4 +243,4 @@ function ctaButtons() {
     <p class="rise rise-5" style="margin:0; font-size:12px; color:#5C5C64">Private beta. iPhone through TestFlight, Android through Google Play. Android testers need their Google account on the list first, so <a href="${ANDROID_BETA_MAILTO}" style="color:#96969E; text-decoration:underline">email us</a> and we'll add you.</p>`;
 }
 
-module.exports = { esc, callRpc, shell, ctaButtons };
+module.exports = { esc, callRpc, shell, ctaButtons, captureForm, captureFormScript };

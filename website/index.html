@@ -142,25 +142,63 @@
     </div>
   </div>
 
-  <div style="position:relative; border-top:1px solid rgba(255,255,255,.06); background:rgba(20,20,22,.5); overflow:hidden">
-    <div style="display:flex; width:max-content; animation:smash-marquee 34s linear infinite">
-      <div style="display:flex; align-items:center; gap:34px; padding:13px 17px">
-        <span style="font-size:12px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:#7A7A82">Olympic Park · 7:30pm</span><span style="color:#D6FF3F">·</span>
-        <span style="font-size:12px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:#7A7A82">Chatswood · 6 spots</span><span style="color:#D6FF3F">·</span>
-        <span style="font-size:12px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:#7A7A82">Intermediate doubles</span><span style="color:#D6FF3F">·</span>
-        <span style="font-size:12px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:#7A7A82">Auburn · $9 / player</span><span style="color:#D6FF3F">·</span>
-        <span style="font-size:12px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:#7A7A82">Rhodes · starts in 2h</span><span style="color:#D6FF3F">·</span>
-      </div>
-      <div style="display:flex; align-items:center; gap:34px; padding:13px 17px" aria-hidden="true">
-        <span style="font-size:12px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:#7A7A82">Olympic Park · 7:30pm</span><span style="color:#D6FF3F">·</span>
-        <span style="font-size:12px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:#7A7A82">Chatswood · 6 spots</span><span style="color:#D6FF3F">·</span>
-        <span style="font-size:12px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:#7A7A82">Intermediate doubles</span><span style="color:#D6FF3F">·</span>
-        <span style="font-size:12px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:#7A7A82">Auburn · $9 / player</span><span style="color:#D6FF3F">·</span>
-        <span style="font-size:12px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:#7A7A82">Rhodes · starts in 2h</span><span style="color:#D6FF3F">·</span>
-      </div>
+  <div id="live-ticker-wrap" style="position:relative; border-top:1px solid rgba(255,255,255,.06); background:rgba(20,20,22,.5); overflow:hidden; min-height:38px">
+    <div id="live-ticker-track" style="display:flex; align-items:center; gap:34px; padding:13px 17px; font-size:12px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:#7A7A82">
+      <span>Loading tonight's games&hellip;</span>
     </div>
   </div>
+  <div id="live-stat-wrap" style="text-align:center; padding:0 20px 10px"></div>
 </section>
+
+<script>
+(function () {
+  function fmtTime(iso) {
+    try {
+      return new Date(iso).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" });
+    } catch (e) {
+      return "";
+    }
+  }
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+    });
+  }
+  fetch("/api/home-feed")
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      var games = data.games || [];
+      var track = document.getElementById("live-ticker-track");
+      var statWrap = document.getElementById("live-stat-wrap");
+
+      if (games.length === 0) {
+        track.innerHTML = '<span>No games open right now &mdash; be the first to host one tonight.</span>';
+        return;
+      }
+
+      var items = games.map(function (g) {
+        var spots = g.open_spots === 1 ? "1 spot" : g.open_spots + " spots";
+        return '<span>' + esc(g.venue_suburb || g.venue_name) + ' &middot; ' + fmtTime(g.starts_at) + '</span>' +
+          '<span style="color:#D6FF3F">&middot;</span>' +
+          '<span>' + esc(spots) + ' left</span>' +
+          '<span style="color:#D6FF3F">&middot;</span>';
+      });
+      // Duplicate once so the CSS scroll loop has no visible seam.
+      track.innerHTML = items.join("") + items.join("");
+      track.style.width = "max-content";
+      track.style.animation = "smash-marquee 34s linear infinite";
+
+      if (data.stats && typeof data.stats.games_this_week === "number") {
+        statWrap.innerHTML = '<span style="font-size:11px; color:#5C5C64">' + data.stats.games_this_week +
+          ' games this week across Sydney &middot; checked just now</span>';
+      }
+    })
+    .catch(function () {
+      var track = document.getElementById("live-ticker-track");
+      if (track) track.innerHTML = '<span>Open the app to see what\'s on tonight.</span>';
+    });
+})();
+</script>
 
 <section id="how" style="max-width:1180px; margin:0 auto; padding:88px 20px">
   <div style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; margin-bottom:38px">
@@ -653,6 +691,20 @@
         <a href="https://play.google.com/apps/internaltest/4701589643775421350" target="_blank" rel="noopener" style="display:flex; align-items:center; gap:8px; background:#141416; border:1px solid rgba(255,255,255,.10); padding:9px 14px; border-radius:11px; color:#F5F5F7"><ion-icon name="logo-google-playstore" style="font-size:17px"></ion-icon><span style="font-size:12.5px; font-weight:700">Google Play</span></a>
       </div>
     </div>
+    <div style="display:flex; flex-direction:column; gap:10px; max-width:280px">
+      <span style="font-size:10.5px; font-weight:800; letter-spacing:.12em; text-transform:uppercase; color:#5C5C64">Not ready yet?</span>
+      <p style="margin:0; font-size:12.5px; line-height:1.5; color:#7A7A82">Leave your email and we'll ping you when there's a game near you.</p>
+      <form id="smashio-capture-form" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center">
+        <div style="position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden" aria-hidden="true">
+          <label for="smashio-capture-website">Leave this field empty</label>
+          <input type="text" id="smashio-capture-website" name="website" tabindex="-1" autocomplete="off" />
+        </div>
+        <input type="email" name="email" required placeholder="you@example.com" aria-label="Email address"
+          style="flex:1; min-width:150px; background:#141416; border:1px solid rgba(255,255,255,.12); border-radius:12px; padding:10px 13px; color:#F5F5F7; font-size:12.5px; font-family:inherit" />
+        <button type="submit" style="background:linear-gradient(135deg,#EBFF7A,#AEE62A); color:#0A0A0B; font-size:12.5px; font-weight:800; padding:10px 16px; border-radius:11px; border:none; cursor:pointer">Notify me</button>
+        <p id="smashio-capture-msg" style="width:100%; margin:0; font-size:11.5px; color:#7A7A82"></p>
+      </form>
+    </div>
   </div>
   <div style="border-top:1px solid rgba(255,255,255,.06)">
     <div style="max-width:1180px; margin:0 auto; padding:18px 20px; display:flex; flex-wrap:wrap; gap:10px; justify-content:space-between; font-size:12px; color:#5C5C64">
@@ -663,6 +715,43 @@
 </footer>
 
 </div>
+
+<script>
+(function () {
+  var form = document.getElementById("smashio-capture-form");
+  if (!form) return;
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    var msg = document.getElementById("smashio-capture-msg");
+    var email = form.email.value.trim();
+    var website = form.website.value;
+    var btn = form.querySelector("button[type=submit]");
+    btn.disabled = true;
+    fetch("/api/subscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: email, website: website, source: "home_footer" }),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        btn.disabled = false;
+        if (data.ok) {
+          msg.textContent = "Sorted, we'll let you know.";
+          msg.style.color = "#D6FF3F";
+          form.reset();
+        } else {
+          msg.textContent = "That didn't work, mind trying again?";
+          msg.style.color = "#FF6767";
+        }
+      })
+      .catch(function () {
+        btn.disabled = false;
+        msg.textContent = "That didn't work, mind trying again?";
+        msg.style.color = "#FF6767";
+      });
+  });
+})();
+</script>
 
 </body>
 </html>

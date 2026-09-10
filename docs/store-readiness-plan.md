@@ -15,7 +15,18 @@ Fixed in passing: missing `expo-asset` peer dep (required by `expo-audio` — ap
 > with it). So the blocker below and the same claim under [Release pipeline](#release-pipeline--updated-2026-08-15)
 > are both out of date on secrets.
 >
-> **What is still open on Android — confirmed with the owner 2026-09-07: Android has not shipped.**
+> **Superseded 2026-09-10: Android is now distributing on the Play internal test track.**
+> The opt-in link `https://play.google.com/apps/internaltest/4701589643775421350` is live and every
+> Android CTA on the website points at it (`website/index.html`, `website/player.html`,
+> `website/support.html`, and the shared `ctaButtons()` in `website/api/_venue-lib.js` +
+> `website/api/game/[id].js`). Read the scope precisely before treating the Android blocker as
+> closed: **internal testing is an allowlist**, capped at 100 accounts, and the opt-in URL only
+> resolves for a Google account already added in Play Console. So distribution works, the public
+> Play listing does not exist yet, and nothing has been promoted to open/closed testing or
+> production. The paragraph below is the pre-2026-09-10 state, kept for the history of *why* the
+> signing work should not be re-done.
+>
+> **What was still open on Android — confirmed with the owner 2026-09-07: Android had not shipped.**
 > Play Store install/verification is in progress, being worked through with a friend who has a
 > physical device (the verification step cannot be done on an emulator, which is the same wall
 > recorded earlier). So this blocker stays open — but the reason it is open has moved from *"no
@@ -33,7 +44,7 @@ Fixed in passing: missing `expo-asset` peer dep (required by `expo-audio` — ap
 > actually happens: the keystore file and its password live nowhere but the GitHub secret. Losing
 > them means a new Play listing, permanently.
 
-- [ ] **No Android release path.** Play Console isn't set up and the `ANDROID_*` signing secrets don't exist, so [build-android.yml](../.github/workflows/build-android.yml) can't get past the keystore step. Needs a Play Console account, an upload keystore, and those secrets. (The old `eas.json` `submit.production.android` gap is moot now that releases go through GitHub Actions — see [Release pipeline](#release-pipeline--updated-2026-08-15).)
+- [x] ~~**No Android release path.** Play Console isn't set up and the `ANDROID_*` signing secrets don't exist, so [build-android.yml](../.github/workflows/build-android.yml) can't get past the keystore step. Needs a Play Console account, an upload keystore, and those secrets.~~ Closed in two halves: signing 2026-08-24 (keystore + all four secrets, see the amendment at the top of this doc), distribution 2026-09-10 (Play Console set up, app live on the **internal test track**). What replaces it: the public Play listing and a promotion past internal testing, which the internal track's 100-account allowlist does not cover. (The old `eas.json` `submit.production.android` gap is moot now that releases go through GitHub Actions — see [Release pipeline](#release-pipeline--updated-2026-08-15).)
 - [x] ~~**Google Maps API key unrestricted, and publicly leaked.**~~ Old key (flagged by the code's own comment in [app.config.js:57-58](../ui/app.config.js)) was committed in plaintext and got flagged in a public GitHub issue. Rotated 2026-08-18 — new key set in `ui/.env` (gitignored) and the GitHub Actions secret. Still TODO: delete old key from GCP Console, and restrict new key by Android package name + SHA-1 and iOS bundle ID before shipping.
 - [x] ~~**Sentry is inert — both halves missing.**~~ Fixed 2026-08-24, confirmed 2026-08-31. `EXPO_PUBLIC_SENTRY_DSN` and `SENTRY_AUTH_TOKEN` both exist as GitHub secrets; `SENTRY_ORG`/`SENTRY_PROJECT` are hardcoded in [build-ios.yml](../.github/workflows/build-ios.yml) and [build-android.yml](../.github/workflows/build-android.yml). No `SENTRY_DISABLE_AUTO_UPLOAD` remains in either workflow, so symbol upload runs.
 - [ ] **`SYSTEM_ALERT_WINDOW` permission in the generated manifest.** Present in [android/app/src/main/AndroidManifest.xml](../ui/android/app/src/main/AndroidManifest.xml), almost certainly from expo-dev-client (dev-only overlay bubble). Confirm it drops from the release/production build — if it ships, Play Console requires a special-access-permission justification and may flag the app.

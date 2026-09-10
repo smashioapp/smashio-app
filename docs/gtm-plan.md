@@ -267,7 +267,23 @@ true no-filter cold start.
 pre-launch impression not ready to install is lost. **~2h. Not required — Android ships next
 week (2026-09-07 target), so no Android-beta waitlist needed.**
 
-> **Amended 2026-09-07: Android did NOT ship. G15 is a live gap again, and G2 is still a blocker.**
+> **Amended 2026-09-10: Android now ships to the Play internal test track.**
+> The opt-in link `https://play.google.com/apps/internaltest/4701589643775421350` is live and the website
+> links to it from every Android CTA. Effect on the 2026-09-07 amendment below, which is otherwise
+> superseded:
+> - **G15 narrows but does not close.** Android interest now has somewhere to land, so the
+>   Android-beta waitlist is no longer the gap it was. But internal testing is an allowlist (100
+>   accounts max, each Google account added by hand in Play Console), so the website still needs a
+>   way to collect that address. The current fix is a `mailto:` in the beta note line, which is a
+>   stopgap, not capture. Email capture is still the ~2h item.
+> - **G2 narrows to the public listing.** Distribution and signing both work now. What is left is
+>   the Play Store listing itself plus a promotion to open or closed testing, which is what the
+>   90-day sequence in §5 actually depends on. Do not read this as G2 closed.
+> - **Beta metrics stop being iOS-only from 2026-09-10 forward.** Anything measured before that
+>   date is still an iOS-only read, per §17.1's caveat in [social-plan.md](social-plan.md).
+>   Expect Android volume to stay tiny while the tester cap is 100.
+
+> **Amended 2026-09-07 (superseded by the block above): Android did NOT ship. G15 is a live gap again, and G2 is still a blocker.**
 > "Android ships next week (2026-09-07 target)" was written 2026-08-31. Confirmed with the owner on
 > 2026-09-07: **Android has not shipped** — Play Store install/verification is still in progress,
 > being worked through with a friend who has a physical device (the verification step cannot be

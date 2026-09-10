@@ -15,6 +15,8 @@ const SUPABASE_ANON_KEY = "sb_publishable_VsirTXudBTJT4kNF4deNkw_hVl54eBx";
 const TESTFLIGHT_URL = "https://testflight.apple.com/join/cJMZQmbn";
 const ANDROID_BETA_MAILTO =
   "mailto:hello@smashio.com.au?subject=Android%20beta%20-%20add%20me&body=Hi%20Smashio%2C%20please%20add%20me%20to%20the%20Android%20beta.%20My%20Google%20account%20email%20is%3A";
+// Internal test track: the opt-in link only works once the tester's Google account is on the list.
+const PLAY_BETA_URL = "https://play.google.com/apps/internaltest/4701589643775421350";
 
 // Same four tiers as index.html's "Four honest skill tiers" card (#features).
 const TIER_COLORS = {
@@ -188,9 +190,9 @@ function ctaButtons() {
         <ion-icon name="logo-apple" style="font-size:24px"></ion-icon>
         <span class="btn-label"><span class="btn-eyebrow">Join the</span><span class="btn-main">TestFlight beta</span></span>
       </a>
-      <a class="btn" href="${ANDROID_BETA_MAILTO}">
+      <a class="btn" href="${PLAY_BETA_URL}" target="_blank" rel="noopener">
         <ion-icon name="logo-google-playstore" style="font-size:22px; color:#F5F5F7"></ion-icon>
-        <span class="btn-label"><span class="btn-eyebrow">Android · email us</span><span class="btn-main">Ask for the beta</span></span>
+        <span class="btn-label"><span class="btn-eyebrow">Android beta on</span><span class="btn-main">Google Play</span></span>
       </a>
     </div>
     <div class="rise rise-5" style="display:flex; align-items:center; gap:14px; background:rgba(20,20,22,.7); border:1px solid rgba(255,255,255,.07); padding:12px 18px 12px 12px; border-radius:18px; margin-top:6px">
@@ -202,7 +204,7 @@ function ctaButtons() {
         <div style="font-size:11.5px; color:#7A7A82; margin-top:2px">TestFlight · iPhone and iPad</div>
       </div>
     </div>
-    <p class="rise rise-5" style="margin:0; font-size:12px; color:#5C5C64">Private beta. iPhone testers join through TestFlight; Android testers are added in batches.</p>`;
+    <p class="rise rise-5" style="margin:0; font-size:12px; color:#5C5C64">Private beta. iPhone through TestFlight, Android through Google Play. Android testers need their Google account on the list first, so <a href="${ANDROID_BETA_MAILTO}" style="color:#96969E; text-decoration:underline">email us</a> and we'll add you.</p>`;
 }
 
 function notFoundHero({ heading, body }) {

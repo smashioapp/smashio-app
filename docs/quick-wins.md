@@ -63,7 +63,7 @@ the real fingerprint of that keystore. **The keystore file and its password are 
 anywhere else** — back them up somewhere durable (password manager + encrypted backup); losing
 them means every future Play Store update needs a new app listing.
 
-**Why it hurts.** Android is being added to the beta in batches. Every
+**Why it hurts.** Android testers install through the Play internal test track (live 2026-09-10). Every
 `https://smashio.com.au/game/<id>` link tapped on Android opens the browser instead of the app —
 the exact dead-end the AASA file was added to fix on iOS (see the comment in `app.config.js`).
 

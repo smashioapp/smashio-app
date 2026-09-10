@@ -16,6 +16,12 @@ Store yet (§6 "Later / not now" is still open).
 >   platforms with a cloud-styled brand Map ID"; that is right about the provider and loose about
 >   the styling. Applying the Map ID on Android needs an Android-restricted Maps key, which is also
 >   the open item in [store-readiness-plan.md](store-readiness-plan.md).
+> - **Amended 2026-09-10: the Android-restricted key now exists.** `ANDROID_GOOGLE_MAPS_API_KEY`
+>   (GCP key restricted to `com.smashio.app` + the release keystore SHA-1) is wired into
+>   `ui/app.config.js`'s `androidGoogleMapsApiKey` and injected in `build-android.yml`. Android map
+>   tiles render (previously blank grey — no key at all). The brand Map ID is **still iOS-only** —
+>   `GameMap.tsx` still gates `googleMapId` on `Platform.OS === "ios"`; flipping that to Android is a
+>   separate, undecided step.
 > - **§5.10's execution is what broke, and was redone.**
 >   [discover-map-ux-plan.md](discover-map-ux-plan.md) is the second pass over this surface (pin
 >   taxonomy, Games/Courts modes, density rules, geocoded search) and shipped 2026-08-20; the map
@@ -126,8 +132,11 @@ Caveats to remember:
 - Killing `pointOfInterest` also killed `recreation.sportsComplex`. If real courts turn out to be
   useful landmarks, re-enable that one leaf with `label.visible: true`.
 
-Deferred: Android key + Android map ID when the Play Store build happens. Do **not** loosen the
+Deferred: Android map ID when the Play Store build happens. Do **not** loosen the
 iOS key to cover Android — make a second key.
+
+> **Amended 2026-09-10:** the second key is done — `ANDROID_GOOGLE_MAPS_API_KEY`, restricted to
+> `com.smashio.app` + the release keystore SHA-1. Only the Map ID (brand styling) is still deferred.
 
 ---
 

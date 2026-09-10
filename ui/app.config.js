@@ -122,9 +122,7 @@ module.exports = {
       [
         "react-native-maps",
         {
-          // Android has no Play Store build yet and the key is iOS-restricted — Android map tiles
-          // stay blank grey until a second, Android-restricted key exists (docs/map-plan.md §4).
-          androidGoogleMapsApiKey: "",
+          androidGoogleMapsApiKey: process.env.ANDROID_GOOGLE_MAPS_API_KEY ?? "",
           iosGoogleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? "",
         },
       ],

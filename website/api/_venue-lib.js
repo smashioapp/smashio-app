@@ -88,7 +88,11 @@ ${jsonLd ? `<script type="application/ld+json">${escapeJsonLd(jsonLd)}</script>`
 <script type="module" src="https://unpkg.com/ionicons@7.4.0/dist/ionicons/ionicons.esm.js"></script>
 <script defer src="/_vercel/insights/script.js"></script>
 <style>
-  html { scroll-behavior: smooth; }
+  html { scroll-behavior: smooth; scrollbar-color: #3A3A40 #0E0E10; scrollbar-width: thin; }
+  ::-webkit-scrollbar { width: 12px; height: 12px; }
+  ::-webkit-scrollbar-track { background: #0E0E10; }
+  ::-webkit-scrollbar-thumb { background: #3A3A40; border-radius: 8px; border: 3px solid #0E0E10; }
+  ::-webkit-scrollbar-thumb:hover { background: #9FE020; }
   body { margin: 0; background: #0A0A0B; color: #F5F5F7; font-family: Manrope, system-ui, sans-serif; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
   a { color: #D6FF3F; text-decoration: none; }
   a:hover { color: #EBFF7A; }

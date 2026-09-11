@@ -3,7 +3,45 @@
 // 20260910020000_web_signups.sql) — this function is the only thing that calls web_signup().
 // Turnstile and double opt-in (DEC7) are deferred pending a third-party account; the honeypot
 // field below is the only bot defence shipped so far.
+//
+// Notify email (2026-09-11): fires after a successful signup so a human sees it and can add
+// Android testers to the Play Console allowlist manually — nothing else reads web_signups yet.
+// Best-effort: a Resend failure never fails the request, the signup is already recorded by then.
 const { callRpc } = require("./_venue-lib");
+
+const NOTIFY_TO = "hello@smashio.com.au";
+const NOTIFY_FROM = "Smashio Website <notify@smashio.com.au>";
+
+async function notifySignup({ email, suburb, source }) {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return;
+
+  try {
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        from: NOTIFY_FROM,
+        to: [NOTIFY_TO],
+        subject: `New signup (${source}): ${email}`,
+        text: [
+          `Email: ${email}`,
+          `Suburb: ${suburb || "-"}`,
+          `Source: ${source}`,
+          `When: ${new Date().toISOString()}`,
+          source.includes("android")
+            ? "\nAndroid beta request — add their Google account to the Play Console internal testing allowlist and reply to confirm."
+            : "",
+        ].join("\n"),
+      }),
+    });
+  } catch {
+    // Best-effort — the signup itself already succeeded, don't fail the request over this.
+  }
+}
 
 module.exports = async function handler(req, res) {
   res.setHeader("Content-Type", "application/json; charset=utf-8");
@@ -16,7 +54,7 @@ module.exports = async function handler(req, res) {
   const body = req.body && typeof req.body === "object" ? req.body : {};
   const email = typeof body.email === "string" ? body.email.trim() : "";
   const suburb = typeof body.suburb === "string" ? body.suburb.trim() : "";
-  const source = typeof body.source === "string" ? body.source.trim() : "footer";
+  const source = typeof body.source === "string" ? body.source.trim() || "footer" : "footer";
   // Hidden field real visitors never fill; named to look like a normal field to a scraping bot.
   const honeypot = typeof body.website === "string" ? body.website : "";
 
@@ -28,11 +66,15 @@ module.exports = async function handler(req, res) {
     await callRpc("web_signup", {
       p_email: email,
       p_suburb: suburb || null,
-      p_source: source || "footer",
+      p_source: source,
       p_honeypot: honeypot,
     });
   } catch {
     return res.status(500).json({ ok: false, error: "signup_failed" });
+  }
+
+  if (!honeypot) {
+    await notifySignup({ email, suburb, source });
   }
 
   return res.status(200).json({ ok: true });

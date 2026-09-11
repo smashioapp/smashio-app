@@ -486,7 +486,13 @@ number. Recommend 2 venues, or 1 live game. Needed by W6.
 
 **DEC7. Email tooling for W4.** Double opt-in needs a sending path and an anti-spam check. Nothing in
 the repo suggests either exists yet. Resend or Postmark plus Cloudflare Turnstile is the cheap
-default, but it is an account someone has to open.
+default, but it is an account someone has to open. **Half-resolved 2026-09-11**: Resend account
+opened, `smashio.com.au` domain verified (DKIM/SPF-via-CNAME/DMARC records in above.com DNS),
+`RESEND_API_KEY` set in Vercel (production + preview). `website/api/subscribe.js` now sends a
+notify email to `hello@smashio.com.au` on every signup (from `notify@smashio.com.au`) so a human
+sees new rows instead of nobody — this was the actual gap the Android email-capture forms exposed
+(they wrote to `web_signups` but nothing read it back). Still open: Turnstile, and double opt-in
+itself (the notify email is one-way, not a confirm loop).
 
 ---
 

@@ -23,6 +23,19 @@ function esc(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 }
 
+// JSON.stringify escapes neither `<` nor `/`, so a value containing `</script>` closes the tag
+// early and whatever follows parses as HTML (security-audit-2026-09-11.md H7).
+function escapeJsonLd(obj) {
+  const LS = String.fromCharCode(0x2028);
+  const PS = String.fromCharCode(0x2029);
+  return JSON.stringify(obj)
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026")
+    .split(LS).join("\\u2028")
+    .split(PS).join("\\u2029");
+}
+
 async function callRpc(name, body) {
   const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
     method: "POST",
@@ -68,7 +81,7 @@ ${canonicalUrl ? `<meta property="og:url" content="${esc(canonicalUrl)}" />` : "
 <meta name="twitter:title" content="${esc(title)}" />
 <meta name="twitter:description" content="${esc(description)}" />
 <meta name="twitter:image" content="https://smashio.com.au/assets/og-image.png" />
-${jsonLd ? `<script type="application/ld+json">${JSON.stringify(jsonLd)}</script>` : ""}
+${jsonLd ? `<script type="application/ld+json">${escapeJsonLd(jsonLd)}</script>` : ""}
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
@@ -112,19 +125,47 @@ ${jsonLd ? `<script type="application/ld+json">${JSON.stringify(jsonLd)}</script
 
   .venue-card { display:block; background:#141416; border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:16px 18px; text-align:left; transition: transform .18s ease, border-color .18s ease; }
   .venue-card:hover { transform: translateY(-2px); border-color: rgba(214,255,63,.3); }
+
+  /* v2 shared chrome (website-design-brief.md) — platform-aware CTA label, no layout shift, no JS
+     required for the default (both-platforms) label to render. */
+  .compact-cta .l { display:none; } .compact-cta .l-default { display:inline; }
+  html[data-platform] .compact-cta .l-default { display:none; }
+  html[data-platform=ios] .compact-cta .l-ios { display:inline; }
+  html[data-platform=android] .compact-cta .l-android { display:inline; }
+  html[data-platform=desktop] .compact-cta .l-desktop { display:inline; }
+  .betastrip { display:flex; align-items:center; justify-content:center; gap:6px; padding:8px 16px; background:#141416; font-size:11.5px; color:#C7C7CE; font-weight:600; border-bottom:1px solid rgba(255,255,255,.06); text-align:center; }
+  .betastrip b { color:#9FE020; font-weight:800; }
+  .livedot { width:6px; height:6px; border-radius:50%; background:#9FE020; box-shadow:0 0 0 3px rgba(159,224,32,.2); flex-shrink:0; display:inline-block; }
+  .install-compact { display:flex; flex-direction:column; gap:10px; max-width:420px; margin:0 auto; }
+  .install-compact input[type=email] { height:46px; border-radius:100px; background:#141416; border:1px solid rgba(255,255,255,.10); color:#F5F5F7; padding:0 16px; font-size:13px; font-family:Manrope; flex:1; min-width:0; }
+  .install-compact input[type=email]::placeholder { color:#7A7A82; }
 </style>
 </head>
 <body>
 
+<script>(function(){function plat(){var ua=navigator.userAgent;if(/iPhone|iPad|iPod/.test(ua)||(/Macintosh/.test(ua)&&navigator.maxTouchPoints>1))return'ios';if(/Android/.test(ua))return'android';return'desktop';}document.documentElement.setAttribute('data-platform',plat());})();</script>
+
 <div style="background:#0A0A0B; min-height:100vh; display:flex; flex-direction:column">
 
+<div class="betastrip">
+  <span class="livedot"></span>
+  <span>Private beta &middot; iOS on TestFlight, Android by invite &middot; public launch Nov 2026</span>
+</div>
+
 <header style="position:sticky; top:0; z-index:50; backdrop-filter:blur(18px); background:rgba(10,10,11,.72); border-bottom:1px solid rgba(255,255,255,.06)">
-  <div style="max-width:880px; margin:0 auto; padding:14px 20px; display:flex; align-items:center; justify-content:space-between; gap:16px">
+  <div style="max-width:1180px; margin:0 auto; padding:14px 20px; display:flex; align-items:center; justify-content:space-between; gap:16px">
     <a href="/" style="display:flex; align-items:center; gap:6px; color:#F5F5F7">
       <img src="/assets/smashio-mark.svg" alt="Smashio" style="width:17px; height:17px" />
       <span style="font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:19px; letter-spacing:-.02em">Smashio</span>
     </a>
-    <a href="/sydney" class="nav-link" style="align-items:center; color:#96969E; font-size:13px; font-weight:600">All Sydney venues</a>
+    <nav style="display:flex; align-items:center; gap:26px">
+      <a href="/sydney" class="nav-link" style="color:#96969E; font-size:13px; font-weight:600">Sydney</a>
+      <a href="/sydney" class="nav-link" style="color:#96969E; font-size:13px; font-weight:600">Venues</a>
+      <a href="/guides/cost-of-badminton-in-sydney" class="nav-link" style="color:#96969E; font-size:13px; font-weight:600">Guides</a>
+      <a href="#install" class="compact-cta" style="background:linear-gradient(135deg,#EBFF7A,#AEE62A); color:#0A0A0B; font-size:13px; font-weight:800; padding:9px 16px; border-radius:100px">
+        <span class="l l-default">Get the app</span><span class="l l-ios">Join on TestFlight</span><span class="l l-android">Request access</span><span class="l l-desktop">Get the app</span>
+      </a>
+    </nav>
   </div>
 </header>
 
@@ -155,16 +196,24 @@ ${jsonLd ? `<script type="application/ld+json">${JSON.stringify(jsonLd)}</script
   ${bodyContent ? `<div style="position:relative; max-width:640px; margin:0 auto; padding:0 20px 56px">${bodyContent}</div>` : ""}
 </section>
 
+<div id="install" style="border-top:1px solid rgba(255,255,255,.06); background:#0E0E10; padding:32px 20px; text-align:center">
+  <div style="display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:100px; background:rgba(214,255,63,.1); border:1px solid rgba(214,255,63,.25); font-size:11px; font-weight:800; color:#9FE020; margin-bottom:16px">
+    <span class="livedot"></span>PRIVATE BETA
+  </div>
+  ${ctaButtons()}
+</div>
+
 <footer style="border-top:1px solid rgba(255,255,255,.06)">
   <div style="max-width:640px; margin:0 auto; padding:22px 20px 14px">
     ${captureForm(captureSuburb)}
   </div>
   <div style="max-width:640px; margin:0 auto; padding:14px 20px 22px; display:flex; flex-wrap:wrap; gap:10px; justify-content:space-between; font-size:12px; color:#5C5C64; border-top:1px solid rgba(255,255,255,.06)">
-    <span>© 2026 Smashio. Made in Sydney.</span>
-    <span style="display:flex; gap:14px">
+    <span>© 2026 Smashio. Sydney, Australia.</span>
+    <span style="display:flex; gap:14px; flex-wrap:wrap">
       <a href="/sydney" style="color:#5C5C64; font-size:12px">All venues</a>
       <a href="/guides/cost-of-badminton-in-sydney" style="color:#5C5C64; font-size:12px">Guides</a>
       <a href="/privacy.html" style="color:#5C5C64; font-size:12px">Privacy</a>
+      <a href="/terms.html" style="color:#5C5C64; font-size:12px">Terms</a>
     </span>
   </div>
 </footer>
@@ -207,41 +256,40 @@ function captureForm(suburb) {
 function captureFormScript() {
   return `<script>
 (function () {
-  var form = document.getElementById("smashio-capture-form");
-  if (!form) return;
-  form.addEventListener("submit", function (e) {
-    e.preventDefault();
-    var msg = document.getElementById("smashio-capture-msg");
-    var email = form.email.value.trim();
-    var website = form.website.value;
-    var suburbField = form.querySelector('[name="suburb"]');
-    var source = suburbField ? "suburb_page" : "footer";
-    var btn = form.querySelector("button[type=submit]");
-    btn.disabled = true;
-    fetch("/api/subscribe", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: email, website: website, suburb: suburbField ? suburbField.value : "", source: source }),
-    })
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        btn.disabled = false;
-        if (data.ok) {
-          msg.textContent = "Sorted, we'll let you know.";
-          msg.style.color = "#D6FF3F";
-          form.reset();
-          if (window.posthog) window.posthog.capture("web_signup", { source: source });
-        } else {
-          msg.textContent = "That didn't work, mind trying again?";
-          msg.style.color = "#FF6767";
-        }
+  function wire(form) {
+    var msg = form.querySelector(".smashio-capture-msg, .smashio-install-msg") || document.getElementById("smashio-capture-msg");
+    form.addEventListener("submit", function (e) {
+      e.preventDefault();
+      var email = form.email.value.trim();
+      var website = form.website.value;
+      var suburbField = form.querySelector('[name="suburb"]');
+      var source = form.getAttribute("data-source") || (suburbField ? "suburb_page" : "footer");
+      var btn = form.querySelector("button[type=submit]");
+      btn.disabled = true;
+      fetch("/api/subscribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email, website: website, suburb: suburbField ? suburbField.value : "", source: source }),
       })
-      .catch(function () {
-        btn.disabled = false;
-        msg.textContent = "That didn't work, mind trying again?";
-        msg.style.color = "#FF6767";
-      });
-  });
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          btn.disabled = false;
+          if (data.ok) {
+            if (msg) { msg.textContent = "Sorted, we'll add you and email you back."; msg.style.color = "#D6FF3F"; }
+            form.reset();
+            if (window.posthog) window.posthog.capture("web_signup", { source: source });
+          } else if (msg) {
+            msg.textContent = "That didn't work, mind trying again?";
+            msg.style.color = "#FF6767";
+          }
+        })
+        .catch(function () {
+          btn.disabled = false;
+          if (msg) { msg.textContent = "That didn't work, mind trying again?"; msg.style.color = "#FF6767"; }
+        });
+    });
+  }
+  document.querySelectorAll("#smashio-capture-form, .smashio-install-form").forEach(wire);
 })();
 </script>`;
 }
@@ -267,19 +315,50 @@ document.addEventListener("click", function (e) {
 </script>`;
 }
 
+// Platform-aware install CTA (website-design-brief.md §Install block). iOS is one tap to
+// TestFlight; Android is invite-only during beta so it's an email-request form, not a link — the
+// asymmetry is drawn, not hidden behind two identical-looking buttons (AGENTS.md Android note).
 function ctaButtons() {
   return `
-    <div class="rise rise-4" style="display:flex; flex-wrap:wrap; gap:12px; justify-content:center; width:100%">
-      <a class="btn btn-primary" href="${TESTFLIGHT_URL}" target="_blank" rel="noopener">
-        <ion-icon name="logo-apple" style="font-size:24px"></ion-icon>
-        <span class="btn-label"><span class="btn-eyebrow">Join the</span><span class="btn-main">TestFlight beta</span></span>
-      </a>
-      <a class="btn" href="${PLAY_BETA_URL}" target="_blank" rel="noopener">
-        <ion-icon name="logo-google-playstore" style="font-size:22px; color:#F5F5F7"></ion-icon>
-        <span class="btn-label"><span class="btn-eyebrow">Android beta on</span><span class="btn-main">Google Play</span></span>
-      </a>
+    <div class="rise rise-4 compact-cta" style="display:flex; justify-content:center; width:100%">
+      <div class="l l-default" style="display:flex; flex-wrap:wrap; gap:12px; justify-content:center; width:100%">
+        <a class="btn btn-primary" style="width:auto" href="${TESTFLIGHT_URL}" target="_blank" rel="noopener">
+          <ion-icon name="logo-apple" style="font-size:22px"></ion-icon>
+          <span class="btn-label"><span class="btn-eyebrow">Join the</span><span class="btn-main">TestFlight beta</span></span>
+        </a>
+        ${androidRequestForm()}
+      </div>
+      <div class="l l-ios" style="display:flex; justify-content:center; width:100%">
+        <a class="btn btn-primary" style="width:auto" href="${TESTFLIGHT_URL}" target="_blank" rel="noopener">
+          <ion-icon name="logo-apple" style="font-size:22px"></ion-icon>
+          <span class="btn-label"><span class="btn-eyebrow">Join the</span><span class="btn-main">TestFlight beta</span></span>
+        </a>
+      </div>
+      <div class="l l-android" style="display:flex; justify-content:center; width:100%">${androidRequestForm()}</div>
+      <div class="l l-desktop" style="display:flex; flex-wrap:wrap; gap:12px; justify-content:center; width:100%">
+        <a class="btn btn-primary" style="width:auto" href="${TESTFLIGHT_URL}" target="_blank" rel="noopener">
+          <ion-icon name="logo-apple" style="font-size:22px"></ion-icon>
+          <span class="btn-label"><span class="btn-eyebrow">Join the</span><span class="btn-main">TestFlight beta</span></span>
+        </a>
+        ${androidRequestForm()}
+      </div>
     </div>
-    <p class="rise rise-5" style="margin:0; font-size:12px; color:#5C5C64">Private beta. iPhone through TestFlight, Android through Google Play. Android testers need their Google account on the list first, so <a href="${ANDROID_BETA_MAILTO}" style="color:#96969E; text-decoration:underline">email us</a> and we'll add you.</p>`;
+    <p class="rise rise-5" style="margin:10px 0 0; font-size:12px; color:#5C5C64">Private beta. Android's invite only while we sort the allowlist, drop your email and we'll add your Google account within a day.</p>`;
 }
 
-module.exports = { esc, callRpc, shell, ctaButtons, captureForm, captureFormScript, analyticsScripts };
+function androidRequestForm() {
+  return `
+    <form class="smashio-install-form" style="display:flex; gap:8px; align-items:center" data-source="install_compact_android">
+      <div style="position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden" aria-hidden="true">
+        <label>Leave this field empty<input type="text" name="website" tabindex="-1" autocomplete="off" /></label>
+      </div>
+      <input type="email" name="email" required placeholder="you@email.com for Android" aria-label="Email for Android beta"
+        style="height:52px; border-radius:100px; background:#141416; border:1px solid rgba(255,255,255,.10); color:#F5F5F7; padding:0 18px; font-size:13.5px; font-family:Manrope; width:200px" />
+      <button type="submit" class="btn" style="width:auto; background:transparent; border:1.5px solid rgba(255,255,255,.15)">
+        <span class="btn-main" style="font-size:13.5px">Request access</span>
+      </button>
+      <span class="smashio-install-msg" style="font-size:11px; color:#7A7A82"></span>
+    </form>`;
+}
+
+module.exports = { esc, escapeJsonLd, callRpc, shell, ctaButtons, captureForm, captureFormScript, analyticsScripts };

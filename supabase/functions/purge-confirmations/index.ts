@@ -84,13 +84,28 @@ async function purgeRetention(): Promise<number> {
   return rows.length;
 }
 
+// Timing-safe compare so a shared-secret check doesn't leak match length over the wire
+// (security-audit-2026-09-11.md M5). Digests are fixed-length, so this also short-circuits safely
+// on mismatched input lengths.
+async function safeEqual(a: string, b: string): Promise<boolean> {
+  const enc = new TextEncoder();
+  const [ha, hb] = await Promise.all([
+    crypto.subtle.digest("SHA-256", enc.encode(a)),
+    crypto.subtle.digest("SHA-256", enc.encode(b)),
+  ]);
+  const [ua, ub] = [new Uint8Array(ha), new Uint8Array(hb)];
+  let diff = 0;
+  for (let i = 0; i < ua.length; i++) diff |= ua[i] ^ ub[i];
+  return diff === 0;
+}
+
 // Guarded so `deno test` can import this module for its pure helpers (orphanCutoffIso etc.)
 // without binding a port — supabase serves this file directly, where import.meta.main is true.
 if (import.meta.main) {
   Deno.serve(async (req) => {
     const expectedKey = Deno.env.get("PURGE_CONFIRMATIONS_KEY");
     const auth = req.headers.get("Authorization");
-    if (!expectedKey || auth !== `Bearer ${expectedKey}`) {
+    if (!expectedKey || !auth || !(await safeEqual(auth, `Bearer ${expectedKey}`))) {
       return new Response("Unauthorized", { status: 401 });
     }
 

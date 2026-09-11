@@ -45,6 +45,21 @@ const serviceClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_R
 // RPC without going through the app. Same shared-secret pattern as push_dispatch_key.
 const AI_PROXY_SERVICE_KEY = Deno.env.get("AI_PROXY_SERVICE_KEY");
 
+// Timing-safe compare so a shared-secret check doesn't leak match length over the wire
+// (security-audit-2026-09-11.md M5). Digests are fixed-length, so this also short-circuits safely
+// on mismatched input lengths.
+async function safeEqual(a: string, b: string): Promise<boolean> {
+  const enc = new TextEncoder();
+  const [ha, hb] = await Promise.all([
+    crypto.subtle.digest("SHA-256", enc.encode(a)),
+    crypto.subtle.digest("SHA-256", enc.encode(b)),
+  ]);
+  const [ua, ub] = [new Uint8Array(ha), new Uint8Array(hb)];
+  let diff = 0;
+  for (let i = 0; i < ua.length; i++) diff |= ua[i] ^ ub[i];
+  return diff === 0;
+}
+
 export type ParsedBooking = {
   is_booking_confirmation: boolean;
   venue_name: string | null;
@@ -333,7 +348,12 @@ if (import.meta.main) {
   // with a shared secret instead of a user JWT, so the pre-publish filter is enforced no matter
   // how a post reaches the table — calling create_post directly can no longer skip it.
   const serviceKeyHeader = req.headers.get("x-service-key");
-  if (body.mode === "classify" && AI_PROXY_SERVICE_KEY && serviceKeyHeader === AI_PROXY_SERVICE_KEY) {
+  if (
+    body.mode === "classify" &&
+    AI_PROXY_SERVICE_KEY &&
+    serviceKeyHeader &&
+    (await safeEqual(serviceKeyHeader, AI_PROXY_SERVICE_KEY))
+  ) {
     if (!body.author_id) return json({ error: "author_id is required" }, 400);
     return classifyAndRespond(body.author_id, body.text ?? "", json);
   }

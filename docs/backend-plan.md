@@ -186,8 +186,11 @@ Slices 0–6 are the MVP loop. 7–8 are required for ship quality. 9 is require
 >   profile-less user for the e2e onboarding walk), all `Test1234!`, plus profiles, venues and
 >   games. It is replayed by `supabase db reset`, so it is rerun-safe by construction — unlike
 >   `seed-test-data.sql` below.
-> - `test@smashio.dev` / `Test1234!` **also** exists on the hosted project for manual testing there,
->   which is the part of this section that still holds.
+> - security-audit-2026-09-11.md H1 flagged that the hosted `test@smashio.dev`/bot password was
+>   committed to a public repo — those docs no longer publish it (2026-09-11). **The hosted
+>   accounts themselves still need rotating in the Supabase dashboard**; until that happens, treat
+>   them as compromised. Manual hosted testing should move to a per-person account with a password
+>   kept in a password manager.
 > - **`ui/app/onboarding/login.tsx` no longer exists.** `eb0a083` deleted it and moved the
 >   email/password form into `ui/components/AuthPanel.tsx` on the landing screen — see
 >   [auth-onboarding-plan.md](auth-onboarding-plan.md) P1.
@@ -195,7 +198,7 @@ Slices 0–6 are the MVP loop. 7–8 are required for ship quality. 9 is require
 
 Hosted project (`ajbsvsfwjfeofvjuhzrw`, the one `ui/.env` points at) has seeded test accounts + data — no local Supabase stack in use, `.env` targets hosted directly.
 
-- **Login without Google SSO**: `test@smashio.dev` / `Test1234!` on the app's existing email/password form (`ui/app/onboarding/login.tsx` — this path was already wired, not added). 7 more bot accounts (`bot1@smashio.dev`...`bot7@smashio.dev`, same password) exist to populate rosters/chat as other players.
+- **Login without Google SSO**: email/password form (`ui/app/onboarding/login.tsx` — this path was already wired, not added). See the 2026-09-11 amendment above — the hosted `test@smashio.dev` / bot account credentials were rotated and are no longer published here.
 - `supabase/create-test-users.mjs` — creates those 8 accounts via Auth Admin API. Fetches the service-role key live from the linked CLI (`supabase projects api-keys --reveal`), never writes it to disk. Rerun-safe, skips emails that already exist.
 - `supabase/seed-test-data.sql` — run after the above via `npx supabase db query --linked -f supabase/seed-test-data.sql`. Adds 3 venues (Sydney/Ryde/Rockdale), skill tiers for all 8 test accounts, and 8 games covering: near-full roster, pending join-requests awaiting organizer approval, approved player, pending player, open discover listing, starts-in-90min countdown chip, completed game with ratings, cancelled game. Plus chat messages. **Not rerun-safe** — games/messages/ratings duplicate on a second run; the file's header comment has a cleanup query (delete games where organizer is a `%@smashio.dev` account, cascades the rest).
 - `supabase/seed.sql` (the `db reset`-triggered one, local-only) is untouched — still just sports/tiers/venues, no test users/games. Fatten that one too if local Supabase stack ever comes into use.

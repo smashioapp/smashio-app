@@ -498,10 +498,25 @@ async function dispatchNotifications(ids: string[]): Promise<void> {
   }
 }
 
+// Timing-safe compare so a shared-secret check doesn't leak match length over the wire
+// (security-audit-2026-09-11.md M5). Digests are fixed-length, so this also short-circuits safely
+// on mismatched input lengths.
+async function safeEqual(a: string, b: string): Promise<boolean> {
+  const enc = new TextEncoder();
+  const [ha, hb] = await Promise.all([
+    crypto.subtle.digest("SHA-256", enc.encode(a)),
+    crypto.subtle.digest("SHA-256", enc.encode(b)),
+  ]);
+  const [ua, ub] = [new Uint8Array(ha), new Uint8Array(hb)];
+  let diff = 0;
+  for (let i = 0; i < ua.length; i++) diff |= ua[i] ^ ub[i];
+  return diff === 0;
+}
+
 Deno.serve(async (req) => {
   const expectedKey = Deno.env.get("PUSH_DISPATCH_KEY");
   const auth = req.headers.get("Authorization");
-  if (!expectedKey || auth !== `Bearer ${expectedKey}`) {
+  if (!expectedKey || !auth || !(await safeEqual(auth, `Bearer ${expectedKey}`))) {
     return new Response("Unauthorized", { status: 401 });
   }
 

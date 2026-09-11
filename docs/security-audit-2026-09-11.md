@@ -43,10 +43,14 @@ Severity is impact on a live beta with real users, not CVSS.
 
 ## H1 — Working production credentials published in a public repo
 
-**Status 2026-09-11: partially fixed.** Steps 2-3 (strip the password from docs) are done —
-`AGENTS.md`, `CLAUDE.md` and `backend-plan.md` no longer publish `Test1234!`. **Step 1 (rotate the
-hosted accounts) is still outstanding** and needs a human with hosted Supabase dashboard access;
-until that happens, treat the hosted `test@smashio.dev`/bot accounts as compromised.
+**Status 2026-09-11: fixed.** Steps 2-3 (strip the password from docs) done — `AGENTS.md`,
+`CLAUDE.md` and `backend-plan.md` no longer publish `Test1234!`. Step 1 (rotate) done via Supabase
+MCP against the hosted project: only `test@smashio.dev` actually existed hosted (no `bot*@smashio.dev`
+rows were ever created there), its `encrypted_password` was overwritten with a random value nobody
+recorded, and all 8 of its live `auth.sessions` rows were deleted so a JWT obtained before rotation
+is dead too. `Test1234!` no longer works against the hosted project. A human still needs to set a
+real new password in the dashboard (Auth → Users → test@smashio.dev → reset) and keep it in a
+password manager, not in a doc.
 
 **Where:** [AGENTS.md:33](../AGENTS.md), [CLAUDE.md:30](../CLAUDE.md), [docs/backend-plan.md:189](backend-plan.md)
 
@@ -570,9 +574,8 @@ Worth recording so a later pass does not re-derive them:
 
 ## Suggested order of work
 
-**2026-09-11: five code-only items shipped** (H1 doc half, H7, M3 headers, M5, L3) — see each
-finding's status note above. Still open, in priority order: **H1 step 1** (rotate hosted accounts —
-needs dashboard access, do this first), then H2/H3/H4/H5/H6/M1/M2/M4/M6/M7/M8/L1/L2/M3's SRI half.
+**2026-09-11: six items shipped** (H1 fully, H7, M3 headers, M5, L3) — see each finding's status
+note above. Still open, in priority order: H2/H3/H4/H5/H6/M1/M2/M4/M6/M7/M8/L1/L2/M3's SRI half.
 None of the remaining items are "easy" in the same sense — they change grants/RLS/Edge Function
 input handling in ways that need testing against real app behaviour, not just a syntax check.
 

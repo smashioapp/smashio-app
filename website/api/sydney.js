@@ -1,7 +1,13 @@
-// Sydney venue hub (gtm-plan.md G11) + suburb-level pages (website-plan.md W6), merged into one
-// optional-catch-all function to stay under Vercel Hobby's 12-serverless-function cap (see
-// docs/website-plan.md §"Serverless function budget"). /sydney renders the hub; /sydney/:suburb
-// renders the suburb page. Logic is otherwise unchanged from the two files this replaced.
+// Sydney venue hub (gtm-plan.md G11) + suburb-level pages (website-plan.md W6), one function to
+// stay under Vercel Hobby's 12-serverless-function cap (see docs/website-plan.md §"Serverless
+// function budget"). /sydney renders the hub; /sydney/:suburb renders the suburb page.
+//
+// Flat file, not a directory-based optional catch-all (`sydney/[[...suburb]].js`, as this used to
+// be) — that pattern hits a known `vercel dev` bug where the zero-segment case 404s locally even
+// though production resolves it fine (confirmed 2026-09-12: `/api/sydney` 404'd in `vercel dev`
+// while `/api/sydney/newtown` worked). vercel.json now rewrites both `/sydney` and
+// `/sydney/:suburb*` to this same flat function, passing the suburb through the query string
+// instead of a path-array segment, which sidesteps the dynamic-route resolution entirely.
 //
 // Hub: groups venue_seo_directory by suburb; only venues with a slug + a profile show up there
 // (see 20260831020000_venue_seo_pages.sql). Club rows (social-plan.md C0) are appended below the
@@ -13,7 +19,7 @@
 // Thin-page rule (DEC6, recommended threshold): a suburb needs 2+ tracked venues OR 1+ live game
 // this week to index, same bar the venue/club pages already hold. Below that it still renders (a
 // suburb with one venue is still a real page for that venue's visitors) but stays noindex.
-const { esc, callRpc, shell, ctaButtons } = require("../_venue-lib");
+const { esc, callRpc, shell, ctaButtons } = require("./_venue-lib");
 
 function slugify(suburb) {
   return String(suburb).toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
@@ -301,7 +307,11 @@ async function renderSuburb(req, res, slug) {
 }
 
 module.exports = async function handler(req, res) {
-  const parts = (req.query && req.query.suburb) || [];
-  if (parts.length === 0) return renderHub(req, res);
-  return renderSuburb(req, res, parts[0]);
+  // Suburb arrives via the query string now (?suburb=newtown), not a path-array segment — see the
+  // header comment for why the directory-based optional-catch-all was dropped. `req.query.suburb`
+  // is a string here, but tolerate an array too in case some future rewrite reintroduces one.
+  const raw = req.query && req.query.suburb;
+  const slug = Array.isArray(raw) ? raw[0] : raw;
+  if (!slug) return renderHub(req, res);
+  return renderSuburb(req, res, slug);
 };

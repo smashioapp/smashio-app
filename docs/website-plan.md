@@ -86,8 +86,9 @@ This matters more than the global apps, because these are the pages a Sydney pla
 | **keepactive.com.au / sportsmatchmaker.com.au** | Generic multi-sport directories | Thin, stale, badminton is an afterthought. |
 
 **Read:** the category leader in Sydney is a hand-maintained link list. Smashio's directory is
-already bigger (~98 venues against 30+) and its game data is live. The win is not out-designing
-anyone, it is being the only page that is **true at the moment it is read**.
+already bigger (75 venues against 30+ — corrected 2026-09-12, the ~98 figure here was bad
+arithmetic) and its game data is live. The win is not out-designing anyone, it is being the only
+page that is **true at the moment it is read**.
 
 ### 2.3 Five patterns to copy
 

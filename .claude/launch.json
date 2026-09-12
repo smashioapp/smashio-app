@@ -65,6 +65,19 @@
         "website"
       ],
       "port": 8090
+    },
+    {
+      "name": "smashio-site-dev",
+      "runtimeExecutable": "vercel",
+      "runtimeArgs": [
+        "dev",
+        "--cwd",
+        "website",
+        "--listen",
+        "8093",
+        "--yes"
+      ],
+      "port": 8093
     }
   ]
 }

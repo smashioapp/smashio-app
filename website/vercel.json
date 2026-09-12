@@ -20,6 +20,7 @@
     }
   ],
   "rewrites": [
+    { "source": "/", "destination": "/api/home" },
     { "source": "/game/:id", "destination": "/api/game/:id" },
     { "source": "/venue/:slug", "destination": "/api/venue/:slug" },
     { "source": "/club/:slug", "destination": "/api/club/:slug" },
@@ -28,7 +29,7 @@
     { "source": "/guides/:slug", "destination": "/api/guides/:slug" },
     { "source": "/badminton-near-me", "destination": "/api/near-me" },
     { "source": "/sydney", "destination": "/api/sydney" },
-    { "source": "/sydney/:suburb*", "destination": "/api/sydney/:suburb*" },
+    { "source": "/sydney/:suburb", "destination": "/api/sydney?suburb=:suburb" },
     { "source": "/sitemap.xml", "destination": "/api/sitemap" }
   ]
 }

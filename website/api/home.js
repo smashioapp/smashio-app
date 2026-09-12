@@ -1,4 +1,184 @@
-<!DOCTYPE html>
+// Home page, server-rendered (home-redesign-plan.md H2 + H4). Was a static index.html that
+// fetched /api/home-feed client-side for a 3-row hero sidebar — that meant the site's single
+// differentiating asset (real live game data) was invisible to Google and flashed empty on first
+// paint. This renders the same data server-side into a full "Board" section (§3.2): every game in
+// the next 14 days, grouped by Sydney day, every row linking to /game/:id, with a freshness
+// stamp and client-side filter chips over data already in the HTML (no extra requests).
+//
+// Not routed through _venue-lib's shell() — that layout is a narrow centred hero built for
+// venue/club/suburb pages, and forcing this page's wide two-column hero and custom sections
+// (steps, stats, phone rail, install card) into it is the H3 design-pass/H5 hero-rebuild scope,
+// not H2. What *is* shared here: esc/callRpc/escapeJsonLd/captureFormScript/analyticsScripts,
+// removing the duplicate inline PostHog snippet and duplicate form-wiring script index.html used
+// to carry (closes part of D10; the header/footer markup itself still needs the H3 pass).
+//
+// Replaces website/index.html (deleted) — see website/vercel.json's "/" rewrite to this function.
+const { esc, callRpc, escapeJsonLd, captureFormScript, analyticsScripts } = require("./_venue-lib");
+
+const TESTFLIGHT_URL = "https://testflight.apple.com/join/cJMZQmbn";
+const SYD = "Australia/Sydney";
+
+const TIER_COLOR = { beginner: "#6FCBFF", intermediate: "#35D6A6", advanced: "#FFB648", pro: "#C08CFF" };
+function tierKey(label) {
+  const k = String(label || "").toLowerCase();
+  for (const key of Object.keys(TIER_COLOR)) if (k.indexOf(key) !== -1) return key;
+  return "other";
+}
+function tierColor(label) {
+  return TIER_COLOR[tierKey(label)] || "#96969E";
+}
+
+function sydDateParts(d) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: SYD, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+}
+function sydHour(d) {
+  return parseInt(new Intl.DateTimeFormat("en-GB", { timeZone: SYD, hour: "2-digit", hour12: false }).format(d), 10);
+}
+function sydWeekday(d) {
+  // 0=Sun..6=Sat, matched against en-CA-independent short-weekday lookup below.
+  return new Intl.DateTimeFormat("en-US", { timeZone: SYD, weekday: "short" }).format(d);
+}
+function fmtTime(d) {
+  return new Intl.DateTimeFormat("en-AU", { timeZone: SYD, hour: "numeric", minute: "2-digit" }).format(d);
+}
+function dayLabel(d, now) {
+  const day = sydDateParts(d);
+  const today = sydDateParts(now);
+  const tomorrow = sydDateParts(new Date(now.getTime() + 86400000));
+  if (day === today) return "Today";
+  if (day === tomorrow) return "Tomorrow";
+  return new Intl.DateTimeFormat("en-AU", { timeZone: SYD, weekday: "long", day: "numeric", month: "short" }).format(d);
+}
+
+function gameRow(g, now) {
+  const starts = new Date(g.starts_at);
+  const wk = sydWeekday(starts);
+  const isWeekend = wk === "Sat" || wk === "Sun";
+  const isToday = sydDateParts(starts) === sydDateParts(now);
+  const isTonight = isToday && sydHour(starts) >= 17;
+  const tier = tierKey(g.skill_tier_label);
+  const color = tierColor(g.skill_tier_label);
+  const spots = g.open_spots === 0 ? "Full" : g.open_spots === 1 ? "1 spot left" : `${g.open_spots} spots left`;
+  const cost = g.cost_per_player_cents != null ? `$${(g.cost_per_player_cents / 100).toFixed(0)}/player` : "";
+  const meta = [g.skill_tier_label, g.format_label, cost].filter(Boolean).map(esc).join(" &middot; ");
+  return `
+    <a class="feedrow board-row" href="/game/${esc(g.id)}" data-tier="${tier}" data-tonight="${isTonight ? 1 : 0}" data-weekend="${isWeekend ? 1 : 0}" data-open-spots="${g.open_spots}" style="border-left-color:${color}">
+      <span class="tierdot" style="background:${color}"></span>
+      <div style="flex:1; min-width:0">
+        <div style="font-weight:700; font-size:14.5px">${esc(g.venue_suburb || g.venue_name)} <span style="font-weight:600; color:#7A7A82">&middot; ${esc(g.venue_name)}</span></div>
+        <div style="font-size:12.5px; color:#96969E; margin-top:2px">${esc(fmtTime(starts))}${meta ? " &middot; " + meta : ""}</div>
+      </div>
+      <div class="d spots-text" style="font-weight:700; font-size:14px; color:${g.open_spots === 0 ? "#7A7A82" : "#F5F5F7"}; flex-shrink:0">${esc(spots)}</div>
+    </a>`;
+}
+
+function boardHtml(games, now) {
+  if (games.length === 0) {
+    return `
+      <div class="board-empty" style="padding:28px 22px; background:var(--card); border:1px solid var(--hair); border-radius:18px; text-align:center">
+        <div style="font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:17px">Nothing open this fortnight yet.</div>
+        <p style="margin:8px 0 0; font-size:13.5px; color:#96969E; max-width:44ch; margin-left:auto; margin-right:auto">Private beta means a small crew so far &mdash; open the app and host one, it'll show up here the moment it's public.</p>
+        <a href="/sydney" class="btn sec" style="margin-top:16px; height:44px; padding:0 20px">Browse all Sydney venues</a>
+      </div>`;
+  }
+  const groups = new Map();
+  for (const g of games) {
+    const key = dayLabel(new Date(g.starts_at), now);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(g);
+  }
+  return [...groups.entries()]
+    .map(
+      ([label, rows]) => `
+      <div class="board-day">
+        <div class="board-day-h">${esc(label)}</div>
+        <div class="board-rows">${rows.map((g) => gameRow(g, now)).join("")}</div>
+      </div>`
+    )
+    .join("");
+}
+
+function jsonLd(games) {
+  return {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        name: "Smashio",
+        url: "https://smashio.com.au/",
+        logo: "https://smashio.com.au/assets/apple-touch-icon.png",
+      },
+      {
+        "@type": "WebSite",
+        name: "Smashio",
+        url: "https://smashio.com.au/",
+      },
+      {
+        "@type": "ItemList",
+        itemListElement: games.map((g, i) => ({
+          "@type": "ListItem",
+          position: i + 1,
+          item: {
+            "@type": "SportsEvent",
+            name: `Badminton at ${g.venue_name}`,
+            startDate: g.starts_at,
+            endDate: g.ends_at,
+            eventStatus: "https://schema.org/EventScheduled",
+            eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
+            location: {
+              "@type": "Place",
+              name: g.venue_name,
+              address: {
+                "@type": "PostalAddress",
+                addressLocality: g.venue_suburb || undefined,
+                addressRegion: "NSW",
+                addressCountry: "AU",
+              },
+            },
+            offers:
+              g.cost_per_player_cents != null
+                ? {
+                    "@type": "Offer",
+                    price: (g.cost_per_player_cents / 100).toFixed(2),
+                    priceCurrency: "AUD",
+                    availability: g.open_spots > 0 ? "https://schema.org/InStock" : "https://schema.org/SoldOut",
+                    url: `https://smashio.com.au/game/${g.id}`,
+                  }
+                : undefined,
+            url: `https://smashio.com.au/game/${g.id}`,
+          },
+        })),
+      },
+    ],
+  };
+}
+
+module.exports = async function handler(req, res) {
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.setHeader("Cache-Control", "public, max-age=60, s-maxage=300, stale-while-revalidate=86400");
+
+  const now = new Date();
+
+  let games = [];
+  try {
+    games = await callRpc("games_seo_feed", { p_limit: 50 });
+  } catch {
+    games = [];
+  }
+
+  let stats = null;
+  try {
+    stats = await callRpc("city_seo_stats", {});
+  } catch {
+    stats = null;
+  }
+
+  const gamesThisWeek = stats && typeof stats.games_this_week === "number" ? stats.games_this_week : games.length;
+  const venuesTracked = stats && typeof stats.venues_tracked === "number" ? stats.venues_tracked : 75;
+  const generatedAtLabel = fmtTime(now);
+  const boardBody = boardHtml(games, now);
+
+  const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
@@ -7,9 +187,9 @@
 <meta name="description" content="Smashio finds badminton games happening near you tonight. Real courts, real players, sorted by skill. Join in two taps or host your own. In private beta, Sydney first." />
 <link rel="canonical" href="https://smashio.com.au/" />
 
-<link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png" />
-<link rel="icon" type="image/png" sizes="16x16" href="assets/favicon-16.png" />
-<link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png" />
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
 
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://smashio.com.au/" />
@@ -22,6 +202,7 @@
 <meta name="twitter:title" content="Smashio: games are on, find one or host your own." />
 <meta name="twitter:description" content="Smashio finds badminton games happening near you tonight. Real courts, real players, sorted by skill. In private beta, Sydney first." />
 <meta name="twitter:image" content="https://smashio.com.au/assets/og-image.png" />
+<script type="application/ld+json">${escapeJsonLd(jsonLd(games))}</script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
@@ -39,13 +220,10 @@
   .d { font-family: 'Space Grotesk', sans-serif; }
   @keyframes smash-drift { 0% { transform: translateY(0); } 100% { transform: translateY(-14px); } }
   @keyframes smash-pulse { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
-  @keyframes smash-marquee { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
 
   .nav-link { display: none; }
   @media (min-width: 760px) { .nav-link { display: inline-flex; } }
 
-  /* platform-aware CTA — label swaps by detected platform, no layout shift, degrades to the
-     both-platforms label with no JS (website-design-brief.md §Install block). */
   .compact-cta .l { display:none; } .compact-cta .l-default { display:inline; }
   html[data-platform] .compact-cta .l-default { display:none; }
   html[data-platform=ios] .compact-cta .l-ios { display:inline; }
@@ -73,6 +251,8 @@
 
   .feedrow { display:flex; align-items:center; gap:12px; padding:14px 16px; background:rgba(255,255,255,.03); border:1px solid var(--hair); border-left:3px solid var(--beg); border-radius:14px; }
   .feedrow + .feedrow { margin-top:10px; }
+  .board-row { color:var(--text); transition: transform .15s ease, border-color .15s ease; }
+  .board-row:hover { transform: translateY(-1px); border-color: rgba(255,255,255,.18); color:var(--text); }
   .tierdot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
   .fresh { font-size:11px; font-weight:700; color:var(--accent3); display:flex; align-items:center; gap:5px; }
   .fresh.stale { color:var(--sec); }
@@ -82,6 +262,15 @@
   .section.tone > .inner { max-width:1180px; margin:0 auto; padding:96px 20px; }
   .eyebrow { font-size:11px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--accent3); }
   .h2 { font-family:'Space Grotesk',sans-serif; font-weight:700; letter-spacing:-.02em; font-size:clamp(28px,5vw,40px); margin:10px 0 0; line-height:1.05; }
+
+  .board-day { margin-top:26px; }
+  .board-day:first-child { margin-top:0; }
+  .board-day-h { position:sticky; top:0; z-index:5; background:var(--bg); padding:8px 0; font-size:12px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--sec); }
+  .board-rows { display:flex; flex-direction:column; gap:10px; }
+  .board-filters { display:flex; gap:8px; flex-wrap:wrap; }
+  .board-chip { background:var(--cardAlt); border:1px solid var(--hair); color:var(--sec); font-size:12.5px; font-weight:700; padding:8px 14px; border-radius:100px; cursor:pointer; font-family:inherit; }
+  .board-chip.active { background:rgba(214,255,63,.12); border-color:rgba(214,255,63,.35); color:var(--accent3); }
+  .board-row[hidden] { display:none; }
 
   .steps { display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px; margin-top:44px; }
   .step { position:relative; background:linear-gradient(150deg,var(--card),var(--bgAlt)); border:1px solid var(--hair); border-radius:22px; padding:26px 24px 28px; overflow:hidden; }
@@ -132,18 +321,17 @@
 </head>
 <body style="margin:0">
 
-
 <div style="background:#0A0A0B; overflow-x:hidden">
 
 <div class="betastrip">
   <span class="livedot"></span>
-  <span data-platform="default">Private beta &middot; iOS on TestFlight, Android by invite &middot; public launch Nov 2026</span>
+  <span>Private beta &middot; iOS on TestFlight, Android by invite &middot; public launch Nov 2026</span>
 </div>
 
 <header style="position:sticky; top:0; z-index:50; backdrop-filter:blur(18px); background:rgba(10,10,11,.72); border-bottom:1px solid rgba(255,255,255,.06)">
   <div style="max-width:1180px; margin:0 auto; padding:14px 20px; display:flex; align-items:center; justify-content:space-between; gap:16px">
     <a href="#top" style="display:flex; align-items:center; gap:6px; color:#F5F5F7">
-      <img src="assets/smashio-mark.svg" alt="Smashio" style="width:17px; height:17px" />
+      <img src="/assets/smashio-mark.svg" alt="Smashio" style="width:17px; height:17px" />
       <span style="font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:19px; letter-spacing:-.02em">Smashio</span>
     </a>
     <nav style="display:flex; align-items:center; gap:26px">
@@ -173,133 +361,92 @@
     </svg>
   </div>
 
-  <div style="position:relative; max-width:1180px; margin:0 auto; padding:56px 20px 0; display:flex; flex-wrap:wrap; gap:40px; align-items:center">
-    <div style="flex:1; min-width:300px; display:flex; flex-direction:column; gap:18px">
-      <div class="eyebrow">Live in Sydney right now</div>
-      <h1 class="d" style="margin:0; font-weight:700; font-size:clamp(38px,6vw,56px); letter-spacing:-.03em; line-height:1.02; text-wrap:balance">Games are on.<br />Find one, or host your own.</h1>
-      <p style="margin:0; max-width:46ch; font-size:16px; line-height:1.6; color:#96969E">No accounts on this page, no bookings here either. Everything to the right is pulled live from the app, right down to the open spots.</p>
+  <div style="position:relative; max-width:1180px; margin:0 auto; padding:56px 20px 64px; display:flex; flex-direction:column; gap:18px; max-width:740px">
+    <div class="eyebrow">Live in Sydney right now</div>
+    <h1 class="d" style="margin:0; font-weight:700; font-size:clamp(38px,6vw,56px); letter-spacing:-.03em; line-height:1.02; text-wrap:balance">Games are on.<br />Find one, or host your own.</h1>
+    <p style="margin:0; max-width:46ch; font-size:16px; line-height:1.6; color:#96969E">No accounts on this page, no bookings here either. See what's actually on below, right down to the open spots.</p>
 
-      <div class="hero-cta" style="margin-top:4px">
-        <div class="s s-default" style="gap:12px; flex-wrap:wrap">
-          <a href="https://testflight.apple.com/join/cJMZQmbn" target="_blank" rel="noopener" class="btn ios"><ion-icon name="logo-apple" style="font-size:20px"></ion-icon>Join on TestFlight</a>
-          <a href="#how" class="btn sec">See how it works</a>
-        </div>
-        <div class="s s-ios" style="gap:12px; flex-wrap:wrap">
-          <a href="https://testflight.apple.com/join/cJMZQmbn" target="_blank" rel="noopener" class="btn ios"><ion-icon name="logo-apple" style="font-size:20px"></ion-icon>Join on TestFlight</a>
-          <a href="#how" class="btn sec">See how it works</a>
-        </div>
-        <div class="s s-android" style="gap:12px; flex-wrap:wrap">
-          <a href="#install" class="btn pri">Request Android access</a>
-          <a href="#how" class="btn sec">See how it works</a>
-        </div>
-        <div class="s s-desktop" style="gap:12px; flex-wrap:wrap">
-          <a href="#install" class="btn pri">Get the app</a>
-          <a href="#how" class="btn sec">See how it works</a>
-        </div>
+    <div class="hero-cta" style="margin-top:4px">
+      <div class="s s-default" style="gap:12px; flex-wrap:wrap">
+        <a href="${TESTFLIGHT_URL}" target="_blank" rel="noopener" class="btn ios"><ion-icon name="logo-apple" style="font-size:20px"></ion-icon>Join on TestFlight</a>
+        <a href="#board" class="btn sec">See what's on tonight</a>
+      </div>
+      <div class="s s-ios" style="gap:12px; flex-wrap:wrap">
+        <a href="${TESTFLIGHT_URL}" target="_blank" rel="noopener" class="btn ios"><ion-icon name="logo-apple" style="font-size:20px"></ion-icon>Join on TestFlight</a>
+        <a href="#board" class="btn sec">See what's on tonight</a>
+      </div>
+      <div class="s s-android" style="gap:12px; flex-wrap:wrap">
+        <a href="#install" class="btn pri">Request Android access</a>
+        <a href="#board" class="btn sec">See what's on tonight</a>
+      </div>
+      <div class="s s-desktop" style="gap:12px; flex-wrap:wrap">
+        <a href="#install" class="btn pri">Get the app</a>
+        <a href="#board" class="btn sec">See what's on tonight</a>
       </div>
     </div>
-
-    <div style="flex:1; min-width:300px; max-width:460px">
-      <div id="live-fresh" class="fresh" style="margin-bottom:10px"><span class="livedot"></span><span id="live-fresh-text">Checking what's on&hellip;</span></div>
-      <div id="live-feed"></div>
-    </div>
   </div>
+</section>
 
-  <div style="height:56px"></div>
+<section id="board" class="section" style="padding-top:64px">
+  <div class="eyebrow">The live board &middot; next 14 days</div>
+  <div class="h2">What's actually on, right now.</div>
+  <div class="fresh" style="margin-top:14px"><span class="livedot"></span><span id="board-fresh-text">Checked ${esc(generatedAtLabel)}</span></div>
+  ${
+    games.length > 0
+      ? `<div class="board-filters" style="margin-top:20px">
+          <button class="board-chip active" data-filter="all">All</button>
+          <button class="board-chip" data-filter="tonight">Tonight</button>
+          <button class="board-chip" data-filter="weekend">This weekend</button>
+          <button class="board-chip" data-filter="beginner">Beginner</button>
+          <button class="board-chip" data-filter="intermediate">Intermediate</button>
+          <button class="board-chip" data-filter="advanced">Advanced</button>
+          <button class="board-chip" data-filter="pro">Pro</button>
+        </div>`
+      : ""
+  }
+  <div id="board-body" style="margin-top:22px" data-generated-at="${esc(now.toISOString())}">${boardBody}</div>
 </section>
 
 <script>
 (function () {
-  var TIER_COLOR = { beginner: "#6FCBFF", intermediate: "#35D6A6", advanced: "#FFB648", pro: "#C08CFF" };
-  function tierColor(label) {
-    var k = String(label || "").toLowerCase();
-    for (var key in TIER_COLOR) { if (k.indexOf(key) !== -1) return TIER_COLOR[key]; }
-    return "#96969E";
-  }
-  // Everything on this page is a Sydney game, so times are pinned to Australia/Sydney rather than
-  // the visitor's own zone — a Perth or overseas reader must not see a shifted start time.
-  var SYD = "Australia/Sydney";
-  function sydParts(d) {
-    // en-CA gives YYYY-MM-DD, which is the cheapest way to get a Sydney calendar date to compare on.
-    try { return new Intl.DateTimeFormat("en-CA", { timeZone: SYD, year: "numeric", month: "2-digit", day: "2-digit" }).format(d); }
-    catch (e) { return ""; }
-  }
-  function fmtTime(iso) {
-    try { return new Date(iso).toLocaleTimeString("en-AU", { timeZone: SYD, hour: "numeric", minute: "2-digit" }); } catch (e) { return ""; }
-  }
-  // home-feed spans 14 days (games_seo_feed), so a bare clock time reads as "tonight" for a game
-  // that is a week out. Always say which day.
-  function fmtWhen(iso) {
-    try {
-      var d = new Date(iso);
-      var now = new Date();
-      var tomorrow = new Date(now.getTime() + 86400000);
-      var day = sydParts(d);
-      var prefix;
-      if (day && day === sydParts(now)) {
-        // "Tonight" only if it actually is tonight — a 10am game today is "Today".
-        var hr = parseInt(new Intl.DateTimeFormat("en-GB", { timeZone: SYD, hour: "2-digit", hour12: false }).format(d), 10);
-        prefix = hr >= 17 ? "Tonight" : "Today";
-      }
-      else if (day && day === sydParts(tomorrow)) prefix = "Tomorrow";
-      else prefix = new Intl.DateTimeFormat("en-AU", { timeZone: SYD, weekday: "short", day: "numeric", month: "short" }).format(d);
-      return prefix + " " + fmtTime(iso);
-    } catch (e) { return fmtTime(iso); }
-  }
-  function esc(s) {
-    return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; });
-  }
-  function row(g, stale) {
-    var spots = g.open_spots === 0 ? "Full" : (g.open_spots === 1 ? "1 left" : g.open_spots + " left");
-    if (stale) spots = g.open_spots === 0 ? "Full" : "Spots left";
-    return '<div class="feedrow" style="border-left-color:' + tierColor(g.skill_tier_label) + (stale ? ';opacity:.7' : '') + '">' +
-      '<span class="tierdot" style="background:' + tierColor(g.skill_tier_label) + '"></span>' +
-      '<div style="flex:1"><div style="font-weight:700; font-size:14.5px">' + esc(g.venue_suburb || g.venue_name) + '</div>' +
-      '<div style="font-size:12.5px; color:#96969E">' + esc(fmtWhen(g.starts_at)) + ' &middot; ' + esc(g.skill_tier_label || '') + '</div></div>' +
-      '<div class="d" style="font-weight:700; font-size:15px; color:' + (g.open_spots === 0 ? '#7A7A82' : '#F5F5F7') + '">' + spots + '</div></div>';
-  }
-
-  var fetchedAt = null;
-  var lastGames = [];
-
+  var genAt = new Date(document.getElementById("board-body").getAttribute("data-generated-at")).getTime();
+  var freshEl = document.getElementById("board-fresh-text");
+  var freshWrap = freshEl ? freshEl.parentElement : null;
   function renderFreshness() {
-    var el = document.getElementById("live-fresh-text");
-    var wrap = document.getElementById("live-fresh");
-    if (!el || !fetchedAt) return;
-    var mins = Math.floor((Date.now() - fetchedAt) / 60000);
+    if (!freshEl || !genAt) return;
+    var mins = Math.floor((Date.now() - genAt) / 60000);
     var stale = mins >= 15;
-    wrap.classList.toggle("stale", stale);
-    if (lastGames.length === 0) { el.textContent = "No games open right now"; return; }
-    el.textContent = (mins <= 0 ? "Updated moments ago" : "Updated " + mins + " min ago");
-    var feed = document.getElementById("live-feed");
-    if (feed) feed.innerHTML = lastGames.map(function (g) { return row(g, stale); }).join("");
-  }
-
-  fetch("/api/home-feed")
-    .then(function (r) { return r.json(); })
-    .then(function (data) {
-      lastGames = (data.games || []).slice(0, 3);
-      fetchedAt = Date.now();
-      var feed = document.getElementById("live-feed");
-      if (lastGames.length === 0) {
-        feed.innerHTML = '<div class="feedrow" style="border-left-color:#7A7A82"><div style="font-size:13.5px; color:#96969E">Nothing open right now &mdash; be the first to host one tonight.</div></div>';
-      }
-      renderFreshness();
-      setInterval(renderFreshness, 30000);
-
-      if (data.stats) {
-        var gw = document.getElementById("stat-games-week");
-        var vt = document.getElementById("stat-venues");
-        if (gw && typeof data.stats.games_this_week === "number") gw.textContent = data.stats.games_this_week;
-        if (vt && typeof data.stats.venues_tracked === "number") vt.textContent = data.stats.venues_tracked;
-      }
-    })
-    .catch(function () {
-      var feed = document.getElementById("live-feed");
-      if (feed) feed.innerHTML = '<div class="feedrow" style="border-left-color:#7A7A82"><div style="font-size:13.5px; color:#96969E">Open the app to see what\'s on tonight.</div></div>';
-      var t = document.getElementById("live-fresh-text");
-      if (t) t.textContent = "Couldn't load live games";
+    freshWrap.classList.toggle("stale", stale);
+    freshEl.textContent = mins <= 0 ? "Updated moments ago" : "Updated " + mins + " min ago";
+    document.querySelectorAll(".board-row").forEach(function (row) {
+      var spotsEl = row.querySelector(".spots-text");
+      var open = parseInt(row.getAttribute("data-open-spots"), 10);
+      if (!spotsEl) return;
+      if (open === 0) { spotsEl.textContent = "Full"; return; }
+      spotsEl.textContent = stale ? "Spots left" : (open === 1 ? "1 spot left" : open + " spots left");
     });
+  }
+  setInterval(renderFreshness, 30000);
+
+  var chips = document.querySelectorAll(".board-chip");
+  chips.forEach(function (chip) {
+    chip.addEventListener("click", function () {
+      chips.forEach(function (c) { c.classList.remove("active"); });
+      chip.classList.add("active");
+      var filter = chip.getAttribute("data-filter");
+      document.querySelectorAll(".board-row").forEach(function (row) {
+        var show = filter === "all"
+          || (filter === "tonight" && row.getAttribute("data-tonight") === "1")
+          || (filter === "weekend" && row.getAttribute("data-weekend") === "1")
+          || row.getAttribute("data-tier") === filter;
+        row.hidden = !show;
+      });
+      document.querySelectorAll(".board-day").forEach(function (day) {
+        var anyVisible = day.querySelectorAll(".board-row:not([hidden])").length > 0;
+        day.hidden = !anyVisible;
+      });
+    });
+  });
 })();
 </script>
 
@@ -316,7 +463,7 @@
       <div class="icon"><ion-icon name="add" style="font-size:24px; color:#D6FF3F"></ion-icon></div>
       <h3>Join it, or host your own</h3>
       <p>Jump into an open game, or set your own time, skill tier and cost per player.</p>
-      <div class="mascot"><img src="assets/smashimals/wombat-racquet.png" alt="" /><span>Wombat's always got a racquet spare.</span></div>
+      <div class="mascot"><img src="/assets/smashimals/wombat-racquet.png" alt="" /><span>Wombat's always got a racquet spare.</span></div>
     </div>
     <div class="step">
       <div class="icon"><ion-icon name="tennisball-outline" style="font-size:21px; color:#D6FF3F"></ion-icon></div>
@@ -333,12 +480,12 @@
     <div class="stats">
       <div class="stat">
         <div class="l">Live this week</div>
-        <div class="n" id="stat-games-week">&mdash;</div>
+        <div class="n">${esc(gamesThisWeek)}</div>
         <div class="sub">games across Sydney, pulled straight from the app.</div>
       </div>
       <div class="stat">
         <div class="l">Court maps &amp; directions</div>
-        <div class="n" id="stat-venues">&mdash;</div>
+        <div class="n">${esc(venuesTracked)}</div>
         <div class="sub">venues mapped across Sydney.</div>
       </div>
       <div class="stat">
@@ -360,7 +507,7 @@
   <div class="h2">The app underneath all this.</div>
   <!-- TODO(website-design-brief.md §6): swap each .phonescreen for a real iPhone capture per the
        asset list (Discover list/map, game detail, host-a-game, feed, profile). Placeholder frames
-       until Ajay supplies the crops. -->
+       until Ajay supplies the crops (home-redesign-plan.md H7). -->
   <div class="rail">
     <div class="phoneframe"><div class="phonescreen"><span class="cap">DISCOVER &middot; LIST</span></div></div>
     <div class="phoneframe"><div class="phonescreen"><span class="cap">DISCOVER &middot; MAP</span></div></div>
@@ -379,11 +526,11 @@
         <div class="badge"><span class="livedot"></span>PRIVATE BETA</div>
         <div class="d" style="font-size:28px; font-weight:700; margin-top:14px">Get Smashio</div>
         <div style="font-size:14px; color:#96969E; margin-top:8px">iPhone is one tap through TestFlight. Android's invite only while we sort the allowlist, leave your email and we'll add you and email you back.</div>
-        <img src="assets/smashimals/quokka-banner.png" alt="" style="width:70px; margin-top:16px; animation:smash-drift 3.4s ease-in-out infinite alternate" />
+        <img src="/assets/smashimals/quokka-banner.png" alt="" style="width:70px; margin-top:16px; animation:smash-drift 3.4s ease-in-out infinite alternate" />
       </div>
       <div class="install-cta">
         <div class="s s-default" style="flex-direction:column; gap:10px; width:280px">
-          <a href="https://testflight.apple.com/join/cJMZQmbn" target="_blank" rel="noopener" class="btn ios"><ion-icon name="logo-apple" style="font-size:20px"></ion-icon>Join on TestFlight</a>
+          <a href="${TESTFLIGHT_URL}" target="_blank" rel="noopener" class="btn ios"><ion-icon name="logo-apple" style="font-size:20px"></ion-icon>Join on TestFlight</a>
           <form class="smashio-capture-form" data-source="hero_android" style="display:flex; gap:8px">
             <div style="position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden" aria-hidden="true"><label>Leave this field empty<input type="text" name="website" tabindex="-1" autocomplete="off" /></label></div>
             <input type="email" name="email" required placeholder="you@email.com" aria-label="Email address" style="flex:1; min-width:0" />
@@ -392,7 +539,7 @@
           <p class="smashio-capture-msg" style="margin:0; font-size:11px; color:#7A7A82"></p>
         </div>
         <div class="s s-ios" style="flex-direction:column; gap:10px; width:260px">
-          <a href="https://testflight.apple.com/join/cJMZQmbn" target="_blank" rel="noopener" class="btn ios"><ion-icon name="logo-apple" style="font-size:20px"></ion-icon>Join on TestFlight</a>
+          <a href="${TESTFLIGHT_URL}" target="_blank" rel="noopener" class="btn ios"><ion-icon name="logo-apple" style="font-size:20px"></ion-icon>Join on TestFlight</a>
         </div>
         <div class="s s-android" style="flex-direction:column; gap:10px; width:280px">
           <form class="smashio-capture-form" data-source="hero_android" style="display:flex; gap:8px">
@@ -419,13 +566,13 @@
   <div class="ftr-inner">
     <div class="ftr-col" style="max-width:280px">
       <div style="display:flex; align-items:center; gap:5px">
-        <img src="assets/smashio-mark.svg" alt="" style="width:15px; height:15px" />
+        <img src="/assets/smashio-mark.svg" alt="" style="width:15px; height:15px" />
         <span class="d" style="font-weight:700; font-size:17px; letter-spacing:-.02em">Smashio</span>
       </div>
       <p style="margin:0; font-size:13px; line-height:1.6; color:#7A7A82">Local badminton, organised. Private beta, Sydney first. Public launch November 2026.</p>
     </div>
     <div class="ftr-col"><div class="ftr-h">Play</div><a href="/sydney">Sydney</a><a href="/sydney">Venues</a><a href="/guides/cost-of-badminton-in-sydney">Guides</a><a href="/badminton-near-me">Badminton near me</a></div>
-    <div class="ftr-col"><div class="ftr-h">Legal</div><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a><a href="support.html">Support</a><a href="community-guidelines.html">Community guidelines</a><a href="delete-account.html">Delete account</a></div>
+    <div class="ftr-col"><div class="ftr-h">Legal</div><a href="/privacy.html">Privacy</a><a href="/terms.html">Terms</a><a href="/support.html">Support</a><a href="/community-guidelines.html">Community guidelines</a><a href="/delete-account.html">Delete account</a></div>
     <div class="ftr-col" style="max-width:260px">
       <div class="ftr-h">Not ready yet?</div>
       <p style="margin:0; font-size:12.5px; line-height:1.5; color:#7A7A82">Leave your email and we'll ping you when there's a game near you.</p>
@@ -442,58 +589,11 @@
 
 </div>
 
-<script>
-(function () {
-  var forms = document.querySelectorAll(".smashio-capture-form");
-  forms.forEach(function (form) {
-    form.addEventListener("submit", function (e) {
-      e.preventDefault();
-      var msg = form.querySelector(".smashio-capture-msg");
-      var email = form.email.value.trim();
-      var website = form.website.value;
-      var source = form.getAttribute("data-source") || "home_footer";
-      var btn = form.querySelector("button[type=submit]");
-      btn.disabled = true;
-      fetch("/api/subscribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email, website: website, source: source }),
-      })
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-          btn.disabled = false;
-          if (data.ok) {
-            msg.textContent = "Sorted, we'll let you know.";
-            msg.style.color = "#D6FF3F";
-            form.reset();
-            if (window.posthog) window.posthog.capture("web_signup", { source: source });
-          } else {
-            msg.textContent = "That didn't work, mind trying again?";
-            msg.style.color = "#FF6767";
-          }
-        })
-        .catch(function () {
-          btn.disabled = false;
-          msg.textContent = "That didn't work, mind trying again?";
-          msg.style.color = "#FF6767";
-        });
-    });
-  });
-})();
-</script>
-
-<script>
-!function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]),t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}(p=t.createElement("script")).type="text/javascript",p.crossOrigin="anonymous",p.async=!0,p.src=s.api_host.replace(".i.posthog.com","-assets.i.posthog.com")+"/static/array.js",(r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},u.people.toString=function(){return u.toString(1)+".people (stub)"},o="init capture register register_once register_for_session unregister unregister_for_session getFeatureFlag getFeatureFlagPayload isFeatureEnabled reloadFeatureFlags updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures on onFeatureFlags onSurveysLoaded onSessionId getSurveys getActiveMatchingSurveys renderSurvey canRenderSurvey getNextSurveyStep identify setPersonProperties group resetGroups setPersonPropertiesForFlags resetPersonPropertiesForFlags setGroupPropertiesForFlags resetGroupPropertiesForFlags reset get_distinct_id getGroups get_session_id get_session_replay_url alias set_config startSessionRecording stopSessionRecording sessionRecordingStarted captureException loadToolbar get_property getSurveysCompleted".split(" "),n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
-posthog.init("phc_yoGdyfhrcu6GoAMxVNb37xquGmRLumfrVbK8r4FLoST2", { api_host: "https://us.i.posthog.com", person_profiles: "identified_only" });
-document.addEventListener("click", function (e) {
-  var a = e.target.closest && e.target.closest("a[href]");
-  if (!a) return;
-  var href = a.href || "";
-  var store = href.indexOf("testflight.apple.com") !== -1 ? "ios" : href.indexOf("play.google.com") !== -1 ? "android" : null;
-  if (!store) return;
-  posthog.capture("store_link_click", { store: store, page: location.pathname });
-});
-</script>
+${captureFormScript()}
+${analyticsScripts()}
 
 </body>
-</html>
+</html>`;
+
+  return res.status(200).send(html);
+};

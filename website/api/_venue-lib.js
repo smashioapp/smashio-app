@@ -52,6 +52,31 @@ async function callRpc(name, body) {
   return r.json();
 }
 
+// web_signup() is service_role-only as of security-audit-2026-09-11.md M6: the anon key above is
+// public by construction (it's hardcoded here and in the mobile app bundle), so granting it to
+// anon meant anyone could call the RPC directly and skip subscribe.js's honeypot/rate-limit
+// entirely. This needs SUPABASE_SERVICE_ROLE_KEY set in the Vercel project's env vars — it is not
+// set yet, so until it is, signups fail closed with a clear log line rather than silently using
+// the (now unauthorized) anon key.
+async function callServiceRpc(name, body) {
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceKey) {
+    throw new Error(`${name}: SUPABASE_SERVICE_ROLE_KEY not set in this environment`);
+  }
+  const r = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      apikey: serviceKey,
+      Authorization: `Bearer ${serviceKey}`,
+    },
+    body: JSON.stringify(body),
+  });
+  if (!r.ok) throw new Error(`${name} ${r.status} ${await r.text().catch(() => "")}`);
+  if (r.status === 204) return null;
+  return r.json();
+}
+
 // Shared head block + brand chrome. `indexable` controls whether crawlers are told to index this
 // page — real venue content is, the generic not-found/thin fallback isn't (duplicate/empty pages
 // hurt more than they help). `jsonLd` is an optional object serialised as a schema.org block.
@@ -302,7 +327,7 @@ function captureFormScript() {
         });
     });
   }
-  document.querySelectorAll("#smashio-capture-form, .smashio-install-form").forEach(wire);
+  document.querySelectorAll("#smashio-capture-form, .smashio-install-form, .smashio-capture-form").forEach(wire);
 })();
 </script>`;
 }
@@ -374,4 +399,4 @@ function androidRequestForm() {
     </form>`;
 }
 
-module.exports = { esc, escapeJsonLd, callRpc, shell, ctaButtons, captureForm, captureFormScript, analyticsScripts };
+module.exports = { esc, escapeJsonLd, callRpc, callServiceRpc, shell, ctaButtons, captureForm, captureFormScript, analyticsScripts };

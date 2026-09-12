@@ -12,6 +12,9 @@ sign-off against [mvp-spec.md](mvp-spec.md). Anything bigger belongs in its own 
 > (`20260817000200_p2_enrichment.sql`), taking the directory to **~98 venues**. See
 > [venues-plan.md](venues-plan.md) §8. Items amended below: §1.4 (shipped), §2.2 (half done),
 > §3.3 (shipped in a different shape), and §1.3's `venue.html` (replaced by a server-rendered page).
+>
+> **Corrected 2026-09-12: the ~98 figure was bad arithmetic (56 + 21 ≠ 98). Directory covers 75
+> venues**, confirmed by direct query against production.
 
 **Context.** The app is already dense — haptics wired through 31 files, push notification
 categories with inline Approve/Decline actions ([notifications-plan.md](notifications-plan.md) P3),

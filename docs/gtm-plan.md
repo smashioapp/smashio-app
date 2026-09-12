@@ -106,6 +106,10 @@ Audited against the repo 2026-08-26. Ordered by marketing damage, not by effort.
 > directory covers **~98 venues**. This makes G9's search argument and G11's SEO argument *stronger*
 > than written, not weaker. [venues-plan.md](venues-plan.md) §8's A6 row is the authority on the
 > count; its own header was also stale and is annotated there.
+>
+> **Corrected 2026-09-12: the ~98 figure was bad arithmetic (56 + 21 ≠ 98). Directory covers 75
+> venues**, confirmed by direct query against production. Still bigger than any competitor listed
+> below, so the argument stands, just at the right number.
 
 ### 3.1 P0 — fix before a single dollar or flyer goes out
 

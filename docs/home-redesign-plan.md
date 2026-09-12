@@ -254,11 +254,11 @@ Each slice ships on its own and is useful on its own.
 | **H1** | Fix B3 copy, correct the venue count in AGENTS.md and the plan docs (B5), and add home page JSON-LD (`Organization`, `WebSite`). | — | 0.5 d |
 | **H2** | Move `index.html` onto the `_venue-lib.js` shell and server-render it. Closes website-plan D11, and every later slice needs it. | — | 1 d |
 | **H3** | Design pass in Claude Design, seeded by the website-design-brief prompt plus this document's §3 structure. Artboards back, signed off. | — | 2 d |
-| **H4** | **The Board** (§3.2) — server-rendered, day-grouped, linked rows, filter chips, freshness component, thin and empty states, `SportsEvent` `ItemList` schema. The single highest-value slice. | H2, H3 | 2 d |
-| **H5** | New hero (§3.1) — type scale, live counter strip, court motif, depth, the one lime element. | H3 | 1 d |
+| **H4** ✅ | **The Board** (§3.2) — server-rendered, day-grouped, linked rows, filter chips, freshness component, thin and empty states, `SportsEvent` `ItemList` schema. The single highest-value slice. Shipped 2026-09-12 with H1/H2, no H3 design pass — went straight to code, same as this whole build order ended up doing. | H2, H3 | 2 d |
+| **H5** ✅ | New hero (§3.1) — type scale to 104px, live counter strip (games this week / venues / suburbs / freshness), court-line motif + noise, depth, the one lime element. Shipped 2026-09-12. `city_seo_stats` gained `suburbs_covered` (`20260912000800_city_seo_stats_suburbs.sql`). | H3 | 1 d |
 | **H6** | Map moment (§3.3). | H3, Maps key | 1 d |
 | **H7** | Device sequence (§3.4) with real captures. | H3, captures | 1 d |
-| **H8** | Trust section, link grid, FAQ with schema, install block and footer restyle. | H3, H1 | 1.5 d |
+| **H8** ✅ | Trust section (§3.5, four editorial items: skill tiers, reliability score, host tools, no-shows), venue/suburb link grid (§3.6, reuses `venue_seo_directory`), FAQ with `FAQPage` schema (§3.7, 8 questions). Shipped 2026-09-12. Install block and footer restyle not done — current install/footer already matches the system, no rework needed. | H3, H1 | 1.5 d |
 | **H9** | Motion, accent and contrast audit, performance budget verification, Lighthouse and Core Web Vitals check against the pre-redesign baseline. | all | 1 d |
 
 **Total ~11.5 days.** H0 alone is half a day and should ship this week regardless of whether the

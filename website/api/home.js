@@ -18,6 +18,21 @@ const { esc, callRpc, escapeJsonLd, captureFormScript, analyticsScripts } = requ
 const TESTFLIGHT_URL = "https://testflight.apple.com/join/cJMZQmbn";
 const SYD = "Australia/Sydney";
 
+function slugify(suburb) {
+  return String(suburb).toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+const FAQ = [
+  { q: "Is Smashio free?", a: "Yes, the app's free. You only pay the venue's own court fee, which the host sets per player when they list the game." },
+  { q: "Do I need a partner to join?", a: "No. Most games on the board are open to solo players, that's the whole point, you turn up and get matched in." },
+  { q: "What skill level should I pick?", a: "Be honest rather than modest. Beginner, intermediate, advanced and pro are sorted by how the game actually plays, not by ego, and everyone has a better time when the tier's right." },
+  { q: "Do I need to book the court myself?", a: "No. The host has already sorted the court, you just show up at the time listed." },
+  { q: "Which suburbs does Smashio cover?", a: "Sydney-wide so far, private beta. Check the board above or browse every venue we track below." },
+  { q: "Is there an Android app yet?", a: "Android's on Play internal testing, invite only while we grow the allowlist. Leave your email below and we'll add you." },
+  { q: "What happens if I don't show up?", a: "Hosts can mark no-shows, and it affects your reliability score, the same one other players see before they let you into their game." },
+  { q: "Can I host my own game instead of joining one?", a: "Yes, set your own time, venue, skill tier and cost per player, and it lands on this board like every other game." },
+];
+
 const TIER_COLOR = { beginner: "#6FCBFF", intermediate: "#35D6A6", advanced: "#FFB648", pro: "#C08CFF" };
 function tierKey(label) {
   const k = String(label || "").toLowerCase();
@@ -98,6 +113,26 @@ function boardHtml(games, now) {
     .join("");
 }
 
+function linkGridHtml(venues) {
+  if (!venues.length) return "";
+  const bySuburb = new Map();
+  for (const v of venues) {
+    const key = v.suburb || "Sydney";
+    if (!bySuburb.has(key)) bySuburb.set(key, []);
+    bySuburb.get(key).push(v);
+  }
+  return [...bySuburb.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(
+      ([suburb, rows]) => `
+      <div class="lg-col">
+        <a class="lg-suburb" href="/sydney/${esc(slugify(suburb))}">${esc(suburb)}</a>
+        ${rows.map((v) => `<a class="lg-venue" href="/venue/${esc(v.slug)}">${esc(v.name)}</a>`).join("")}
+      </div>`
+    )
+    .join("");
+}
+
 function jsonLd(games) {
   return {
     "@context": "https://schema.org",
@@ -112,6 +147,14 @@ function jsonLd(games) {
         "@type": "WebSite",
         name: "Smashio",
         url: "https://smashio.com.au/",
+      },
+      {
+        "@type": "FAQPage",
+        mainEntity: FAQ.map((f) => ({
+          "@type": "Question",
+          name: f.q,
+          acceptedAnswer: { "@type": "Answer", text: f.a },
+        })),
       },
       {
         "@type": "ItemList",
@@ -173,10 +216,19 @@ module.exports = async function handler(req, res) {
     stats = null;
   }
 
+  let venues = [];
+  try {
+    venues = await callRpc("venue_seo_directory", {});
+  } catch {
+    venues = [];
+  }
+
   const gamesThisWeek = stats && typeof stats.games_this_week === "number" ? stats.games_this_week : games.length;
   const venuesTracked = stats && typeof stats.venues_tracked === "number" ? stats.venues_tracked : 75;
+  const suburbsCovered = stats && typeof stats.suburbs_covered === "number" ? stats.suburbs_covered : null;
   const generatedAtLabel = fmtTime(now);
   const boardBody = boardHtml(games, now);
+  const linkGridBody = linkGridHtml(venues);
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -220,6 +272,25 @@ module.exports = async function handler(req, res) {
   .d { font-family: 'Space Grotesk', sans-serif; }
   @keyframes smash-drift { 0% { transform: translateY(0); } 100% { transform: translateY(-14px); } }
   @keyframes smash-pulse { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
+
+  .hero-h1 { font-weight:700; font-size:clamp(44px,9vw,104px); letter-spacing:-.035em; line-height:.98; text-wrap:balance; }
+  .hero-h1 .dim2 { color:var(--dim); }
+  .hero-counters { display:flex; flex-wrap:wrap; gap:10px; margin-top:6px; }
+  .hc { display:flex; align-items:baseline; gap:7px; padding:9px 16px; background:rgba(255,255,255,.03); border:1px solid var(--hair); border-radius:100px; font-size:12.5px; color:var(--sec); font-weight:700; }
+  .hc-n { font-size:15px; color:var(--text); font-weight:700; }
+  .hc-fresh { align-items:center; }
+
+  .hero-court { position:absolute; inset:0; opacity:.16; background-image:
+      linear-gradient(rgba(214,255,63,.5) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(214,255,63,.5) 1px, transparent 1px);
+    background-size: 100% 33.33%, 20% 100%;
+    background-position: center, center;
+    mask-image: linear-gradient(to bottom, transparent, black 20%, black 75%, transparent);
+  }
+  .hero-noise { position:absolute; inset:0; opacity:.045; mix-blend-mode:overlay;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+    background-size: 160px 160px;
+  }
 
   .nav-link { display: none; }
   @media (min-width: 760px) { .nav-link { display: inline-flex; } }
@@ -311,6 +382,27 @@ module.exports = async function handler(req, res) {
   .ftr-bottom { border-top:1px solid var(--hair); }
   .ftr-bottom-inner { max-width:1180px; margin:0 auto; padding:18px 20px; display:flex; flex-wrap:wrap; gap:10px; justify-content:space-between; font-size:12px; color:var(--ter); }
 
+  .trust { display:grid; grid-template-columns:repeat(auto-fit,minmax(240px,1fr)); gap:36px 44px; margin-top:44px; }
+  .trust-item { display:flex; gap:16px; }
+  .trust-item .icon { flex-shrink:0; width:40px; height:40px; border-radius:12px; background:rgba(214,255,63,.1); display:flex; align-items:center; justify-content:center; }
+  .trust-item h3 { margin:0 0 6px; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:16.5px; letter-spacing:-.01em; }
+  .trust-item p { margin:0; font-size:13.5px; line-height:1.6; color:var(--sec); }
+
+  .lg-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:28px 20px; margin-top:40px; }
+  .lg-col { display:flex; flex-direction:column; gap:6px; min-width:0; }
+  .lg-suburb { font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14px; color:var(--text); margin-bottom:2px; }
+  .lg-suburb:hover { color:var(--accent3); }
+  .lg-venue { font-size:12.5px; color:var(--sec); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .lg-venue:hover { color:var(--dim); }
+
+  .faq { margin-top:40px; display:flex; flex-direction:column; gap:2px; max-width:820px; }
+  .faq-item { border-bottom:1px solid var(--hair); padding:18px 0; }
+  .faq-item summary { cursor:pointer; list-style:none; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15.5px; display:flex; align-items:center; justify-content:space-between; gap:16px; }
+  .faq-item summary::-webkit-details-marker { display:none; }
+  .faq-item summary::after { content:"+"; color:var(--accent3); font-size:20px; flex-shrink:0; }
+  .faq-item[open] summary::after { content:"\\2212"; }
+  .faq-item p { margin:10px 0 0; font-size:13.5px; line-height:1.6; color:var(--sec); max-width:66ch; }
+
   html { scrollbar-color: #3A3A40 var(--bgAlt); scrollbar-width: thin; }
   ::-webkit-scrollbar { width: 12px; height: 12px; }
   ::-webkit-scrollbar-track { background: var(--bgAlt); }
@@ -360,10 +452,12 @@ module.exports = async function handler(req, res) {
       </g>
     </svg>
   </div>
+  <div class="hero-court" aria-hidden="true"></div>
+  <div class="hero-noise" aria-hidden="true"></div>
 
-  <div style="position:relative; max-width:1180px; margin:0 auto; padding:56px 20px 64px; display:flex; flex-direction:column; gap:18px; max-width:740px">
+  <div style="position:relative; max-width:1180px; margin:0 auto; padding:64px 20px 56px; display:flex; flex-direction:column; gap:22px">
     <div class="eyebrow">Live in Sydney right now</div>
-    <h1 class="d" style="margin:0; font-weight:700; font-size:clamp(38px,6vw,56px); letter-spacing:-.03em; line-height:1.02; text-wrap:balance">Games are on.<br />Find one, or host your own.</h1>
+    <h1 class="d hero-h1" style="margin:0">Games are on.<br /><span class="dim2">Find one, or host your own.</span></h1>
     <p style="margin:0; max-width:46ch; font-size:16px; line-height:1.6; color:#96969E">No accounts on this page, no bookings here either. See what's actually on below, right down to the open spots.</p>
 
     <div class="hero-cta" style="margin-top:4px">
@@ -383,6 +477,13 @@ module.exports = async function handler(req, res) {
         <a href="#install" class="btn pri">Get the app</a>
         <a href="#board" class="btn sec">See what's on tonight</a>
       </div>
+    </div>
+
+    <div class="hero-counters">
+      <div class="hc"><span class="hc-n d">${esc(gamesThisWeek)}</span><span class="hc-l">games on this week</span></div>
+      <div class="hc"><span class="hc-n d">${esc(venuesTracked)}</span><span class="hc-l">venues mapped</span></div>
+      ${suburbsCovered != null ? `<div class="hc"><span class="hc-n d">${esc(suburbsCovered)}</span><span class="hc-l">suburbs covered</span></div>` : ""}
+      <div class="hc hc-fresh"><span class="livedot"></span><span class="hc-l">Checked ${esc(generatedAtLabel)}</span></div>
     </div>
   </div>
 </section>
@@ -515,6 +616,53 @@ module.exports = async function handler(req, res) {
     <div class="phoneframe"><div class="phonescreen"><span class="cap">HOST A GAME</span></div></div>
     <div class="phoneframe"><div class="phonescreen"><span class="cap">FEED / CHAT</span></div></div>
     <div class="phoneframe"><div class="phonescreen"><span class="cap">PROFILE</span></div></div>
+  </div>
+</section>
+
+<section class="section tone">
+  <div class="inner">
+    <div class="eyebrow">Why it's honest</div>
+    <div class="h2">Built so turning up actually means something.</div>
+    <div class="trust">
+      <div class="trust-item">
+        <div class="icon"><ion-icon name="layers-outline" style="font-size:19px; color:#D6FF3F"></ion-icon></div>
+        <div><h3>Four skill tiers, honestly defined</h3><p>Beginner, intermediate, advanced and pro aren't vibes, they're set against how the game actually plays, so you're never the only one who over or undersold themselves.</p></div>
+      </div>
+      <div class="trust-item">
+        <div class="icon"><ion-icon name="shield-checkmark-outline" style="font-size:19px; color:#D6FF3F"></ion-icon></div>
+        <div><h3>A reliability score that follows you</h3><p>Every game you show up for, and every one you don't, feeds a score other players can see before they let you into theirs.</p></div>
+      </div>
+      <div class="trust-item">
+        <div class="icon"><ion-icon name="megaphone-outline" style="font-size:19px; color:#D6FF3F"></ion-icon></div>
+        <div><h3>Real host tools, not a group chat</h3><p>Set the tier, the cost per player and the spots, reserve a seat for a mate, and see who's actually coming.</p></div>
+      </div>
+      <div class="trust-item">
+        <div class="icon"><ion-icon name="close-circle-outline" style="font-size:19px; color:#D6FF3F"></ion-icon></div>
+        <div><h3>No-shows get marked, not ignored</h3><p>A host can flag a no-show after the game, so a flaky player doesn't just quietly wreck the next five games too.</p></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="venues">
+  <div class="eyebrow">Every venue we track</div>
+  <div class="h2">${esc(venuesTracked)} courts across Sydney, mapped by suburb.</div>
+  <div class="lg-grid">${linkGridBody}</div>
+</section>
+
+<section class="section tone">
+  <div class="inner">
+    <div class="eyebrow">Questions</div>
+    <div class="h2">Before you ask.</div>
+    <div class="faq">
+      ${FAQ.map(
+        (f, i) => `
+        <details class="faq-item"${i === 0 ? " open" : ""}>
+          <summary>${esc(f.q)}</summary>
+          <p>${esc(f.a)}</p>
+        </details>`
+      ).join("")}
+    </div>
   </div>
 </section>
 

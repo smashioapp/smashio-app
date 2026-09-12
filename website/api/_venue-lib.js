@@ -137,6 +137,15 @@ ${jsonLd ? `<script type="application/ld+json">${escapeJsonLd(jsonLd)}</script>`
   html[data-platform=ios] .compact-cta .l-ios { display:inline; }
   html[data-platform=android] .compact-cta .l-android { display:inline; }
   html[data-platform=desktop] .compact-cta .l-desktop { display:inline; }
+
+  /* cta-variant: full-size CTA button group (ctaButtons()) — separate from the .l/.compact-cta
+     label swap above since these need display:flex, not inline, once shown per platform. */
+  .cta-variant { display:none; }
+  .cta-variant.cta-default { display:flex; }
+  html[data-platform] .cta-variant.cta-default { display:none; }
+  html[data-platform=ios] .cta-variant.cta-ios { display:flex; }
+  html[data-platform=android] .cta-variant.cta-android { display:flex; }
+  html[data-platform=desktop] .cta-variant.cta-desktop { display:flex; }
   .betastrip { display:flex; align-items:center; justify-content:center; gap:6px; padding:8px 16px; background:#141416; font-size:11.5px; color:#C7C7CE; font-weight:600; border-bottom:1px solid rgba(255,255,255,.06); text-align:center; }
   .betastrip b { color:#9FE020; font-weight:800; }
   .livedot { width:6px; height:6px; border-radius:50%; background:#9FE020; box-shadow:0 0 0 3px rgba(159,224,32,.2); flex-shrink:0; display:inline-block; }
@@ -325,21 +334,21 @@ document.addEventListener("click", function (e) {
 function ctaButtons() {
   return `
     <div class="rise rise-4 compact-cta" style="display:flex; justify-content:center; width:100%">
-      <div class="l l-default" style="display:flex; flex-wrap:wrap; gap:12px; justify-content:center; width:100%">
+      <div class="cta-variant cta-default" style="flex-wrap:wrap; gap:12px; justify-content:center; width:100%">
         <a class="btn btn-primary" style="width:auto" href="${TESTFLIGHT_URL}" target="_blank" rel="noopener">
           <ion-icon name="logo-apple" style="font-size:22px"></ion-icon>
           <span class="btn-label"><span class="btn-eyebrow">Join the</span><span class="btn-main">TestFlight beta</span></span>
         </a>
         ${androidRequestForm()}
       </div>
-      <div class="l l-ios" style="display:flex; justify-content:center; width:100%">
+      <div class="cta-variant cta-ios" style="justify-content:center; width:100%">
         <a class="btn btn-primary" style="width:auto" href="${TESTFLIGHT_URL}" target="_blank" rel="noopener">
           <ion-icon name="logo-apple" style="font-size:22px"></ion-icon>
           <span class="btn-label"><span class="btn-eyebrow">Join the</span><span class="btn-main">TestFlight beta</span></span>
         </a>
       </div>
-      <div class="l l-android" style="display:flex; justify-content:center; width:100%">${androidRequestForm()}</div>
-      <div class="l l-desktop" style="display:flex; flex-wrap:wrap; gap:12px; justify-content:center; width:100%">
+      <div class="cta-variant cta-android" style="justify-content:center; width:100%">${androidRequestForm()}</div>
+      <div class="cta-variant cta-desktop" style="flex-wrap:wrap; gap:12px; justify-content:center; width:100%">
         <a class="btn btn-primary" style="width:auto" href="${TESTFLIGHT_URL}" target="_blank" rel="noopener">
           <ion-icon name="logo-apple" style="font-size:22px"></ion-icon>
           <span class="btn-label"><span class="btn-eyebrow">Join the</span><span class="btn-main">TestFlight beta</span></span>

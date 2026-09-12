@@ -6,13 +6,17 @@
 //
 // Notify email (2026-09-11): fires after a successful signup so a human sees it and can add
 // Android testers to the Play Console allowlist manually — nothing else reads web_signups yet.
-// Best-effort: a Resend failure never fails the request, the signup is already recorded by then.
+// Confirmation email (2026-09-12): the form copy promises "we'll add you and email you back" —
+// this is that email, sent to the signer themselves, not just the internal notify.
+// Both are best-effort: a Resend failure never fails the request, the signup is already recorded.
 const { callRpc } = require("./_venue-lib");
 
 const NOTIFY_TO = "hello@smashio.com.au";
 const NOTIFY_FROM = "Smashio Website <notify@smashio.com.au>";
+const CONFIRM_FROM = "Smashio <hello@smashio.com.au>";
+const TESTFLIGHT_URL = "https://testflight.apple.com/join/cJMZQmbn";
 
-async function notifySignup({ email, suburb, source }) {
+async function sendResendEmail(payload) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return;
 
@@ -23,24 +27,56 @@ async function notifySignup({ email, suburb, source }) {
         Authorization: `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        from: NOTIFY_FROM,
-        to: [NOTIFY_TO],
-        subject: `New signup (${source}): ${email}`,
-        text: [
-          `Email: ${email}`,
-          `Suburb: ${suburb || "-"}`,
-          `Source: ${source}`,
-          `When: ${new Date().toISOString()}`,
-          source.includes("android")
-            ? "\nAndroid beta request — add their Google account to the Play Console internal testing allowlist and reply to confirm."
-            : "",
-        ].join("\n"),
-      }),
+      body: JSON.stringify(payload),
     });
   } catch {
     // Best-effort — the signup itself already succeeded, don't fail the request over this.
   }
+}
+
+function notifySignup({ email, suburb, source }) {
+  return sendResendEmail({
+    from: NOTIFY_FROM,
+    to: [NOTIFY_TO],
+    subject: `New signup (${source}): ${email}`,
+    text: [
+      `Email: ${email}`,
+      `Suburb: ${suburb || "-"}`,
+      `Source: ${source}`,
+      `When: ${new Date().toISOString()}`,
+      source.includes("android")
+        ? "\nAndroid beta request — add their Google account to the Play Console internal testing allowlist and reply to confirm."
+        : "",
+    ].join("\n"),
+  });
+}
+
+function confirmSignup({ email, source }) {
+  const isAndroid = source.includes("android");
+  return sendResendEmail({
+    from: CONFIRM_FROM,
+    to: [email],
+    subject: isAndroid ? "You're on the Smashio Android list" : "Thanks for your interest in Smashio",
+    text: isAndroid
+      ? [
+          "Nice one, you're on the list.",
+          "",
+          "Android's invite-only while we sort the public listing. We'll add the Google account tied to this email to the Play internal testing allowlist and follow up here once it's through, usually within a day.",
+          "",
+          "One thing we need from you: reply to this email with the Google account (Gmail address) you want added, if it's different from this one.",
+          "",
+          "Cheers,",
+          "The Smashio team",
+        ].join("\n")
+      : [
+          "Thanks for putting your hand up, we'll keep you posted.",
+          "",
+          `iPhone's live now on TestFlight if you're keen to jump on: ${TESTFLIGHT_URL}`,
+          "",
+          "Cheers,",
+          "The Smashio team",
+        ].join("\n"),
+  });
 }
 
 module.exports = async function handler(req, res) {
@@ -74,7 +110,7 @@ module.exports = async function handler(req, res) {
   }
 
   if (!honeypot) {
-    await notifySignup({ email, suburb, source });
+    await Promise.all([notifySignup({ email, suburb, source }), confirmSignup({ email, source })]);
   }
 
   return res.status(200).json({ ok: true });

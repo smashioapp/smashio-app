@@ -27,6 +27,7 @@
     { "source": "/player/:id", "destination": "/api/player/:id" },
     { "source": "/guides/:slug", "destination": "/api/guides/:slug" },
     { "source": "/badminton-near-me", "destination": "/api/near-me" },
+    { "source": "/sydney", "destination": "/api/sydney" },
     { "source": "/sydney/:suburb*", "destination": "/api/sydney/:suburb*" },
     { "source": "/sitemap.xml", "destination": "/api/sitemap" }
   ]

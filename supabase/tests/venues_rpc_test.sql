@@ -42,8 +42,11 @@ SELECT is(
 );
 SELECT is(
   (select name from public.venues where google_place_id = 'places-id-abc'),
-  'Renamed Places Venue',
-  're-upserting the same google_place_id updates the existing row''s fields'
+  'New Places Venue',
+  -- H6: re-upserting a known google_place_id resolves to the existing row and does not overwrite
+  -- its fields (was an unauthenticated-write bug: any caller could rewrite any venue's directory
+  -- data just by supplying its google_place_id, see security-audit-2026-09-11.md H6).
+  're-upserting the same google_place_id does not overwrite the existing row''s fields'
 );
 
 -- --- venues_near ---------------------------------------------------------------------------------

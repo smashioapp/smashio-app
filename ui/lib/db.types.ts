@@ -2778,6 +2778,7 @@ export type Database = {
         Args: { p_hours_before: number; p_pinned: boolean; p_spot_id: string }
         Returns: undefined
       }
+      shares_a_game_with: { Args: { a: string; b: string }; Returns: boolean }
       suggested_players_to_follow: {
         Args: {
           p_lat: number

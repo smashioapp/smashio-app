@@ -47,7 +47,7 @@ Captured from `https://smashio.com.au/` and `/api/home-feed` on 2026-09-12.
 | # | Problem | Evidence |
 |---|---|---|
 | **B1** ✅ | **The live feed advertised badminton at 4:30am.** Confirmed against the production database, not inferred. Every real user-created game (Aug 19 → Sep 3) stores a sane Sydney local time: 10:00, 14:00, 19:00, 19:30. The rows the home page was showing were part of a batch of **ten** inserted at `2026-09-12 06:12:08`, landing at 04:00, 04:30, 05:00, 05:30, 20:00 and 00:00 Sydney time. Local wall-clock times were written into a `timestamptz` column as UTC. Those ten were also the *only* future `published` games, so the entire live hero feed was that batch. **Fixed 2026-09-12 (H0):** all ten shifted back 10 hours, `starts_at` and `ends_at` together. They now read Mon 6:30pm, Tue 7:00pm, Wed 6:00pm, Thu 7:30pm, Fri 10:00am, Fri 2:00pm, Sat 4:00pm, Sun 7:00pm, Tue 6:00pm, Wed 7:00pm. | prod `public.games`, `/api/home-feed` |
-| **B1b** | **Those ten games are fabricated, and nothing in the repo records it.** Their organisers are seven demo accounts (`demo.priya@smashio.dev` … `demo.ravi@smashio.dev`, ids `9a110000-…`) created 29 seconds before the games. They carry `game_players` rows and chat messages. No migration, script or seed file in the repo produces them, so they were inserted out of band and are untracked and unreproducible. They are `published` and `public`, which means they are visible to real beta users in Discover **and** to anonymous visitors on the website. This plan's own §8 says no fabricated listing rows, ever. **Not resolved — needs a decision, see Q6.** | prod `public.profiles`, `public.games`, repo grep |
+| **B1b** ⏸ | **Those ten games are fabricated, and nothing in the repo records it.** Their organisers are seven demo accounts (`demo.priya@smashio.dev` … `demo.ravi@smashio.dev`, ids `9a110000-…`) created 29 seconds before the games. They carry `game_players` rows and chat messages. No migration, script or seed file in the repo produces them, so they were inserted out of band and are untracked and unreproducible. They are `published` and `public`, which means they are visible to real beta users in Discover **and** to anonymous visitors on the website. This plan's own §8 says no fabricated listing rows, ever. **Kept deliberately as beta test data (Q6). Removal handles are in §9.** | prod `public.profiles`, `public.games`, repo grep |
 | **B2** ✅ | **No date on any row.** A game three days out rendered as bare "4:30 am", implying tonight, and the clock was the visitor's own zone rather than Sydney's. **Fixed 2026-09-12 (H0):** `website/index.html` gained `fmtWhen()`, pinned to `Australia/Sydney`, rendering Today / Tonight / Tomorrow / `Wed, 16 Sept 6:00 pm`. `/game/:id` and `/sydney` already did both correctly, so the home page was the only offender. | `website/index.html` `fmtTime()` |
 | **B3** | **Hero copy breaks on mobile.** "Everything **to the right** is pulled live from the app" — on a phone the feed is below, not right. Most traffic is a phone. | 375x812 capture |
 | **B4** | **Phone screenshots are striped placeholder rectangles.** Six of them, full width, mid-page, where the product demo should be. The TODO in the file says so. | `website/index.html` `.phonescreen`, line ~334 |
@@ -275,7 +275,7 @@ rest is approved.
 | **Q3** | Press or partner logos, as Playtomic uses. | Skip for now, revisit at launch. Nothing to show yet. |
 | **Q4** | Does the home page get the day-of-week nav axis in the header too, or only inside the board? | Board only for now. A `/sydney/tonight` style surface is a separate SEO slice, not this one. |
 | **Q5** | Scroll-driven animation given Firefox is still flagged in stable. | Ship it, finished-state-first. It degrades to a correct static page with no fallback code. |
-| **Q6** | **The ten demo games and seven demo accounts in production (B1b).** They are currently the only future games, so removing them empties both Discover and the website board. | **Decide before H4.** My recommendation: keep them only if they are labelled and confined, and remove them from the anonymous web surface either way. Fabricated rows on a public page contradict §8 and undercut the one claim this whole redesign rests on, which is that our page is true when read. If they stay for in-app demo purposes, add a migration or seed script so they are tracked and reproducible instead of living untracked in production. |
+| **Q6** ✅ | **The ten demo games and seven demo accounts in production (B1b).** | **Closed 2026-09-12: they stay for now.** Ajay's call, they are test data during beta and will be removed later. Don't re-propose deleting them. Two things follow. (1) §8's "no fabricated listing rows" still holds for **launch**, so removal is a prerequisite for the November public launch and for anything that markets the board as live. (2) Removal must be one query, so the handles are recorded in §9 below. |
 
 ---
 
@@ -285,8 +285,38 @@ rest is approved.
 - No player names, faces, handles, ratings, rosters, organiser identity, or in-app free text
   anywhere on the page. website-plan §5.4.
 - No venue photos. Private bucket, permanent.
-- No fabricated or templated listing rows, ever. Being real is the entire differentiator.
+- No fabricated or templated listing rows **at launch**. Being real is the entire differentiator.
+  The beta test data described in B1b is a deliberate, temporary exception (Q6), and §9 is how it
+  gets cleared.
 - No build step, no framework, no animation library.
 - No light mode.
 - No "more sports coming" copy. Badminton only (website-design-brief D7).
 - No logo or wordmark changes (D8).
+
+---
+
+## 9. Clearing the beta test data
+
+Q6 keeps the demo games and demo accounts in production for now. They must be gone before the
+November public launch, and before any copy or campaign describes the board as live. This section
+exists so that removal is one query rather than an archaeology exercise.
+
+**The handles.** Both sets are identifiable by an exact timestamp and an id prefix, and neither
+overlaps a real user or a real game:
+
+| Set | Identifier | Count |
+|---|---|---|
+| Demo profiles | `id::text like '9a110000%'`, `created_at = '2026-09-12 06:11:39.489636+00'` | 7 |
+| Demo games | `created_at = '2026-09-12 06:12:08.156839+00'` | 10 |
+
+Real user-created games all predate `2026-09-03` and none carry a `9a110000-` organiser, so an
+`organizer_id::text like '9a110000%'` filter is the safest single predicate for the games.
+
+**Before deleting**, check the dependents — the batch carries `game_players` rows and chat
+messages, and `auth.users` rows sit behind the profiles. `delete_account` (the existing Edge
+Function) is the correct tool for the accounts, since it already knows the full dependency graph.
+Do not hand-delete from `public.profiles` and leave `auth.users` orphaned.
+
+**Verification after removal:** `city_seo_stats` should return `games_this_week: 0` and the home
+page board should fall through to its thin state, which is exactly why §3.2 makes that state a
+first-class deliverable rather than an afterthought.

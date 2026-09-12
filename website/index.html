@@ -216,8 +216,35 @@
     for (var key in TIER_COLOR) { if (k.indexOf(key) !== -1) return TIER_COLOR[key]; }
     return "#96969E";
   }
+  // Everything on this page is a Sydney game, so times are pinned to Australia/Sydney rather than
+  // the visitor's own zone — a Perth or overseas reader must not see a shifted start time.
+  var SYD = "Australia/Sydney";
+  function sydParts(d) {
+    // en-CA gives YYYY-MM-DD, which is the cheapest way to get a Sydney calendar date to compare on.
+    try { return new Intl.DateTimeFormat("en-CA", { timeZone: SYD, year: "numeric", month: "2-digit", day: "2-digit" }).format(d); }
+    catch (e) { return ""; }
+  }
   function fmtTime(iso) {
-    try { return new Date(iso).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }); } catch (e) { return ""; }
+    try { return new Date(iso).toLocaleTimeString("en-AU", { timeZone: SYD, hour: "numeric", minute: "2-digit" }); } catch (e) { return ""; }
+  }
+  // home-feed spans 14 days (games_seo_feed), so a bare clock time reads as "tonight" for a game
+  // that is a week out. Always say which day.
+  function fmtWhen(iso) {
+    try {
+      var d = new Date(iso);
+      var now = new Date();
+      var tomorrow = new Date(now.getTime() + 86400000);
+      var day = sydParts(d);
+      var prefix;
+      if (day && day === sydParts(now)) {
+        // "Tonight" only if it actually is tonight — a 10am game today is "Today".
+        var hr = parseInt(new Intl.DateTimeFormat("en-GB", { timeZone: SYD, hour: "2-digit", hour12: false }).format(d), 10);
+        prefix = hr >= 17 ? "Tonight" : "Today";
+      }
+      else if (day && day === sydParts(tomorrow)) prefix = "Tomorrow";
+      else prefix = new Intl.DateTimeFormat("en-AU", { timeZone: SYD, weekday: "short", day: "numeric", month: "short" }).format(d);
+      return prefix + " " + fmtTime(iso);
+    } catch (e) { return fmtTime(iso); }
   }
   function esc(s) {
     return String(s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; });
@@ -228,7 +255,7 @@
     return '<div class="feedrow" style="border-left-color:' + tierColor(g.skill_tier_label) + (stale ? ';opacity:.7' : '') + '">' +
       '<span class="tierdot" style="background:' + tierColor(g.skill_tier_label) + '"></span>' +
       '<div style="flex:1"><div style="font-weight:700; font-size:14.5px">' + esc(g.venue_suburb || g.venue_name) + '</div>' +
-      '<div style="font-size:12.5px; color:#96969E">' + esc(fmtTime(g.starts_at)) + ' &middot; ' + esc(g.skill_tier_label || '') + '</div></div>' +
+      '<div style="font-size:12.5px; color:#96969E">' + esc(fmtWhen(g.starts_at)) + ' &middot; ' + esc(g.skill_tier_label || '') + '</div></div>' +
       '<div class="d" style="font-weight:700; font-size:15px; color:' + (g.open_spots === 0 ? '#7A7A82' : '#F5F5F7') + '">' + spots + '</div></div>';
   }
 

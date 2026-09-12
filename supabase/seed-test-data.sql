@@ -41,11 +41,17 @@ with home as (
   ) as h(email, suburb, lng, lat, tier_slug)
 )
 update public.profiles p
-set home_suburb = h.suburb,
-    home_point = extensions.ST_SetSRID(extensions.ST_MakePoint(h.lng, h.lat), 4326)
+set home_suburb = h.suburb
 from home h
 join auth.users u on u.email = h.email
 where p.id = u.id;
+
+-- home_point lives in profile_private, not profiles (security-audit-2026-09-11.md H4).
+insert into public.profile_private (profile_id, home_point)
+select u.id, extensions.ST_SetSRID(extensions.ST_MakePoint(h.lng, h.lat), 4326)
+from home h
+join auth.users u on u.email = h.email
+on conflict (profile_id) do update set home_point = excluded.home_point;
 
 with badminton as (select id from public.sports where slug = 'badminton'),
 tiers as (

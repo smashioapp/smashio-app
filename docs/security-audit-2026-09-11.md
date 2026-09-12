@@ -4,6 +4,22 @@
 access needed, no grant/RLS changes that could alter app behaviour). See the per-finding notes below
 for what shipped and what's still open on each.
 
+**2026-09-12 update:** H2, H3, H4 and M2 fixed, verified locally, and **applied to the hosted
+project.** `supabase db reset` replayed both new migrations clean (including the PUBLIC-execute
+regression guard) and `supabase test db` passed `games_rls_test.sql` and `misc_rpc_test.sql` (the
+two files touching the changed grants/columns). Confirmed by running the full suite again on a
+clean checkout with these changes removed: two unrelated files (`join_leave_flow_test.sql`,
+`push_dispatch_triggers_test.sql`) fail identically on that baseline, so they're pre-existing and
+not something this work introduced — worth its own look separately. `supabase db push` applied both
+migrations to the hosted project, `ui/lib/db.types.ts` was regenerated from the local stack and
+`tsc --noEmit` passed clean, and `supabase functions deploy ai-proxy` shipped the H2 fix. Spot-checked
+directly against hosted: `profiles.home_point` is gone (only `profile_private.home_point` exists),
+and `authenticated` holds no `UPDATE` grant on `games.verification_status`. `get_advisors` flags the
+two new trigger functions as "security definer executable by anon/authenticated" — harmless noise,
+not a regression: the codebase's own `assert_no_public_definer_execute()` guard already excludes
+trigger functions from that check by design, since a trigger function can't be invoked directly over
+PostgREST regardless of its grants. See each finding's status note for specifics.
+
 Full static review of the app code, the Supabase backend (schema, RLS, RPCs, Edge Functions) and
 `website/`. Source-only: nothing was run against the hosted project, so every "verify" note below
 is a console/dashboard check that still has to happen by hand.
@@ -78,6 +94,14 @@ games, and message real beta users as a plausible-looking account.
 
 ## H2 — `ai-proxy` legacy path reads any user's booking confirmation
 
+**Status 2026-09-12: fixed and deployed.** The legacy branch now checks
+`storagePath.startsWith(`${gameId}/`)` in addition to the existing organizer-ownership check,
+mirroring the draft branch's prefix check. `deno check` passes and `supabase functions deploy
+ai-proxy` shipped it to the hosted project. Not exercised end-to-end with a live Gemini call
+(that needs a real receipt image) — worth a manual re-test of the attach/verify flow, but the fix
+itself is a pure input-validation change with no schema/grant surface, so the risk of that not
+being done is low.
+
 **Where:** [supabase/functions/ai-proxy/index.ts:404](../supabase/functions/ai-proxy/index.ts) and
 [ui/lib/queries/games.ts:644](../ui/lib/queries/games.ts)
 
@@ -117,6 +141,18 @@ caller.
 ---
 
 ## H3 — "Verified booking" badge is self-assignable over REST
+
+**Status 2026-09-12: fixed.** `20260912000000_games_column_grants.sql`: insert and update grants on
+`public.games` are now column-scoped to exactly the fields the app's create/edit/cancel flows send
+(`ui/lib/queries/games.ts`), `verification_status` excluded from both. Added a belt-and-braces
+trigger (`protect_games_system_columns`) that forces `verification_status`, `organizer_id`,
+`sport_id` and `venue_id` back to their old values on any update arriving as `authenticated` or
+`anon`, so a future grant widening can't reopen this on its own.
+`supabase db reset` replays clean and `supabase test db` passes `games_rls_test.sql` — the initial
+draft actually revoked `insert` outright, which would have broken that file's "organizer can insert
+a game with organizer_id = own uid" assertion; caught by running the suite and switched to a
+column-scoped insert grant instead. Applied to the hosted project via `supabase db push`; confirmed
+directly against it that `authenticated` no longer holds `UPDATE` on `games.verification_status`.
 
 **Where:** [supabase/migrations/20260807000600_games.sql:34](../supabase/migrations/20260807000600_games.sql)
 
@@ -162,6 +198,27 @@ the same table-wide grant means `organizer_id` is only protected by the `with ch
 ---
 
 ## H4 — Exact home coordinates of every user readable by any account
+
+**Status 2026-09-12: fixed, differently from the option below.** Narrowing the select grant (this
+finding's own suggested fix #2) was tried and reverted: `ui/lib/queries/profile.ts` does
+`select("*")` for a user's own profile, and PostgREST expands `*` to an explicit column list at
+schema-cache time, so a narrowed grant breaks every own-profile read, not just `home_point`. Went
+with option #1 instead — `20260912000100_home_point_to_profile_private.sql` moves `home_point`
+into `profile_private` (which already holds `phone` for the identical reason, per that table's own
+migration comment), backfills existing data, and repoints the three functions that read/write it
+directly (`set_home_point`, `suggested_players_to_follow`, `create_post`) plus `delete_account`,
+which no longer needs to null it on `profiles` since it already deletes the `profile_private` row.
+Also updated `supabase/seed.sql`, `supabase/seed-test-data.sql` and
+`supabase/tests/misc_rpc_test.sql`, which all wrote or asserted against `profiles.home_point`
+directly. `home_suburb` stays on `profiles` and select-able — it's already shown for other users in
+feed/follow lists and is suburb-level, not exact coordinates. `supabase db reset` replays clean and
+`supabase test db` passes `misc_rpc_test.sql`'s `set_home_point` assertions against the new
+`profile_private` location. `seed.sql`'s `home_point` insert ran with no errors as part of the same
+reset (`seed-test-data.sql` targets the hosted-only bot accounts, so its equivalent insert couldn't
+be exercised locally, but it's the identical pattern). Applied to the hosted project via
+`supabase db push`; confirmed directly against it that `profiles.home_point` no longer exists and
+only `profile_private.home_point` does. `ui/lib/db.types.ts` regenerated from the local stack
+(`tsc --noEmit` passes clean) since this drops a column.
 
 **Where:** [supabase/migrations/20260807000200_profiles.sql:8,16,24](../supabase/migrations/20260807000200_profiles.sql)
 
@@ -333,6 +390,14 @@ Resolving a known id from a share link keeps working through `game_preview`, whi
 ---
 
 ## M2 — `reliability_score` and `referred_by` are self-editable
+
+**Status 2026-09-12: fixed, for free, alongside H4.** `20260912000100_home_point_to_profile_private.sql`
+adds a `protect_profiles_system_columns` trigger that forces `reliability_score`, `follower_count`,
+`following_count`, `referral_code`, `referral_priority_credits` and `deleted_at` back to their old
+values on any update arriving as `authenticated`/`anon`. `referred_by` stays client-writable (the
+app sets it once at signup with no server-side attribution step, `ui/lib/session.tsx`), but the same
+trigger now stops it being reassigned once it's non-null — previously only the app's own
+`.is(null)` filter enforced that, which a direct REST call could ignore.
 
 **Where:** [20260807000200_profiles.sql:24](../supabase/migrations/20260807000200_profiles.sql)
 
@@ -574,19 +639,26 @@ Worth recording so a later pass does not re-derive them:
 
 ## Suggested order of work
 
-**2026-09-11: six items shipped** (H1 fully, H7, M3 headers, M5, L3) — see each finding's status
-note above. Still open, in priority order: H2/H3/H4/H5/H6/M1/M2/M4/M6/M7/M8/L1/L2/M3's SRI half.
+**2026-09-11: six items shipped** (H1 fully, H7, M3 headers, M5, L3). **2026-09-12: four more**
+(H2, H3, H4, M2) fixed in code/migrations but **not yet run against any stack** — see each
+finding's status note. Still open, in priority order: H5/H6/M1/M4/M6/M7/M8/L1/L2/M3's SRI half.
 None of the remaining items are "easy" in the same sense — they change grants/RLS/Edge Function
 input handling in ways that need testing against real app behaviour, not just a syntax check.
 
 1. **Today:** H1 (rotate the hosted test accounts, strip the password from the docs) and M8 (confirm
    email confirmation is on). Together these decide whether the rest is exploitable by strangers.
-2. **This week:** H2, H3, H4 — one Edge Function guard and two column-grant migrations. These are
-   the smallest fixes with the largest impact.
+2. ~~**This week:** H2, H3, H4~~ — done 2026-09-12: verified locally (`supabase db reset` +
+   `supabase test db` clean), applied to hosted (`db push` + `ai-proxy` deploy), `db.types.ts`
+   regenerated.
 3. **Before the next website deploy:** H7 and M3, which ship together.
-4. **Before the November launch:** H5, H6, M1, M2, M4, M6, M7, then the low items.
+4. **Before the November launch:** H5, H6, M1, M4, M6, M7, then the low items. (M2 shipped
+   2026-09-12 alongside H4, not listed here any more.)
 
-A regression test is worth adding alongside the H3 and H4 fixes: a migration-time assertion that
-`authenticated` holds no column-level write on `games.verification_status` or
-`profiles.reliability_score`, in the same shape as `assert_no_public_definer_execute()`. The guard
-that already exists for PUBLIC execute is why that class of bug did not appear in this audit.
+**Status 2026-09-12: partially addressed.** H3 and H4/M2 shipped trigger-based guards
+(`protect_games_system_columns`, `protect_profiles_system_columns`) that force the protected columns
+back to their old values if a client-originated update touches them — a live belt-and-braces, not
+just a test. A migration-time assertion in the same shape as `assert_no_public_definer_execute()`
+(one that fails `supabase db reset` if `authenticated` ever regains column-level write on
+`games.verification_status` or `profiles.reliability_score`) is still worth adding on top, so a
+future migration that widens the grant *and* forgets the trigger gets caught at CI time rather than
+relying on the trigger alone.

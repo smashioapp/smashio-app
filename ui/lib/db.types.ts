@@ -1196,16 +1196,19 @@ export type Database = {
       }
       profile_private: {
         Row: {
+          home_point: unknown
           phone: string | null
           profile_id: string
           updated_at: string
         }
         Insert: {
+          home_point?: unknown
           phone?: string | null
           profile_id: string
           updated_at?: string
         }
         Update: {
+          home_point?: unknown
           phone?: string | null
           profile_id?: string
           updated_at?: string
@@ -1270,7 +1273,6 @@ export type Database = {
           distance_units: string
           follower_count: number
           following_count: number
-          home_point: unknown
           home_suburb: string | null
           home_venue_id: string | null
           id: string
@@ -1293,7 +1295,6 @@ export type Database = {
           distance_units?: string
           follower_count?: number
           following_count?: number
-          home_point?: unknown
           home_suburb?: string | null
           home_venue_id?: string | null
           id: string
@@ -1316,7 +1317,6 @@ export type Database = {
           distance_units?: string
           follower_count?: number
           following_count?: number
-          home_point?: unknown
           home_suburb?: string | null
           home_venue_id?: string | null
           id?: string

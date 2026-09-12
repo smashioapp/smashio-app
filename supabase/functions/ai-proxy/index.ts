@@ -443,6 +443,9 @@ if (import.meta.main) {
     if (gameErr || !game || game.organizer_id !== user.id) {
       return new Response("Forbidden", { status: 403 });
     }
+    // Ownership of game_id is not ownership of storage_path — without this, a caller can pass
+    // their own game_id alongside another host's confirmation path and read that host's receipt.
+    if (!storagePath.startsWith(`${gameId}/`)) return new Response("Forbidden", { status: 403 });
   }
 
   const limitError = await checkRateLimits(user.id);

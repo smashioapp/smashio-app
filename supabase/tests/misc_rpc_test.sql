@@ -21,18 +21,19 @@ set local role authenticated;
 select set_config('request.jwt.claims', json_build_object('sub', 'e1111111-1111-1111-1111-111111111111', 'role', 'authenticated')::text, true);
 select public.set_home_point(-33.87, 151.21);
 
+-- home_point lives in profile_private, not profiles (security-audit-2026-09-11.md H4).
 SELECT isnt(
-  (select home_point from public.profiles where id = 'e1111111-1111-1111-1111-111111111111'),
+  (select home_point from public.profile_private where profile_id = 'e1111111-1111-1111-1111-111111111111'),
   null,
   'set_home_point writes a point for the caller'
 );
 SELECT is(
-  (select round(extensions.ST_Y(home_point::extensions.geometry)::numeric, 2) from public.profiles where id = 'e1111111-1111-1111-1111-111111111111'),
+  (select round(extensions.ST_Y(home_point::extensions.geometry)::numeric, 2) from public.profile_private where profile_id = 'e1111111-1111-1111-1111-111111111111'),
   -33.87,
   'set_home_point stores the given latitude'
 );
 SELECT is(
-  (select home_point from public.profiles where id = 'e2222222-2222-2222-2222-222222222222'),
+  (select home_point from public.profile_private where profile_id = 'e2222222-2222-2222-2222-222222222222'),
   null,
   'set_home_point only ever touches the caller''s own row'
 );

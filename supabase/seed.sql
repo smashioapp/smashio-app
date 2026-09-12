@@ -138,14 +138,21 @@ values (
 );
 
 -- Fill in the test user's profile (handle_new_user only gave it a blank row) — Sydney CBD
--- home point so distance/"near you" queries have something to measure against.
+-- home point so distance/"near you" queries have something to measure against. home_point lives
+-- in profile_private, not profiles (moved there by security-audit-2026-09-11.md H4).
 update public.profiles set
   display_name = 'Test Player',
   home_suburb = 'Sydney',
-  home_point = extensions.ST_SetSRID(extensions.ST_MakePoint(151.2093, -33.8688), 4326),
   reliability_score = 100,
   avatar_key = 'kookaburra'
 where id = '11111111-1111-1111-1111-111111111111';
+
+insert into public.profile_private (profile_id, home_point)
+values (
+  '11111111-1111-1111-1111-111111111111',
+  extensions.ST_SetSRID(extensions.ST_MakePoint(151.2093, -33.8688), 4326)
+)
+on conflict (profile_id) do update set home_point = excluded.home_point;
 
 insert into public.profile_sports (profile_id, sport_id, skill_tier_id)
 select '11111111-1111-1111-1111-111111111111', s.id, st.id

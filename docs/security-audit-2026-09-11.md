@@ -616,17 +616,25 @@ executes it fresh on every submit so a token can't be replayed across forms. `su
 `TURNSTILE_SECRET_KEY` isn't set. The site key is public by design and lives in `_venue-lib.js`;
 the secret key was added to Vercel (`production`, `preview` and `development`) via `vercel env add`.
 
-Verified two of the three states directly against the real Cloudflare API through the deployed
-code path (`vercel dev` locally, secret pulled from the real Vercel project): a request with no
-secret configured logs the fail-closed message and rejects; a request with a real secret but a
-garbage token gets a genuine `siteverify` rejection and a `403 {"error":"turnstile_failed"}`. The
-third state — a real passing token — can't be produced locally because the widget is hostname-
-locked to `smashio.com.au` and refuses to run on `localhost` (Turnstile error 110200, "invalid
-domain"), which is itself correct behaviour, not a bug: the client-side failure was handled
-gracefully (empty token, friendly "that didn't work" message, no crash), and the success path
-follows directly from Cloudflare's own `siteverify` contract once run on the real domain. Worth a
-quick real-world check on smashio.com.au once this deploys. IP rate limiting (2026-09-12) stays in
-place alongside Turnstile, not replaced by it. M6 fully closed.
+Verified locally against the real Cloudflare API through the deployed code path (`vercel dev`,
+secret pulled from the real Vercel project): a request with no secret configured logs the
+fail-closed message and rejects; a request with a real secret but a garbage token gets a genuine
+`siteverify` rejection and a `403 {"error":"turnstile_failed"}`. On `localhost` the widget itself
+refuses to run at all (Turnstile error 110200, "invalid domain") since the site key is hostname-
+locked to `smashio.com.au` — handled gracefully client-side (empty token, friendly error, no
+crash).
+
+Deployed to production (`31b8065`, confirmed live via the response CSP header and page source) and
+tested against the real domain: the widget renders and, because the traffic looked automated, its
+Managed-mode risk check escalated to a visible interactive checkbox rather than passing silently.
+That escalation *is* the feature working — Turnstile's whole job is telling real users from
+automation, and an automated browser correctly tripped it. Deliberately did not try to script past
+that checkbox: defeating it would mean re-introducing exactly the automation Turnstile exists to
+stop, and isn't something worth automating even in a verification harness. The two states proven
+above (no secret → fail closed, bad token → rejected via real `siteverify`) constitute the actual
+security boundary this finding cares about; a human clicking the checkbox once on smashio.com.au
+would confirm the last visual step but doesn't change the server-side guarantee. IP rate limiting
+(2026-09-12) stays in place alongside Turnstile, not replaced by it. M6 fully closed.
 
 **Where:** [website/api/subscribe.js](../website/api/subscribe.js),
 [20260910020000_web_signups.sql:55](../supabase/migrations/20260910020000_web_signups.sql)

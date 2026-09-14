@@ -495,6 +495,15 @@ sees new rows instead of nobody — this was the actual gap the Android email-ca
 (they wrote to `web_signups` but nothing read it back). Still open: Turnstile, and double opt-in
 itself (the notify email is one-way, not a confirm loop).
 
+**Amendment 2026-09-14 — email behaviour.** Turnstile has since shipped (`31b8065`), and a
+confirmation email to the signer was added alongside the notify on 2026-09-12. Both emails now go
+only to a **new** address: `web_signup()` returns whether it inserted a row
+(`20260914000500_web_signup_returns_inserted.sql`), and a repeat signup gets the same `{ ok: true }`
+with no email to either inbox, so the endpoint never reveals whether an address is already on the
+list. Both sends also run after the response, under `waitUntil` from `@vercel/functions`
+(`website/package.json`, its only dependency, still no build step), so a slow or failing Resend call
+never delays or fails a signup. Double opt-in is still open.
+
 ---
 
 ## 11. Sign-off

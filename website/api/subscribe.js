@@ -10,6 +10,15 @@
 // Confirmation email (2026-09-12): the form copy promises "we'll add you and email you back" —
 // this is that email, sent to the signer themselves, not just the internal notify.
 // Both are best-effort: a Resend failure never fails the request, the signup is already recorded.
+//
+// Off the response path (2026-09-14): the 200 goes back as soon as web_signup() succeeds, and both
+// sends run afterwards under waitUntil from @vercel/functions (website/package.json, the only
+// dependency, no build step), which keeps the invocation alive until they settle. Outside Vercel
+// waitUntil is a no-op and the sends just run unawaited.
+// New addresses only (2026-09-14): web_signup() returns true only when it inserted a row. A repeat
+// address, or a honeypot hit, gets the same `{ ok: true }` but no email to either inbox, so the
+// response never reveals whether an address was already on the list and a resubmit doesn't re-spam.
+const { waitUntil } = require("@vercel/functions");
 const { callServiceRpc } = require("./_venue-lib");
 
 const NOTIFY_TO = "hello@smashio.com.au";
@@ -227,8 +236,9 @@ module.exports = async function handler(req, res) {
     return res.status(403).json({ ok: false, error: "turnstile_failed" });
   }
 
+  let inserted;
   try {
-    await callServiceRpc("web_signup", {
+    inserted = await callServiceRpc("web_signup", {
       p_email: email,
       p_suburb: suburb || null,
       p_source: source,
@@ -244,8 +254,14 @@ module.exports = async function handler(req, res) {
     return res.status(500).json({ ok: false, error: "signup_failed" });
   }
 
-  if (!honeypot) {
-    await Promise.all([notifySignup({ email, suburb, source }), confirmSignup({ email, source })]);
+  // Strictly true: false covers a repeat address and a honeypot hit, and anything else (e.g. the old
+  // void web_signup() before 20260914000500 is applied) must not send either.
+  if (inserted === true) {
+    waitUntil(
+      Promise.all([notifySignup({ email, suburb, source }), confirmSignup({ email, source })]).catch((err) =>
+        console.error(`subscribe: email sends threw — ${err && err.message}`),
+      ),
+    );
   }
 
   return res.status(200).json({ ok: true });

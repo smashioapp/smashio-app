@@ -5,7 +5,6 @@ import { avatarColor } from "../../lib/theme";
 import { Screen } from "../../components/Screen";
 import { BackButton } from "../../components/BackButton";
 import { Avatar } from "../../components/Avatar";
-import { supabase } from "../../lib/supabase";
 import { useBlockedPlayers, useUnblockPlayer } from "../../lib/queries/settings";
 
 export default function BlockedPlayers() {
@@ -36,7 +35,7 @@ export default function BlockedPlayers() {
         {blocked?.map((row) => {
           const p = row.profiles;
           if (!p) return null;
-          const photoUrl = p.photo_path ? supabase.storage.from("avatars").getPublicUrl(p.photo_path).data.publicUrl : null;
+          const photoUrl = p.photo_url;
           return (
             <View
               key={p.id}

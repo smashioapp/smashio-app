@@ -2,11 +2,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../supabase";
 import { avatarColor } from "../theme";
 import { track } from "../analytics";
+import { signAvatarUrls } from "../avatarUrls";
 import type { Player } from "../mockData";
-
-function photoUrl(path: string | null): string | null {
-  return path ? supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl : null;
-}
 
 async function requireUserId(): Promise<string> {
   const {
@@ -26,13 +23,15 @@ export function useGameRoster(gameId: string) {
         .eq("game_id", gameId)
         .eq("status", "approved");
       if (error) throw error;
-      return (data ?? []).map((row) => {
+      const rows = data ?? [];
+      const urlMap = await signAvatarUrls(rows.map((row) => (row.profiles as { photo_path: string | null } | null)?.photo_path));
+      return rows.map((row) => {
         const profile = row.profiles as { display_name: string; photo_path: string | null; avatar_key: string | null } | null;
         return {
           id: row.profile_id,
           name: profile?.display_name || "Player",
           color: avatarColor(row.profile_id),
-          photoUri: photoUrl(profile?.photo_path ?? null),
+          photoUri: profile?.photo_path ? urlMap.get(profile.photo_path) ?? null : null,
           avatarKey: profile?.avatar_key ?? null,
         };
       });
@@ -56,18 +55,19 @@ export function useMyGamesRoster(gameIds: string[]) {
         .in("game_id", sortedIds)
         .eq("status", "approved");
       if (error) throw error;
+      const rows = (data ?? []).filter((row) => row.attended !== false);
+      const urlMap = await signAvatarUrls(rows.map((row) => (row.profiles as { photo_path: string | null } | null)?.photo_path));
       const byGame = new Map<string, Player[]>();
-      for (const row of data ?? []) {
+      for (const row of rows) {
         // A host-marked no-show is off the roster for every downstream use — roster faces on the
         // card, and the "Rate N players" count (post-game-plan.md D4). attended === null means
         // the host never marked, so nobody is excluded.
-        if (row.attended === false) continue;
         const profile = row.profiles as { display_name: string; photo_path: string | null; avatar_key: string | null } | null;
         const player: Player = {
           id: row.profile_id,
           name: profile?.display_name || "Player",
           color: avatarColor(row.profile_id),
-          photoUri: photoUrl(profile?.photo_path ?? null),
+          photoUri: profile?.photo_path ? urlMap.get(profile.photo_path) ?? null : null,
           avatarKey: profile?.avatar_key ?? null,
         };
         byGame.set(row.game_id, [...(byGame.get(row.game_id) ?? []), player]);

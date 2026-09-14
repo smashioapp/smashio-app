@@ -9,12 +9,11 @@ import { usePostDetail, usePostReplies, useCreateReply, useAcceptReply, useToggl
 import { Screen } from "../../components/Screen";
 import { BackButton } from "../../components/BackButton";
 import { Avatar } from "../../components/Avatar";
-import { supabase } from "../../lib/supabase";
 import { useSession } from "../../lib/session";
 import { haptics } from "../../lib/haptics";
 
 function ReplyRow({ reply, isOwner, onAccept }: { reply: PostReply; isOwner: boolean; onAccept: (id: string | null) => void }) {
-  const photoUrl = reply.authorPhotoPath ? supabase.storage.from("avatars").getPublicUrl(reply.authorPhotoPath).data.publicUrl : null;
+  const photoUrl = reply.authorPhotoUrl;
 
   return (
     <View style={{ paddingHorizontal: 24, paddingVertical: 10, gap: 6 }}>
@@ -75,7 +74,7 @@ export default function QuestionDetail() {
   const replies = repliesQuery.data ?? [];
   const isOwner = !!session && post?.authorId === session.user.id;
   const reacted = reactedQuery.data?.has(postId) ?? false;
-  const photoUrl = post?.authorPhotoPath ? supabase.storage.from("avatars").getPublicUrl(post.authorPhotoPath).data.publicUrl : null;
+  const photoUrl = post?.authorPhotoUrl ?? null;
 
   const submitReply = async () => {
     const body = draft.trim();

@@ -3,12 +3,10 @@ import { router } from "expo-router";
 import { Avatar } from "./Avatar";
 import { colors, avatarColor } from "../lib/theme";
 import { useFollowPlayer, useUnfollowPlayer, type FollowRow } from "../lib/queries/follows";
-import { supabase } from "../lib/supabase";
 
 function Row({ row }: { row: FollowRow }) {
   const followPlayer = useFollowPlayer();
   const unfollowPlayer = useUnfollowPlayer();
-  const photoUrl = row.photoPath ? supabase.storage.from("avatars").getPublicUrl(row.photoPath).data.publicUrl : null;
   const busy = followPlayer.isPending || unfollowPlayer.isPending;
 
   return (
@@ -16,7 +14,7 @@ function Row({ row }: { row: FollowRow }) {
       onPress={() => router.push(`/player/${row.id}`)}
       className="flex-row items-center gap-3 px-5 py-3"
     >
-      <Avatar id={row.id} name={row.displayName} color={avatarColor(row.id)} size={44} photoUri={photoUrl} avatarKey={row.avatarKey} />
+      <Avatar id={row.id} name={row.displayName} color={avatarColor(row.id)} size={44} photoUri={row.photoUrl} avatarKey={row.avatarKey} />
       <View className="flex-1">
         <Text className="font-body-bold text-[14.5px]" style={{ color: colors.text }}>
           {row.displayName}

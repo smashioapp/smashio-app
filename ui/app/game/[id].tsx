@@ -14,7 +14,6 @@ import { useMyRatedGameIds } from "../../lib/queries/ratings";
 import { useSession } from "../../lib/session";
 import { savePendingPath } from "../../lib/pendingGame";
 import { usePlayerCard } from "../../lib/queries/profile";
-import { supabase } from "../../lib/supabase";
 import {
   useDecideJoinRequest,
   useGameRoster,
@@ -569,7 +568,7 @@ export default function GameDetails() {
                   id={organizer.id}
                   name={organizer.displayName}
                   color={colors.surfaceAlt}
-                  photoUri={organizer.photoPath ? supabase.storage.from("avatars").getPublicUrl(organizer.photoPath).data.publicUrl : null}
+                  photoUri={organizer.photoUrl}
                   avatarKey={organizer.avatarKey}
                   size={44}
                 />

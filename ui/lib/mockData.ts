@@ -52,7 +52,7 @@ export type Game = {
   // Only populated by nearby_games (Discover) — games_public rows (my-games) don't join
   // profiles, so a card falls back to no host row rather than showing stale/wrong identity.
   organizerName?: string;
-  organizerPhotoPath?: string | null;
+  organizerPhotoUrl?: string | null;
   organizerAvatarKey?: string | null;
   organizerReliabilityScore?: number;
   organizerHostedCount?: number;

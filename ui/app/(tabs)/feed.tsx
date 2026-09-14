@@ -17,7 +17,6 @@ import { Chip } from "../../components/Chip";
 import { SegmentedToggle } from "../../components/SegmentedToggle";
 import { Sheet } from "../../components/Sheet";
 import { Button } from "../../components/Button";
-import { supabase } from "../../lib/supabase";
 import { useSession } from "../../lib/session";
 import { haptics } from "../../lib/haptics";
 import { track } from "../../lib/analytics";
@@ -174,7 +173,7 @@ function ReactionStrip({ post, reacted, onToggle }: { post: FeedPost; reacted: b
 function FeedRow({ post, reacted, onToggleReaction }: { post: FeedPost; reacted: boolean; onToggleReaction: () => void }) {
   const isSystem = post.kind === "system";
   const payload = (post.payload ?? {}) as Record<string, string | number | undefined>;
-  const photoUrl = post.authorPhotoPath ? supabase.storage.from("avatars").getPublicUrl(post.authorPhotoPath).data.publicUrl : null;
+  const photoUrl = post.authorPhotoUrl;
   const tag = PTAG[post.kind];
   const isQuestion = post.kind === "question";
 
@@ -381,10 +380,10 @@ function FeedFiltersSheet({ visible, onClose, postCount }: { visible: boolean; o
   );
 }
 
-function SuggestedFollowRow({ player }: { player: { id: string; displayName: string; photoPath: string | null; avatarKey: string | null; homeSuburb: string | null; skillTierLabel: string | null } }) {
+function SuggestedFollowRow({ player }: { player: { id: string; displayName: string; photoUrl: string | null; avatarKey: string | null; homeSuburb: string | null; skillTierLabel: string | null } }) {
   const followPlayer = useFollowPlayer();
   const [followed, setFollowed] = useState(false);
-  const photoUrl = player.photoPath ? supabase.storage.from("avatars").getPublicUrl(player.photoPath).data.publicUrl : null;
+  const photoUrl = player.photoUrl;
   const line = [player.homeSuburb ? `Plays near ${player.homeSuburb}` : null, player.skillTierLabel].filter(Boolean).join(" · ");
 
   return (

@@ -17,7 +17,6 @@ import { VenueCourtHeader } from "./VenueCourtHeader";
 import { GameCover } from "./GameCover";
 import { Game, Player, spotsLeft } from "../lib/mockData";
 import { haptics } from "../lib/haptics";
-import { supabase } from "../lib/supabase";
 import { openDirections } from "../lib/directions";
 import { shareGame } from "../lib/share";
 import { useCancelGame, useUploadConfirmation } from "../lib/queries/games";
@@ -73,9 +72,7 @@ export function UpcomingGameCard({
     prevInCountRef.current = inCount;
   }, [inCount, game.maxPlayers, role]);
 
-  const organizerPhotoUrl = game.organizerPhotoPath
-    ? supabase.storage.from("avatars").getPublicUrl(game.organizerPhotoPath).data.publicUrl
-    : null;
+  const organizerPhotoUrl = game.organizerPhotoUrl ?? null;
 
   const handleLeave = () => {
     const isRequested = role === "requested";

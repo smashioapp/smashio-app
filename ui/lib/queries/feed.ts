@@ -1,6 +1,7 @@
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../supabase";
 import { track } from "../analytics";
+import { signAvatarUrl, signAvatarUrls } from "../avatarUrls";
 import { DEFAULT_LAT, DEFAULT_LNG, SPORT_SLUG } from "./games";
 import type { FeedKind, FeedMode } from "../store";
 
@@ -10,7 +11,7 @@ export type FeedPost = {
   id: string;
   authorId: string | null;
   authorDisplayName: string | null;
-  authorPhotoPath: string | null;
+  authorPhotoUrl: string | null;
   authorAvatarKey: string | null;
   kind: string;
   body: string | null;
@@ -51,12 +52,14 @@ export function useFeedHome(
         p_kind: kinds.length > 0 ? kinds : undefined,
       });
       if (error) throw error;
-      return (data ?? []).map(
+      const rows = data ?? [];
+      const urlMap = await signAvatarUrls(rows.map((r) => r.author_photo_path));
+      return rows.map(
         (r): FeedPost => ({
           id: r.id,
           authorId: r.author_id,
           authorDisplayName: r.author_display_name,
-          authorPhotoPath: r.author_photo_path,
+          authorPhotoUrl: r.author_photo_path ? urlMap.get(r.author_photo_path) ?? null : null,
           authorAvatarKey: r.author_avatar_key,
           kind: r.kind,
           body: r.body,
@@ -158,7 +161,7 @@ export type PostReply = {
   postId: string;
   authorId: string | null;
   authorDisplayName: string | null;
-  authorPhotoPath: string | null;
+  authorPhotoUrl: string | null;
   authorAvatarKey: string | null;
   body: string;
   createdAt: string;
@@ -171,13 +174,15 @@ export function usePostReplies(postId: string | undefined) {
     queryFn: async () => {
       const { data, error } = await supabase.rpc("list_replies", { p_post_id: postId! });
       if (error) throw error;
-      return (data ?? []).map(
+      const rows = data ?? [];
+      const urlMap = await signAvatarUrls(rows.map((r) => r.author_photo_path));
+      return rows.map(
         (r): PostReply => ({
           id: r.id,
           postId: r.post_id,
           authorId: r.author_id,
           authorDisplayName: r.author_display_name,
-          authorPhotoPath: r.author_photo_path,
+          authorPhotoUrl: r.author_photo_path ? urlMap.get(r.author_photo_path) ?? null : null,
           authorAvatarKey: r.author_avatar_key,
           body: r.body,
           createdAt: r.created_at,
@@ -241,7 +246,7 @@ export function usePostDetail(postId: string | undefined) {
         id: data.id as string,
         authorId: data.author_id as string | null,
         authorDisplayName: author?.display_name ?? null,
-        authorPhotoPath: author?.photo_path ?? null,
+        authorPhotoUrl: await signAvatarUrl(author?.photo_path),
         authorAvatarKey: author?.avatar_key ?? null,
         kind: data.kind as string,
         body: data.body as string | null,
@@ -264,7 +269,7 @@ export function usePostDetail(postId: string | undefined) {
 export type SuggestedPlayer = {
   id: string;
   displayName: string;
-  photoPath: string | null;
+  photoUrl: string | null;
   avatarKey: string | null;
   homeSuburb: string | null;
   skillTierLabel: string | null;
@@ -279,11 +284,13 @@ export function useSuggestedFollows(center: { lat: number; lng: number } = { lat
         p_lng: center.lng,
       });
       if (error) throw error;
-      return (data ?? []).map(
+      const rows = data ?? [];
+      const urlMap = await signAvatarUrls(rows.map((r) => r.photo_path));
+      return rows.map(
         (r): SuggestedPlayer => ({
           id: r.id,
           displayName: r.display_name,
-          photoPath: r.photo_path,
+          photoUrl: r.photo_path ? urlMap.get(r.photo_path) ?? null : null,
           avatarKey: r.avatar_key,
           homeSuburb: r.home_suburb,
           skillTierLabel: r.skill_tier_label,

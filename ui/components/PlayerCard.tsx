@@ -9,7 +9,6 @@ import { ReliabilityGauge } from "./ReliabilityGauge";
 import { BehaviourBadges } from "./BehaviourBadges";
 import { usePlayerCard } from "../lib/queries/profile";
 import { useFollowPlayer, useUnfollowPlayer } from "../lib/queries/follows";
-import { supabase } from "../lib/supabase";
 
 const NIGHT_LABELS: Record<string, string> = { mon: "Mon", tue: "Tue", wed: "Wed", thu: "Thu", fri: "Fri", sat: "Sat", sun: "Sun" };
 const NIGHT_ORDER = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
@@ -35,7 +34,7 @@ function StatTile({ value, label, onPress }: { value: number; label: string; onP
 
 export function PlayerCardHeader({
   id,
-  photoPath,
+  photoUrl,
   avatarKey,
   displayName,
   homeSuburb,
@@ -45,7 +44,7 @@ export function PlayerCardHeader({
   verified,
 }: {
   id: string;
-  photoPath: string | null;
+  photoUrl: string | null;
   avatarKey?: string | null;
   displayName: string;
   homeSuburb: string | null;
@@ -54,7 +53,6 @@ export function PlayerCardHeader({
   onEditPress?: () => void;
   verified?: boolean;
 }) {
-  const photoUrl = photoPath ? supabase.storage.from("avatars").getPublicUrl(photoPath).data.publicUrl : null;
   const color = tierLabel ? tierColor(tierLabel) : colors.textSecondary;
   const memberSinceYear = new Date(memberSince).getFullYear();
 
@@ -169,7 +167,7 @@ export function PlayerCard({
     <View>
       <PlayerCardHeader
         id={card.id}
-        photoPath={card.photoPath}
+        photoUrl={card.photoUrl}
         avatarKey={card.avatarKey}
         displayName={card.displayName}
         homeSuburb={card.homeSuburb}

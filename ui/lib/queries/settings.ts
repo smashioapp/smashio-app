@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../supabase";
+import { signAvatarUrls } from "../avatarUrls";
 import type { TablesInsert } from "../db.types";
 
 async function currentUserId() {
@@ -48,7 +49,12 @@ export function useBlockedPlayers() {
         .select("blocked_id, created_at, profiles!blocks_blocked_id_fkey(id, display_name, photo_path, avatar_key)")
         .order("created_at", { ascending: false });
       if (error) throw error;
-      return data;
+      const rows = data ?? [];
+      const urlMap = await signAvatarUrls(rows.map((row) => row.profiles?.photo_path));
+      return rows.map((row) => ({
+        ...row,
+        profiles: row.profiles ? { ...row.profiles, photo_url: row.profiles.photo_path ? urlMap.get(row.profiles.photo_path) ?? null : null } : null,
+      }));
     },
   });
 }

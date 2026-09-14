@@ -24,7 +24,6 @@ import { usePlayerCard, useLateLeaveCount, useProfileStreak, useProfileActivity 
 import { useAchievementAwards } from "../../lib/queries/achievements";
 import { useUnreadNotificationCount } from "../../lib/queries/notifications";
 import { haptics } from "../../lib/haptics";
-import { supabase } from "../../lib/supabase";
 
 type Tab = "overview" | "history" | "trophy";
 
@@ -84,7 +83,7 @@ export default function Profile() {
   const gamesHosted = card?.gamesHosted ?? 0;
   const hasPlayedAnything = gamesPlayed > 0 || gamesHosted > 0;
   const selfTier = card?.sports.find((s) => s.sportSlug === "badminton")?.tierLabel ?? card?.sports[0]?.tierLabel ?? null;
-  const photoUrl = card?.photoPath ? supabase.storage.from("avatars").getPublicUrl(card.photoPath).data.publicUrl : null;
+  const photoUrl = card?.photoUrl ?? null;
 
   const tier = gamesPlayedTier(gamesPlayed);
   const next = nextGamesPlayedTier(gamesPlayed);
@@ -313,7 +312,7 @@ export default function Profile() {
                     <View className="mt-4">
                       <CompletenessMeter
                         input={{
-                          hasPhoto: !!card.photoPath,
+                          hasPhoto: !!card.photoUrl,
                           hasSuburb: !!card.homeSuburb,
                           hasTier: !!selfTier,
                           emailVerified,

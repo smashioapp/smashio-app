@@ -163,7 +163,7 @@ function NotificationRow({ item, onPress }: { item: NotificationItem; onPress: (
               name={item.actorDisplayName!}
               color={avatarColor(item.actorId!)}
               size={34}
-              photoUri={item.actorPhotoPath ? supabase.storage.from("avatars").getPublicUrl(item.actorPhotoPath).data.publicUrl : null}
+              photoUri={item.actorPhotoUrl}
               avatarKey={item.actorAvatarKey}
             />
           ) : (

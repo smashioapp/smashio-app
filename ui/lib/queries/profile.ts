@@ -4,6 +4,7 @@ import { supabase } from "../supabase";
 import type { Database, TablesUpdate } from "../db.types";
 import { computeWeekStreak } from "../format";
 import { avatarColor } from "../theme";
+import { signAvatarUrl } from "../avatarUrls";
 
 async function currentUserId() {
   const {
@@ -135,7 +136,7 @@ export function useProfileSports(profileId: string | undefined) {
 export type PlayerCard = {
   id: string;
   displayName: string;
-  photoPath: string | null;
+  photoUrl: string | null;
   homeSuburb: string | null;
   memberSince: string;
   gamesPlayed: number;
@@ -189,7 +190,7 @@ export function usePlayerCard(targetId: string | undefined) {
       return {
         id: data.id,
         displayName: data.display_name,
-        photoPath: data.photo_path,
+        photoUrl: await signAvatarUrl(data.photo_path),
         homeSuburb: data.home_suburb,
         memberSince: data.member_since,
         gamesPlayed: data.games_played,

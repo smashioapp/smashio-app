@@ -2,10 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../supabase";
 import { avatarColor } from "../theme";
 import { captureMutationError } from "../sentry";
-
-function photoUrl(path: string | null): string | null {
-  return path ? supabase.storage.from("avatars").getPublicUrl(path).data.publicUrl : null;
-}
+import { signAvatarUrls } from "../avatarUrls";
 
 // A reserved spot the host has put a name, an invite, or a link on (post-game-plan.md D2).
 // The remainder of games.reserved_spots is the plain anonymous count the wizard has always had —
@@ -40,20 +37,25 @@ export function useReservedSpots(gameId: string) {
         .eq("game_id", gameId)
         .order("created_at");
       if (error) throw error;
-      return (data ?? []).map((row) => ({
-        id: row.id,
-        label: row.label,
-        invitedProfileId: row.invited_profile_id,
-        invitedName: (row.invited as { display_name: string } | null)?.display_name ?? null,
-        invitedAvatarKey: (row.invited as { avatar_key: string | null } | null)?.avatar_key ?? null,
-        invitedPhotoUri: photoUrl((row.invited as { photo_path: string | null } | null)?.photo_path ?? null),
-        inviteToken: row.invite_token,
-        claimedBy: row.claimed_by,
-        claimedName: (row.claimer as { display_name: string } | null)?.display_name ?? null,
-        color: avatarColor(row.id),
-        expiresAt: row.expires_at,
-        pinned: row.pinned,
-      }));
+      const rows = data ?? [];
+      const urlMap = await signAvatarUrls(rows.map((row) => (row.invited as { photo_path: string | null } | null)?.photo_path));
+      return rows.map((row) => {
+        const invitedPhotoPath = (row.invited as { photo_path: string | null } | null)?.photo_path ?? null;
+        return {
+          id: row.id,
+          label: row.label,
+          invitedProfileId: row.invited_profile_id,
+          invitedName: (row.invited as { display_name: string } | null)?.display_name ?? null,
+          invitedAvatarKey: (row.invited as { avatar_key: string | null } | null)?.avatar_key ?? null,
+          invitedPhotoUri: invitedPhotoPath ? urlMap.get(invitedPhotoPath) ?? null : null,
+          inviteToken: row.invite_token,
+          claimedBy: row.claimed_by,
+          claimedName: (row.claimer as { display_name: string } | null)?.display_name ?? null,
+          color: avatarColor(row.id),
+          expiresAt: row.expires_at,
+          pinned: row.pinned,
+        };
+      });
     },
     enabled: !!gameId,
   });
@@ -250,11 +252,13 @@ export function useRecentCoplayers(gameId: string, enabled: boolean) {
     queryFn: async (): Promise<RecentCoplayer[]> => {
       const { data, error } = await supabase.rpc("recent_coplayers", { p_game_id: gameId });
       if (error) throw error;
-      return (data ?? []).map((row) => ({
+      const rows = data ?? [];
+      const urlMap = await signAvatarUrls(rows.map((row) => row.photo_path));
+      return rows.map((row) => ({
         profileId: row.profile_id,
         name: row.display_name,
         avatarKey: row.avatar_key,
-        photoUri: photoUrl(row.photo_path),
+        photoUri: row.photo_path ? urlMap.get(row.photo_path) ?? null : null,
         color: avatarColor(row.profile_id),
       }));
     },

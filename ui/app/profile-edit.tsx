@@ -4,6 +4,7 @@ import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { colors, TIERS, TierId, avatarColor } from "../lib/theme";
 import { Button } from "../components/Button";
 import { Screen } from "../components/Screen";
@@ -17,6 +18,7 @@ import { useProfile, useProfileSports, useUpdateProfile, useUpsertProfileSport, 
 import { useSports, useSkillTiers } from "../lib/queries/sports";
 import { SPORT_SLUG } from "../lib/queries/games";
 import { supabase } from "../lib/supabase";
+import { signAvatarUrl } from "../lib/avatarUrls";
 import { newSessionToken, searchPlaces, getPlaceDetails } from "../lib/places";
 import { useVenuesDirectory } from "../lib/queries/venues";
 import { Sheet } from "../components/Sheet";
@@ -186,10 +188,12 @@ export default function ProfileEdit() {
   };
 
   const saving = updateProfile.isPending || uploadAvatar.isPending || upsertProfileSport.isPending;
-  const existingPhotoUrl = profile?.photo_path
-    ? supabase.storage.from("avatars").getPublicUrl(profile.photo_path).data.publicUrl
-    : null;
-  const previewUri = avatarKeyChoice ? null : localPhotoUri ?? existingPhotoUrl;
+  const { data: existingPhotoUrl } = useQuery({
+    queryKey: ["avatar_url", profile?.photo_path],
+    queryFn: () => signAvatarUrl(profile?.photo_path ?? null),
+    enabled: !!profile?.photo_path,
+  });
+  const previewUri = avatarKeyChoice ? null : localPhotoUri ?? existingPhotoUrl ?? null;
   const previewAvatarKey = avatarKeyChoice ?? profile?.avatar_key;
   const displayName = nameTouched ? name : profile?.display_name ?? name;
   const displaySuburb = suburbTouched ? suburb : profile?.home_suburb ?? suburb;

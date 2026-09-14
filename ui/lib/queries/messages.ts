@@ -5,6 +5,7 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type InfiniteD
 import { supabase } from "../supabase";
 import { avatarColor } from "../theme";
 import { formatDate } from "../format";
+import { signAvatarUrls } from "../avatarUrls";
 import type { Database } from "../db.types";
 
 const PAGE_SIZE = 50;
@@ -27,10 +28,6 @@ async function requireUserId(): Promise<string> {
 
 function formatClock(iso: string): string {
   return new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-}
-
-function avatarUrl(photoPath: string | null | undefined): string | null {
-  return photoPath ? supabase.storage.from("avatars").getPublicUrl(photoPath).data.publicUrl : null;
 }
 
 export type ChatMessageKind = "text" | "image" | "system" | "game_share";
@@ -641,12 +638,25 @@ export function useChatMembers(gameId: string, organizerId?: string) {
         .eq("status", "approved");
       if (error) throw error;
 
-      const members: ChatMember[] = (data ?? []).map((r) => {
+      const rows = data ?? [];
+      let org: { display_name: string | null; photo_path: string | null; avatar_key: string | null } | null = null;
+      const needsOrganizer = !!organizerId && !rows.some((r) => r.profile_id === organizerId);
+      if (needsOrganizer) {
+        const { data: orgRow } = await supabase.from("profiles").select("display_name, photo_path, avatar_key").eq("id", organizerId!).single();
+        org = orgRow ?? null;
+      }
+
+      const urlMap = await signAvatarUrls([
+        ...rows.map((r) => (r.profiles as { photo_path: string | null } | null)?.photo_path),
+        org?.photo_path,
+      ]);
+
+      const members: ChatMember[] = rows.map((r) => {
         const profile = r.profiles as { display_name: string; photo_path: string | null; avatar_key: string | null } | null;
         return {
           id: r.profile_id,
           name: profile?.display_name || "Player",
-          photoUri: avatarUrl(profile?.photo_path),
+          photoUri: profile?.photo_path ? urlMap.get(profile.photo_path) ?? null : null,
           avatarKey: profile?.avatar_key ?? null,
           color: avatarColor(r.profile_id),
           isHost: r.profile_id === organizerId,
@@ -655,12 +665,11 @@ export function useChatMembers(gameId: string, organizerId?: string) {
         };
       });
 
-      if (organizerId && !members.some((m) => m.id === organizerId)) {
-        const { data: org } = await supabase.from("profiles").select("display_name, photo_path, avatar_key").eq("id", organizerId).single();
+      if (organizerId && needsOrganizer) {
         members.push({
           id: organizerId,
           name: org?.display_name || "Host",
-          photoUri: avatarUrl(org?.photo_path),
+          photoUri: org?.photo_path ? urlMap.get(org.photo_path) ?? null : null,
           avatarKey: org?.avatar_key ?? null,
           color: avatarColor(organizerId),
           isHost: true,

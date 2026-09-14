@@ -45,14 +45,14 @@ Severity is impact on a live beta with real users, not CVSS.
 | H7 | High | Stored XSS on smashio.com.au through venue name in JSON-LD |
 | M1 | Medium | `link_only` games still enumerable through PostgREST (fixed 2026-09-12, applied 2026-09-14) |
 | M2 | Medium | `reliability_score` and `referred_by` are self-editable |
-| M3 | Medium | No security headers on the website, third-party script without SRI (headers fixed 2026-09-11, self-hosted 2026-09-14) |
+| M3 | Medium | No security headers on the website, third-party script without SRI (headers fixed 2026-09-11, self-hosted 2026-09-14, deployed to prod, confirmed 2026-09-14) |
 | M4 | Medium | `ai-proxy` classify mode has no rate limit (fixed 2026-09-12, applied 2026-09-14) |
-| M5 | Medium | Shared-secret comparisons are not constant-time |
+| M5 | Medium | Shared-secret comparisons are not constant-time (fixed 2026-09-11) |
 | M6 | Medium | `/api/subscribe` has no rate limit and triggers outbound email (fixed 2026-09-12, applied 2026-09-14) |
-| M7 | Medium | Google Maps key restrictions unverified |
-| M8 | Medium | Email confirmation disabled in config, production state unverified |
-| L1 | Low | `avatars` bucket is public and enumerable by user id |
-| L2 | Low | 27 npm advisories in `ui/`, all build-time tooling |
+| M7 | Medium | Google Maps key restrictions unverified (verified in console, 2026-09-14) |
+| M8 | Medium | Email confirmation disabled in config, production state unverified (verified enabled, 2026-09-14) |
+| L1 | Low | `avatars` bucket is public and enumerable by user id (fixed and verified locally 2026-09-14, not yet applied to hosted) |
+| L2 | Low | 27 npm advisories in `ui/`, all build-time tooling (5 closed via `npm audit fix`, 2026-09-14) |
 | L3 | Low | No delete policy on avatar storage objects |
 
 ---
@@ -470,7 +470,10 @@ and `unpkg.com` is removed from both `script-src` and `connect-src` in `website/
 third-party origin is gone, not just hashed. Verified locally with `vercel dev`: all loader/chunk
 files and the icons actually used on the home page (megaphone, search, apple logo, layers,
 tennisball, shield-checkmark, add, close-circle) return 200 from the local static path, icons
-render, no console errors. Not yet deployed to Vercel prod.
+render, no console errors. Deployed to Vercel prod as part of commit `9ee804a`: confirmed directly
+against the Vercel API that the top production deployment (`dpl_58k627xW6yvrShpX6amL7YZVUXVi`,
+state `READY`) matches that commit sha exactly, so the self-hosted ionicons and the tightened CSP
+are both live on smashio.com.au.
 
 **Where:** [website/vercel.json](../website/vercel.json), [website/api/_venue-lib.js](../website/api/_venue-lib.js)
 
@@ -615,6 +618,10 @@ per signup.
 
 ## M7 — Google Maps key restrictions unverified
 
+**Status 2026-09-14: verified.** Confirmed in Google Cloud Console: application restriction
+(Android package + release-keystore SHA-1, iOS bundle id) and API restriction (Maps SDK + Places
+only) are both set. Separate-keys-per-platform recommendation not confirmed either way this pass.
+
 **Where:** `ui/.env` (untracked, correctly gitignored at `ui/.gitignore:37`),
 `.github/workflows/build-android.yml`, `build-ios.yml`
 
@@ -631,6 +638,13 @@ billed per session; an unrestricted key is a direct spend risk.
 ---
 
 ## M8 — Email confirmation disabled in config, production state unverified
+
+**Status 2026-09-14: verified enabled on hosted.** Confirmed in the dashboard (Authentication →
+Providers → Email) that confirmations are on for the hosted project — `config.toml`'s
+`enable_confirmations = false` only governs the local stack, as noted below. New signups on the
+hosted project require verifying their email before holding a usable `authenticated` session, which
+closes the "anyone gets `authenticated` for free" risk this finding raised for H2 through H6 and M1.
+Redirect allowlist and JWT/refresh-token settings were not re-checked in this pass.
 
 **Where:** [supabase/config.toml:31](../supabase/config.toml)
 
@@ -655,6 +669,29 @@ While in that screen, confirm the JWT expiry and refresh-token rotation settings
 
 ## L1 — `avatars` bucket is public and enumerable by user id
 
+**Status 2026-09-14: fixed and verified locally, not yet applied to hosted.**
+`20260914000200_avatars_private.sql` flips `storage.buckets.public` to `false` for `avatars` and
+replaces the open `select` policy with one scoped `to authenticated` — closes the "no account
+needed" exposure without gating on `profile_visibility`/`shares_a_game_with`, since avatars are
+already shown across contexts (feed, discover, follows) that are broader than "shares a game with."
+Every read in `ui/` moved from `getPublicUrl` to a batched `createSignedUrl`/`createSignedUrls`
+call, matching the existing `venue-photos` pattern (`ui/lib/queries/venues.ts:119`): new
+`ui/lib/avatarUrls.ts` (`signAvatarUrl`/`signAvatarUrls`, 1-hour TTL), threaded through
+`gamePlayers.ts`, `messages.ts`, `reservedSpots.ts`, `follows.ts`, `feed.ts`, `notifications.ts`,
+`games.ts` (organizer photo on every `toGame`/`toGameFromPublicRow` list), `settings.ts` (blocked
+list) and `profile.ts` (`usePlayerCard`), with 10 components' inline `getPublicUrl` calls deleted
+in favour of the pre-resolved URL field (`FollowList.tsx`, `PlayerCard.tsx`,
+`UpcomingGameCard.tsx`, `notifications.tsx`, `game/[id].tsx`, `settings/blocked.tsx`,
+`post/[id].tsx`, `feed.tsx`, `profile.tsx`, `profile-edit.tsx`). `website/` never rendered an
+avatar and needs no change (confirmed — `player_seo`'s share card is deliberately aggregate-only,
+no photo). `delete-account`'s service-role `list`/`remove` calls are unaffected by RLS. `tsc --noEmit` passes clean. `supabase db reset` replayed clean and `supabase test db` matches the
+documented pre-existing baseline exactly (`join_leave_flow_test.sql` and
+`push_dispatch_triggers_test.sql` fail identically to before this change, nothing else does) — no
+avatar-related regression. Confirmed directly against the local database: `storage.buckets.public`
+is `false` for `avatars`, and the only `select` policy on `storage.objects` for that bucket is
+`avatar images readable by authenticated`, scoped to `{authenticated}`. **Not yet applied to the
+hosted project** — needs `supabase db push`.
+
 `insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true)`
 ([20260807000400_avatars_storage.sql:2](../supabase/migrations/20260807000400_avatars_storage.sql)),
 with a select policy carrying no role restriction. Keys are `{uid}/{filename}`, so a profile photo
@@ -668,6 +705,12 @@ to go private and reads move to signed URLs.
 ---
 
 ## L2 — 27 npm advisories in `ui/`, all build-time tooling
+
+**Status 2026-09-14: partially fixed.** `npm audit fix` (no `--force`, no major bumps) closed 5 of
+27 (down to 22: 18 moderate, 4 high). `package.json` unchanged, only `package-lock.json` moved.
+`tsc --noEmit` clean after. Remaining 22 all still route through `@expo/config-plugins` /
+`@expo/cli` / `metro` and need a major bump `npm audit fix --force` would trigger — per the
+AGENTS.md rule, don't force that outside a deliberate Expo SDK upgrade.
 
 `npm audit` reports 18 moderate and 9 high, every one reached through `@expo/cli`, `metro`,
 `@expo/config-plugins`, `sharp`, `@xmldom/xmldom`, `js-yaml`, `image-size` or `nanoid`. These are
@@ -733,17 +776,21 @@ Worth recording so a later pass does not re-derive them:
 locally *and* applied to the hosted project the same day. **2026-09-14: M1, M4 and M6 pushed and
 deployed to the hosted project** (confirmed directly against it: games RLS policy, the
 `ai_proxy_classify_calls` table + deployed function source, and the `web_signup` grant all match
-their migrations), and **M3's SRI half closed** — ionicons is now self-hosted under
-`website/assets/ionicons/` instead of loaded from `unpkg.com`, which is also dropped from the CSP.
-M6's env var (`SUPABASE_SERVICE_ROLE_KEY`) is set in Vercel. Still open: M7, M8, L1, L2.
+their migrations), and **M3's SRI half closed and deployed** — ionicons is now self-hosted under
+`website/assets/ionicons/` instead of loaded from `unpkg.com`, which is also dropped from the CSP;
+confirmed live on the top Vercel production deployment. M6's env var (`SUPABASE_SERVICE_ROLE_KEY`)
+is set in Vercel. **M8 verified enabled on the hosted dashboard, M7 verified in Google Cloud
+Console.** All eight mediums are now closed. **L2 partially closed** (`npm audit fix`, no force,
+5 of 27 advisories, `tsc --noEmit` clean). Still open: L1 (product decision on the avatars bucket)
+and L2's remaining 22 (need an Expo SDK major bump, out of scope for a `--force` fix per AGENTS.md).
 
-1. ~~**Today:** H1, M8~~ — H1 done 2026-09-11. M8 still needs a human to check the hosted dashboard.
+1. ~~**Today:** H1, M8~~ — H1 done 2026-09-11. M8 verified enabled 2026-09-14.
 2. ~~**This week:** H2, H3, H4~~ — done 2026-09-12: verified locally, applied to hosted, `db.types.ts`
    regenerated.
-3. ~~**Before the next website deploy:** H7 and M3~~ — H7 done 2026-09-11; M3 fully done 2026-09-14
-   (headers 2026-09-11, self-hosted ionicons 2026-09-14, not yet deployed to Vercel prod).
-4. ~~**Before the November launch:** H5/H6/M1/M2/M4/M6~~ — all fixed and applied to hosted as of
-   2026-09-14. Still to do: M7, M8, then the low items.
+3. ~~**Before the next website deploy:** H7 and M3~~ — H7 done 2026-09-11; M3 fully done and deployed
+   2026-09-14 (headers 2026-09-11, self-hosted ionicons + prod deploy 2026-09-14).
+4. ~~**Before the November launch:** H5/H6/M1/M2/M4/M6/M7/M8~~ — all fixed, applied and verified as
+   of 2026-09-14. Still to do: L1 (needs a product call) and L2's remaining advisories.
 
 **Status 2026-09-12: partially addressed.** H3 and H4/M2 shipped trigger-based guards
 (`protect_games_system_columns`, `protect_profiles_system_columns`) that force the protected columns

@@ -3,6 +3,7 @@ import * as Notifications from "expo-notifications";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../supabase";
 import { useSession } from "../session";
+import { signAvatarUrls } from "../avatarUrls";
 import type { Database } from "../db.types";
 
 type Row = Database["public"]["Tables"]["notifications"]["Row"];
@@ -13,7 +14,7 @@ export type NotificationItem = {
   gameId: string | null;
   actorId: string | null;
   actorDisplayName: string | null;
-  actorPhotoPath: string | null;
+  actorPhotoUrl: string | null;
   actorAvatarKey: string | null;
   params: Record<string, unknown>;
   title: string | null;
@@ -29,14 +30,14 @@ type RowWithActor = Row & {
   actor: { display_name: string | null; photo_path: string | null; avatar_key: string | null } | null;
 };
 
-function toItem(row: RowWithActor): NotificationItem {
+function toItem(row: RowWithActor, avatarUrls: Map<string, string>): NotificationItem {
   return {
     id: row.id,
     type: row.type,
     gameId: row.game_id,
     actorId: row.actor_id,
     actorDisplayName: row.actor?.display_name ?? null,
-    actorPhotoPath: row.actor?.photo_path ?? null,
+    actorPhotoUrl: row.actor?.photo_path ? avatarUrls.get(row.actor.photo_path) ?? null : null,
     actorAvatarKey: row.actor?.avatar_key ?? null,
     params: (row.params as Record<string, unknown>) ?? {},
     title: row.title,
@@ -130,7 +131,9 @@ export function useNotificationsInbox() {
         .order("created_at", { ascending: false })
         .limit(50);
       if (error) throw error;
-      return (data ?? []).map((row) => toItem(row as unknown as RowWithActor));
+      const rows = (data ?? []) as unknown as RowWithActor[];
+      const urlMap = await signAvatarUrls(rows.map((row) => row.actor?.photo_path));
+      return rows.map((row) => toItem(row, urlMap));
     },
   });
 }

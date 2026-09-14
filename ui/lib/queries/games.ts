@@ -11,6 +11,7 @@ import { prepareConfirmationImage } from "../imagePrep";
 import { randomCoverKey } from "../covers";
 import { useAppStore } from "../store";
 import { captureMutationError } from "../sentry";
+import { signAvatarUrls } from "../avatarUrls";
 
 // Sydney CBD — fallback center when device location is unavailable or denied. Sydney-only for launch.
 export const DEFAULT_LAT = -33.8688;
@@ -22,7 +23,7 @@ type NearbyGameRow = Database["public"]["Functions"]["nearby_games"]["Returns"][
 type NearbyGamePublicRow = Database["public"]["Functions"]["nearby_games_public"]["Returns"][number];
 type GamesPublicRow = Database["public"]["Views"]["games_public"]["Row"];
 
-function toGame(row: NearbyGameRow, units: DistanceUnits = "km"): Game {
+function toGame(row: NearbyGameRow, units: DistanceUnits = "km", avatarUrls: Map<string, string> = new Map()): Game {
   return {
     id: row.id,
     organizerId: row.organizer_id,
@@ -56,7 +57,7 @@ function toGame(row: NearbyGameRow, units: DistanceUnits = "km"): Game {
     venueLat: row.venue_lat,
     venueLng: row.venue_lng,
     organizerName: row.organizer_display_name || "Player",
-    organizerPhotoPath: row.organizer_photo_path,
+    organizerPhotoUrl: row.organizer_photo_path ? avatarUrls.get(row.organizer_photo_path) ?? null : null,
     organizerAvatarKey: row.organizer_avatar_key,
     organizerReliabilityScore: row.organizer_reliability_score,
     organizerHostedCount: row.organizer_hosted_count,
@@ -70,7 +71,7 @@ function toGame(row: NearbyGameRow, units: DistanceUnits = "km"): Game {
 
 // my-games list rows (joined/hosting/past) come from games_public directly — no distance_m
 // (there's no viewer location to measure from), but organizer_* is joined same as nearby_games.
-function toGameFromPublicRow(row: GamesPublicRow): Game {
+function toGameFromPublicRow(row: GamesPublicRow, avatarUrls: Map<string, string> = new Map()): Game {
   return {
     id: row.id!,
     organizerId: row.organizer_id!,
@@ -100,7 +101,7 @@ function toGameFromPublicRow(row: GamesPublicRow): Game {
     venueLng: row.venue_lng,
     venueId: row.venue_id ?? undefined,
     organizerName: row.organizer_display_name || "Player",
-    organizerPhotoPath: row.organizer_photo_path,
+    organizerPhotoUrl: row.organizer_photo_path ? avatarUrls.get(row.organizer_photo_path) ?? null : null,
     organizerAvatarKey: row.organizer_avatar_key,
     organizerReliabilityScore: row.organizer_reliability_score ?? undefined,
     organizerHostedCount: row.organizer_hosted_count ?? undefined,
@@ -258,7 +259,9 @@ export function useDiscoverGames(
         p_amenity_slugs: amenitySlugs,
       });
       if (error) throw error;
-      return (data ?? []).map((row) => toGame(row, units));
+      const rows = data ?? [];
+      const urlMap = await signAvatarUrls(rows.map((row) => row.organizer_photo_path));
+      return rows.map((row) => toGame(row, units, urlMap));
     },
   });
 }
@@ -281,7 +284,9 @@ export function useWeekPulseGames(center: { lat: number; lng: number } = { lat: 
         p_exclude_mine: false,
       });
       if (error) throw error;
-      return (data ?? []).map((row) => toGame(row));
+      const rows = data ?? [];
+      const urlMap = await signAvatarUrls(rows.map((row) => row.organizer_photo_path));
+      return rows.map((row) => toGame(row, "km", urlMap));
     },
   });
 }
@@ -425,7 +430,8 @@ export function useGameDetail(gameId: string, enabled = true) {
     queryFn: async () => {
       const { data, error } = await supabase.from("games_public").select("*").eq("id", gameId).single();
       if (error) throw error;
-      return toGameFromPublicRow(data);
+      const urlMap = await signAvatarUrls([data.organizer_photo_path]);
+      return toGameFromPublicRow(data, urlMap);
     },
     enabled: enabled && !!gameId,
   });
@@ -522,7 +528,9 @@ export function useMyJoinedGames() {
         .gte("ends_at", new Date().toISOString())
         .order("starts_at", { ascending: true });
       if (error) throw error;
-      return (data ?? []).map((row) => ({ ...toGameFromPublicRow(row), myStatus: statusByGameId.get(row.id!) }));
+      const rows = data ?? [];
+      const urlMap = await signAvatarUrls(rows.map((row) => row.organizer_photo_path));
+      return rows.map((row) => ({ ...toGameFromPublicRow(row, urlMap), myStatus: statusByGameId.get(row.id!) }));
     },
   });
 }
@@ -545,7 +553,9 @@ export function useMyHostingGames() {
         .gte("ends_at", new Date().toISOString())
         .order("starts_at", { ascending: true });
       if (error) throw error;
-      return (data ?? []).map(toGameFromPublicRow);
+      const rows = data ?? [];
+      const urlMap = await signAvatarUrls(rows.map((row) => row.organizer_photo_path));
+      return rows.map((row) => toGameFromPublicRow(row, urlMap));
     },
   });
 }
@@ -578,7 +588,9 @@ export function useMyPastGames() {
         .eq("status", "completed")
         .order("starts_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []).map(toGameFromPublicRow);
+      const rows = data ?? [];
+      const urlMap = await signAvatarUrls(rows.map((row) => row.organizer_photo_path));
+      return rows.map((row) => toGameFromPublicRow(row, urlMap));
     },
   });
 }

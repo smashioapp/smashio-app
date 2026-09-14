@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "../supabase";
 import { track } from "../analytics";
+import { signAvatarUrls } from "../avatarUrls";
 
 async function currentUserId() {
   const {
@@ -13,17 +14,18 @@ async function currentUserId() {
 export type FollowRow = {
   id: string;
   displayName: string;
-  photoPath: string | null;
+  photoUrl: string | null;
   avatarKey: string | null;
   homeSuburb: string | null;
   isFollowing: boolean;
 };
 
-function mapRows(data: { id: string; display_name: string; photo_path: string | null; avatar_key: string | null; home_suburb: string | null; is_following: boolean }[]): FollowRow[] {
+async function mapRows(data: { id: string; display_name: string; photo_path: string | null; avatar_key: string | null; home_suburb: string | null; is_following: boolean }[]): Promise<FollowRow[]> {
+  const urlMap = await signAvatarUrls(data.map((r) => r.photo_path));
   return data.map((r) => ({
     id: r.id,
     displayName: r.display_name,
-    photoPath: r.photo_path,
+    photoUrl: r.photo_path ? urlMap.get(r.photo_path) ?? null : null,
     avatarKey: r.avatar_key,
     homeSuburb: r.home_suburb,
     isFollowing: r.is_following,

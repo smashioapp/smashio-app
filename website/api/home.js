@@ -508,6 +508,21 @@ module.exports = async function handler(req, res) {
   <div id="board-body" style="margin-top:22px" data-generated-at="${esc(now.toISOString())}">${boardBody}</div>
 </section>
 
+<section style="position:relative; overflow:hidden; border-top:1px solid var(--hair); border-bottom:1px solid var(--hair)">
+  <img src="/api/map-tile" alt="Map of every Smashio badminton venue across Sydney" loading="lazy" style="display:block; width:100%; height:clamp(220px,38vw,440px); object-fit:cover; filter:saturate(1.05)" />
+  <div style="position:absolute; inset:0; background:linear-gradient(0deg,rgba(10,10,11,.92) 0%,rgba(10,10,11,.15) 45%,rgba(10,10,11,.15) 100%); pointer-events:none"></div>
+  <div style="position:absolute; left:0; right:0; bottom:0; padding:28px 20px; display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; max-width:1180px; margin:0 auto">
+    <div>
+      <div class="eyebrow">Every court, mapped</div>
+      <div class="h2" style="font-size:clamp(22px,4vw,32px); margin-top:6px">${esc(venuesTracked)} venues${suburbsCovered != null ? ` across ${esc(suburbsCovered)} suburbs` : ""}, not a shortlist.</div>
+    </div>
+    <div style="display:flex; gap:10px; flex-wrap:wrap">
+      <a href="/sydney" class="btn sec">Browse Sydney venues</a>
+      <a href="/badminton-near-me" class="btn sec">Badminton near me</a>
+    </div>
+  </div>
+</section>
+
 <script>
 (function () {
   var genAt = new Date(document.getElementById("board-body").getAttribute("data-generated-at")).getTime();

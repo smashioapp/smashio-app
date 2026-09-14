@@ -31,3 +31,6 @@ data/venues/.pipeline/
 
 # Python bytecode from the brand asset generators
 __pycache__/
+
+.vercel
+.env*

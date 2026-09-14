@@ -63,31 +63,110 @@ function notifySignup({ email, suburb, source }) {
   });
 }
 
+// Table-based, inline-styled — has to survive Outlook desktop and Gmail's CSS stripping, so no
+// external stylesheet, no flexbox/grid, no SVG (Outlook won't render it). Brand pulled from
+// website/api/home.js's :root tokens: bg #0A0A0B, card #18181C, lime accent #D6FF3F/#AEE62A,
+// Manrope body / Space Grotesk display, with system-font fallbacks since email clients don't
+// reliably load web fonts.
+function emailShell({ preheader, heading, bodyHtml, ctaLabel, ctaUrl }) {
+  const cta = ctaLabel && ctaUrl
+    ? `<tr><td style="padding:28px 0 4px">
+        <a href="${ctaUrl}" style="display:inline-block; background:#D6FF3F; color:#0A0A0B; font-family:'Space Grotesk',Arial,sans-serif; font-weight:700; font-size:15px; text-decoration:none; padding:14px 28px; border-radius:100px;">${ctaLabel}</a>
+      </td></tr>`
+    : "";
+
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="color-scheme" content="dark light" />
+<title>${heading}</title>
+<style>
+  @media only screen and (max-width: 520px) {
+    .email-card { padding: 24px !important; border-radius:16px !important; }
+    .email-outer { width: 100% !important; }
+  }
+</style>
+</head>
+<body style="margin:0; padding:0; background:#0A0A0B;">
+<div style="display:none; max-height:0; overflow:hidden; opacity:0;">${preheader}</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0A0A0B;">
+<tr><td align="center" style="padding:32px 16px;">
+<table role="presentation" class="email-outer" width="480" cellpadding="0" cellspacing="0" style="width:480px; max-width:480px;">
+<tr><td style="padding:0 0 24px;">
+<img src="https://smashio.com.au/assets/apple-touch-icon.png" width="32" height="32" alt="Smashio" style="display:block; border-radius:8px;" />
+</td></tr>
+<tr><td class="email-card" style="background:#18181C; border:1px solid rgba(255,255,255,.08); border-radius:20px; padding:32px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+<tr><td style="font-family:'Space Grotesk',Arial,sans-serif; font-weight:700; font-size:22px; line-height:1.25; color:#F5F5F7; letter-spacing:-0.02em;">${heading}</td></tr>
+<tr><td style="padding-top:14px; font-family:Manrope,Arial,sans-serif; font-size:15px; line-height:1.6; color:#C7C7CE;">${bodyHtml}</td></tr>
+${cta}
+</table>
+</td></tr>
+<tr><td style="padding:20px 4px 0; font-family:Manrope,Arial,sans-serif; font-size:12.5px; line-height:1.6; color:#7A7A82;">
+Smashio &middot; Sydney, Australia &middot; <a href="https://smashio.com.au" style="color:#7A7A82;">smashio.com.au</a>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`;
+}
+
 function confirmSignup({ email, source }) {
   const isAndroid = source.includes("android");
+
+  if (isAndroid) {
+    return sendResendEmail("confirm", {
+      from: CONFIRM_FROM,
+      to: [email],
+      subject: "You're on the Smashio Android list",
+      text: [
+        "Nice one, you're on the list.",
+        "",
+        "Android's invite-only while we sort the public listing. We'll add the Google account tied to this email to the Play internal testing allowlist and follow up here once it's through, usually within a day.",
+        "",
+        "One thing we need from you: reply to this email with the Google account (Gmail address) you want added, if it's different from this one.",
+        "",
+        "Cheers,",
+        "The Smashio team",
+      ].join("\n"),
+      html: emailShell({
+        preheader: "You're on the Android beta list, one thing we need from you first.",
+        heading: "Nice one, you're on the list.",
+        bodyHtml: [
+          "Android's invite-only while we sort the public listing. We'll add the Google account tied to this email to the Play internal testing allowlist and follow up here once it's through, usually within a day.",
+          `<p style="margin:16px 0 0;"><strong style="color:#F5F5F7;">One thing we need from you:</strong> reply to this email with the Google account (Gmail address) you want added, if it's different from this one.</p>`,
+          `<p style="margin:20px 0 0; color:#96969E;">Cheers,<br/>The Smashio team</p>`,
+        ].join(""),
+      }),
+    });
+  }
+
   return sendResendEmail("confirm", {
     from: CONFIRM_FROM,
     to: [email],
-    subject: isAndroid ? "You're on the Smashio Android list" : "Thanks for your interest in Smashio",
-    text: isAndroid
-      ? [
-          "Nice one, you're on the list.",
-          "",
-          "Android's invite-only while we sort the public listing. We'll add the Google account tied to this email to the Play internal testing allowlist and follow up here once it's through, usually within a day.",
-          "",
-          "One thing we need from you: reply to this email with the Google account (Gmail address) you want added, if it's different from this one.",
-          "",
-          "Cheers,",
-          "The Smashio team",
-        ].join("\n")
-      : [
-          "Thanks for putting your hand up, we'll keep you posted.",
-          "",
-          `iPhone's live now on TestFlight if you're keen to jump on: ${TESTFLIGHT_URL}`,
-          "",
-          "Cheers,",
-          "The Smashio team",
-        ].join("\n"),
+    subject: "Thanks for your interest in Smashio",
+    text: [
+      "Thanks for putting your hand up, we'll keep you posted.",
+      "",
+      `iPhone's live now on TestFlight if you're keen to jump on: ${TESTFLIGHT_URL}`,
+      "",
+      "Cheers,",
+      "The Smashio team",
+    ].join("\n"),
+    html: emailShell({
+      preheader: "Thanks for putting your hand up, iPhone's live on TestFlight right now.",
+      heading: "Thanks for putting your hand up.",
+      bodyHtml: [
+        "We'll keep you posted as Smashio rolls out around Sydney.",
+        `<p style="margin:16px 0 0;">iPhone's live now on TestFlight if you're keen to jump on.</p>`,
+        `<p style="margin:20px 0 0; color:#96969E;">Cheers,<br/>The Smashio team</p>`,
+      ].join(""),
+      ctaLabel: "Join on TestFlight",
+      ctaUrl: TESTFLIGHT_URL,
+    }),
   });
 }
 

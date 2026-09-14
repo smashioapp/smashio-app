@@ -34,6 +34,17 @@ const RATE_LIMIT_PER_MINUTE = 5;
 // 5/min limit alone doesn't bound a determined caller's daily usage, so add a coarser daily cap.
 const DAILY_PARSE_LIMIT = 20;
 
+// M4 (security-audit-2026-09-11.md): the client-facing classify branch had no limit at all — a
+// looping caller could burn Gemini quota and, on every timeout/error, insert a moderation_flags
+// row carrying their own text (fail-open by design). Same two-tier shape as the parse limits
+// above, counted off a dedicated table since classify calls that don't get flagged never touch
+// game_confirmations or moderation_flags.
+const CLASSIFY_LIMIT_PER_MINUTE = 10;
+const CLASSIFY_DAILY_LIMIT = 200;
+// Well above any real post/composer text — just enough to stop someone using this as a way to
+// feed Gemini an unbounded amount of text per call.
+const CLASSIFY_MAX_TEXT_LENGTH = 4000;
+
 const GEMINI_MODEL = "gemini-flash-latest";
 const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
 
@@ -260,7 +271,7 @@ async function classifyAndRespond(
   rawText: string,
   json: (data: unknown, status?: number) => Response
 ): Promise<Response> {
-  const text = rawText.trim();
+  const text = rawText.trim().slice(0, CLASSIFY_MAX_TEXT_LENGTH);
   if (!text) return json({ flagged: false, category: null, reason: null, degraded: false });
 
   const result = await classifyWithTimeout(text, 2000);
@@ -289,6 +300,26 @@ export function reviewStatusFor(parsed: ParsedBooking): "verified" | "rejected" 
   // else (low confidence, missing fields, edited-after-prefill drift) is a client-side review
   // concern, not a reason to withhold the Verified badge.
   return parsed.is_booking_confirmation ? "verified" : "rejected";
+}
+
+async function checkClassifyRateLimit(profileId: string): Promise<string | null> {
+  const oneMinuteAgo = new Date(Date.now() - 60_000).toISOString();
+  const { count: minuteCount } = await serviceClient
+    .from("ai_proxy_classify_calls")
+    .select("id", { count: "exact", head: true })
+    .eq("profile_id", profileId)
+    .gte("created_at", oneMinuteAgo);
+  if ((minuteCount ?? 0) >= CLASSIFY_LIMIT_PER_MINUTE) return "Too Many Requests";
+
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60_000).toISOString();
+  const { count: dayCount } = await serviceClient
+    .from("ai_proxy_classify_calls")
+    .select("id", { count: "exact", head: true })
+    .eq("profile_id", profileId)
+    .gte("created_at", oneDayAgo);
+  if ((dayCount ?? 0) >= CLASSIFY_DAILY_LIMIT) return "Daily classify limit reached";
+
+  return null;
 }
 
 async function checkRateLimits(uploadedBy: string): Promise<string | null> {
@@ -369,7 +400,12 @@ if (import.meta.main) {
 
   // --- classify, client-facing: kept for any other caller that still wants a pre-submit check
   // (e.g. inline validation), but create_post no longer trusts this path alone — see above.
+  // Rate-limited (M4) since, unlike the server-to-server path, this one has no upstream cap of
+  // its own (create_post already bounds itself via posts_rate_limit).
   if (body.mode === "classify") {
+    const classifyLimitError = await checkClassifyRateLimit(user.id);
+    if (classifyLimitError) return new Response(classifyLimitError, { status: 429 });
+    await serviceClient.from("ai_proxy_classify_calls").insert({ profile_id: user.id });
     return classifyAndRespond(user.id, body.text ?? "", json);
   }
 

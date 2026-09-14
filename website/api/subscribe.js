@@ -9,19 +9,25 @@
 // Confirmation email (2026-09-12): the form copy promises "we'll add you and email you back" —
 // this is that email, sent to the signer themselves, not just the internal notify.
 // Both are best-effort: a Resend failure never fails the request, the signup is already recorded.
-const { callRpc } = require("./_venue-lib");
+const { callServiceRpc } = require("./_venue-lib");
 
 const NOTIFY_TO = "hello@smashio.com.au";
 const NOTIFY_FROM = "Smashio Website <notify@smashio.com.au>";
 const CONFIRM_FROM = "Smashio <hello@smashio.com.au>";
 const TESTFLIGHT_URL = "https://testflight.apple.com/join/cJMZQmbn";
 
-async function sendResendEmail(payload) {
+// Best-effort: never throws, never fails the request. But it does log, loudly — Resend answers a
+// bad key, an unverified domain or a rejected recipient with a 4xx and a JSON body, not an
+// exception, so a version of this that only caught throws reported success for every one of them.
+async function sendResendEmail(label, payload) {
   const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return;
+  if (!apiKey) {
+    console.error(`resend:${label} skipped — RESEND_API_KEY not set in this environment`);
+    return;
+  }
 
   try {
-    await fetch("https://api.resend.com/emails", {
+    const resp = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${apiKey}`,
@@ -29,13 +35,19 @@ async function sendResendEmail(payload) {
       },
       body: JSON.stringify(payload),
     });
-  } catch {
-    // Best-effort — the signup itself already succeeded, don't fail the request over this.
+    const text = await resp.text();
+    if (!resp.ok) {
+      console.error(`resend:${label} failed ${resp.status} ${text.slice(0, 500)}`);
+      return;
+    }
+    console.log(`resend:${label} sent ${text.slice(0, 200)}`);
+  } catch (err) {
+    console.error(`resend:${label} threw ${err && err.message}`);
   }
 }
 
 function notifySignup({ email, suburb, source }) {
-  return sendResendEmail({
+  return sendResendEmail("notify", {
     from: NOTIFY_FROM,
     to: [NOTIFY_TO],
     subject: `New signup (${source}): ${email}`,
@@ -53,7 +65,7 @@ function notifySignup({ email, suburb, source }) {
 
 function confirmSignup({ email, source }) {
   const isAndroid = source.includes("android");
-  return sendResendEmail({
+  return sendResendEmail("confirm", {
     from: CONFIRM_FROM,
     to: [email],
     subject: isAndroid ? "You're on the Smashio Android list" : "Thanks for your interest in Smashio",
@@ -98,14 +110,24 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ ok: false, error: "invalid_email" });
   }
 
+  // Vercel sets x-forwarded-for to "client, proxy1, proxy2..." — the first hop is the visitor.
+  const forwardedFor = typeof req.headers["x-forwarded-for"] === "string" ? req.headers["x-forwarded-for"] : "";
+  const ip = forwardedFor.split(",")[0].trim() || req.socket?.remoteAddress || null;
+
   try {
-    await callRpc("web_signup", {
+    await callServiceRpc("web_signup", {
       p_email: email,
       p_suburb: suburb || null,
       p_source: source,
       p_honeypot: honeypot,
+      p_ip: ip,
     });
-  } catch {
+  } catch (err) {
+    const message = err && err.message ? err.message : "";
+    if (message.includes("Too many signups")) {
+      return res.status(429).json({ ok: false, error: "rate_limited" });
+    }
+    console.error(`subscribe: web_signup failed — ${message}`);
     return res.status(500).json({ ok: false, error: "signup_failed" });
   }
 

@@ -40,15 +40,15 @@ Severity is impact on a live beta with real users, not CVSS.
 | H2 | High | `ai-proxy` legacy path reads any user's booking confirmation |
 | H3 | High | "Verified booking" badge is self-assignable over REST |
 | H4 | High | Exact home coordinates of every user readable by any account |
-| H5 | High | `profile_visibility` is advisory, not enforced |
-| H6 | High | Any authenticated user can overwrite any venue in the directory |
+| H5 | High | `profile_visibility` is advisory, not enforced (fixed 2026-09-12) |
+| H6 | High | Any authenticated user can overwrite any venue in the directory (fixed 2026-09-12) |
 | H7 | High | Stored XSS on smashio.com.au through venue name in JSON-LD |
-| M1 | Medium | `link_only` games still enumerable through PostgREST |
+| M1 | Medium | `link_only` games still enumerable through PostgREST (fixed 2026-09-12) |
 | M2 | Medium | `reliability_score` and `referred_by` are self-editable |
 | M3 | Medium | No security headers on the website, third-party script without SRI |
-| M4 | Medium | `ai-proxy` classify mode has no rate limit |
+| M4 | Medium | `ai-proxy` classify mode has no rate limit (fixed 2026-09-12) |
 | M5 | Medium | Shared-secret comparisons are not constant-time |
-| M6 | Medium | `/api/subscribe` has no rate limit and triggers outbound email |
+| M6 | Medium | `/api/subscribe` has no rate limit and triggers outbound email (fixed 2026-09-12, pending one env var) |
 | M7 | Medium | Google Maps key restrictions unverified |
 | M8 | Medium | Email confirmation disabled in config, production state unverified |
 | L1 | Low | `avatars` bucket is public and enumerable by user id |
@@ -249,6 +249,15 @@ With H1 it needs no account at all.
 
 ## H5 — `profile_visibility` is advisory, not enforced
 
+**Status 2026-09-12: fixed.** `20260912000200_profile_visibility_rls.sql` folds the check into the
+base table's select policy via a new `shares_a_game_with()` helper, with an exemption for profiles
+currently hosting a published public game so Discover keeps working for `players_only` hosts.
+`shares_a_game_with()` came out PUBLIC-executable on the hosted project after `db push` (the
+regression guard only self-checks on a full `db reset`, not an incremental push) — revoked
+explicitly in `20260912000400_shares_a_game_with_revoke_public.sql`. Verified: `supabase db reset` +
+`supabase test db` clean (new `profile_visibility_rls_test.sql`), applied to hosted via `db push`,
+grants/policy spot-checked directly against the live project. Committed `d48b896`.
+
 **Where:** same policy as H4; setting added in
 [20260822000000_profile_settings.sql:19](../supabase/migrations/20260822000000_profile_settings.sql)
 
@@ -275,6 +284,13 @@ this with the column-grant change from H4 so the two controls are independent.
 ---
 
 ## H6 — Any authenticated user can overwrite any venue in the directory
+
+**Status 2026-09-12: fixed.** `20260912000300_upsert_places_venue_no_clobber.sql` changes the
+conflict clause to do-nothing-and-return-existing-id, matching fix option 1 below. Options 2-4
+(source-gated refresh, server-side Places validation, rate limit) are not done — a repeat search now
+resolves without rewriting, which closes the defacement/XSS-feed attack, but the RPC still trusts
+caller-supplied fields on first insert. Verified: `supabase db reset` + `supabase test db` clean
+(`venues_rpc_test.sql`), applied to hosted via `db push`. Committed `d48b896`.
 
 **Where:** [supabase/migrations/20260808000700_places_venues.sql:8](../supabase/migrations/20260808000700_places_venues.sql)
 
@@ -357,6 +373,22 @@ the first place. All three are worth doing; none of them alone is sufficient.
 ---
 
 ## M1 — `link_only` games still enumerable through PostgREST
+
+**Status 2026-09-12: fixed.** `20260912000500_games_select_link_only.sql` replaces the base table's
+`using (true)` select policy with `visibility = 'public' or organizer_id = auth.uid() or
+is_approved_player(id, auth.uid())`, matching the fix below. Used the existing
+`is_approved_player()` security-definer helper rather than a raw `game_players` subquery — a plain
+subquery recurses, since `game_players`'s own select policy joins back to `games` for its
+organizer check, and the two RLS evaluations would call each other. Confirmed no other client read
+depends on the old wide-open policy: `ui/lib/queries/messages.ts`'s `useChatGameMeta` (approved-only
+by definition, chat access implies an approved roster row), `games.ts`'s `attendance_marked_at`
+read on the post-game rating screen (same), and `profile.ts`/`gamePlayers.ts`'s own-organizer
+reads all still resolve. `supabase db reset` + `supabase test db` pass — `games_rls_test.sql`,
+`chat_rpc_test.sql`, `messages_rls_test.sql`, `game_players_rls_test.sql`,
+`nearby_games_exclusion_test.sql`, `venues_rpc_test.sql` and `profile_visibility_rls_test.sql` all
+clean. `join_leave_flow_test.sql` and `push_dispatch_triggers_test.sql` still fail identically to
+the documented pre-existing baseline (unrelated to this change). Not yet applied to the hosted
+project — needs a `supabase db push`.
 
 **Where:** [20260807000600_games.sql:27](../supabase/migrations/20260807000600_games.sql), versus
 [20260910000000_link_only_visibility.sql](../supabase/migrations/20260910000000_link_only_visibility.sql)
@@ -452,6 +484,15 @@ end state once H7 is fixed.
 
 ## M4 — `ai-proxy` classify mode has no rate limit
 
+**Status 2026-09-12: fixed.** Added a dedicated `ai_proxy_classify_calls` table (service_role only,
+same shape as `moderation_flags`, self-pruned by a daily `pg_cron` job — 
+`20260912000600_ai_proxy_classify_rate_limit.sql`) and a two-tier limit (10/minute, 200/day) on the
+client-facing classify branch only — the server-to-server branch `create_post` uses is already
+bounded by the existing 10 posts/day rate limit, so it doesn't need its own counter. Also capped
+accepted `text` at 4000 characters, per the fix note. `deno check` passes. Not yet exercised
+end-to-end against a live Gemini call or deployed to the hosted project — needs `supabase db push`
++ `supabase functions deploy ai-proxy`.
+
 **Where:** [supabase/functions/ai-proxy/index.ts:392](../supabase/functions/ai-proxy/index.ts)
 
 `checkRateLimits` counts rows in `game_confirmations` and is called only on the parse/legacy branch.
@@ -502,6 +543,26 @@ failures would make brute force visible in logs.
 ---
 
 ## M6 — `/api/subscribe` has no rate limit and triggers outbound email
+
+**Status 2026-09-12: fixed in code, one manual step outstanding.**
+`20260912000700_web_signup_hardening.sql` drops the old 4-arg `web_signup()` and replaces it with a
+5-arg version (adds `p_ip`) that counts attempts per IP in a new `web_signup_attempts` table
+(service_role only, self-pruned daily) and rejects past 5/hour, checked *before* the honeypot check
+so a flood of honeypot-tripped requests still gets capped, not just accepted ones. Execute is
+revoked from `anon`/`authenticated` entirely and granted only to `service_role` — closing the
+second issue in this finding: the anon/publishable key is public by construction (hardcoded in
+`_venue-lib.js` and shipped in the mobile app bundle), so the old `anon` grant meant the RPC could
+be called directly over PostgREST, skipping subscribe.js's honeypot and this new rate limit both.
+`website/api/_venue-lib.js` gained `callServiceRpc()` (same shape as `callRpc()` but reads a
+`SUPABASE_SERVICE_ROLE_KEY` env var instead of the hardcoded anon key) and `subscribe.js` now calls
+that instead, passing the caller's IP from `x-forwarded-for`. **`SUPABASE_SERVICE_ROLE_KEY` is not
+yet set in Vercel** — until it is, `callServiceRpc` throws immediately with a logged reason and
+signups fail closed (500) rather than silently falling back to the now-unauthorized anon key. A
+human needs to add that env var (prod + preview, service role key from the hosted project
+settings) before the next deploy or the signup form breaks. Turnstile (DEC7) is still not shipped —
+IP rate limiting is a partial mitigation, not a replacement for it. `supabase db reset` + `supabase
+test db` pass (no existing test covered `web_signup`, so nothing to regress). Not yet applied to
+the hosted project — needs `supabase db push`.
 
 **Where:** [website/api/subscribe.js](../website/api/subscribe.js),
 [20260910020000_web_signups.sql:55](../supabase/migrations/20260910020000_web_signups.sql)
@@ -639,20 +700,22 @@ Worth recording so a later pass does not re-derive them:
 
 ## Suggested order of work
 
-**2026-09-11: six items shipped** (H1 fully, H7, M3 headers, M5, L3). **2026-09-12: four more**
-(H2, H3, H4, M2) fixed in code/migrations but **not yet run against any stack** — see each
-finding's status note. Still open, in priority order: H5/H6/M1/M4/M6/M7/M8/L1/L2/M3's SRI half.
-None of the remaining items are "easy" in the same sense — they change grants/RLS/Edge Function
-input handling in ways that need testing against real app behaviour, not just a syntax check.
+**2026-09-11: six items shipped** (H1 fully, H7, M3 headers, M5, L3). **2026-09-12: nine more**
+(H2, H3, H4, H5, H6, M1, M2, M4, M6) fixed in code/migrations. H2, H3, H4, H5, H6, M2 are verified
+locally *and* applied to the hosted project. M1, M4, M6 are verified locally
+(`supabase db reset` + `supabase test db` clean, `deno check` clean, `tsc --noEmit` clean) but
+**not yet pushed/deployed** — see each finding's status note. M6 additionally needs
+`SUPABASE_SERVICE_ROLE_KEY` set in Vercel before its migration goes out, or the signup form breaks.
+Still open: M3's SRI half, M7, M8, L1, L2.
 
-1. **Today:** H1 (rotate the hosted test accounts, strip the password from the docs) and M8 (confirm
-   email confirmation is on). Together these decide whether the rest is exploitable by strangers.
-2. ~~**This week:** H2, H3, H4~~ — done 2026-09-12: verified locally (`supabase db reset` +
-   `supabase test db` clean), applied to hosted (`db push` + `ai-proxy` deploy), `db.types.ts`
+1. ~~**Today:** H1, M8~~ — H1 done 2026-09-11. M8 still needs a human to check the hosted dashboard.
+2. ~~**This week:** H2, H3, H4~~ — done 2026-09-12: verified locally, applied to hosted, `db.types.ts`
    regenerated.
-3. **Before the next website deploy:** H7 and M3, which ship together.
-4. **Before the November launch:** H5, H6, M1, M4, M6, M7, then the low items. (M2 shipped
-   2026-09-12 alongside H4, not listed here any more.)
+3. ~~**Before the next website deploy:** H7 and M3~~ — H7 done 2026-09-11; M3's headers shipped the
+   same day, its SRI half is still open.
+4. **Before the November launch:** H5/H6/M1/M2 done 2026-09-12 (H5/H6 applied to hosted; M1
+   verified locally, not yet pushed). Still to push/deploy: M1, M4, M6. Still to do: M3's SRI half,
+   M7, M8, then the low items.
 
 **Status 2026-09-12: partially addressed.** H3 and H4/M2 shipped trigger-based guards
 (`protect_games_system_columns`, `protect_profiles_system_columns`) that force the protected columns

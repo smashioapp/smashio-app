@@ -60,6 +60,32 @@ export type Database = {
           },
         ]
       }
+      ai_proxy_classify_calls: {
+        Row: {
+          created_at: string
+          id: string
+          profile_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          profile_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          profile_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_proxy_classify_calls_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       amenity_types: {
         Row: {
           category: string
@@ -1982,6 +2008,24 @@ export type Database = {
         }
         Relationships: []
       }
+      web_signup_attempts: {
+        Row: {
+          created_at: string
+          id: string
+          ip: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ip: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ip?: string
+        }
+        Relationships: []
+      }
       web_signups: {
         Row: {
           confirmed: boolean
@@ -2596,6 +2640,7 @@ export type Database = {
           venue_suburb: string
         }[]
       }
+      prune_ai_proxy_classify_calls: { Args: never; Returns: undefined }
       prune_ready_receipt_batch: {
         Args: { p_limit?: number }
         Returns: {
@@ -2603,6 +2648,7 @@ export type Database = {
           ticket_id: string
         }[]
       }
+      prune_web_signup_attempts: { Args: never; Returns: undefined }
       push_actor_name: { Args: { p_profile_id: string }; Returns: string }
       push_actor_summary: {
         Args: { p_profile_id: string; p_sport_id?: string }
@@ -2893,6 +2939,7 @@ export type Database = {
         Args: {
           p_email: string
           p_honeypot?: string
+          p_ip?: string
           p_source?: string
           p_suburb?: string
         }

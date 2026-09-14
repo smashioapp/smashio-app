@@ -772,12 +772,15 @@ ${captureFormStyles()}
         </div>
         <div class="s s-ios" style="flex-direction:column; gap:10px; width:260px">
           <a href="${TESTFLIGHT_URL}" target="_blank" rel="noopener" class="btn ios"><ion-icon name="logo-apple" style="font-size:20px"></ion-icon>Join on TestFlight</a>
+          <a href="#install" onclick="document.documentElement.setAttribute('data-platform','android')" style="font-size:12px; color:#7A7A82; text-decoration:underline; text-align:center">On Android instead?</a>
         </div>
         <div class="s s-android" style="flex-direction:column; gap:10px; width:280px">
           ${requestForm({ source: "hero_android", label: "Request invite", variant: "stacked", helper: "We'll add you and email you back, usually within a day." })}
+          <a href="#install" onclick="document.documentElement.setAttribute('data-platform','ios')" style="font-size:12px; color:#7A7A82; text-decoration:underline; text-align:center">On iPhone instead?</a>
         </div>
         <div class="s s-desktop" style="flex-direction:column; gap:10px; width:280px">
-          ${requestForm({ source: "get_app_android", label: "Request Android invite", variant: "stacked" })}
+          <a href="${TESTFLIGHT_URL}" target="_blank" rel="noopener" class="btn ios"><ion-icon name="logo-apple" style="font-size:20px"></ion-icon>Join on TestFlight</a>
+          ${requestForm({ source: "get_app_android", label: "Request Android invite", variant: "stacked", tone: "secondary" })}
         </div>
       </div>
     </div>

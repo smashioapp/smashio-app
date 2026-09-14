@@ -21,6 +21,8 @@ const POSTHOG_HOST = "https://us.i.posthog.com";
 
 // Turnstile site key — public by design (ships in every page's HTML). The secret key that
 // verifies tokens server-side lives only in Vercel's TURNSTILE_SECRET_KEY env var (subscribe.js).
+// A TURNSTILE_SITE_KEY env var overrides it (read in captureFormScript) so local testing can use
+// Cloudflare's dummy keys — the real key is hostname-locked and always fails on localhost.
 const TURNSTILE_SITE_KEY = "0x4AAAAAAEzfKOQc4g1Cy4MT";
 
 function esc(s) {
@@ -291,68 +293,201 @@ function captureForm(suburb) {
       <button type="submit" class="btn btn-primary" style="width:auto; padding:11px 18px">
         <span class="btn-main" style="font-size:13px">Notify me</span>
       </button>
-      <p id="smashio-capture-msg" style="width:100%; margin:0; font-size:12px; color:#7A7A82"></p>
+      <p data-capture-msg role="status" aria-live="polite" style="width:100%; margin:0; font-size:12px; color:#7A7A82"></p>
     </form>`;
 }
 
-// M6 (security-audit-2026-09-11, DEC7): one invisible Turnstile widget shared across every
-// capture form on the page, executed fresh per submit so a token can't be replayed across forms.
-// Verified server-side in subscribe.js — the client-side check here only gates the UX.
+// M6 (security-audit-2026-09-11, DEC7) + signup robustness phase 1 (2026-09-14). Verified
+// server-side in subscribe.js — the client-side check here only gates the UX. What phase 1 fixed:
+// - every form's status line is `[data-capture-msg]` inside the form; the old lookup missed the
+//   home page install-card forms entirely, so they never showed success or failure
+// - each form renders its own Turnstile widget into a slot inside the form, so an interactive
+//   challenge shows under the field instead of appended below the footer
+// - nothing can hang: Turnstile gets an 8 s ceiling (stretched only once it asks for a tap), the
+//   fetch aborts at 12 s, and a non-JSON error page falls back to its status code
+// - each subscribe.js error code gets its own message instead of one generic line
 function captureFormScript() {
-  return `<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+  const siteKey = process.env.TURNSTILE_SITE_KEY || TURNSTILE_SITE_KEY;
+  return `<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
 <script>
 (function () {
-  var TURNSTILE_SITE_KEY = "${TURNSTILE_SITE_KEY}";
-  var turnstileWidgetId = null;
+  var TURNSTILE_SITE_KEY = ${JSON.stringify(siteKey)};
+  var TOKEN_WAIT_MS = 8000;
+  var INTERACTIVE_WAIT_MS = 60000;
+  var FETCH_TIMEOUT_MS = 12000;
+  var EMAIL_RE = /^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/;
+  var TONES = { muted: "#7A7A82", ok: "#D6FF3F", warn: "#FFB648", bad: "#FF6767" };
+  // Keyed by subscribe.js error codes plus two client-side ones. Only network and server failures
+  // invite a straight retry: retrying a rate limit or a failed bot check never helps.
+  var MESSAGES = {
+    invalid_email: ["That email doesn't look right, have another look.", "bad"],
+    rate_limited: ["Too many tries from this connection. Give it an hour, or email hello@smashio.com.au and we'll add you.", "warn"],
+    turnstile_failed: ["We couldn't confirm you're a person. Refresh the page and give it another go.", "warn"],
+    turnstile_unavailable: ["Our bot check didn't load. Refresh the page, or email hello@smashio.com.au if it keeps happening.", "warn"],
+    network: ["Couldn't reach Smashio. Check your connection and have another go, your email's still there.", "bad"],
+    server: ["Something's gone wrong on our end. Have another go, or email hello@smashio.com.au.", "bad"]
+  };
 
-  function getTurnstileToken() {
+  function setMsg(form, text, tone) {
+    var msg = form.querySelector("[data-capture-msg]");
+    if (!msg) return;
+    msg.textContent = text;
+    msg.style.color = TONES[tone] || TONES.muted;
+  }
+
+  // The api.js tag is async, so a fast submit can beat it. Poll until it lands or the deadline.
+  function whenTurnstileLoaded(deadline) {
     return new Promise(function (resolve) {
-      if (!window.turnstile) { resolve(""); return; }
-      if (turnstileWidgetId === null) {
-        var el = document.createElement("div");
-        document.body.appendChild(el);
-        turnstileWidgetId = window.turnstile.render(el, { sitekey: TURNSTILE_SITE_KEY, execution: "execute", appearance: "interaction-only" });
-      }
-      window.turnstile.execute(turnstileWidgetId, {
-        callback: function (token) { resolve(token); },
-        "error-callback": function () { resolve(""); },
+      (function check() {
+        if (window.turnstile) return resolve(window.turnstile);
+        if (Date.now() >= deadline) return resolve(null);
+        setTimeout(check, 100);
+      })();
+    });
+  }
+
+  // One widget per form, rendered on first submit into a slot before the status line. Collapsed
+  // (zero height, -8px margin cancelling the form's flex gap) until Cloudflare asks for a tap —
+  // not display:none, so the widget still runs. width:0 + min-width:100% keeps a compact widget
+  // from widening a shrink-to-fit form.
+  var SLOT_COLLAPSED = "height:0; overflow:hidden; margin-top:-8px";
+  var SLOT_OPEN = "height:auto; overflow:visible; margin-top:0";
+  function widgetFor(form, ts) {
+    if (form._turnstile) return form._turnstile;
+    var w = form._turnstile = { id: null, used: false, settle: null, onInteractive: null };
+    var slot = document.createElement("div");
+    slot.setAttribute("data-turnstile-slot", "");
+    slot.style.cssText = "flex-basis:100%; width:0; min-width:100%; " + SLOT_COLLAPSED;
+    form.insertBefore(slot, form.querySelector("[data-capture-msg]"));
+    function done(token) { if (w.settle) w.settle(token || ""); }
+    w.id = ts.render(slot, {
+      sitekey: TURNSTILE_SITE_KEY,
+      execution: "execute",
+      appearance: "interaction-only",
+      size: form.clientWidth < 300 ? "compact" : "normal",
+      retry: "never",
+      "refresh-expired": "never",
+      callback: function (token) { done(token); },
+      "error-callback": function () { done(""); return true; },
+      "expired-callback": function () { done(""); },
+      "timeout-callback": function () { done(""); },
+      "unsupported-callback": function () { done(""); },
+      "before-interactive-callback": function () { slot.style.cssText += "; " + SLOT_OPEN; if (w.onInteractive) w.onInteractive(); },
+      "after-interactive-callback": function () { slot.style.cssText += "; " + SLOT_COLLAPSED; }
+    });
+    return w;
+  }
+
+  // Resolves to a token, "" when Cloudflare said no or ran out of time, or null when the Turnstile
+  // script never loaded (blocked or offline). Never hangs.
+  function getTurnstileToken(form) {
+    var started = Date.now();
+    return whenTurnstileLoaded(started + TOKEN_WAIT_MS).then(function (ts) {
+      if (!ts) return null;
+      return new Promise(function (resolve) {
+        var w, timer;
+        function arm(ms) { clearTimeout(timer); timer = setTimeout(function () { finish(""); }, ms); }
+        function finish(token) {
+          clearTimeout(timer);
+          if (w) { w.settle = null; w.onInteractive = null; }
+          resolve(token);
+        }
+        arm(Math.max(TOKEN_WAIT_MS - (Date.now() - started), 3000));
+        try {
+          w = widgetFor(form, ts);
+          w.settle = finish;
+          w.onInteractive = function () { arm(INTERACTIVE_WAIT_MS); };
+          // Tokens are single-use: clear the previous one before asking for another.
+          if (w.used) ts.reset(w.id);
+          w.used = true;
+          ts.execute(w.id);
+        } catch (err) {
+          finish("");
+        }
       });
     });
   }
 
+  // A Vercel error page or proxy hiccup is HTML, not JSON: fall back to the status code.
+  function readResponse(r) {
+    return r.text().then(function (text) {
+      var data = null;
+      try { data = JSON.parse(text); } catch (err) { data = null; }
+      if (!data || typeof data !== "object") data = {};
+      data.status = r.status;
+      return data;
+    });
+  }
+
+  function errorKey(data) {
+    if (data.error && MESSAGES[data.error]) return data.error;
+    if (data.status === 400) return "invalid_email";
+    if (data.status === 403) return "turnstile_failed";
+    if (data.status === 429) return "rate_limited";
+    return "server";
+  }
+
   function wire(form) {
-    var msg = form.querySelector(".smashio-capture-msg, .smashio-install-msg") || document.getElementById("smashio-capture-msg");
+    var btn = form.querySelector("button[type=submit]");
+    var busy = false;
+
+    function settle(key, source) {
+      busy = false;
+      btn.disabled = false;
+      btn.removeAttribute("aria-busy");
+      if (key === "ok") {
+        setMsg(form, source.indexOf("android") !== -1
+          ? "Sorted, we'll add you to the Android beta and email you, usually within a day."
+          : "Sorted, you're on the list. Keep an eye on your inbox.", "ok");
+        return;
+      }
+      setMsg(form, MESSAGES[key][0], MESSAGES[key][1]);
+    }
+
     form.addEventListener("submit", function (e) {
       e.preventDefault();
+      if (busy) return;
       var email = form.email.value.trim();
-      var website = form.website.value;
       var suburbField = form.querySelector('[name="suburb"]');
       var source = form.getAttribute("data-source") || (suburbField ? "suburb_page" : "footer");
-      var btn = form.querySelector("button[type=submit]");
+      if (!EMAIL_RE.test(email)) {
+        setMsg(form, MESSAGES.invalid_email[0], MESSAGES.invalid_email[1]);
+        form.email.focus();
+        return;
+      }
+      busy = true;
       btn.disabled = true;
-      getTurnstileToken().then(function (turnstileToken) {
-        fetch("/api/subscribe", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: email, website: website, suburb: suburbField ? suburbField.value : "", source: source, turnstileToken: turnstileToken }),
-        })
-          .then(function (r) { return r.json(); })
-          .then(function (data) {
-            btn.disabled = false;
-            if (data.ok) {
-              if (msg) { msg.textContent = "Sorted, we'll add you and email you back."; msg.style.color = "#D6FF3F"; }
-              form.reset();
-              if (window.posthog) window.posthog.capture("web_signup", { source: source });
-            } else if (msg) {
-              msg.textContent = "That didn't work, mind trying again?";
-              msg.style.color = "#FF6767";
-            }
+      btn.setAttribute("aria-busy", "true");
+      setMsg(form, "Just a sec…", "muted");
+
+      getTurnstileToken(form)
+        .then(function (token) {
+          if (token === null) return settle("turnstile_unavailable", source);
+          if (!token) return settle("turnstile_failed", source);
+          setMsg(form, "Sending…", "muted");
+          var controller = typeof AbortController === "function" ? new AbortController() : null;
+          var timer = controller ? setTimeout(function () { controller.abort(); }, FETCH_TIMEOUT_MS) : null;
+          return fetch("/api/subscribe", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: email, website: form.website.value, suburb: suburbField ? suburbField.value : "", source: source, turnstileToken: token }),
+            signal: controller ? controller.signal : undefined
           })
-          .catch(function () {
-            btn.disabled = false;
-            if (msg) { msg.textContent = "That didn't work, mind trying again?"; msg.style.color = "#FF6767"; }
-          });
-      });
+            .then(readResponse)
+            .then(function (data) {
+              clearTimeout(timer);
+              if (data.ok) {
+                form.reset();
+                if (window.posthog) window.posthog.capture("web_signup", { source: source });
+                return settle("ok", source);
+              }
+              settle(errorKey(data), source);
+            }, function () {
+              clearTimeout(timer);
+              settle("network", source);
+            });
+        })
+        .catch(function () { settle("server", source); });
     });
   }
   document.querySelectorAll("#smashio-capture-form, .smashio-install-form, .smashio-capture-form").forEach(wire);
@@ -414,7 +549,7 @@ function ctaButtons() {
 
 function androidRequestForm() {
   return `
-    <form class="smashio-install-form" style="display:flex; gap:8px; align-items:center" data-source="install_compact_android">
+    <form class="smashio-install-form" style="display:flex; flex-wrap:wrap; justify-content:center; gap:8px; align-items:center" data-source="install_compact_android">
       <div style="position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden" aria-hidden="true">
         <label>Leave this field empty<input type="text" name="website" tabindex="-1" autocomplete="off" /></label>
       </div>
@@ -423,7 +558,7 @@ function androidRequestForm() {
       <button type="submit" class="btn" style="width:auto; background:transparent; border:1.5px solid rgba(255,255,255,.15)">
         <span class="btn-main" style="font-size:13.5px">Request access</span>
       </button>
-      <span class="smashio-install-msg" style="font-size:11px; color:#7A7A82"></span>
+      <span data-capture-msg role="status" aria-live="polite" style="flex-basis:100%; width:0; min-width:100%; font-size:11px; color:#7A7A82"></span>
     </form>`;
 }
 

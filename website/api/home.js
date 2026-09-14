@@ -767,31 +767,31 @@ module.exports = async function handler(req, res) {
       <div class="install-cta">
         <div class="s s-default" style="flex-direction:column; gap:10px; width:280px">
           <a href="${TESTFLIGHT_URL}" target="_blank" rel="noopener" class="btn ios"><ion-icon name="logo-apple" style="font-size:20px"></ion-icon>Join on TestFlight</a>
-          <form class="smashio-capture-form" data-source="hero_android" style="display:flex; gap:8px">
+          <form class="smashio-capture-form" data-source="hero_android" style="display:flex; flex-wrap:wrap; gap:8px">
             <div style="position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden" aria-hidden="true"><label>Leave this field empty<input type="text" name="website" tabindex="-1" autocomplete="off" /></label></div>
             <input type="email" name="email" required placeholder="you@email.com" aria-label="Email address" style="flex:1; min-width:0" />
             <button type="submit" class="btn sec" style="flex-shrink:0; padding:0 16px">Android</button>
+            <p data-capture-msg role="status" aria-live="polite" style="width:100%; margin:0; font-size:11px; color:#7A7A82"></p>
           </form>
-          <p class="smashio-capture-msg" style="margin:0; font-size:11px; color:#7A7A82"></p>
         </div>
         <div class="s s-ios" style="flex-direction:column; gap:10px; width:260px">
           <a href="${TESTFLIGHT_URL}" target="_blank" rel="noopener" class="btn ios"><ion-icon name="logo-apple" style="font-size:20px"></ion-icon>Join on TestFlight</a>
         </div>
         <div class="s s-android" style="flex-direction:column; gap:10px; width:280px">
-          <form class="smashio-capture-form" data-source="hero_android" style="display:flex; gap:8px">
+          <form class="smashio-capture-form" data-source="hero_android" style="display:flex; flex-wrap:wrap; gap:8px">
             <div style="position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden" aria-hidden="true"><label>Leave this field empty<input type="text" name="website" tabindex="-1" autocomplete="off" /></label></div>
             <input type="email" name="email" required placeholder="you@email.com" aria-label="Email address" style="flex:1; min-width:0" />
             <button type="submit" class="btn pri" style="flex-shrink:0">Request</button>
+            <p data-capture-msg role="status" aria-live="polite" style="width:100%; margin:0; font-size:11px; color:#7A7A82">We'll add you and email you back, usually within a day.</p>
           </form>
-          <p class="smashio-capture-msg" style="margin:0; font-size:11px; color:#7A7A82">We'll add you and email you back, usually within a day.</p>
         </div>
         <div class="s s-desktop" style="flex-direction:column; gap:10px; width:280px">
-          <form class="smashio-capture-form" data-source="get_app_android" style="display:flex; gap:8px">
+          <form class="smashio-capture-form" data-source="get_app_android" style="display:flex; flex-wrap:wrap; gap:8px">
             <div style="position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden" aria-hidden="true"><label>Leave this field empty<input type="text" name="website" tabindex="-1" autocomplete="off" /></label></div>
             <input type="email" name="email" required placeholder="you@email.com" aria-label="Email address" style="flex:1; min-width:0" />
             <button type="submit" class="btn pri" style="flex-shrink:0">Send</button>
+            <p data-capture-msg role="status" aria-live="polite" style="width:100%; margin:0; font-size:11px; color:#7A7A82"></p>
           </form>
-          <p class="smashio-capture-msg" style="margin:0; font-size:11px; color:#7A7A82"></p>
         </div>
       </div>
     </div>
@@ -816,7 +816,7 @@ module.exports = async function handler(req, res) {
         <div style="position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden" aria-hidden="true"><label>Leave this field empty<input type="text" name="website" tabindex="-1" autocomplete="off" /></label></div>
         <input type="email" name="email" required placeholder="you@example.com" aria-label="Email address" style="flex:1; min-width:150px; font-size:12.5px" />
         <button type="submit" class="btn pri" style="height:auto; padding:10px 16px; font-size:12.5px">Notify me</button>
-        <p class="smashio-capture-msg" style="width:100%; margin:0; font-size:11.5px; color:#7A7A82"></p>
+        <p data-capture-msg role="status" aria-live="polite" style="width:100%; margin:0; font-size:11.5px; color:#7A7A82"></p>
       </form>
     </div>
   </div>

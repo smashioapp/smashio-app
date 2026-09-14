@@ -1,0 +1,12 @@
+# The smashio-app Vercel project builds only website/ (Root Directory setting), but `vercel
+# deploy` from the monorepo root scans everything else too. Without this, it tries to upload the
+# whole tree (ui/'s node_modules alone is tens of thousands of files) and the CLI upload aborts.
+ui/
+supabase/
+data/
+docs/
+scripts/
+node_modules/
+.expo/
+android/
+ios/

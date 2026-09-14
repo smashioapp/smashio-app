@@ -132,7 +132,8 @@ replaces it with a bundle built from the restored lockfile.
 [ui/scripts/check-jsi-pin.js](../ui/scripts/check-jsi-pin.js) now runs straight after `npm ci` in
 `build-ios.yml` and `ota-update.yml`. It fails the job when the installed core's declared jsi range
 doesn't accept the pinned jsi. That check is necessary, not sufficient: jsi 57.0.6 satisfies core
-57.0.10's `~57.0.4` and still crashes, so the rules above still apply.
+57.0.10's `~57.0.4` and still crashes, so the rules above still apply. **Verified:** build 1093
+(`736a461`, core 57.0.10 / jsi 57.0.5) installed from TestFlight and launches fine, 2026-09-14.
 
 ## Fixed 2026-08-12 — account deletion
 

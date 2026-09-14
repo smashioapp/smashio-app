@@ -97,10 +97,20 @@ games, and message real beta users as a plausible-looking account.
 **Status 2026-09-12: fixed and deployed.** The legacy branch now checks
 `storagePath.startsWith(`${gameId}/`)` in addition to the existing organizer-ownership check,
 mirroring the draft branch's prefix check. `deno check` passes and `supabase functions deploy
-ai-proxy` shipped it to the hosted project. Not exercised end-to-end with a live Gemini call
-(that needs a real receipt image) — worth a manual re-test of the attach/verify flow, but the fix
-itself is a pure input-validation change with no schema/grant surface, so the risk of that not
-being done is low.
+ai-proxy` shipped it to the hosted project.
+
+**Status 2026-09-14: exercised live against the local stack running the exact deployed source**
+(confirmed no diff between the tested file and the hosted `index.ts`, `git log` shows it last
+touched 2026-09-12). Created two throwaway accounts' games (`test@smashio.dev` as attacker,
+`bot1@smashio.dev` as victim, both from `seed.sql`) and called the legacy branch directly two ways:
+own `game_id` + own `storage_path` returned `502 {"error":"Object not found"}` — i.e. it passed
+both auth checks and only failed downstream because no file was actually uploaded to that path;
+own `game_id` + the victim's `storage_path` returned `403 Forbidden`, rejected before any download
+or Gemini call. That is the exact fix behaviour: the attack from the original writeup (mint your
+own game, supply another host's path) is blocked, and a legitimate same-game upload is not. Did
+not spend a real Gemini call proving the full parse succeeds end-to-end with an actual receipt
+image — the auth boundary this finding is about is fully verified either way, and that boundary
+check runs before Gemini is ever reached.
 
 **Where:** [supabase/functions/ai-proxy/index.ts:404](../supabase/functions/ai-proxy/index.ts) and
 [ui/lib/queries/games.ts:644](../ui/lib/queries/games.ts)
@@ -645,7 +655,13 @@ Providers → Email) that confirmations are on for the hosted project — `confi
 `enable_confirmations = false` only governs the local stack, as noted below. New signups on the
 hosted project require verifying their email before holding a usable `authenticated` session, which
 closes the "anyone gets `authenticated` for free" risk this finding raised for H2 through H6 and M1.
-Redirect allowlist and JWT/refresh-token settings were not re-checked in this pass.
+
+**Status 2026-09-14: redirect/JWT settings also checked, fully closed.** Access token expiry is
+3600s and refresh token rotation ("detect and revoke potentially compromised refresh tokens") is
+on with a 10s reuse interval — both match `config.toml` and Supabase's own recommendation. Redirect
+URLs has no wildcard entry, only `smashio://onboarding` and `smashio://discover` — the two stale
+`http://localhost:8081/onboarding` / `:8090/onboarding` dev entries were removed from the hosted
+list during this pass. M8 fully closed.
 
 **Where:** [supabase/config.toml:31](../supabase/config.toml)
 
@@ -698,10 +714,9 @@ this repo, not foreign changes) and confirmed directly against it: `storage.buck
 `false` for `avatars`, and the only select policy on `storage.objects` for it is `avatar images
 readable by authenticated`, scoped to `{authenticated}`.
 
-Note for the next OTA/app-store release: the mobile app previously in users' hands still calls
-`getPublicUrl` for avatars, which now 400s since the bucket is private — existing installed builds
-will show broken avatar images until this session's signed-URL client change ships (OTA update or
-next store build). Worth prioritising that release.
+**Status 2026-09-14: shipped.** Build 1093 (containing the signed-URL avatar client change) is out
+and tested — installed builds are no longer stuck calling `getPublicUrl` against the now-private
+bucket. L1 fully closed end to end: schema, RLS, client, and the release that gets it onto devices.
 
 `insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true)`
 ([20260807000400_avatars_storage.sql:2](../supabase/migrations/20260807000400_avatars_storage.sql)),

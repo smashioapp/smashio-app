@@ -310,6 +310,15 @@ module.exports = async function handler(req, res) {
   .d { font-family: 'Space Grotesk', sans-serif; }
   @keyframes smash-drift { 0% { transform: translateY(0); } 100% { transform: translateY(-14px); } }
   @keyframes smash-pulse { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
+  /* H9: motion is additive, never load-bearing. This turns everything off for anyone who asked
+     for less motion — the pulsing live dot and the counter count-up both respect it via JS. */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+    }
+  }
 
   .hero-h1 { font-weight:700; font-size:clamp(44px,9vw,104px); letter-spacing:-.035em; line-height:.98; text-wrap:balance; }
   .hero-h1 .dim2 { color:var(--dim); }
@@ -350,8 +359,8 @@ module.exports = async function handler(req, res) {
   html[data-platform=desktop] .install-cta .s-desktop { display:flex; }
 
   .betastrip { display:flex; align-items:center; justify-content:center; gap:8px; padding:9px 16px; background:var(--cardAlt); font-size:12.5px; color:var(--dim); font-weight:600; border-bottom:1px solid var(--hair); text-align:center; }
-  .betastrip b { color:var(--accent3); font-weight:800; }
-  .livedot { width:6px; height:6px; border-radius:50%; background:var(--accent3); box-shadow:0 0 0 3px rgba(159,224,32,.2); flex-shrink:0; display:inline-block; }
+  .betastrip b { color:var(--text); font-weight:800; }
+  .livedot { width:6px; height:6px; border-radius:50%; background:var(--accent3); box-shadow:0 0 0 3px rgba(159,224,32,.2); flex-shrink:0; display:inline-block; animation: smash-pulse 1.8s ease-in-out infinite; }
 
   .btn { height:50px; border-radius:100px; display:inline-flex; align-items:center; justify-content:center; gap:8px; font-size:14.5px; font-weight:800; padding:0 22px; white-space:nowrap; border:none; cursor:pointer; font-family:inherit; }
   .btn.pri { background:linear-gradient(135deg,#EBFF7A,var(--accent2)); color:#0A0A0B; box-shadow:0 0 30px rgba(214,255,63,.2); }
@@ -369,7 +378,8 @@ module.exports = async function handler(req, res) {
   .section { max-width:1180px; margin:0 auto; padding:96px 20px; }
   .section.tone { max-width:none; background:var(--bgAlt); border-top:1px solid var(--hair); border-bottom:1px solid var(--hair); }
   .section.tone > .inner { max-width:1180px; margin:0 auto; padding:96px 20px; }
-  .eyebrow { font-size:11px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--accent3); }
+  .eyebrow { font-size:11px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--sec); }
+  .eyebrow.lime { color:var(--accent3); }
   .h2 { font-family:'Space Grotesk',sans-serif; font-weight:700; letter-spacing:-.02em; font-size:clamp(28px,5vw,40px); margin:10px 0 0; line-height:1.05; }
 
   .board-day { margin-top:26px; }
@@ -398,7 +408,7 @@ module.exports = async function handler(req, res) {
   .stat .sub { font-size:12.5px; color:var(--sec); }
   .tier { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:100px; font-size:11px; font-weight:700; }
 
-  .rail { display:flex; gap:24px; margin-top:40px; overflow-x:auto; padding:20px 4px 30px; scroll-snap-type:x proximity; }
+  .rail { display:flex; gap:24px; margin-top:40px; overflow-x:auto; padding:20px 4px 30px; scroll-snap-type:x proximity; content-visibility:auto; contain-intrinsic-size: 0 420px; }
   .phoneframe { flex-shrink:0; width:190px; border-radius:36px; border:8px solid #050506; background:#050506; box-shadow:0 30px 60px rgba(0,0,0,.5); position:relative; scroll-snap-align:center; }
   .phoneframe::before { content:""; position:absolute; top:8px; left:50%; transform:translateX(-50%); width:64px; height:16px; background:#050506; border-radius:10px; z-index:2; }
   .phonescreen { border-radius:28px; overflow:hidden; aspect-ratio:9/19.3; background:repeating-linear-gradient(45deg,#1F1F24 0 8px,#141416 8px 16px); position:relative; display:flex; align-items:flex-end; }
@@ -408,7 +418,7 @@ module.exports = async function handler(req, res) {
   .install { position:relative; border-radius:26px; overflow:hidden; padding:44px; background:linear-gradient(135deg,#1C1F10,var(--card)); border:1px solid rgba(214,255,63,.35); }
   .install-glow { position:absolute; width:700px; height:700px; left:50%; top:-260px; transform:translateX(-50%); background:radial-gradient(circle,rgba(214,255,63,.18) 0%,transparent 60%); z-index:0; pointer-events:none; }
   .installcard { position:relative; z-index:1; display:flex; justify-content:space-between; gap:36px; align-items:center; flex-wrap:wrap; }
-  .badge { display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:100px; background:rgba(214,255,63,.1); border:1px solid rgba(214,255,63,.25); font-size:11px; font-weight:800; color:var(--accent3); }
+  .badge { display:inline-flex; align-items:center; gap:6px; padding:5px 12px; border-radius:100px; background:rgba(255,255,255,.04); border:1px solid var(--hair); font-size:11px; font-weight:800; color:var(--dim); }
   input[type=email] { height:48px; border-radius:100px; background:var(--cardAlt); border:1px solid var(--hair); color:var(--text); padding:0 18px; font-size:13.5px; font-family:Manrope; }
   input[type=email]::placeholder { color:var(--ter); }
 
@@ -437,7 +447,7 @@ module.exports = async function handler(req, res) {
   .faq-item { border-bottom:1px solid var(--hair); padding:18px 0; }
   .faq-item summary { cursor:pointer; list-style:none; font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:15.5px; display:flex; align-items:center; justify-content:space-between; gap:16px; }
   .faq-item summary::-webkit-details-marker { display:none; }
-  .faq-item summary::after { content:"+"; color:var(--accent3); font-size:20px; flex-shrink:0; }
+  .faq-item summary::after { content:"+"; color:var(--sec); font-size:20px; flex-shrink:0; }
   .faq-item[open] summary::after { content:"\\2212"; }
   .faq-item p { margin:10px 0 0; font-size:13.5px; line-height:1.6; color:var(--sec); max-width:66ch; }
 
@@ -494,7 +504,7 @@ module.exports = async function handler(req, res) {
   <div class="hero-noise" aria-hidden="true"></div>
 
   <div style="position:relative; max-width:1180px; margin:0 auto; padding:64px 20px 56px; display:flex; flex-direction:column; gap:22px">
-    <div class="eyebrow">Live in Sydney right now</div>
+    <div class="eyebrow lime">Live in Sydney right now</div>
     <h1 class="d hero-h1" style="margin:0">Games are on.<br /><span class="dim2">Find one, or host your own.</span></h1>
     <p style="margin:0; max-width:46ch; font-size:16px; line-height:1.6; color:#96969E">No accounts on this page, no bookings here either. See what's actually on below, right down to the open spots.</p>
 
@@ -518,9 +528,9 @@ module.exports = async function handler(req, res) {
     </div>
 
     <div class="hero-counters">
-      <div class="hc"><span class="hc-n d">${esc(gamesThisWeek)}</span><span class="hc-l">games on this week</span></div>
-      <div class="hc"><span class="hc-n d">${esc(venuesTracked)}</span><span class="hc-l">venues mapped</span></div>
-      ${suburbsCovered != null ? `<div class="hc"><span class="hc-n d">${esc(suburbsCovered)}</span><span class="hc-l">suburbs covered</span></div>` : ""}
+      <div class="hc"><span class="hc-n d countup">${esc(gamesThisWeek)}</span><span class="hc-l">games on this week</span></div>
+      <div class="hc"><span class="hc-n d countup">${esc(venuesTracked)}</span><span class="hc-l">venues mapped</span></div>
+      ${suburbsCovered != null ? `<div class="hc"><span class="hc-n d countup">${esc(suburbsCovered)}</span><span class="hc-l">suburbs covered</span></div>` : ""}
       <div class="hc hc-fresh"><span class="livedot"></span><span class="hc-l">Checked ${esc(generatedAtLabel)}</span></div>
     </div>
   </div>
@@ -582,6 +592,33 @@ module.exports = async function handler(req, res) {
   }
   setInterval(renderFreshness, 30000);
 
+  // Count-up on the live counters (home-redesign-plan.md §4). Real numbers are already in the
+  // markup, so a no-JS or reduced-motion visitor sees the correct value immediately — this only
+  // rewinds to 0 and counts back up once each number scrolls into view.
+  var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!reduceMotion && window.IntersectionObserver) {
+    var counters = document.querySelectorAll(".countup");
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (!entry.isIntersecting) return;
+        io.unobserve(entry.target);
+        var el = entry.target;
+        var target = parseInt(el.textContent.replace(/[^0-9]/g, ""), 10);
+        if (!target && target !== 0) return;
+        var start = performance.now();
+        var duration = 700;
+        function tick(now) {
+          var p = Math.min(1, (now - start) / duration);
+          el.textContent = Math.round(target * (1 - Math.pow(1 - p, 3)));
+          if (p < 1) requestAnimationFrame(tick);
+          else el.textContent = target;
+        }
+        requestAnimationFrame(tick);
+      });
+    }, { threshold: 0.6 });
+    counters.forEach(function (el) { io.observe(el); });
+  }
+
   var chips = document.querySelectorAll(".board-chip");
   chips.forEach(function (chip) {
     chip.addEventListener("click", function () {
@@ -634,12 +671,12 @@ module.exports = async function handler(req, res) {
     <div class="stats">
       <div class="stat">
         <div class="l">Live this week</div>
-        <div class="n">${esc(gamesThisWeek)}</div>
+        <div class="n countup">${esc(gamesThisWeek)}</div>
         <div class="sub">games across Sydney, pulled straight from the app.</div>
       </div>
       <div class="stat">
         <div class="l">Court maps &amp; directions</div>
-        <div class="n">${esc(venuesTracked)}</div>
+        <div class="n countup">${esc(venuesTracked)}</div>
         <div class="sub">venues mapped across Sydney.</div>
       </div>
       <div class="stat">

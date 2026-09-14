@@ -95,7 +95,7 @@ ${ogUrl ? `<meta property="og:url" content="${esc(ogUrl)}" />` : ""}
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
-<script type="module" src="https://unpkg.com/ionicons@7.4.0/dist/ionicons/ionicons.esm.js"></script>
+<script type="module" src="/assets/ionicons/ionicons.esm.js"></script>
 <script defer src="/_vercel/insights/script.js"></script>
 <style>
   html { scroll-behavior: smooth; scrollbar-color: #3A3A40 #0E0E10; scrollbar-width: thin; }

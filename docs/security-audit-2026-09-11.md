@@ -43,12 +43,12 @@ Severity is impact on a live beta with real users, not CVSS.
 | H5 | High | `profile_visibility` is advisory, not enforced (fixed 2026-09-12) |
 | H6 | High | Any authenticated user can overwrite any venue in the directory (fixed 2026-09-12) |
 | H7 | High | Stored XSS on smashio.com.au through venue name in JSON-LD |
-| M1 | Medium | `link_only` games still enumerable through PostgREST (fixed 2026-09-12) |
+| M1 | Medium | `link_only` games still enumerable through PostgREST (fixed 2026-09-12, applied 2026-09-14) |
 | M2 | Medium | `reliability_score` and `referred_by` are self-editable |
-| M3 | Medium | No security headers on the website, third-party script without SRI |
-| M4 | Medium | `ai-proxy` classify mode has no rate limit (fixed 2026-09-12) |
+| M3 | Medium | No security headers on the website, third-party script without SRI (headers fixed 2026-09-11, self-hosted 2026-09-14) |
+| M4 | Medium | `ai-proxy` classify mode has no rate limit (fixed 2026-09-12, applied 2026-09-14) |
 | M5 | Medium | Shared-secret comparisons are not constant-time |
-| M6 | Medium | `/api/subscribe` has no rate limit and triggers outbound email (fixed 2026-09-12, pending one env var) |
+| M6 | Medium | `/api/subscribe` has no rate limit and triggers outbound email (fixed 2026-09-12, applied 2026-09-14) |
 | M7 | Medium | Google Maps key restrictions unverified |
 | M8 | Medium | Email confirmation disabled in config, production state unverified |
 | L1 | Low | `avatars` bucket is public and enumerable by user id |
@@ -387,8 +387,13 @@ reads all still resolve. `supabase db reset` + `supabase test db` pass — `game
 `chat_rpc_test.sql`, `messages_rls_test.sql`, `game_players_rls_test.sql`,
 `nearby_games_exclusion_test.sql`, `venues_rpc_test.sql` and `profile_visibility_rls_test.sql` all
 clean. `join_leave_flow_test.sql` and `push_dispatch_triggers_test.sql` still fail identically to
-the documented pre-existing baseline (unrelated to this change). Not yet applied to the hosted
-project — needs a `supabase db push`.
+the documented pre-existing baseline (unrelated to this change).
+
+**Status 2026-09-14: applied to hosted.** Confirmed directly against the hosted project
+(`ajbsvsfwjfeofvjuhzrw`): `pg_policy` on `public.games` shows the select policy's `using` expression
+as `visibility = 'public' OR organizer_id = auth.uid() OR is_approved_player(id, auth.uid())`,
+matching this migration exactly. `link_only` games are no longer readable over PostgREST by an
+uninvolved authenticated user.
 
 **Where:** [20260807000600_games.sql:27](../supabase/migrations/20260807000600_games.sql), versus
 [20260910000000_link_only_visibility.sql](../supabase/migrations/20260910000000_link_only_visibility.sql)
@@ -452,6 +457,21 @@ revoked set alongside `verification_status`.
 third-party origin is still there, just now constrained by CSP instead of wide open. Self-hosting
 ionicons (removing the origin entirely) is still worth doing later.
 
+**Status 2026-09-14: fixed (self-hosted, not just SRI).** Went with the self-host option this
+finding's fix section already preferred over maintaining an SRI hash. Pulled `ionicons@7.4.0` from
+npm and copied the esm loader chain (`ionicons.esm.js`, `p-e298ede3.js`, `p-748a23b9.entry.js`,
+`p-006dba1a.js`) plus all 1356 icon svgs into `website/assets/ionicons/` (3.2M, static files, no
+build step needed). Confirmed the loader resolves its own chunk imports and its
+`resourcesUrl` + `svg/{name}.svg` fetches relative to `import.meta.url`, so same-origin hosting
+works without patching the library. All three script tags
+([_venue-lib.js](../website/api/_venue-lib.js), [home.js](../website/api/home.js),
+[game/\[id\].js](../website/api/game/%5Bid%5D.js)) now point at `/assets/ionicons/ionicons.esm.js`,
+and `unpkg.com` is removed from both `script-src` and `connect-src` in `website/vercel.json` — the
+third-party origin is gone, not just hashed. Verified locally with `vercel dev`: all loader/chunk
+files and the icons actually used on the home page (megaphone, search, apple logo, layers,
+tennisball, shield-checkmark, add, close-circle) return 200 from the local static path, icons
+render, no console errors. Not yet deployed to Vercel prod.
+
 **Where:** [website/vercel.json](../website/vercel.json), [website/api/_venue-lib.js](../website/api/_venue-lib.js)
 
 `vercel.json` sets only two `Content-Type` headers. There is no CSP, HSTS, `X-Content-Type-Options`,
@@ -489,9 +509,13 @@ same shape as `moderation_flags`, self-pruned by a daily `pg_cron` job —
 `20260912000600_ai_proxy_classify_rate_limit.sql`) and a two-tier limit (10/minute, 200/day) on the
 client-facing classify branch only — the server-to-server branch `create_post` uses is already
 bounded by the existing 10 posts/day rate limit, so it doesn't need its own counter. Also capped
-accepted `text` at 4000 characters, per the fix note. `deno check` passes. Not yet exercised
-end-to-end against a live Gemini call or deployed to the hosted project — needs `supabase db push`
-+ `supabase functions deploy ai-proxy`.
+accepted `text` at 4000 characters, per the fix note. `deno check` passes.
+
+**Status 2026-09-14: applied to hosted.** Confirmed directly against the hosted project:
+`public.ai_proxy_classify_calls` exists, and the deployed `ai-proxy` function (version 12) contains
+`checkClassifyRateLimit`, the 10/min + 200/day limits and the 4000-char `CLASSIFY_MAX_TEXT_LENGTH`
+cap. Not separately re-exercised end-to-end against a live Gemini call this pass, but the deployed
+source matches the fix exactly.
 
 **Where:** [supabase/functions/ai-proxy/index.ts:392](../supabase/functions/ai-proxy/index.ts)
 
@@ -561,8 +585,12 @@ signups fail closed (500) rather than silently falling back to the now-unauthori
 human needs to add that env var (prod + preview, service role key from the hosted project
 settings) before the next deploy or the signup form breaks. Turnstile (DEC7) is still not shipped —
 IP rate limiting is a partial mitigation, not a replacement for it. `supabase db reset` + `supabase
-test db` pass (no existing test covered `web_signup`, so nothing to regress). Not yet applied to
-the hosted project — needs `supabase db push`.
+test db` pass (no existing test covered `web_signup`, so nothing to regress).
+
+**Status 2026-09-14: applied to hosted, env var set.** `SUPABASE_SERVICE_ROLE_KEY` added to Vercel
+(prod + preview). Confirmed directly against the hosted project: `web_signup`'s only `EXECUTE`
+grantees are `postgres` and `service_role` — `anon` no longer holds it, so the RPC can't be reached
+directly with the public key anymore. Turnstile (DEC7) is still outstanding.
 
 **Where:** [website/api/subscribe.js](../website/api/subscribe.js),
 [20260910020000_web_signups.sql:55](../supabase/migrations/20260910020000_web_signups.sql)
@@ -701,21 +729,21 @@ Worth recording so a later pass does not re-derive them:
 ## Suggested order of work
 
 **2026-09-11: six items shipped** (H1 fully, H7, M3 headers, M5, L3). **2026-09-12: nine more**
-(H2, H3, H4, H5, H6, M1, M2, M4, M6) fixed in code/migrations. H2, H3, H4, H5, H6, M2 are verified
-locally *and* applied to the hosted project. M1, M4, M6 are verified locally
-(`supabase db reset` + `supabase test db` clean, `deno check` clean, `tsc --noEmit` clean) but
-**not yet pushed/deployed** — see each finding's status note. M6 additionally needs
-`SUPABASE_SERVICE_ROLE_KEY` set in Vercel before its migration goes out, or the signup form breaks.
-Still open: M3's SRI half, M7, M8, L1, L2.
+(H2, H3, H4, H5, H6, M1, M2, M4, M6) fixed in code/migrations. H2, H3, H4, H5, H6, M2 verified
+locally *and* applied to the hosted project the same day. **2026-09-14: M1, M4 and M6 pushed and
+deployed to the hosted project** (confirmed directly against it: games RLS policy, the
+`ai_proxy_classify_calls` table + deployed function source, and the `web_signup` grant all match
+their migrations), and **M3's SRI half closed** — ionicons is now self-hosted under
+`website/assets/ionicons/` instead of loaded from `unpkg.com`, which is also dropped from the CSP.
+M6's env var (`SUPABASE_SERVICE_ROLE_KEY`) is set in Vercel. Still open: M7, M8, L1, L2.
 
 1. ~~**Today:** H1, M8~~ — H1 done 2026-09-11. M8 still needs a human to check the hosted dashboard.
 2. ~~**This week:** H2, H3, H4~~ — done 2026-09-12: verified locally, applied to hosted, `db.types.ts`
    regenerated.
-3. ~~**Before the next website deploy:** H7 and M3~~ — H7 done 2026-09-11; M3's headers shipped the
-   same day, its SRI half is still open.
-4. **Before the November launch:** H5/H6/M1/M2 done 2026-09-12 (H5/H6 applied to hosted; M1
-   verified locally, not yet pushed). Still to push/deploy: M1, M4, M6. Still to do: M3's SRI half,
-   M7, M8, then the low items.
+3. ~~**Before the next website deploy:** H7 and M3~~ — H7 done 2026-09-11; M3 fully done 2026-09-14
+   (headers 2026-09-11, self-hosted ionicons 2026-09-14, not yet deployed to Vercel prod).
+4. ~~**Before the November launch:** H5/H6/M1/M2/M4/M6~~ — all fixed and applied to hosted as of
+   2026-09-14. Still to do: M7, M8, then the low items.
 
 **Status 2026-09-12: partially addressed.** H3 and H4/M2 shipped trigger-based guards
 (`protect_games_system_columns`, `protect_profiles_system_columns`) that force the protected columns

@@ -116,7 +116,7 @@ function gameRow(g, now) {
     <a class="feedrow board-row" href="/game/${esc(g.id)}" data-tier="${tier}" data-tonight="${isTonight ? 1 : 0}" data-weekend="${isWeekend ? 1 : 0}" data-open-spots="${g.open_spots}" style="border-left-color:${color}">
       <span class="tierdot" style="background:${color}"></span>
       <div style="flex:1; min-width:0">
-        <div style="font-weight:700; font-size:14.5px">${esc(g.venue_suburb || g.venue_name)} <span style="font-weight:600; color:#7A7A82">&middot; ${esc(g.venue_name)}</span></div>
+        <div style="font-weight:700; font-size:14.5px">${esc(g.venue_suburb || g.venue_name)} <span style="font-weight:600; color:var(--sec)">&middot; ${esc(g.venue_name)}</span></div>
         <div style="font-size:12.5px; color:#96969E; margin-top:2px">${esc(fmtTime(starts))}${meta ? " &middot; " + meta : ""}</div>
       </div>
       <div class="d spots-text" style="font-weight:700; font-size:14px; color:${g.open_spots === 0 ? "#7A7A82" : "#F5F5F7"}; flex-shrink:0">${esc(spots)}</div>
@@ -297,7 +297,7 @@ module.exports = async function handler(req, res) {
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="" />
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet" />
-<script type="module" src="https://unpkg.com/ionicons@7.4.0/dist/ionicons/ionicons.esm.js"></script>
+<script type="module" src="/assets/ionicons/ionicons.esm.js"></script>
 <script defer src="/_vercel/insights/script.js"></script>
 <script>(function(){function plat(){var ua=navigator.userAgent;if(/iPhone|iPad|iPod/.test(ua)||(/Macintosh/.test(ua)&&navigator.maxTouchPoints>1))return'ios';if(/Android/.test(ua))return'android';return'desktop';}document.documentElement.setAttribute('data-platform',plat());})();</script>
 <style>
@@ -393,7 +393,7 @@ module.exports = async function handler(req, res) {
 
   .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:20px; margin-top:44px; }
   .stat { background:var(--card); border:1px solid var(--hair); border-radius:18px; padding:26px 22px; display:flex; flex-direction:column; gap:8px; }
-  .stat .l { font-size:11px; font-weight:800; letter-spacing:.06em; color:var(--ter); text-transform:uppercase; }
+  .stat .l { font-size:11px; font-weight:800; letter-spacing:.06em; color:var(--sec); text-transform:uppercase; }
   .stat .n { font-family:'Space Grotesk',sans-serif; font-size:clamp(38px,6vw,64px); font-weight:700; line-height:1; letter-spacing:-.02em; }
   .stat .sub { font-size:12.5px; color:var(--sec); }
   .tier { display:inline-flex; align-items:center; gap:6px; padding:4px 10px; border-radius:100px; font-size:11px; font-weight:700; }
@@ -427,10 +427,10 @@ module.exports = async function handler(req, res) {
   .trust-item p { margin:0; font-size:13.5px; line-height:1.6; color:var(--sec); }
 
   .lg-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:28px 20px; margin-top:40px; }
-  .lg-col { display:flex; flex-direction:column; gap:6px; min-width:0; }
-  .lg-suburb { font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14px; color:var(--text); margin-bottom:2px; }
+  .lg-col { display:flex; flex-direction:column; gap:2px; min-width:0; }
+  .lg-suburb { font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:14px; color:var(--text); margin-bottom:4px; }
   .lg-suburb:hover { color:var(--accent3); }
-  .lg-venue { font-size:12.5px; color:var(--sec); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .lg-venue { display:block; padding:5px 0; font-size:12.5px; color:var(--sec); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .lg-venue:hover { color:var(--dim); }
 
   .faq { margin-top:40px; display:flex; flex-direction:column; gap:2px; max-width:820px; }
@@ -461,7 +461,7 @@ module.exports = async function handler(req, res) {
 <header style="position:sticky; top:0; z-index:50; backdrop-filter:blur(18px); background:rgba(10,10,11,.72); border-bottom:1px solid rgba(255,255,255,.06)">
   <div style="max-width:1180px; margin:0 auto; padding:14px 20px; display:flex; align-items:center; justify-content:space-between; gap:16px">
     <a href="#top" style="display:flex; align-items:center; gap:6px; color:#F5F5F7">
-      <img src="/assets/smashio-mark.svg" alt="Smashio" style="width:17px; height:17px" />
+      <img src="/assets/smashio-mark.svg" alt="" style="width:17px; height:17px" />
       <span style="font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:19px; letter-spacing:-.02em">Smashio</span>
     </a>
     <nav style="display:flex; align-items:center; gap:26px">
@@ -528,7 +528,7 @@ module.exports = async function handler(req, res) {
 
 <section id="board" class="section" style="padding-top:64px">
   <div class="eyebrow">The live board &middot; next 14 days</div>
-  <div class="h2">What's actually on, right now.</div>
+  <h2 class="h2">What's actually on, right now.</h2>
   <div class="fresh" style="margin-top:14px"><span class="livedot"></span><span id="board-fresh-text">Checked ${esc(generatedAtLabel)}</span></div>
   ${
     games.length > 0
@@ -552,7 +552,7 @@ module.exports = async function handler(req, res) {
   <div style="position:absolute; left:0; right:0; bottom:0; padding:28px 20px; display:flex; gap:14px; flex-wrap:wrap; align-items:flex-end; justify-content:space-between; max-width:1180px; margin:0 auto">
     <div>
       <div class="eyebrow">Every court, mapped</div>
-      <div class="h2" style="font-size:clamp(22px,4vw,32px); margin-top:6px">${esc(venuesTracked)} venues${suburbsCovered != null ? ` across ${esc(suburbsCovered)} suburbs` : ""}, not a shortlist.</div>
+      <h2 class="h2" style="font-size:clamp(22px,4vw,32px); margin-top:6px">${esc(venuesTracked)} venues${suburbsCovered != null ? ` across ${esc(suburbsCovered)} suburbs` : ""}, not a shortlist.</h2>
     </div>
     <div style="display:flex; gap:10px; flex-wrap:wrap">
       <a href="/sydney" class="btn sec">Browse Sydney venues</a>
@@ -606,7 +606,7 @@ module.exports = async function handler(req, res) {
 
 <section id="how" class="section">
   <div class="eyebrow">Court to court in three taps</div>
-  <div class="h2">No booking calls, no group chats to beg into.</div>
+  <h2 class="h2">No booking calls, no group chats to beg into.</h2>
   <div class="steps">
     <div class="step">
       <div class="icon"><ion-icon name="search" style="font-size:21px; color:#D6FF3F"></ion-icon></div>
@@ -630,7 +630,7 @@ module.exports = async function handler(req, res) {
 <section class="section tone">
   <div class="inner">
     <div class="eyebrow">Built for people who actually turn up</div>
-    <div class="h2">The honest version of a badminton meetup.</div>
+    <h2 class="h2">The honest version of a badminton meetup.</h2>
     <div class="stats">
       <div class="stat">
         <div class="l">Live this week</div>
@@ -658,7 +658,7 @@ module.exports = async function handler(req, res) {
 
 <section class="section">
   <div class="eyebrow">Dark, fast, and out of your way</div>
-  <div class="h2">The app underneath all this.</div>
+  <h2 class="h2">The app underneath all this.</h2>
   <!-- Real iPhone captures, home-redesign-plan.md H7 (website-design-brief.md §6). -->
   <div class="rail">
     <div class="phoneframe"><div class="phonescreen"><img src="/assets/screenshots/discover-list.webp" width="380" height="822" alt="Discover screen listing nearby badminton games" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" /><span class="cap">DISCOVER &middot; LIST</span></div></div>
@@ -673,7 +673,7 @@ module.exports = async function handler(req, res) {
 <section class="section tone">
   <div class="inner">
     <div class="eyebrow">Why it's honest</div>
-    <div class="h2">Built so turning up actually means something.</div>
+    <h2 class="h2">Built so turning up actually means something.</h2>
     <div class="trust">
       <div class="trust-item">
         <div class="icon"><ion-icon name="layers-outline" style="font-size:19px; color:#D6FF3F"></ion-icon></div>
@@ -697,14 +697,14 @@ module.exports = async function handler(req, res) {
 
 <section class="section" id="venues">
   <div class="eyebrow">Every venue we track</div>
-  <div class="h2">${esc(venuesTracked)} courts across Sydney, mapped by suburb.</div>
+  <h2 class="h2">${esc(venuesTracked)} courts across Sydney, mapped by suburb.</h2>
   <div class="lg-grid">${linkGridBody}</div>
 </section>
 
 <section class="section tone">
   <div class="inner">
     <div class="eyebrow">Questions</div>
-    <div class="h2">Before you ask.</div>
+    <h2 class="h2">Before you ask.</h2>
     <div class="faq">
       ${FAQ.map(
         (f, i) => `

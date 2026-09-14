@@ -118,6 +118,21 @@ and confirm the resulting jsi version still exports `assumeIsolated` for whateve
 - Attributing this to precompiled-module ABI in general (`EXPO_USE_PRECOMPILED_MODULES=0`,
   `expo.autolinking.ios.buildFromSource`) was tried in `dd59cba`/`65729fe` and did not fix it.
   The skew is a version skew.
+- `npm audit fix` counts as a bump. It moves `expo` and every `expo-*` package inside their `~`
+  ranges without touching `package.json`.
+
+**2026-09-14 amendment — build 1092 crashed on launch, same class of bug.** `c55c86b` ran `npm audit
+fix` for security-audit L2, which moved `expo` 57.0.11 → 57.0.22 and the precompiled
+`ExpoModulesCore` 57.0.10 → 57.0.18 in the lockfile only. Core 57.0.18 declares
+`expo-modules-jsi: ~57.1.0`, and our `overrides` still forced 57.0.5, so we got a green CI run and a
+dead app again. Fixed by restoring `ui/package-lock.json` to the set build 1091 shipped with (`9bef5d3`:
+expo 57.0.11, core 57.0.10, jsi 57.0.5). The same commit's OTA update also went out on
+`runtimeVersion` 1.0.0, so 1091 binaries got JS built against expo 57.0.22. The next push to `ui/`
+replaces it with a bundle built from the restored lockfile.
+[ui/scripts/check-jsi-pin.js](../ui/scripts/check-jsi-pin.js) now runs straight after `npm ci` in
+`build-ios.yml` and `ota-update.yml`. It fails the job when the installed core's declared jsi range
+doesn't accept the pinned jsi. That check is necessary, not sufficient: jsi 57.0.6 satisfies core
+57.0.10's `~57.0.4` and still crashes, so the rules above still apply.
 
 ## Fixed 2026-08-12 — account deletion
 

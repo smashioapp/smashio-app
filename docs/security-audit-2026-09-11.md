@@ -618,9 +618,10 @@ per signup.
 
 ## M7 — Google Maps key restrictions unverified
 
-**Status 2026-09-14: verified.** Confirmed in Google Cloud Console: application restriction
+**Status 2026-09-14: fully verified.** Confirmed in Google Cloud Console: application restriction
 (Android package + release-keystore SHA-1, iOS bundle id) and API restriction (Maps SDK + Places
-only) are both set. Separate-keys-per-platform recommendation not confirmed either way this pass.
+only) are both set, and separate keys exist per platform, so revoking one can't black out the
+other.
 
 **Where:** `ui/.env` (untracked, correctly gitignored at `ui/.gitignore:37`),
 `.github/workflows/build-android.yml`, `build-ios.yml`
@@ -722,6 +723,13 @@ to go private and reads move to signed URLs.
 `@expo/cli` / `metro` and need a major bump `npm audit fix --force` would trigger — per the
 AGENTS.md rule, don't force that outside a deliberate Expo SDK upgrade.
 
+**Status 2026-09-14 (later): that fix was reverted, back to 27 open.** The `npm audit fix` lockfile
+moved `expo-modules-core` to 57.0.18, which needs `expo-modules-jsi ~57.1.0` against our 57.0.5 pin,
+and iOS build 1092 crashed on launch. `ui/package-lock.json` is restored to the pre-fix set. Details are
+in store-readiness-plan.md §"iOS runner image / Xcode / expo-modules-jsi". Redo L2 only alongside a
+deliberate re-decision of the jsi pin, or by bumping individual non-Expo packages (`sharp`,
+`@xmldom/xmldom`, `nanoid`, `js-yaml`) without letting `expo-*` move.
+
 `npm audit` reports 18 moderate and 9 high, every one reached through `@expo/cli`, `metro`,
 `@expo/config-plugins`, `sharp`, `@xmldom/xmldom`, `js-yaml`, `image-size` or `nanoid`. These are
 bundler and prebuild dependencies, not code that runs on a user's phone, and the advisories are
@@ -737,8 +745,13 @@ two crashing builds.
 ## L3 — No delete policy on avatar storage objects
 
 **Status 2026-09-11: fixed.** `20260911000000_avatar_delete_policy.sql` adds a delete policy
-mirroring the existing update policy. Not yet verified against a running local Postgres (Docker
-wasn't up in this session) — review the SQL once `supabase db reset` is run.
+mirroring the existing update policy.
+
+**Status 2026-09-14: verified.** `supabase db reset` replayed clean and `pg_policies` confirms
+`"users delete own avatar"` on `storage.objects` (DELETE, `{authenticated}`, same
+`bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text` scoping as the update
+policy). Confirmed the identical policy directly against the hosted project too — it was already
+applied there via an earlier `db push`, this just confirms it.
 
 `20260807000400_avatars_storage.sql` grants insert and update on `{uid}/` but never delete. A user
 replacing their photo leaves the old object behind indefinitely, publicly readable per L1. Account

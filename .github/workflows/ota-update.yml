@@ -26,6 +26,9 @@ jobs:
       - name: Install deps
         run: npm ci
 
+      - name: Check expo-modules-jsi pin matches expo-modules-core
+        run: node scripts/check-jsi-pin.js
+
       - name: Publish EAS Update
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}

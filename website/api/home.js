@@ -18,6 +18,42 @@ const { esc, callRpc, escapeJsonLd, captureFormScript, analyticsScripts } = requ
 const TESTFLIGHT_URL = "https://testflight.apple.com/join/cJMZQmbn";
 const SYD = "Australia/Sydney";
 
+// The Map moment's tile (home-redesign-plan.md §3.3, H6) lives behind /api/map-tile via a
+// vercel.json rewrite to /api/home?map=1, rather than its own function file — the Hobby plan caps
+// deployments at 12 serverless functions and this project was already at that ceiling. Proxying
+// through here (instead of pointing an <img> straight at Google) also keeps
+// GOOGLE_MAPS_STATIC_API_KEY out of page source and lets the tile be edge-cached instead of
+// re-billed per pageview — venue locations change rarely, per website-plan.md §5's cost-check note.
+const MAP_ID = "65180cd85350fca689a8eb06"; // same cloud-styled dark Map ID the app's Discover map uses (docs/map-plan.md)
+
+async function serveMapTile(res) {
+  const apiKey = process.env.GOOGLE_MAPS_STATIC_API_KEY;
+  if (!apiKey) return res.status(404).end();
+
+  let venues = [];
+  try {
+    venues = await callRpc("venue_seo_directory", {});
+  } catch {
+    venues = [];
+  }
+
+  const points = venues.filter((v) => typeof v.lat === "number" && typeof v.lng === "number").map((v) => `${v.lat},${v.lng}`);
+  if (points.length === 0) return res.status(404).end();
+
+  const params = new URLSearchParams({ size: "1280x480", scale: "1", map_id: MAP_ID, key: apiKey });
+  // One markers param, tiny lime pins, no label — Static Maps auto-fits center/zoom to the points
+  // given, so there's no Sydney-specific center/zoom to hand-tune or for a new suburb to outgrow.
+  params.append("markers", `size:tiny|color:0xD6FF3F|${points.join("|")}`);
+
+  const upstream = await fetch(`https://maps.googleapis.com/maps/api/staticmap?${params.toString()}`);
+  if (!upstream.ok) return res.status(502).end();
+
+  const buf = Buffer.from(await upstream.arrayBuffer());
+  res.setHeader("Content-Type", upstream.headers.get("content-type") || "image/png");
+  res.setHeader("Cache-Control", "public, max-age=86400, s-maxage=604800, stale-while-revalidate=2592000");
+  res.status(200).send(buf);
+}
+
 function slugify(suburb) {
   return String(suburb).toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
@@ -197,6 +233,8 @@ function jsonLd(games) {
 }
 
 module.exports = async function handler(req, res) {
+  if (req.query && req.query.map === "1") return serveMapTile(res);
+
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Cache-Control", "public, max-age=60, s-maxage=300, stale-while-revalidate=86400");
 

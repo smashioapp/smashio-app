@@ -21,6 +21,7 @@
   ],
   "rewrites": [
     { "source": "/", "destination": "/api/home" },
+    { "source": "/api/map-tile", "destination": "/api/home?map=1" },
     { "source": "/game/:id", "destination": "/api/game/:id" },
     { "source": "/venue/:slug", "destination": "/api/venue/:slug" },
     { "source": "/club/:slug", "destination": "/api/club/:slug" },

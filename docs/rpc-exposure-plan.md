@@ -6,6 +6,43 @@ pushed. Three functions not in the original count below (`games_seo_at_venue`, `
 `city_seo_stats`, from `20260910010000_games_seo_feed.sql`, written the same day as this plan)
 were caught by the regression-guard assertion and folded into bucket A's migration.
 
+> **Amendment 2026-09-14 — B5's default-privileges half was a no-op until `20260914000400`.**
+> `20260910070000` ran `alter default privileges for role postgres in schema public revoke execute
+> on functions from public`. A per-schema default ACL can only add to the global default for a
+> role, never remove from it, and PUBLIC execute on functions is a global default, so that line
+> changed nothing: `pg_default_acl` held only the schema row `{postgres=X, service_role=X}` and no
+> global (`defaclnamespace = 0`) row. The migration's header and AGENTS.md both claimed a bare
+> `grant ... to authenticated` now restricted a new function; it didn't. `player_seo(uuid)`
+> (`20260910080000`, granted only to `anon, authenticated`) came out with `=X/postgres` locally and
+> on hosted, and CI's `assert_no_public_definer_execute()` step failed from 2026-09-10 until
+> `20260914000300_player_seo_revoke_public.sql` revoked it per-function. The CI assertion — the
+> half this plan said must land — did its job; the default-privileges half is what was wrong.
+>
+> **Fix:** `20260914000400_default_privileges_global_revoke.sql` runs the global form
+> (`alter default privileges for role postgres revoke execute on functions from public`, no
+> `in schema`) and self-checks on every `db reset` by creating a probe function and raising if it
+> picked up a PUBLIC entry. Verified locally: global row `{postgres=X/postgres}` exists, a new
+> `security definer` function gets `{postgres=X, service_role=X}` and nothing else, and the
+> assertion passes. **Not yet applied to hosted.**
+>
+> **Implications, future functions only** (existing ACLs are untouched):
+> - New functions in `public` are callable by `postgres` and `service_role` only. `anon` and
+>   `authenticated` need an explicit grant — this is §5 option 2's "function granted to nobody"
+>   trap, now live. It covers security invoker RPCs, helpers called inside RLS policy expressions
+>   (evaluated as the querying role; the five current ones, `blocked_between`, `can_post_in_chat`,
+>   `can_rate_in_game`, `is_approved_player`, `shares_a_game_with`, already have explicit
+>   `authenticated` grants), and functions called from a security invoker trigger body.
+> - Helpers called only from `security definer` functions or `cron.job` (both run as `postgres`)
+>   need no grant.
+> - `create or replace` keeps a function's ACL; `drop` + `create` resets it. Three security invoker
+>   functions still hold EXECUTE only via PUBLIC — `achievement_week_streak(uuid)`,
+>   `generate_referral_code()` (called from the invoker trigger `profiles_set_referral_code`), and
+>   `time_in_window(time,time,time)` — and would lose it if ever recreated.
+> - `postgres` creates no functions outside `public` today. Extension, `cron`, `net` and `vault`
+>   functions are owned by `supabase_admin` and unaffected. A future `postgres`-owned function in a
+>   new schema would be owner-only; `storage` carries a platform schema default that still adds
+>   `anon`/`authenticated`/`service_role` explicitly.
+
 Owner area: `supabase/migrations/`. Nothing in `ui/` changes.
 
 ---
@@ -155,7 +192,9 @@ Without this the audit is worth one release. Two options, not mutually exclusive
    role, which stops new functions being created with the grant at all. Cleaner, but it changes the
    behaviour of every future migration silently, and a developer who does not know it is set will
    write a function granted to nobody and debug a permission error instead. Worth doing, but only
-   alongside a line in AGENTS.md.
+   alongside a line in AGENTS.md. *(2026-09-14: the `in schema public` form shipped in
+   `20260910070000` does not do this; the global form in `20260914000400` does. See the amendment
+   at the top.)*
 
 Recommend both, with the CI assertion as the one that must land.
 

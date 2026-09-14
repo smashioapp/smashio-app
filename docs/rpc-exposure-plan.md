@@ -23,7 +23,9 @@ were caught by the regression-guard assertion and folded into bucket A's migrati
 > `in schema`) and self-checks on every `db reset` by creating a probe function and raising if it
 > picked up a PUBLIC entry. Verified locally: global row `{postgres=X/postgres}` exists, a new
 > `security definer` function gets `{postgres=X, service_role=X}` and nothing else, and the
-> assertion passes. **Not yet applied to hosted.**
+> assertion passes. **Applied to hosted 2026-09-14** (`supabase db push`): before the push hosted
+> had the same schema-only row and no global row; after it, the global row `{postgres=X/postgres}`
+> is present and `assert_no_public_definer_execute()` passes there too.
 >
 > **Implications, future functions only** (existing ACLs are untouched):
 > - New functions in `public` are callable by `postgres` and `service_role` only. `anon` and

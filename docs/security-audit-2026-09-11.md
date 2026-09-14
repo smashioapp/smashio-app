@@ -51,7 +51,7 @@ Severity is impact on a live beta with real users, not CVSS.
 | M6 | Medium | `/api/subscribe` has no rate limit and triggers outbound email (fixed 2026-09-12, applied 2026-09-14) |
 | M7 | Medium | Google Maps key restrictions unverified (verified in console, 2026-09-14) |
 | M8 | Medium | Email confirmation disabled in config, production state unverified (verified enabled, 2026-09-14) |
-| L1 | Low | `avatars` bucket is public and enumerable by user id (fixed and verified locally 2026-09-14, not yet applied to hosted) |
+| L1 | Low | `avatars` bucket is public and enumerable by user id (fixed, verified, and applied to hosted 2026-09-14) |
 | L2 | Low | 27 npm advisories in `ui/`, all build-time tooling (5 closed via `npm audit fix`, 2026-09-14) |
 | L3 | Low | No delete policy on avatar storage objects |
 
@@ -669,7 +669,7 @@ While in that screen, confirm the JWT expiry and refresh-token rotation settings
 
 ## L1 — `avatars` bucket is public and enumerable by user id
 
-**Status 2026-09-14: fixed and verified locally, not yet applied to hosted.**
+**Status 2026-09-14: fixed, verified locally, and applied to hosted.**
 `20260914000200_avatars_private.sql` flips `storage.buckets.public` to `false` for `avatars` and
 replaces the open `select` policy with one scoped `to authenticated` — closes the "no account
 needed" exposure without gating on `profile_visibility`/`shares_a_game_with`, since avatars are
@@ -689,8 +689,18 @@ documented pre-existing baseline exactly (`join_leave_flow_test.sql` and
 `push_dispatch_triggers_test.sql` fail identically to before this change, nothing else does) — no
 avatar-related regression. Confirmed directly against the local database: `storage.buckets.public`
 is `false` for `avatars`, and the only `select` policy on `storage.objects` for that bucket is
-`avatar images readable by authenticated`, scoped to `{authenticated}`. **Not yet applied to the
-hosted project** — needs `supabase db push`.
+`avatar images readable by authenticated`, scoped to `{authenticated}`. **Applied to the hosted
+project** via `supabase db push` (after repairing two out-of-band migration-history entries from an
+earlier session's direct `apply_migration` calls — `venue_seo_directory_latlng` and
+`games_select_link_only`, both harmless drop-then-create re-applications of migrations already in
+this repo, not foreign changes) and confirmed directly against it: `storage.buckets.public` is
+`false` for `avatars`, and the only select policy on `storage.objects` for it is `avatar images
+readable by authenticated`, scoped to `{authenticated}`.
+
+Note for the next OTA/app-store release: the mobile app previously in users' hands still calls
+`getPublicUrl` for avatars, which now 400s since the bucket is private — existing installed builds
+will show broken avatar images until this session's signed-URL client change ships (OTA update or
+next store build). Worth prioritising that release.
 
 `insert into storage.buckets (id, name, public) values ('avatars', 'avatars', true)`
 ([20260807000400_avatars_storage.sql:2](../supabase/migrations/20260807000400_avatars_storage.sql)),
@@ -780,9 +790,13 @@ their migrations), and **M3's SRI half closed and deployed** — ionicons is now
 `website/assets/ionicons/` instead of loaded from `unpkg.com`, which is also dropped from the CSP;
 confirmed live on the top Vercel production deployment. M6's env var (`SUPABASE_SERVICE_ROLE_KEY`)
 is set in Vercel. **M8 verified enabled on the hosted dashboard, M7 verified in Google Cloud
-Console.** All eight mediums are now closed. **L2 partially closed** (`npm audit fix`, no force,
-5 of 27 advisories, `tsc --noEmit` clean). Still open: L1 (product decision on the avatars bucket)
-and L2's remaining 22 (need an Expo SDK major bump, out of scope for a `--force` fix per AGENTS.md).
+Console.** All eight mediums are now closed. **L1 fixed, verified, and deployed** — `avatars` bucket
+is private, every client read moved to a signed URL. **L2 partially closed** (`npm audit fix`, no
+force, 5 of 27 advisories, `tsc --noEmit` clean). Only L2's remaining 22 stay open (need an Expo SDK
+major bump, out of scope for a `--force` fix per AGENTS.md) — every other finding in this audit,
+high through low, is now fixed and applied to the hosted project. **Reminder:** ship the app update
+containing the signed-URL client change (OTA or store build) soon — installed builds predating it
+will show broken avatars against the now-private bucket.
 
 1. ~~**Today:** H1, M8~~ — H1 done 2026-09-11. M8 verified enabled 2026-09-14.
 2. ~~**This week:** H2, H3, H4~~ — done 2026-09-12: verified locally, applied to hosted, `db.types.ts`
@@ -790,7 +804,8 @@ and L2's remaining 22 (need an Expo SDK major bump, out of scope for a `--force`
 3. ~~**Before the next website deploy:** H7 and M3~~ — H7 done 2026-09-11; M3 fully done and deployed
    2026-09-14 (headers 2026-09-11, self-hosted ionicons + prod deploy 2026-09-14).
 4. ~~**Before the November launch:** H5/H6/M1/M2/M4/M6/M7/M8~~ — all fixed, applied and verified as
-   of 2026-09-14. Still to do: L1 (needs a product call) and L2's remaining advisories.
+   of 2026-09-14. **L1 fixed, verified, and applied to hosted 2026-09-14.** Still to do: L2's
+   remaining advisories, and shipping the app update with the signed-URL client change.
 
 **Status 2026-09-12: partially addressed.** H3 and H4/M2 shipped trigger-based guards
 (`protect_games_system_columns`, `protect_profiles_system_columns`) that force the protected columns

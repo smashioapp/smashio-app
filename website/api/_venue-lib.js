@@ -183,6 +183,7 @@ ${jsonLd ? `<script type="application/ld+json">${escapeJsonLd(jsonLd)}</script>`
   .install-compact { display:flex; flex-direction:column; gap:10px; max-width:420px; margin:0 auto; }
   .install-compact input[type=email] { height:46px; border-radius:100px; background:#141416; border:1px solid rgba(255,255,255,.10); color:#F5F5F7; padding:0 16px; font-size:13px; font-family:Manrope; flex:1; min-width:0; }
   .install-compact input[type=email]::placeholder { color:#7A7A82; }
+${captureFormStyles()}
 </style>
 </head>
 <body>
@@ -277,30 +278,109 @@ ${analyticsScripts()}
 // `suburb` (W6) tags a suburb-page submission with the suburb the visitor was reading about, so
 // web_signup's p_suburb column (already there since W4) carries real intent instead of null.
 function captureForm(suburb) {
-  const suburbField = suburb
-    ? `<input type="hidden" name="suburb" value="${esc(suburb)}" />`
-    : "";
-  const placeholder = suburb ? `Tell me when a game opens in ${esc(suburb)}` : "you@example.com";
+  return requestForm({
+    source: suburb ? "suburb_page" : "footer",
+    label: "Notify me",
+    placeholder: suburb ? `Tell me when a game opens in ${suburb}` : "you@example.com",
+    suburb,
+  });
+}
+
+// Signup robustness phase 2 (2026-09-14): the one email-capture component behind every form on
+// the site (home install card and footer, shell footer, compact Android CTA). Markup here, styles
+// in captureFormStyles() (must be in the page's <head>), behaviour in captureFormScript().
+// - variant "stacked": field over a full-width button, for the 260-280px install columns
+// - variant "inline": field and button share a row and wrap when narrow
+// - tone "primary" (lime) | "secondary" (outline); align "center" centres wrapped rows
+// Android sources get a success card with the allowlist next steps; everything else a short one.
+let requestFormSeq = 0;
+function requestForm({ source, label, variant = "inline", tone = "primary", align = "start", placeholder = "you@email.com", ariaLabel = "Email address", helper = "", suburb = "" }) {
+  const id = `sf${++requestFormSeq}`;
+  const android = source.includes("android");
+  const suburbField = suburb ? `<input type="hidden" name="suburb" value="${esc(suburb)}" />` : "";
+  const doneBody = android
+    ? `<p class="sf-done-sub">We'll add <b data-sf-email></b> to the Android beta.</p>
+      <ol class="sf-steps">
+        <li><span class="sf-n">1</span><span>We add your Google account<small>Usually within a day</small></span></li>
+        <li><span class="sf-n">2</span><span>You get an email with the Play link<small>Check spam if it's not there</small></span></li>
+        <li><span class="sf-n">3</span><span>Tap Become a tester, then install<small>On the phone signed in to that account</small></span></li>
+      </ol>`
+    : `<p class="sf-done-sub">We've sent a note to <b data-sf-email></b>, and we'll ping you when there's a game near you.</p>`;
   return `
-    <form id="smashio-capture-form" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center">
-      <div style="position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden" aria-hidden="true">
-        <label for="smashio-capture-website">Leave this field empty</label>
-        <input type="text" id="smashio-capture-website" name="website" tabindex="-1" autocomplete="off" />
+    <div class="sf sf-${variant} sf-${tone}${align === "center" ? " sf-center" : ""}" data-sf>
+      <form class="sf-form" data-source="${esc(source)}" novalidate>
+        <div class="sf-hp" aria-hidden="true"><label for="${id}-website">Leave this field empty</label><input type="text" id="${id}-website" name="website" tabindex="-1" autocomplete="off" /></div>
+        ${suburbField}
+        <input class="sf-input" id="${id}-email" type="email" name="email" required autocomplete="email" inputmode="email" placeholder="${esc(placeholder)}" aria-label="${esc(ariaLabel)}" aria-describedby="${id}-msg" />
+        <button class="sf-btn" type="submit"><span class="sf-spin" aria-hidden="true"></span><span class="sf-label" data-label="${esc(label)}">${esc(label)}</span></button>
+        <span class="sf-sr" aria-live="polite"></span>
+        <p class="sf-msg" id="${id}-msg" role="status" aria-live="polite" data-default="${esc(helper)}">${esc(helper)}</p>
+      </form>
+      <div class="sf-done" hidden>
+        <div class="sf-done-top">
+          <span class="sf-tick" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="#D6FF3F" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
+          <p class="sf-done-h" tabindex="-1">You're on the list</p>
+        </div>
+        ${doneBody}
+        <button type="button" class="sf-again">Wrong email? Use a different one</button>
       </div>
-      ${suburbField}
-      <input type="email" name="email" required placeholder="${placeholder}" aria-label="Email address"
-        style="flex:1; min-width:180px; background:#141416; border:1px solid rgba(255,255,255,.12); border-radius:12px; padding:11px 14px; color:#F5F5F7; font-size:13px; font-family:inherit" />
-      <button type="submit" class="btn btn-primary" style="width:auto; padding:11px 18px">
-        <span class="btn-main" style="font-size:13px">Notify me</span>
-      </button>
-      <p data-capture-msg role="status" aria-live="polite" style="width:100%; margin:0; font-size:12px; color:#7A7A82"></p>
-    </form>`;
+    </div>`;
+}
+
+// Hardcoded hex rather than CSS vars: home.js defines tokens, the shell pages don't. `.sf .sf-input`
+// (0,2,0) deliberately outranks home.js's global `input[type=email]` (0,1,1). The -8px margins
+// cancel the form's 8px flex gap for rows that are empty (status line, Turnstile slot).
+function captureFormStyles() {
+  return `
+  .sf { position:relative; font-family:Manrope, system-ui, sans-serif; }
+  .sf [hidden] { display:none !important; }
+  .sf-form { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:0; }
+  .sf-center .sf-form { justify-content:center; }
+  .sf-center .sf-input { flex-basis:220px; }
+  .sf-hp { position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden; }
+  .sf-sr { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+  .sf .sf-input { flex:1 1 140px; min-width:0; height:48px; box-sizing:border-box; margin:0; border-radius:100px; background:#141416; border:1px solid rgba(255,255,255,.12); color:#F5F5F7; padding:0 18px; font:600 14px/1 Manrope, system-ui, sans-serif; transition:border-color .15s, box-shadow .15s; }
+  .sf .sf-input::placeholder { color:#7A7A82; font-weight:500; }
+  .sf .sf-input:focus { outline:none; border-color:rgba(214,255,63,.6); box-shadow:0 0 0 4px rgba(214,255,63,.12); }
+  .sf .sf-input[aria-invalid="true"] { border-color:#FF6767; box-shadow:0 0 0 4px rgba(255,103,103,.12); }
+  .sf .sf-btn { flex:0 0 auto; height:48px; box-sizing:border-box; margin:0; border-radius:100px; padding:0 20px; display:inline-flex; align-items:center; justify-content:center; gap:8px; font:800 14px/1 Manrope, system-ui, sans-serif; white-space:nowrap; cursor:pointer; transition:filter .15s, transform .1s; }
+  .sf-primary .sf-btn { background:linear-gradient(135deg,#EBFF7A,#AEE62A); color:#0A0A0B; border:0; box-shadow:0 0 30px rgba(214,255,63,.18); }
+  .sf-secondary .sf-btn { background:transparent; color:#F5F5F7; border:1.5px solid rgba(255,255,255,.18); }
+  .sf .sf-btn:hover { filter:brightness(1.06); }
+  .sf .sf-btn:active { transform:scale(.98); }
+  .sf .sf-btn:focus-visible { outline:2px solid #F5F5F7; outline-offset:3px; }
+  .sf .sf-btn[aria-busy="true"] { cursor:progress; filter:saturate(.75) brightness(.92); transform:none; }
+  .sf-spin { display:none; width:15px; height:15px; box-sizing:border-box; border-radius:50%; border:2.5px solid currentColor; border-right-color:transparent; opacity:.8; animation:sf-spin .7s linear infinite; }
+  .sf .sf-btn[aria-busy="true"] .sf-spin { display:inline-block; }
+  @keyframes sf-spin { to { transform:rotate(360deg); } }
+  .sf-stacked .sf-input, .sf-stacked .sf-btn { flex:1 1 100%; height:50px; }
+  .sf-msg { flex:1 1 100%; width:0; min-width:100%; margin:0; font-size:12px; line-height:1.45; color:#7A7A82; }
+  .sf-msg:empty { margin-top:-8px; }
+  .sf-msg[data-tone="ok"] { color:#D6FF3F; }
+  .sf-msg[data-tone="warn"] { color:#FFB648; }
+  .sf-msg[data-tone="bad"] { color:#FF6767; }
+  .sf-done { display:flex; flex-direction:column; gap:12px; max-width:340px; text-align:left; animation:sf-rise .3s ease-out; }
+  @keyframes sf-rise { from { opacity:.3; transform:translateY(6px); } to { opacity:1; transform:none; } }
+  .sf-done-top { display:flex; align-items:center; gap:10px; }
+  .sf-tick { flex:0 0 34px; width:34px; height:34px; box-sizing:border-box; border-radius:50%; display:grid; place-items:center; background:rgba(214,255,63,.12); border:1.5px solid #D6FF3F; }
+  .sf-tick svg { width:16px; height:16px; }
+  .sf-done-h { margin:0; font:700 17px/1.2 'Space Grotesk', system-ui, sans-serif; letter-spacing:-.01em; color:#F5F5F7; outline:none; }
+  .sf-done-sub { margin:0; font-size:13px; line-height:1.45; color:#96969E; overflow-wrap:anywhere; }
+  .sf-done-sub b { color:#F5F5F7; font-weight:700; }
+  .sf-steps { list-style:none; margin:0; padding:0; border-top:1px solid rgba(255,255,255,.08); }
+  .sf-steps li { display:grid; grid-template-columns:18px 1fr; gap:8px; padding:9px 0; border-bottom:1px solid rgba(255,255,255,.08); font-size:13px; line-height:1.35; color:#C7C7CE; }
+  .sf-steps small { display:block; margin-top:2px; font-size:11.5px; color:#7A7A82; }
+  .sf-n { font:500 11px/1.6 ui-monospace, Consolas, monospace; color:#D6FF3F; }
+  .sf-again { align-self:flex-start; background:none; border:0; padding:0; color:#96969E; font:600 12.5px/1.4 Manrope, system-ui, sans-serif; text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
+  .sf-again:hover { color:#F5F5F7; }
+  .sf-again:focus-visible { outline:2px solid #D6FF3F; outline-offset:2px; }
+  @media (prefers-reduced-motion: reduce) { .sf-spin { animation-duration:2.4s; } .sf-done { animation:none; } .sf .sf-btn, .sf .sf-input { transition:none; } }`;
 }
 
 // M6 (security-audit-2026-09-11, DEC7) + signup robustness phase 1 (2026-09-14). Verified
 // server-side in subscribe.js — the client-side check here only gates the UX. What phase 1 fixed:
-// - every form's status line is `[data-capture-msg]` inside the form; the old lookup missed the
-//   home page install-card forms entirely, so they never showed success or failure
+// - every form's status line lives inside the form (now `.sf-msg`, see requestForm); the old
+//   lookup missed the home page install-card forms entirely, so they never showed anything
 // - each form renders its own Turnstile widget into a slot inside the form, so an interactive
 //   challenge shows under the field instead of appended below the footer
 // - nothing can hang: Turnstile gets an 8 s ceiling (stretched only once it asks for a tap), the
@@ -316,7 +396,6 @@ function captureFormScript() {
   var INTERACTIVE_WAIT_MS = 60000;
   var FETCH_TIMEOUT_MS = 12000;
   var EMAIL_RE = /^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/;
-  var TONES = { muted: "#7A7A82", ok: "#D6FF3F", warn: "#FFB648", bad: "#FF6767" };
   // Keyed by subscribe.js error codes plus two client-side ones. Only network and server failures
   // invite a straight retry: retrying a rate limit or a failed bot check never helps.
   var MESSAGES = {
@@ -327,13 +406,6 @@ function captureFormScript() {
     network: ["Couldn't reach Smashio. Check your connection and have another go, your email's still there.", "bad"],
     server: ["Something's gone wrong on our end. Have another go, or email hello@smashio.com.au.", "bad"]
   };
-
-  function setMsg(form, text, tone) {
-    var msg = form.querySelector("[data-capture-msg]");
-    if (!msg) return;
-    msg.textContent = text;
-    msg.style.color = TONES[tone] || TONES.muted;
-  }
 
   // The api.js tag is async, so a fast submit can beat it. Poll until it lands or the deadline.
   function whenTurnstileLoaded(deadline) {
@@ -358,7 +430,7 @@ function captureFormScript() {
     var slot = document.createElement("div");
     slot.setAttribute("data-turnstile-slot", "");
     slot.style.cssText = "flex-basis:100%; width:0; min-width:100%; " + SLOT_COLLAPSED;
-    form.insertBefore(slot, form.querySelector("[data-capture-msg]"));
+    form.insertBefore(slot, form.querySelector(".sf-msg"));
     function done(token) { if (w.settle) w.settle(token || ""); }
     w.id = ts.render(slot, {
       sitekey: TURNSTILE_SITE_KEY,
@@ -389,7 +461,9 @@ function captureFormScript() {
         function arm(ms) { clearTimeout(timer); timer = setTimeout(function () { finish(""); }, ms); }
         function finish(token) {
           clearTimeout(timer);
-          if (w) { w.settle = null; w.onInteractive = null; }
+          // Only clear the widget's hooks if they're still ours: a stale call timing out must not
+          // unhook a newer call that has since taken over the same widget.
+          if (w && w.settle === finish) { w.settle = null; w.onInteractive = null; }
           resolve(token);
         }
         arm(Math.max(TOKEN_WAIT_MS - (Date.now() - started), 3000));
@@ -427,44 +501,110 @@ function captureFormScript() {
     return "server";
   }
 
-  function wire(form) {
-    var btn = form.querySelector("button[type=submit]");
+  function wire(root) {
+    var form = root.querySelector(".sf-form");
+    var done = root.querySelector(".sf-done");
+    var input = form.querySelector(".sf-input");
+    var btn = form.querySelector(".sf-btn");
+    var label = btn.querySelector(".sf-label");
+    var msg = form.querySelector(".sf-msg");
+    var sr = form.querySelector(".sf-sr");
+    var source = form.getAttribute("data-source") || "footer";
+    var suburbField = form.querySelector('[name="suburb"]');
     var busy = false;
+    var warm = null;
+    var shownError = null;
 
-    function settle(key, source) {
+    function status(text, tone) {
+      msg.textContent = text;
+      if (tone) msg.setAttribute("data-tone", tone); else msg.removeAttribute("data-tone");
+    }
+    function restoreStatus() {
+      shownError = null;
+      status(msg.getAttribute("data-default") || "", "");
+    }
+
+    // Width is locked on the first busy state so swapping the label for spinner + "Sending"
+    // doesn't make the button jump. The visual label isn't announced, so .sf-sr carries it.
+    function setBusy(text) {
+      if (!busy) btn.style.minWidth = btn.offsetWidth + "px";
+      busy = true;
+      btn.disabled = true;
+      btn.setAttribute("aria-busy", "true");
+      label.textContent = text;
+      sr.textContent = text + "…";
+    }
+    function endBusy() {
       busy = false;
       btn.disabled = false;
       btn.removeAttribute("aria-busy");
-      if (key === "ok") {
-        setMsg(form, source.indexOf("android") !== -1
-          ? "Sorted, we'll add you to the Android beta and email you, usually within a day."
-          : "Sorted, you're on the list. Keep an eye on your inbox.", "ok");
-        return;
-      }
-      setMsg(form, MESSAGES[key][0], MESSAGES[key][1]);
+      btn.style.minWidth = "";
+      label.textContent = label.getAttribute("data-label");
+      sr.textContent = "";
     }
+    // The typed email is never cleared on failure.
+    function fail(key) {
+      endBusy();
+      shownError = key;
+      status(MESSAGES[key][0], MESSAGES[key][1]);
+      if (key === "invalid_email") {
+        input.setAttribute("aria-invalid", "true");
+        input.focus();
+      }
+    }
+    function succeed(email) {
+      endBusy();
+      root.querySelectorAll("[data-sf-email]").forEach(function (el) { el.textContent = email; });
+      form.hidden = true;
+      done.hidden = false;
+      var heading = done.querySelector(".sf-done-h");
+      if (heading) heading.focus({ preventScroll: true });
+      if (window.posthog) window.posthog.capture("web_signup", { source: source });
+    }
+
+    // Warm a token on focus so it's usually ready by submit. Tokens live 300 s; one older than
+    // 240 s is dropped rather than risk it expiring in flight.
+    input.addEventListener("focus", function () {
+      if (warm || busy) return;
+      warm = { at: Date.now(), promise: getTurnstileToken(form) };
+    });
+    function takeToken() {
+      var w = warm;
+      warm = null;
+      if (!w || Date.now() - w.at > 240000) return getTurnstileToken(form);
+      // "" means Cloudflare said no or timed out, worth one fresh try. null means the script
+      // never loaded, and another 8 s wait won't change that.
+      return w.promise.then(function (token) { return token === "" ? getTurnstileToken(form) : token; });
+    }
+
+    input.addEventListener("input", function () {
+      if (shownError !== "invalid_email") return;
+      input.removeAttribute("aria-invalid");
+      restoreStatus();
+    });
+
+    root.querySelector(".sf-again").addEventListener("click", function () {
+      done.hidden = true;
+      form.hidden = false;
+      restoreStatus();
+      input.focus();
+      input.select();
+    });
 
     form.addEventListener("submit", function (e) {
       e.preventDefault();
       if (busy) return;
-      var email = form.email.value.trim();
-      var suburbField = form.querySelector('[name="suburb"]');
-      var source = form.getAttribute("data-source") || (suburbField ? "suburb_page" : "footer");
-      if (!EMAIL_RE.test(email)) {
-        setMsg(form, MESSAGES.invalid_email[0], MESSAGES.invalid_email[1]);
-        form.email.focus();
-        return;
-      }
-      busy = true;
-      btn.disabled = true;
-      btn.setAttribute("aria-busy", "true");
-      setMsg(form, "Just a sec…", "muted");
+      var email = input.value.trim();
+      if (!EMAIL_RE.test(email)) return fail("invalid_email");
+      input.removeAttribute("aria-invalid");
+      restoreStatus();
+      setBusy("Checking");
 
-      getTurnstileToken(form)
+      takeToken()
         .then(function (token) {
-          if (token === null) return settle("turnstile_unavailable", source);
-          if (!token) return settle("turnstile_failed", source);
-          setMsg(form, "Sending…", "muted");
+          if (token === null) return fail("turnstile_unavailable");
+          if (!token) return fail("turnstile_failed");
+          setBusy("Sending");
           var controller = typeof AbortController === "function" ? new AbortController() : null;
           var timer = controller ? setTimeout(function () { controller.abort(); }, FETCH_TIMEOUT_MS) : null;
           return fetch("/api/subscribe", {
@@ -476,21 +616,17 @@ function captureFormScript() {
             .then(readResponse)
             .then(function (data) {
               clearTimeout(timer);
-              if (data.ok) {
-                form.reset();
-                if (window.posthog) window.posthog.capture("web_signup", { source: source });
-                return settle("ok", source);
-              }
-              settle(errorKey(data), source);
+              if (data.ok) return succeed(email);
+              fail(errorKey(data));
             }, function () {
               clearTimeout(timer);
-              settle("network", source);
+              fail("network");
             });
         })
-        .catch(function () { settle("server", source); });
+        .catch(function () { fail("server"); });
     });
   }
-  document.querySelectorAll("#smashio-capture-form, .smashio-install-form, .smashio-capture-form").forEach(wire);
+  document.querySelectorAll("[data-sf]").forEach(wire);
 })();
 </script>`;
 }
@@ -522,7 +658,7 @@ document.addEventListener("click", function (e) {
 function ctaButtons() {
   return `
     <div class="rise rise-4 compact-cta" style="display:flex; justify-content:center; width:100%">
-      <div class="cta-variant cta-default" style="flex-wrap:wrap; gap:12px; justify-content:center; width:100%">
+      <div class="cta-variant cta-default" style="flex-wrap:wrap; gap:12px; justify-content:center; align-items:center; width:100%">
         <a class="btn btn-primary" style="width:auto" href="${TESTFLIGHT_URL}" target="_blank" rel="noopener">
           <ion-icon name="logo-apple" style="font-size:22px"></ion-icon>
           <span class="btn-label"><span class="btn-eyebrow">Join the</span><span class="btn-main">TestFlight beta</span></span>
@@ -536,7 +672,7 @@ function ctaButtons() {
         </a>
       </div>
       <div class="cta-variant cta-android" style="justify-content:center; width:100%">${androidRequestForm()}</div>
-      <div class="cta-variant cta-desktop" style="flex-wrap:wrap; gap:12px; justify-content:center; width:100%">
+      <div class="cta-variant cta-desktop" style="flex-wrap:wrap; gap:12px; justify-content:center; align-items:center; width:100%">
         <a class="btn btn-primary" style="width:auto" href="${TESTFLIGHT_URL}" target="_blank" rel="noopener">
           <ion-icon name="logo-apple" style="font-size:22px"></ion-icon>
           <span class="btn-label"><span class="btn-eyebrow">Join the</span><span class="btn-main">TestFlight beta</span></span>
@@ -548,18 +684,14 @@ function ctaButtons() {
 }
 
 function androidRequestForm() {
-  return `
-    <form class="smashio-install-form" style="display:flex; flex-wrap:wrap; justify-content:center; gap:8px; align-items:center" data-source="install_compact_android">
-      <div style="position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden" aria-hidden="true">
-        <label>Leave this field empty<input type="text" name="website" tabindex="-1" autocomplete="off" /></label>
-      </div>
-      <input type="email" name="email" required placeholder="you@email.com for Android" aria-label="Email for Android beta"
-        style="height:52px; border-radius:100px; background:#141416; border:1px solid rgba(255,255,255,.10); color:#F5F5F7; padding:0 18px; font-size:13.5px; font-family:Manrope; width:200px" />
-      <button type="submit" class="btn" style="width:auto; background:transparent; border:1.5px solid rgba(255,255,255,.15)">
-        <span class="btn-main" style="font-size:13.5px">Request access</span>
-      </button>
-      <span data-capture-msg role="status" aria-live="polite" style="flex-basis:100%; width:0; min-width:100%; font-size:11px; color:#7A7A82"></span>
-    </form>`;
+  return requestForm({
+    source: "install_compact_android",
+    label: "Request access",
+    tone: "secondary",
+    align: "center",
+    placeholder: "you@gmail.com",
+    ariaLabel: "Email for Android beta",
+  });
 }
 
-module.exports = { esc, escapeJsonLd, callRpc, callServiceRpc, shell, ctaButtons, captureForm, captureFormScript, analyticsScripts };
+module.exports = { esc, escapeJsonLd, callRpc, callServiceRpc, shell, ctaButtons, captureForm, requestForm, captureFormStyles, captureFormScript, analyticsScripts };

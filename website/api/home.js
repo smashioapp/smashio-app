@@ -13,7 +13,7 @@
 // to carry (closes part of D10; the header/footer markup itself still needs the H3 pass).
 //
 // Replaces website/index.html (deleted) — see website/vercel.json's "/" rewrite to this function.
-const { esc, callRpc, escapeJsonLd, captureFormScript, analyticsScripts } = require("./_venue-lib");
+const { esc, callRpc, escapeJsonLd, requestForm, captureFormStyles, captureFormScript, analyticsScripts } = require("./_venue-lib");
 
 const TESTFLIGHT_URL = "https://testflight.apple.com/join/cJMZQmbn";
 const SYD = "Australia/Sydney";
@@ -456,6 +456,7 @@ module.exports = async function handler(req, res) {
   ::-webkit-scrollbar-track { background: var(--bgAlt); }
   ::-webkit-scrollbar-thumb { background: #3A3A40; border-radius: 8px; border: 3px solid var(--bgAlt); }
   ::-webkit-scrollbar-thumb:hover { background: var(--accent3); }
+${captureFormStyles()}
 </style>
 
 </head>
@@ -767,31 +768,16 @@ module.exports = async function handler(req, res) {
       <div class="install-cta">
         <div class="s s-default" style="flex-direction:column; gap:10px; width:280px">
           <a href="${TESTFLIGHT_URL}" target="_blank" rel="noopener" class="btn ios"><ion-icon name="logo-apple" style="font-size:20px"></ion-icon>Join on TestFlight</a>
-          <form class="smashio-capture-form" data-source="hero_android" style="display:flex; flex-wrap:wrap; gap:8px">
-            <div style="position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden" aria-hidden="true"><label>Leave this field empty<input type="text" name="website" tabindex="-1" autocomplete="off" /></label></div>
-            <input type="email" name="email" required placeholder="you@email.com" aria-label="Email address" style="flex:1; min-width:0" />
-            <button type="submit" class="btn sec" style="flex-shrink:0; padding:0 16px">Android</button>
-            <p data-capture-msg role="status" aria-live="polite" style="width:100%; margin:0; font-size:11px; color:#7A7A82"></p>
-          </form>
+          ${requestForm({ source: "hero_android", label: "Request Android invite", variant: "stacked", tone: "secondary" })}
         </div>
         <div class="s s-ios" style="flex-direction:column; gap:10px; width:260px">
           <a href="${TESTFLIGHT_URL}" target="_blank" rel="noopener" class="btn ios"><ion-icon name="logo-apple" style="font-size:20px"></ion-icon>Join on TestFlight</a>
         </div>
         <div class="s s-android" style="flex-direction:column; gap:10px; width:280px">
-          <form class="smashio-capture-form" data-source="hero_android" style="display:flex; flex-wrap:wrap; gap:8px">
-            <div style="position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden" aria-hidden="true"><label>Leave this field empty<input type="text" name="website" tabindex="-1" autocomplete="off" /></label></div>
-            <input type="email" name="email" required placeholder="you@email.com" aria-label="Email address" style="flex:1; min-width:0" />
-            <button type="submit" class="btn pri" style="flex-shrink:0">Request</button>
-            <p data-capture-msg role="status" aria-live="polite" style="width:100%; margin:0; font-size:11px; color:#7A7A82">We'll add you and email you back, usually within a day.</p>
-          </form>
+          ${requestForm({ source: "hero_android", label: "Request invite", variant: "stacked", helper: "We'll add you and email you back, usually within a day." })}
         </div>
         <div class="s s-desktop" style="flex-direction:column; gap:10px; width:280px">
-          <form class="smashio-capture-form" data-source="get_app_android" style="display:flex; flex-wrap:wrap; gap:8px">
-            <div style="position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden" aria-hidden="true"><label>Leave this field empty<input type="text" name="website" tabindex="-1" autocomplete="off" /></label></div>
-            <input type="email" name="email" required placeholder="you@email.com" aria-label="Email address" style="flex:1; min-width:0" />
-            <button type="submit" class="btn pri" style="flex-shrink:0">Send</button>
-            <p data-capture-msg role="status" aria-live="polite" style="width:100%; margin:0; font-size:11px; color:#7A7A82"></p>
-          </form>
+          ${requestForm({ source: "get_app_android", label: "Request Android invite", variant: "stacked" })}
         </div>
       </div>
     </div>
@@ -812,12 +798,7 @@ module.exports = async function handler(req, res) {
     <div class="ftr-col" style="max-width:260px">
       <div class="ftr-h">Not ready yet?</div>
       <p style="margin:0; font-size:12.5px; line-height:1.5; color:#7A7A82">Leave your email and we'll ping you when there's a game near you.</p>
-      <form class="smashio-capture-form" data-source="home_footer" style="display:flex; flex-wrap:wrap; gap:8px; align-items:center">
-        <div style="position:absolute; left:-9999px; width:1px; height:1px; overflow:hidden" aria-hidden="true"><label>Leave this field empty<input type="text" name="website" tabindex="-1" autocomplete="off" /></label></div>
-        <input type="email" name="email" required placeholder="you@example.com" aria-label="Email address" style="flex:1; min-width:150px; font-size:12.5px" />
-        <button type="submit" class="btn pri" style="height:auto; padding:10px 16px; font-size:12.5px">Notify me</button>
-        <p data-capture-msg role="status" aria-live="polite" style="width:100%; margin:0; font-size:11.5px; color:#7A7A82"></p>
-      </form>
+      ${requestForm({ source: "home_footer", label: "Notify me", placeholder: "you@example.com" })}
     </div>
   </div>
   <div class="ftr-bottom"><div class="ftr-bottom-inner"><span>&copy; 2026 Smashio. Sydney, Australia.</span><span>Not affiliated with any court operator, yet.</span></div></div>

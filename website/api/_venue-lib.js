@@ -19,6 +19,10 @@ const PLAY_BETA_URL = "https://play.google.com/apps/internaltest/470158964377542
 const POSTHOG_KEY = "phc_yoGdyfhrcu6GoAMxVNb37xquGmRLumfrVbK8r4FLoST2";
 const POSTHOG_HOST = "https://us.i.posthog.com";
 
+// Turnstile site key — public by design (ships in every page's HTML). The secret key that
+// verifies tokens server-side lives only in Vercel's TURNSTILE_SECRET_KEY env var (subscribe.js).
+const TURNSTILE_SITE_KEY = "0x4AAAAAAEzfKOQc4g1Cy4MT";
+
 function esc(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
 }
@@ -291,9 +295,31 @@ function captureForm(suburb) {
     </form>`;
 }
 
+// M6 (security-audit-2026-09-11, DEC7): one invisible Turnstile widget shared across every
+// capture form on the page, executed fresh per submit so a token can't be replayed across forms.
+// Verified server-side in subscribe.js — the client-side check here only gates the UX.
 function captureFormScript() {
-  return `<script>
+  return `<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<script>
 (function () {
+  var TURNSTILE_SITE_KEY = "${TURNSTILE_SITE_KEY}";
+  var turnstileWidgetId = null;
+
+  function getTurnstileToken() {
+    return new Promise(function (resolve) {
+      if (!window.turnstile) { resolve(""); return; }
+      if (turnstileWidgetId === null) {
+        var el = document.createElement("div");
+        document.body.appendChild(el);
+        turnstileWidgetId = window.turnstile.render(el, { sitekey: TURNSTILE_SITE_KEY, execution: "execute", appearance: "interaction-only" });
+      }
+      window.turnstile.execute(turnstileWidgetId, {
+        callback: function (token) { resolve(token); },
+        "error-callback": function () { resolve(""); },
+      });
+    });
+  }
+
   function wire(form) {
     var msg = form.querySelector(".smashio-capture-msg, .smashio-install-msg") || document.getElementById("smashio-capture-msg");
     form.addEventListener("submit", function (e) {
@@ -304,27 +330,29 @@ function captureFormScript() {
       var source = form.getAttribute("data-source") || (suburbField ? "suburb_page" : "footer");
       var btn = form.querySelector("button[type=submit]");
       btn.disabled = true;
-      fetch("/api/subscribe", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email, website: website, suburb: suburbField ? suburbField.value : "", source: source }),
-      })
-        .then(function (r) { return r.json(); })
-        .then(function (data) {
-          btn.disabled = false;
-          if (data.ok) {
-            if (msg) { msg.textContent = "Sorted, we'll add you and email you back."; msg.style.color = "#D6FF3F"; }
-            form.reset();
-            if (window.posthog) window.posthog.capture("web_signup", { source: source });
-          } else if (msg) {
-            msg.textContent = "That didn't work, mind trying again?";
-            msg.style.color = "#FF6767";
-          }
+      getTurnstileToken().then(function (turnstileToken) {
+        fetch("/api/subscribe", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email: email, website: website, suburb: suburbField ? suburbField.value : "", source: source, turnstileToken: turnstileToken }),
         })
-        .catch(function () {
-          btn.disabled = false;
-          if (msg) { msg.textContent = "That didn't work, mind trying again?"; msg.style.color = "#FF6767"; }
-        });
+          .then(function (r) { return r.json(); })
+          .then(function (data) {
+            btn.disabled = false;
+            if (data.ok) {
+              if (msg) { msg.textContent = "Sorted, we'll add you and email you back."; msg.style.color = "#D6FF3F"; }
+              form.reset();
+              if (window.posthog) window.posthog.capture("web_signup", { source: source });
+            } else if (msg) {
+              msg.textContent = "That didn't work, mind trying again?";
+              msg.style.color = "#FF6767";
+            }
+          })
+          .catch(function () {
+            btn.disabled = false;
+            if (msg) { msg.textContent = "That didn't work, mind trying again?"; msg.style.color = "#FF6767"; }
+          });
+      });
     });
   }
   document.querySelectorAll("#smashio-capture-form, .smashio-install-form, .smashio-capture-form").forEach(wire);

@@ -603,7 +603,30 @@ test db` pass (no existing test covered `web_signup`, so nothing to regress).
 **Status 2026-09-14: applied to hosted, env var set.** `SUPABASE_SERVICE_ROLE_KEY` added to Vercel
 (prod + preview). Confirmed directly against the hosted project: `web_signup`'s only `EXECUTE`
 grantees are `postgres` and `service_role` — `anon` no longer holds it, so the RPC can't be reached
-directly with the public key anymore. Turnstile (DEC7) is still outstanding.
+directly with the public key anymore.
+
+**Status 2026-09-14: Turnstile (DEC7) shipped, closing this finding fully.** A Cloudflare Turnstile
+widget (Managed mode, hostname-locked to `smashio.com.au`) is now wired into every capture form on
+the site: `captureFormScript()` in `_venue-lib.js` loads the Turnstile script once, renders a single
+shared invisible-style widget (`execution: "execute"`, `appearance: "interaction-only"` — the
+`size: "invisible"` param from Turnstile's older API no longer exists and throws if used), and
+executes it fresh on every submit so a token can't be replayed across forms. `subscribe.js` gained
+`verifyTurnstile()`, which calls Cloudflare's `siteverify` endpoint server-side before touching
+`web_signup` at all, and fails closed the same way `callServiceRpc` already does if
+`TURNSTILE_SECRET_KEY` isn't set. The site key is public by design and lives in `_venue-lib.js`;
+the secret key was added to Vercel (`production`, `preview` and `development`) via `vercel env add`.
+
+Verified two of the three states directly against the real Cloudflare API through the deployed
+code path (`vercel dev` locally, secret pulled from the real Vercel project): a request with no
+secret configured logs the fail-closed message and rejects; a request with a real secret but a
+garbage token gets a genuine `siteverify` rejection and a `403 {"error":"turnstile_failed"}`. The
+third state — a real passing token — can't be produced locally because the widget is hostname-
+locked to `smashio.com.au` and refuses to run on `localhost` (Turnstile error 110200, "invalid
+domain"), which is itself correct behaviour, not a bug: the client-side failure was handled
+gracefully (empty token, friendly "that didn't work" message, no crash), and the success path
+follows directly from Cloudflare's own `siteverify` contract once run on the real domain. Worth a
+quick real-world check on smashio.com.au once this deploys. IP rate limiting (2026-09-12) stays in
+place alongside Turnstile, not replaced by it. M6 fully closed.
 
 **Where:** [website/api/subscribe.js](../website/api/subscribe.js),
 [20260910020000_web_signups.sql:55](../supabase/migrations/20260910020000_web_signups.sql)

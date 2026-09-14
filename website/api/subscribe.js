@@ -1,8 +1,9 @@
 // website-plan.md W4 — email capture (closes gtm-plan G15). Client never gets the anon key or a
 // direct insert path (§5.5 T3, and the "no direct anon insert" rule in
 // 20260910020000_web_signups.sql) — this function is the only thing that calls web_signup().
-// Turnstile and double opt-in (DEC7) are deferred pending a third-party account; the honeypot
-// field below is the only bot defence shipped so far.
+// Turnstile (DEC7, security-audit-2026-09-11 M6) shipped 2026-09-14: verifyTurnstile() below.
+// Double opt-in is still not done — the honeypot plus IP rate limit plus Turnstile is the bot
+// defence for now.
 //
 // Notify email (2026-09-11): fires after a successful signup so a human sees it and can add
 // Android testers to the Play Console allowlist manually — nothing else reads web_signups yet.
@@ -43,6 +44,33 @@ async function sendResendEmail(label, payload) {
     console.log(`resend:${label} sent ${text.slice(0, 200)}`);
   } catch (err) {
     console.error(`resend:${label} threw ${err && err.message}`);
+  }
+}
+
+// Fails closed, same pattern as callServiceRpc's SUPABASE_SERVICE_ROLE_KEY check below: if the
+// secret isn't configured in this environment, reject rather than silently accepting unverified
+// traffic (which is exactly the bot-flood this finding exists to close).
+async function verifyTurnstile(token, ip) {
+  const secret = process.env.TURNSTILE_SECRET_KEY;
+  if (!secret) {
+    console.error("subscribe: TURNSTILE_SECRET_KEY not set in this environment — rejecting signup");
+    return false;
+  }
+  if (!token) return false;
+
+  try {
+    const params = new URLSearchParams({ secret, response: token });
+    if (ip) params.set("remoteip", ip);
+    const resp = await fetch("https://challenges.cloudflare.com/turnstile/v0/siteverify", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: params.toString(),
+    });
+    const data = await resp.json();
+    return data.success === true;
+  } catch (err) {
+    console.error(`subscribe: turnstile verify threw — ${err && err.message}`);
+    return false;
   }
 }
 
@@ -184,6 +212,7 @@ module.exports = async function handler(req, res) {
   const source = typeof body.source === "string" ? body.source.trim() || "footer" : "footer";
   // Hidden field real visitors never fill; named to look like a normal field to a scraping bot.
   const honeypot = typeof body.website === "string" ? body.website : "";
+  const turnstileToken = typeof body.turnstileToken === "string" ? body.turnstileToken : "";
 
   if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
     return res.status(400).json({ ok: false, error: "invalid_email" });
@@ -192,6 +221,11 @@ module.exports = async function handler(req, res) {
   // Vercel sets x-forwarded-for to "client, proxy1, proxy2..." — the first hop is the visitor.
   const forwardedFor = typeof req.headers["x-forwarded-for"] === "string" ? req.headers["x-forwarded-for"] : "";
   const ip = forwardedFor.split(",")[0].trim() || req.socket?.remoteAddress || null;
+
+  const turnstileOk = await verifyTurnstile(turnstileToken, ip);
+  if (!turnstileOk) {
+    return res.status(403).json({ ok: false, error: "turnstile_failed" });
+  }
 
   try {
     await callServiceRpc("web_signup", {

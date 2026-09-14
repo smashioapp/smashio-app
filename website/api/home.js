@@ -659,16 +659,14 @@ module.exports = async function handler(req, res) {
 <section class="section">
   <div class="eyebrow">Dark, fast, and out of your way</div>
   <div class="h2">The app underneath all this.</div>
-  <!-- TODO(website-design-brief.md §6): swap each .phonescreen for a real iPhone capture per the
-       asset list (Discover list/map, game detail, host-a-game, feed, profile). Placeholder frames
-       until Ajay supplies the crops (home-redesign-plan.md H7). -->
+  <!-- Real iPhone captures, home-redesign-plan.md H7 (website-design-brief.md §6). -->
   <div class="rail">
-    <div class="phoneframe"><div class="phonescreen"><span class="cap">DISCOVER &middot; LIST</span></div></div>
-    <div class="phoneframe"><div class="phonescreen"><span class="cap">DISCOVER &middot; MAP</span></div></div>
-    <div class="phoneframe"><div class="phonescreen"><span class="cap">GAME DETAIL</span></div></div>
-    <div class="phoneframe"><div class="phonescreen"><span class="cap">HOST A GAME</span></div></div>
-    <div class="phoneframe"><div class="phonescreen"><span class="cap">FEED / CHAT</span></div></div>
-    <div class="phoneframe"><div class="phonescreen"><span class="cap">PROFILE</span></div></div>
+    <div class="phoneframe"><div class="phonescreen"><img src="/assets/screenshots/discover-list.webp" width="380" height="822" alt="Discover screen listing nearby badminton games" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" /><span class="cap">DISCOVER &middot; LIST</span></div></div>
+    <div class="phoneframe"><div class="phonescreen"><img src="/assets/screenshots/discover-map.webp" width="380" height="822" alt="Discover map showing badminton games near Maroubra" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" /><span class="cap">DISCOVER &middot; MAP</span></div></div>
+    <div class="phoneframe"><div class="phonescreen"><img src="/assets/screenshots/game-detail.webp" width="380" height="822" alt="Game detail screen with lineup and open spots" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" /><span class="cap">GAME DETAIL</span></div></div>
+    <div class="phoneframe"><div class="phonescreen"><img src="/assets/screenshots/host-a-game.webp" width="380" height="822" alt="Host a game wizard, booking confirmation step" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" /><span class="cap">HOST A GAME</span></div></div>
+    <div class="phoneframe"><div class="phonescreen"><img src="/assets/screenshots/feed.webp" width="380" height="822" alt="Feed screen with nearby game posts" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" /><span class="cap">FEED / CHAT</span></div></div>
+    <div class="phoneframe"><div class="phonescreen"><img src="/assets/screenshots/profile.webp" width="380" height="822" alt="Player profile with reliability score and badges" loading="lazy" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover" /><span class="cap">PROFILE</span></div></div>
   </div>
 </section>
 

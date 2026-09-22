@@ -118,28 +118,33 @@ function JoinRequestActions({ item }: { item: NotificationItem }) {
   };
 
   return (
-    <View className="flex-row gap-2 mt-2" style={{ marginLeft: 48 }}>
-      <Pressable
-        onPress={() => act("approve")}
-        disabled={busy !== null}
-        className="rounded-pill px-4 py-2"
-        style={{ backgroundColor: colors.accent, opacity: busy && busy !== "approve" ? 0.5 : 1 }}
-      >
-        <Text className="text-[12.5px] font-body-bold" style={{ color: colors.base }}>
-          {busy === "approve" ? "Approving…" : "Approve"}
-        </Text>
-      </Pressable>
-      <Pressable
-        onPress={() => act("decline")}
-        disabled={busy !== null}
-        className="rounded-pill px-4 py-2 border"
-        style={{ borderColor: colors.cardBorder, opacity: busy && busy !== "decline" ? 0.5 : 1 }}
-      >
-        <Text className="text-[12.5px] font-body-bold" style={{ color: colors.textSecondary }}>
-          {busy === "decline" ? "Declining…" : "Decline"}
-        </Text>
-      </Pressable>
-    </View>
+    // Wraps the whole row, not just the two buttons: a disabled inner Pressable's onPress never
+    // fires on web, so stopPropagation inside it never runs on a bubbled second click — this
+    // outer Pressable swallows the bubble unconditionally, same idiom as Sheet.tsx's backdrop guard.
+    <Pressable onPress={(e) => e.stopPropagation()}>
+      <View className="flex-row gap-2 mt-2" style={{ marginLeft: 48 }}>
+        <Pressable
+          onPress={() => act("approve")}
+          disabled={busy !== null}
+          className="rounded-pill px-4 py-2"
+          style={{ backgroundColor: colors.accent, opacity: busy && busy !== "approve" ? 0.5 : 1 }}
+        >
+          <Text className="text-[12.5px] font-body-bold" style={{ color: colors.base }}>
+            {busy === "approve" ? "Approving…" : "Approve"}
+          </Text>
+        </Pressable>
+        <Pressable
+          onPress={() => act("decline")}
+          disabled={busy !== null}
+          className="rounded-pill px-4 py-2 border"
+          style={{ borderColor: colors.cardBorder, opacity: busy && busy !== "decline" ? 0.5 : 1 }}
+        >
+          <Text className="text-[12.5px] font-body-bold" style={{ color: colors.textSecondary }}>
+            {busy === "decline" ? "Declining…" : "Decline"}
+          </Text>
+        </Pressable>
+      </View>
+    </Pressable>
   );
 }
 

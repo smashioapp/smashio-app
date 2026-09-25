@@ -270,6 +270,21 @@ one-time prompt for existing users), D2 yes, D3 keep, D4 = 3 votes.
 | S7 | `lib/share.ts` (`gameShareText`), `20260924000100_game_preview_needs.sql`, `website/api/game/[id].js`, `website/api/home.js` | `game_preview.spots_left` was also wrong (ignored host slot, double-counted claimed holds); now equals `open_spots`. Also removed em dashes from post/referral share copy. Store subtitle/keywords (A19) are console work for the owner. |
 | S8 | `spot_openings` table, `spot_open_sent` event | Time-to-fill is recorded server-side (`opened_at` / `filled_at` per fan-out) rather than a client `spot_filled` event, since the fill happens in the DB. Only the host boost is visible to the client, so that's the one PostHog event added. |
 
-Deploy order when ready: `supabase db push` (both migrations), then `supabase functions deploy
+Deploy order (followed): `supabase db push` (both migrations), then `supabase functions deploy
 push-dispatch`, then push to `main` (OTA). The JS tolerates the old `game_preview` shape, and
 `find_a_sub` errors cleanly if called before the migration lands.
+
+### 8.1 Deploy record (2026-09-25)
+
+| Step | Where | State |
+|---|---|---|
+| Migrations | hosted `20260924000000_spot_alerts`, `20260924000100_game_preview_needs` | Live |
+| `push-dispatch` | hosted v15 (contains `spotOpenBody`, `spots` channel) | Live |
+| App + website | `7ccca7c` on `main` (branch rebased, not merge-committed) | OTA run succeeded; Vercel deploys the site from `main` |
+| Follow-up | `346f213`: small `StatTile` shrinks values over 9 chars to 10.5px so skill ranges ("Intermediate-Advanced") fit on the game detail tile row | OTA'd |
+
+Still open:
+
+- Inline **Join** action on the `spot_open` push. Needs a native build (notification category), so it rides the next store build.
+- A19 store subtitle/keywords. Owner console work, App Store Connect + Play Console.
+- S8 read-out. Check `spot_openings` (`opened_at` / `filled_at`) and `spot_open_sent` once there are a couple of weeks of fan-outs, before the gtm-plan pre-launch go/no-go (2 Nov).

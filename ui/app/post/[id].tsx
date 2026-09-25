@@ -9,6 +9,7 @@ import { usePostDetail, usePostReplies, useCreateReply, useAcceptReply, useToggl
 import { Screen } from "../../components/Screen";
 import { BackButton } from "../../components/BackButton";
 import { Avatar } from "../../components/Avatar";
+import { PostPhotoGrid } from "../../components/PostPhotoGrid";
 import { useSession } from "../../lib/session";
 import { haptics } from "../../lib/haptics";
 
@@ -129,6 +130,8 @@ export default function QuestionDetail() {
               <Text className="text-[15px]" style={{ color: colors.textDim, lineHeight: 22 }}>
                 {post.body}
               </Text>
+
+              <PostPhotoGrid media={post.media} />
 
               <View className="flex-row items-center gap-4 mt-0.5">
                 <Pressable onPress={() => toggleReaction.mutate(postId)} className="flex-row items-center gap-1.5" hitSlop={8}>

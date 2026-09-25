@@ -7,6 +7,10 @@
 //                            mid-wizard leaves nothing behind.
 //   { type: 'retention' } — daily. Confirmations whose game is completed and ended >7 days ago:
 //                            delete the storage object, null storage_path, keep parsed/review_status.
+//   { type: 'media' }     — hourly. image-moderation-plan.md §2 step 5: post-media uploads that
+//                            never got attached, rejected post photos past 30 days, and avatar
+//                            uploads that never went live. media_sweep_candidates() decides what;
+//                            this just removes it.
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 const supabase = createClient(
@@ -84,6 +88,28 @@ async function purgeRetention(): Promise<number> {
   return rows.length;
 }
 
+// Groups the RPC's (bucket_id, name) rows by bucket so each bucket costs one remove() call.
+export function groupByBucket(rows: { bucket_id: string; name: string }[]): Map<string, string[]> {
+  const out = new Map<string, string[]>();
+  for (const r of rows) {
+    const list = out.get(r.bucket_id) ?? [];
+    list.push(r.name);
+    out.set(r.bucket_id, list);
+  }
+  return out;
+}
+
+async function purgeMedia(): Promise<number> {
+  const { data: rows, error } = await supabase.rpc("media_sweep_candidates", { p_limit: 500 });
+  if (error) throw error;
+  if (!rows?.length) return 0;
+  for (const [bucket, names] of groupByBucket(rows as { bucket_id: string; name: string }[])) {
+    const { error: removeErr } = await supabase.storage.from(bucket).remove(names);
+    if (removeErr) throw removeErr;
+  }
+  return rows.length;
+}
+
 // Timing-safe compare so a shared-secret check doesn't leak match length over the wire
 // (security-audit-2026-09-11.md M5). Digests are fixed-length, so this also short-circuits safely
 // on mismatched input lengths.
@@ -109,9 +135,10 @@ if (import.meta.main) {
       return new Response("Unauthorized", { status: 401 });
     }
 
-    const { type } = (await req.json()) as { type?: "orphan" | "retention" };
+    const { type } = (await req.json()) as { type?: "orphan" | "retention" | "media" };
     try {
-      const count = type === "retention" ? await purgeRetention() : await purgeOrphans();
+      const count =
+        type === "retention" ? await purgeRetention() : type === "media" ? await purgeMedia() : await purgeOrphans();
       return new Response(JSON.stringify({ type: type ?? "orphan", purged: count }), {
         status: 200,
         headers: { "Content-Type": "application/json" },

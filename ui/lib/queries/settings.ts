@@ -109,6 +109,32 @@ export function useReportUser() {
   });
 }
 
+export type ContentReportReason = "harassment" | "hate" | "sexual" | "violence" | "spam" | "other";
+
+// report_content (20260901050000) — the content-level half of the one report queue (social-plan
+// §5.4). reportedId is the account responsible (the photo's author), subjectId the thing itself.
+// One report per subject per day, server-side.
+export function useReportContent() {
+  return useMutation({
+    mutationFn: async (input: {
+      subjectType: "post" | "photo" | "message";
+      subjectId: string;
+      reportedId: string;
+      reason: ContentReportReason;
+      detail?: string;
+    }) => {
+      const { error } = await supabase.rpc("report_content", {
+        p_subject_type: input.subjectType,
+        p_subject_id: input.subjectId,
+        p_reported_id: input.reportedId,
+        p_reason: input.reason,
+        p_detail: input.detail,
+      });
+      if (error) throw error;
+    },
+  });
+}
+
 // Settings > Preferences > Distance units, read wherever a screen formats a distance. profiles
 // select policy is `using (true)` (20260807000200:15) but this only ever reads the signed-in
 // user's own row via useProfile's cache — react-query dedupes the subscription across every

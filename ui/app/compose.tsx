@@ -1,15 +1,16 @@
 import { useEffect, useState } from "react";
-import { View, Text, TextInput, Pressable, ScrollView, Alert, ActivityIndicator, Platform } from "react-native";
+import { View, Text, TextInput, Pressable, ScrollView, Alert, ActivityIndicator, Platform, Image } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import * as ImagePicker from "expo-image-picker";
 import { colors, tierColor } from "../lib/theme";
 import { Screen } from "../components/Screen";
 import { BackButton } from "../components/BackButton";
 import { SegmentedToggle } from "../components/SegmentedToggle";
 import { useVenuesDirectory } from "../lib/queries/venues";
 import { useSkillTiers } from "../lib/queries/sports";
-import { useCreatePost } from "../lib/queries/feed";
+import { useCreatePost, MAX_POST_PHOTOS, type PickedPhoto } from "../lib/queries/feed";
 import { SPORT_SLUG } from "../lib/queries/games";
 import { haptics } from "../lib/haptics";
 
@@ -19,7 +20,8 @@ const BODY_LIMIT = 280;
 
 // social-plan.md B2 — the composer, last and riskiest slice of the feed release.
 // looking_for_players ships as the default tab (§13.1: "ships before plain text, build the flow
-// that justifies the feature first"). Text only — no images, no comments (both cut to B3).
+// that justifies the feature first"). Up to 4 photos on either kind (B3a, image-moderation-plan
+// IM3); create_post classifies them server-side before anything publishes.
 export default function Compose() {
   const [kind, setKind] = useState<Kind>("looking_for_players");
   const [body, setBody] = useState("");
@@ -34,6 +36,7 @@ export default function Compose() {
   const [venueQuery, setVenueQuery] = useState("");
   const [debouncedVenueQuery, setDebouncedVenueQuery] = useState("");
   const [selectedVenueName, setSelectedVenueName] = useState<string | null>(null);
+  const [photos, setPhotos] = useState<PickedPhoto[]>([]);
 
   useEffect(() => {
     const handle = setTimeout(() => setDebouncedVenueQuery(venueQuery.trim()), 350);
@@ -46,15 +49,46 @@ export default function Compose() {
 
   const canSubmit = body.trim().length > 0 && (kind === "question" || !!venueId) && !createPost.isPending;
 
+  const pickPhotos = async () => {
+    const remaining = MAX_POST_PHOTOS - photos.length;
+    if (remaining <= 0) return;
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Permission needed", "Allow photo access so you can add photos to your post.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsMultipleSelection: true,
+      selectionLimit: remaining,
+      quality: 0.8,
+    });
+    if (result.canceled) return;
+    haptics.tick();
+    setPhotos((prev) =>
+      [...prev, ...result.assets.map((a) => ({ uri: a.uri, width: a.width, height: a.height }))].slice(0, MAX_POST_PHOTOS)
+    );
+  };
+
   const submit = async () => {
     haptics.tap();
     try {
-      await createPost.mutateAsync(
+      const result = await createPost.mutateAsync(
         kind === "looking_for_players"
-          ? { kind, body: body.trim(), venueId: venueId!, startsAt, skillTierLabel: tierLabel ?? undefined, maxPlayers: 4 }
-          : { kind, body: body.trim() }
+          ? { kind, body: body.trim(), venueId: venueId!, startsAt, skillTierLabel: tierLabel ?? undefined, maxPlayers: 4, photos }
+          : { kind, body: body.trim(), photos }
       );
       haptics.success();
+      if (result.photosDropped > 0) {
+        Alert.alert("Posted, but without your photos", "We couldn't check your photos in time. Give them another go.");
+      } else if (result.photosInReview > 0) {
+        Alert.alert(
+          "Posted",
+          result.photosInReview === 1
+            ? "One of your photos is being checked. It'll show for everyone once it's sorted."
+            : "A few of your photos are being checked. They'll show for everyone once they're sorted."
+        );
+      }
       router.back();
     } catch (e) {
       Alert.alert("Couldn't post that", e instanceof Error ? e.message : "Give it another go.");
@@ -137,6 +171,46 @@ export default function Compose() {
           <Text className="text-[11px] mt-1 text-right" style={{ color: colors.textMuted }}>
             {body.length}/{BODY_LIMIT}
           </Text>
+        </View>
+
+        <View className="px-5 mb-4">
+          <View className="flex-row flex-wrap gap-2">
+            {photos.map((p, i) => (
+              <View key={p.uri} style={{ width: 72, height: 72 }}>
+                <Image source={{ uri: p.uri }} style={{ width: 72, height: 72, borderRadius: 12 }} resizeMode="cover" />
+                <Pressable
+                  onPress={() => setPhotos((prev) => prev.filter((_, j) => j !== i))}
+                  className="absolute w-6 h-6 rounded-full items-center justify-center"
+                  style={{ top: -6, right: -6, backgroundColor: colors.surfaceAlt, borderWidth: 1, borderColor: colors.cardBorder }}
+                  hitSlop={6}
+                  accessibilityRole="button"
+                  accessibilityLabel="Remove photo"
+                >
+                  <Ionicons name="close" size={13} color={colors.text} />
+                </Pressable>
+              </View>
+            ))}
+            {photos.length < MAX_POST_PHOTOS && (
+              <Pressable
+                onPress={pickPhotos}
+                className="rounded-xl items-center justify-center border"
+                style={{ width: 72, height: 72, borderColor: colors.cardBorder, borderStyle: "dashed", backgroundColor: colors.surface }}
+                testID="compose-add-photos"
+                accessibilityRole="button"
+                accessibilityLabel="Add photos"
+              >
+                <Ionicons name="image-outline" size={20} color={colors.textSecondary} />
+                <Text className="font-body-bold text-[10.5px] mt-1" style={{ color: colors.textSecondary }}>
+                  {photos.length === 0 ? "Add photos" : `${photos.length}/${MAX_POST_PHOTOS}`}
+                </Text>
+              </Pressable>
+            )}
+          </View>
+          {photos.length > 0 && (
+            <Text className="text-[11.5px] mt-2" style={{ color: colors.textMuted }}>
+              We check photos before they go up. Location data gets stripped.
+            </Text>
+          )}
         </View>
 
         {kind === "looking_for_players" && (

@@ -1,7 +1,9 @@
 # Image moderation plan: one classifier for feed photos and chat photos
 
-Written 2026-09-25. **Proposed.** Four owner decisions from 2026-09-25 are recorded in §7 and are
-settled. Everything else here still needs sign-off before code or a migration lands.
+Written 2026-09-25. **Implemented 2026-09-25: I1, I2, I3, B3a and avatar classification (§8 Q3).**
+§9 records what shipped, where it deviates from the body below, and the deploy order. B3b
+(`feed_profile`) is still to build. Four owner decisions from 2026-09-25 are recorded in §7, and the
+§8 answers are recorded in place.
 
 Why this exists: [social-plan.md](social-plan.md) §13.4 held B3 (`post_media`, feed photos) on one
 gate, which is that the §10 pre-publish filter only had a text path. On 2026-09-25 the owner
@@ -209,14 +211,77 @@ user's `post-media` objects, per social-plan B7's tombstoning rule.
 
 ## 8. Open questions
 
+**Answered 2026-09-25 (owner):** Q1, Q2 and Q5 as recommended, Q3 yes (built in this round), Q4
+not taken (venue photos stay held with A5).
+
 1. **Threshold 0.8?** Recommend starting there and moving it off the §6 overturn rate.
+   *Answered: 0.8, in `moderation_config`.*
 2. **Chat `review` photos: stay visible (this doc) or hide pending review?** Recommend visible,
    since the roster has already seen it and pulling it looks broken. `removed` still hides.
+   *Answered: visible.*
 3. **Avatars.** A profile photo reaches every stranger who sees a game roster, which is a wider
    audience than chat. It isn't classified today. Recommend running the same classifier
    synchronously on avatar upload as a follow-up slice (~0.5 d), in scope for App Store 1.2.
+   *Answered: yes, shipped with I1-I3, see §9.*
 4. **Venue photos (venues-plan A5).** The queue UI was deferred. Recommend routing uploads through
    `classify_image` so the A5 queue only ever sees low-confidence items, then keeping A5 held.
+   *Not taken this round.*
 5. **Re-adding dropped photos.** IM2 drops photos on timeout. Should a post be editable to re-attach
    them, or does the author just post again? Recommend posting again for v1, since there's no
-   post editing today.
+   post editing today. *Answered: post again.*
+
+---
+
+## 9. What shipped (2026-09-25)
+
+Migrations `20260925000000_image_moderation_core.sql` (I1 + I2), `20260925000100_post_media.sql`
+(I3), `20260925000200_avatar_moderation.sql` (avatars, `resolve_media_flag`, sweep).
+`ai-proxy` gains the `classify_image` mode, `purge-confirmations` gains `type: 'media'`,
+`delete-account` removes the user's `post-media` folder. App: composer photo picker (up to 4),
+`PostPhotoGrid` on feed cards and question detail, full-screen viewer with "Report photo"
+(`report_content`, subject `photo`), "Being checked" and "removed" states, chat "Photo removed"
+for the sender, and avatar upload through `set_avatar_photo`. pgTAP coverage in
+`supabase/tests/image_moderation_test.sql`.
+
+**Deviations from the body:**
+
+- **One 7 s call, not 10 s sequential (§1, §2).** Hosted `authenticated` runs with
+  `statement_timeout = 8s`, and the classify call happens inside the `create_post` statement, so a
+  10 s Postgres timeout could never be reached. `create_post` with photos makes one
+  `classify_images()` call, and `ai-proxy` classifies the text and every image **in parallel**
+  (2 s text, 4 s per image). The Postgres `http` timeout is 7 s. Posts with no photos still use
+  `classify_post_text` unchanged.
+- **IM2 is per photo.** If one photo times out and the others come back, the checked ones attach and
+  only the unchecked ones drop. `photos_dropped` is a count, not a boolean. If `ai-proxy` itself
+  is unreachable, every photo drops and the text posts (fails open with a flag, as before).
+- **`create_post` returns jsonb** `{post_id, photos_dropped, photos_in_review}` instead of a uuid.
+- **Avatars fail closed.** Unreachable classifier = `set_avatar_photo` returns `unavailable` and the
+  old avatar stays. A low-confidence avatar stays off the profile until `resolve_media_flag`
+  approves it (the path lives on the flag row, not on `profile_private`, which is client-writable).
+  `profiles.photo_path` can now only be set by a security definer function (clients can still
+  clear it). Avatar storage reads are limited to live avatars and your own folder, overwrites are
+  gone, and re-uploading under a live name is refused (otherwise delete-then-reupload would skip
+  the classifier).
+- **Chat removal and signed URLs.** A removed photo can't get a new signed URL
+  (`chat_media_is_removed` in the storage policy), but URLs minted before the removal stay valid
+  until they expire (up to 1 h). Those readers had already loaded the photo. Realtime applies RLS
+  to updates, so other readers don't get a live "removed" event; the row drops out on next fetch.
+- **Chat rate limit counts `messages`**, not `ai_proxy_classify_calls` (it's a send limit, and the
+  send is what gets refused). Image classify calls are still logged there with `kind = 'image'`.
+- **Gemini safety block = review**, not reject or fail open: a refusal to look is a signal, so it
+  goes to a human at confidence 0.5.
+- **Orphan sweep via the Storage API.** SQL can't free a storage blob, so
+  `media_sweep_candidates()` lists what to delete and `purge-confirmations` (`type: 'media'`,
+  hourly pg_cron) removes it. Unattached uploads that carry a flag from the last 30 days are kept
+  for the trail.
+- **`ai_proxy_url` Vault override**, same pattern as `push_dispatch_url`, so a local stack can
+  exercise both the text and image classifiers.
+
+**Deploy order:** migrations first, then `ai-proxy` + `purge-confirmations` + `delete-account`,
+then the app (OTA). Between the migration and the OTA, an old client's avatar upload fails
+(overwrite of `avatar.jpg` and the direct `photo_path` write are both refused now) and the old
+composer still works (the new `p_media_paths` has a default).
+
+**Reviewer queue:** `select * from moderation_queue where storage_path is not null;`, open the
+object in the dashboard storage browser, then `select resolve_media_flag('<flag id>', 'approve' |
+'remove');`.

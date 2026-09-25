@@ -78,6 +78,13 @@ function renderBodyWithMentions(body: string, members: ChatMember[], mine: boole
   );
 }
 
+// The 50/day chat photo limit (image-moderation-plan.md §3) comes back as a Postgres exception
+// whose message is already player-facing copy. Other failures keep the bubble's retry state.
+function alertIfPhotoLimit(e: unknown) {
+  const message = e instanceof Error ? e.message : (e as { message?: string } | null)?.message;
+  if (message?.includes("photos today")) Alert.alert("Photo not sent", message);
+}
+
 function ChatImageBubble({ path, onPress }: { path: string | null; onPress: (uri: string) => void }) {
   const isLocal = !!path?.startsWith("file://");
   const signed = useSignedChatImageUrl(isLocal ? null : path);
@@ -288,7 +295,7 @@ export default function ChatThread() {
     if (result.canceled) return;
     const asset = result.assets[0];
     const preparedUri = await prepareConfirmationImage(asset.uri, asset.width, asset.height);
-    sendImage.mutate({ clientId: uuidv4(), localUri: preparedUri, caption: "" });
+    sendImage.mutate({ clientId: uuidv4(), localUri: preparedUri, caption: "" }, { onError: alertIfPhotoLimit });
   };
 
   const pickCamera = async () => {
@@ -301,7 +308,7 @@ export default function ChatThread() {
     if (result.canceled) return;
     const asset = result.assets[0];
     const preparedUri = await prepareConfirmationImage(asset.uri, asset.width, asset.height);
-    sendImage.mutate({ clientId: uuidv4(), localUri: preparedUri, caption: "" });
+    sendImage.mutate({ clientId: uuidv4(), localUri: preparedUri, caption: "" }, { onError: alertIfPhotoLimit });
   };
 
   const onReact = (messageId: string, emoji: string) => toggleReaction.mutate({ messageId, emoji });
@@ -491,7 +498,19 @@ export default function ChatThread() {
                     {m.kind === "image" ? (
                       <View className="gap-1">
                         {m.replyTo && <QuotedReply replyTo={m.replyTo} members={members} />}
-                        <ChatImageBubble path={m.imagePath} onPress={setLightboxUri} />
+                        {m.moderationStatus === "removed" ? (
+                          <View
+                            className="flex-row items-center gap-2 px-3 py-2.5"
+                            style={{ backgroundColor: colors.surfaceAlt, borderRadius: 14, maxWidth: 240 }}
+                          >
+                            <Ionicons name="eye-off-outline" size={14} color={colors.textTertiary} />
+                            <Text className="text-[12px] font-body-semibold flex-1" style={{ color: colors.textTertiary }}>
+                              Photo removed, it didn't fit our guidelines.
+                            </Text>
+                          </View>
+                        ) : (
+                          <ChatImageBubble path={m.imagePath} onPress={setLightboxUri} />
+                        )}
                         {!!m.body && (
                           <View
                             className="px-3 py-2"

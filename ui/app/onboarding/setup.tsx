@@ -23,6 +23,7 @@ import {
   useUploadAvatar,
   useUploadAvatarFromUrl,
   useUpsertProfileSport,
+  avatarStatusMessage,
 } from "../../lib/queries/profile";
 import { track } from "../../lib/analytics";
 
@@ -133,8 +134,13 @@ export default function Setup() {
     try {
       // Photo is best-effort: a failed upload must not strand someone outside the app
       // when the only thing that actually gates entry is a name and a skill tier.
-      if (localPhotoUri) await uploadAvatar.mutateAsync(localPhotoUri).catch(() => {});
-      else if (providerPhotoUrl) await uploadAvatarFromUrl.mutateAsync(providerPhotoUrl).catch(() => {});
+      // A picked photo that comes back held or refused gets a heads-up; the provider's photo
+      // (never chosen here) just falls back to the Smashimal quietly.
+      if (localPhotoUri) {
+        const uploaded = await uploadAvatar.mutateAsync(localPhotoUri).catch(() => null);
+        const message = uploaded ? avatarStatusMessage(uploaded.status) : null;
+        if (message) Alert.alert(message.title, message.body);
+      } else if (providerPhotoUrl) await uploadAvatarFromUrl.mutateAsync(providerPhotoUrl).catch(() => {});
 
       // Keeping the pre-seeded id-hash animal (avatarKeyChoice still null) is zero taps — this
       // is what unifies email and Google sign-ups (avatars-plan.md diagnosis 5).

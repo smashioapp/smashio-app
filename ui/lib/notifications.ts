@@ -52,10 +52,12 @@ const ANDROID_CHANNELS: { id: string; name: string; importance: Notifications.An
   { id: "social", name: "Social", importance: Notifications.AndroidImportance.LOW },
 ];
 
-// Action buttons P3. Android actions per category; iOS categories registered separately via
-// setNotificationCategoryAsync. P3 implements two action types: join_actions (approve/decline for
-// A1) and chat_actions (reply for E1).
-const ANDROID_ACTION_GROUPS: Record<string, Notifications.NotificationAction[]> = {
+// Action buttons (P3). Registered with setNotificationCategoryAsync on both platforms, matched by
+// the categoryId push-dispatch puts on the push (CATEGORY_FOR_TYPE in format.ts, keep in sync).
+// Android used to attach these to its channels instead, through an option expo-notifications
+// doesn't have, so Android never showed a button until categories were registered there too.
+// Categories are plain JS registration, so a new one ships over OTA, no store build needed.
+const NOTIFICATION_CATEGORIES: Record<string, Notifications.NotificationAction[]> = {
   join_actions: [
     {
       identifier: "approve_join",
@@ -70,14 +72,24 @@ const ANDROID_ACTION_GROUPS: Record<string, Notifications.NotificationAction[]> 
   ],
   // notifications-v2-plan.md §5.4: the Reply button used to open the app and do nothing
   // (opensAppToForeground: true, no textInput) — a button that costs a tap and teaches people
-  // the action is fake. textInput + opensAppToForeground: false lets Android's own RemoteInput
-  // UI collect the reply without leaving the notification shade.
+  // the action is fake. textInput + opensAppToForeground: false lets the OS's own reply UI
+  // collect the reply without leaving the notification shade.
   chat_actions: [
     {
       identifier: "reply_chat",
       buttonTitle: "Reply",
       textInput: { submitButtonTitle: "Send", placeholder: "Type a reply…" },
       options: { opensAppToForeground: false, isDestructive: false },
+    },
+  ],
+  // short-a-player-plan S1: the inline Join on a spot_open push. It sends the same request the
+  // game screen's hold-to-join does (host still approves), so it says "Ask to join", and it opens
+  // the app on the game so the player sees the price and their pending request.
+  spot_actions: [
+    {
+      identifier: "join_spot",
+      buttonTitle: "Ask to join",
+      options: { opensAppToForeground: true },
     },
   ],
 };
@@ -104,14 +116,9 @@ async function registerForPush(profileId: string) {
       importance: Notifications.AndroidImportance.DEFAULT,
     });
     for (const channel of ANDROID_CHANNELS) {
-      const actions =
-        channel.id === "requests" ? ANDROID_ACTION_GROUPS.join_actions :
-        channel.id === "chat" ? ANDROID_ACTION_GROUPS.chat_actions :
-        undefined;
       await Notifications.setNotificationChannelAsync(channel.id, {
         name: channel.name,
         importance: channel.importance,
-        ...(actions ? { notificationActions: actions } : {}),
       });
     }
   }
@@ -120,29 +127,9 @@ async function registerForPush(profileId: string) {
   const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
   currentToken = token;
 
-  // iOS notification categories with action buttons (P3). Android actions are registered per
-  // channel above. Must be set up before the first notification arrives.
-  if (Platform.OS === "ios") {
-    await Notifications.setNotificationCategoryAsync("join_actions", [
-      {
-        identifier: "approve_join",
-        buttonTitle: "Approve",
-        options: { opensAppToForeground: true },
-      },
-      {
-        identifier: "decline_join",
-        buttonTitle: "Decline",
-        options: { opensAppToForeground: false },
-      },
-    ]);
-    await Notifications.setNotificationCategoryAsync("chat_actions", [
-      {
-        identifier: "reply_chat",
-        buttonTitle: "Reply",
-        textInput: { submitButtonTitle: "Send", placeholder: "Type a reply…" },
-        options: { opensAppToForeground: false, isDestructive: false },
-      },
-    ]);
+  // Must be set up before the first notification arrives.
+  for (const [id, actions] of Object.entries(NOTIFICATION_CATEGORIES)) {
+    await Notifications.setNotificationCategoryAsync(id, actions);
   }
 
   await supabase
@@ -213,6 +200,16 @@ async function handleNotificationAction(response: Notifications.NotificationResp
     } catch {
       // Ignore
     }
+    return;
+  }
+
+  // short-a-player-plan S1: "Ask to join" on a spot_open push. Same RPC as the game screen's
+  // hold-to-join; the server decides request vs waitlist from open_spots at call time. Lands on
+  // the game either way so the outcome (or the error, if the spot's gone) is on screen.
+  if (actionId === "join_spot") {
+    const { error } = await supabase.rpc("request_to_join", { p_game_id: data.game_id });
+    if (!error) track("join_requested", { game_id: data.game_id, waitlisted: false, source: "push_action" });
+    router.push(`/game/${data.game_id}`);
     return;
   }
 

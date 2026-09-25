@@ -4,9 +4,10 @@ Written 2026-09-24. **Signed off and implemented 2026-09-24**, committed on bran
 `short-a-player` (owner: "lets implement";
 D1-D4 taken as recommended). S1-S8 built and tested against the local stack, then **shipped
 2026-09-25**: both migrations pushed to the hosted project, `push-dispatch` redeployed, app and
-website changes merged to `main` (OTA to testers, Vercel for the site). Still open: the inline
-**Join** push action (needs a store build) and the store subtitle/keywords (A19, console). See §8
-for what shipped and where it deviates from the slices below.
+website changes merged to `main` (OTA to testers, Vercel for the site). The inline **Ask to join**
+push action followed 2026-09-25 (§8.2; JS-only, no store build needed after all). Still open: the
+store subtitle/keywords (A19, console) and the S8 read-out. See §8 for what shipped and where it
+deviates from the slices below.
 
 Read [gtm-plan.md](gtm-plan.md) §1–§2 first. This doc narrows its message, it does not replace it.
 
@@ -285,6 +286,24 @@ push-dispatch`, then push to `main` (OTA). The JS tolerates the old `game_previe
 
 Still open:
 
-- Inline **Join** action on the `spot_open` push. Needs a native build (notification category), so it rides the next store build.
+- ~~Inline **Join** action on the `spot_open` push.~~ Done, §8.2.
 - A19 store subtitle/keywords. Owner console work, App Store Connect + Play Console.
 - S8 read-out. Check `spot_openings` (`opened_at` / `filled_at`) and `spot_open_sent` once there are a couple of weeks of fan-outs, before the gtm-plan pre-launch go/no-go (2 Nov).
+
+### 8.2 Inline "Ask to join" (2026-09-25)
+
+The "needs a store build" call above was wrong. Notification categories are registered from JS
+(`setNotificationCategoryAsync`, already in the shipped binary), so a new one ships over OTA.
+
+- `push-dispatch` `CATEGORY_FOR_TYPE`: `spot_open` → `spot_actions`.
+- `ui/lib/notifications.ts`: `spot_actions` has one button, **"Ask to join"** (not "Join": it calls
+  the same `request_to_join` as the game screen's hold-to-join, so the host still approves). It
+  opens the app on the game so the player sees the price and their pending request, or the error
+  if the spot's already gone. Tracked as `join_requested` with `source: "push_action"`.
+- **Found while doing it:** Android never showed any action button. Approve/Decline and Reply
+  were attached to Android channels through a `notificationActions` channel option that
+  expo-notifications doesn't have (silently ignored), and categories were only registered on iOS.
+  Categories are now registered on both platforms from one table, which fixes Approve/Decline
+  and Reply on Android too.
+- Deploy order doesn't matter: a push carrying a category the app hasn't registered yet shows
+  without buttons. Deploy `push-dispatch`, push to `main` (OTA).

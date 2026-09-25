@@ -69,10 +69,14 @@ export type PushChannel = "chat" | "requests" | "game-updates" | "reminders" | "
 
 // iOS notification categories (P3) with action buttons. Map which types get which category.
 // P3 implements two action types: join_actions (approve/decline for A1) and chat_actions (reply for E1).
-export type NotificationCategory = "join_actions" | "chat_actions" | null;
+// spot_actions ("Ask to join") is short-a-player-plan S1. Categories are registered client-side in
+// ui/lib/notifications.ts on both platforms; an app that hasn't registered one yet just shows the
+// push without buttons.
+export type NotificationCategory = "join_actions" | "chat_actions" | "spot_actions" | null;
 export const CATEGORY_FOR_TYPE: Record<string, NotificationCategory> = {
   join_request: "join_actions",
   message: "chat_actions",
+  spot_open: "spot_actions",
 };
 
 export type GameSummary = {

@@ -199,6 +199,7 @@ ui/assets/avatars/<key>.png      24 shipped avatars, 512×512 RGBA
 data/avatars/needs-band/         8 held cells — good art, missing the lime accessory
 data/avatars/source/gemini/      gen 1 + gen 2 sheets (design source)
 data/avatars/source/chatgpt/     rejected candidate set, kept for reference
+                                 (both kept locally, not in the public repo since 2026-09-25)
 ```
 
 Source sheets were moved **out of `ui/`** deliberately: they are design source, not app assets, and

@@ -3,7 +3,7 @@ import { File } from "expo-file-system";
 import { supabase } from "../supabase";
 import { track } from "../analytics";
 import type { Database } from "../db.types";
-import type { Game, PastGame } from "../mockData";
+import { spotsLeft, type Game, type PastGame } from "../mockData";
 import { formatDate, formatDistance, formatTimeRange, type DistanceUnits } from "../format";
 import { durationMinutesToHours, durationMs, hoursToDurationMinutes } from "../schedule";
 import { avatarColor } from "../theme";
@@ -242,7 +242,7 @@ export function useDiscoverGames(
           p_amenity_slugs: amenitySlugs,
         });
         if (error) throw error;
-        return (data ?? []).map((row) => toAnonGame(row, units));
+        return sortFewestNeeded((data ?? []).map((row) => toAnonGame(row, units)), sortBy);
       }
       const { data, error } = await supabase.rpc("nearby_games", {
         lat: center.lat,
@@ -261,9 +261,20 @@ export function useDiscoverGames(
       if (error) throw error;
       const rows = data ?? [];
       const urlMap = await signAvatarUrls(rows.map((row) => row.organizer_photo_path));
-      return rows.map((row) => toGame(row, units, urlMap));
+      return sortFewestNeeded(rows.map((row) => toGame(row, units, urlMap)), sortBy);
     },
   });
+}
+
+// The RPCs don't know "fewest needed", so it arrives in soonest order and is re-sorted here: open
+// games needing fewest first, full games last, soonest within a tie (stable sort keeps it).
+function sortFewestNeeded(games: Game[], sortBy: string): Game[] {
+  if (sortBy !== "fewest_needed") return games;
+  const rank = (g: Game) => {
+    const open = spotsLeft(g);
+    return open > 0 ? open : Number.MAX_SAFE_INTEGER;
+  };
+  return [...games].sort((a, b) => rank(a) - rank(b));
 }
 
 // Pure social proof for the week-pulse strip — deliberately unfiltered by the viewer's own
@@ -291,6 +302,41 @@ export function useWeekPulseGames(center: { lat: number; lng: number } = { lat: 
   });
 }
 
+// The venue page's "Play here" list (short-a-player-ux-plan.md §4.2, F1). Same row shape as
+// nearby_games, so a GameCard renders it unchanged; distance is blank (you're on the venue).
+// A guest has no session, so it filters the anon-safe nearby_games_public by venue instead of
+// widening any anonymous surface (website-plan §5).
+export function useVenueUpcomingGames(
+  venue: { id: string; name: string; lat: number | null; lng: number | null } | null | undefined,
+  options: { anon?: boolean } = {}
+) {
+  const anon = options.anon ?? false;
+  return useQuery({
+    enabled: !!venue?.id,
+    queryKey: ["venue_upcoming_games", venue?.id, anon],
+    queryFn: async (): Promise<Game[]> => {
+      if (!venue) return [];
+      if (anon) {
+        if (venue.lat == null || venue.lng == null) return [];
+        const { data, error } = await supabase.rpc("nearby_games_public", {
+          lat: venue.lat,
+          lng: venue.lng,
+          radius_m: 300,
+          sport_slug: SPORT_SLUG,
+        });
+        if (error) throw error;
+        return (data ?? []).filter((row) => row.venue_name === venue.name).map((row) => ({ ...toAnonGame(row, "km"), distance: "" }));
+      }
+      const { data, error } = await supabase.rpc("venue_upcoming_games", { p_venue_id: venue.id, p_limit: 20 });
+      if (error) throw error;
+      const rows = data ?? [];
+      const urlMap = await signAvatarUrls(rows.map((row) => row.organizer_photo_path));
+      return rows.map((row) => ({ ...toGame({ ...row, distance_m: row.distance_m ?? 0 }, "km", urlMap), distance: "", distanceM: null }));
+    },
+    staleTime: 30_000,
+  });
+}
+
 export type NamedSpotInput = { label: string | null; invitedProfileId?: string | null };
 
 // Host a Game v3 (create-game-plan.md §4.3, §9.2): one atomic RPC instead of an insert plus N
@@ -315,6 +361,10 @@ export function useCreateGame() {
       shuttles?: string;
       notes?: string;
       spots?: NamedSpotInput[];
+      // "Who's already in?" holds (short-a-player-ux-plan.md §3.1) are people who are coming,
+      // not seats on offer, so they shouldn't expire 4h out and fire a spot_open. Pins every
+      // hold that isn't an invite to a Smashio profile (an invite still needs a yes).
+      pinHeldSpots?: boolean;
     }) => {
       const {
         data: { user },
@@ -341,7 +391,21 @@ export function useCreateGame() {
         p_spots: (input.spots ?? []).map((s) => ({ label: s.label, invited_profile_id: s.invitedProfileId ?? null })),
       });
       if (error) throw error;
-      return data as string;
+      const gameId = data as string;
+      if (input.pinHeldSpots) {
+        // Best effort: the game is already live, a failed pin only means a hold can expire.
+        try {
+          const { data: holds } = await supabase
+            .from("game_reserved_spots")
+            .select("id")
+            .eq("game_id", gameId)
+            .is("invited_profile_id", null);
+          await Promise.all(
+            (holds ?? []).map((h) => supabase.rpc("set_reserved_spot_expiry", { p_spot_id: h.id, p_hours_before: 4, p_pinned: true }))
+          );
+        } catch {}
+      }
+      return gameId;
     },
     onSuccess: (gameId) => {
       track("game_published", { game_id: gameId });
@@ -790,7 +854,7 @@ export function useParseConfirmation() {
       const uploadUri = isPdf ? localUri : await prepareConfirmationImage(localUri, width, height);
       const bytes = await new File(uploadUri).arrayBuffer();
       if (bytes.byteLength > MAX_PARSE_UPLOAD_BYTES) {
-        throw new Error("That file's too big — try a smaller photo or PDF.");
+        throw new Error("That file's too big, try a smaller photo or PDF.");
       }
       const ext = isPdf ? "pdf" : "jpg";
       const path = `drafts/${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;

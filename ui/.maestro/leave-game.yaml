@@ -26,5 +26,5 @@ appId: com.smashio.app
 # Full label required, not a prefix — see join-request.yaml. …04 costs $10/player
 # (supabase/seed.sql, cost_cents 1000).
 - extendedWaitUntil:
-    visible: "Hold to join · [$]10"
+    visible: "Join · [$]10"
     timeout: 25000

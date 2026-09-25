@@ -15,6 +15,7 @@ import {
   useSetNotificationCategory,
   useSetQuietHours,
 } from "../lib/queries/notificationPrefs";
+import { SpotAlertsCard } from "../components/SpotAlertsCard";
 import { useSession } from "../lib/session";
 import { useOnline } from "../lib/useOnline";
 import { isAuthSessionError } from "../lib/authError";
@@ -198,12 +199,13 @@ export default function NotificationSettings() {
         />
       ) : (
       <ScrollView contentContainerClassName="px-6 pt-4 pb-10 gap-4" showsVerticalScrollIndicator={false}>
+        <SpotAlertsCard />
         <View className="rounded-2xl p-4 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
           <Text className="font-body-bold text-[15.5px]" style={{ color: colors.text }}>
             Push notifications
           </Text>
           <Text className="text-[14.5px] mt-1.5" style={{ color: colors.textSecondary }}>
-            Get pinged about join requests, chat messages, and match updates.
+            Get pinged when a spot opens near you, plus join requests and game chat.
           </Text>
           <View className="rounded-pill self-start px-2.5 py-1.5 mt-3" style={{ backgroundColor: granted ? "rgba(53,214,166,0.15)" : "rgba(255,182,72,0.15)" }}>
             <Text className="font-body-extrabold text-[11.5px] uppercase" style={{ color: granted ? colors.intermediate : colors.advanced }}>

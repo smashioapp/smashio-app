@@ -124,7 +124,7 @@ export function tierProgressLabel(gamesPlayed: number, skillLabel: string | null
 // night — it's not a slow climb, a clean night resets you straight back to 100. Keep this copy
 // and the SQL formula in sync; profile-plan.md P2 flagged them as disagreeing before this fix.
 export const RELIABILITY_EXPLAINER =
-  "Reliability starts at 100 and drops 5 points for each game you leave after it's already started. Recalculated nightly — a clean run of games with no late leaves puts you straight back to 100. It's visible to hosts reviewing join requests.";
+  "Reliability starts at 100 and drops 5 points for each game you leave after it's already started. Recalculated nightly, and a clean run of games with no late leaves puts you straight back to 100. It's visible to hosts reviewing join requests.";
 
 // The gauge's "ledger" line (profile-plan.md P2: replace the mystery number with the actual
 // count driving it) — e.g. "100 · no late cancellations in 14 games".

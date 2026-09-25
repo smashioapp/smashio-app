@@ -28,6 +28,10 @@ export type LineupSlot =
       expiringSoon?: boolean;
     }
   | { kind: "anon"; id: string; expiringSoon?: boolean }
+  // Someone's joined, but the viewer can't read game_players (RLS is organiser + approved
+  // members only), so there's no name or face to draw. Counted from joinedCount so the strip
+  // agrees with "Needs N" everywhere else (short-a-player-ux-plan.md §2.1).
+  | { kind: "hidden"; id: string }
   | { kind: "open"; id: string };
 
 const SLOT_SIZE = 42;
@@ -147,6 +151,24 @@ function SlotAvatarInner({ slot, size }: { slot: LineupSlot; size: number }) {
       </View>
     );
   }
+  if (slot.kind === "hidden") {
+    return (
+      <View
+        style={{
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          borderWidth: 1.5,
+          borderColor: "rgba(255,255,255,0.5)",
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: colors.surfaceAlt,
+        }}
+      >
+        <Ionicons name="person" size={size * 0.5} color={colors.textSecondary} />
+      </View>
+    );
+  }
   if (slot.kind === "anon") {
     return (
       <View
@@ -188,22 +210,25 @@ function SlotAvatarInner({ slot, size }: { slot: LineupSlot; size: number }) {
   );
 }
 
-function slotCaption(slot: LineupSlot): string {
-  if (slot.kind === "host") return "You";
+// "You" only when the viewer is the host; everyone else sees the host's first name (F6). No
+// viewerId means a surface where the host is always the viewer (wizard, edit).
+function slotCaption(slot: LineupSlot, viewerId?: string | null): string {
+  if (slot.kind === "host") return viewerId === undefined || viewerId === slot.id ? "You" : slot.name.split(" ")[0];
   if (slot.kind === "joined") return slot.name.split(" ")[0];
+  if (slot.kind === "hidden") return "Joined";
   if (slot.kind === "named") return slot.label ?? "Held";
   if (slot.kind === "anon") return "Held";
   return "Open";
 }
 
-function Slot({ slot, size, onPress }: { slot: LineupSlot; size: number; onPress?: () => void }) {
+function Slot({ slot, size, viewerId, onPress }: { slot: LineupSlot; size: number; viewerId?: string | null; onPress?: () => void }) {
   return (
     <Animated.View entering={ZoomIn.duration(220)} style={{ alignItems: "center", width: size + 4 }}>
       <Pressable testID={`lineup-slot-${slot.id}`} onPress={onPress} disabled={!onPress} hitSlop={4}>
         <SlotAvatar slot={slot} size={size} />
       </Pressable>
       <Text numberOfLines={1} className="text-[9.5px] font-body-bold mt-1" style={{ color: colors.textTertiary, maxWidth: size + 10 }}>
-        {slotCaption(slot)}
+        {slotCaption(slot, viewerId)}
       </Text>
     </Animated.View>
   );
@@ -217,8 +242,10 @@ export function LineupStrip({
   onTapSlot,
   collapseAt = COLLAPSE_THRESHOLD,
   onExpand,
+  viewerId,
 }: {
   slots: LineupSlot[];
+  viewerId?: string | null;
   courtsBooked: number;
   playersPerCourt?: number;
   size?: number;
@@ -272,7 +299,7 @@ export function LineupStrip({
             <View key={gi} className="flex-row items-start" style={{ gap: 6 }}>
               {gi > 0 && <View style={{ width: 1, alignSelf: "stretch", backgroundColor: "rgba(255,255,255,0.1)", marginRight: 6 }} />}
               {group.map((slot, i) => (
-                <Slot key={slot.id} slot={slot} size={size} onPress={onTapSlot ? () => onTapSlot(slot, startIndex + i) : undefined} />
+                <Slot key={slot.id} slot={slot} size={size} viewerId={viewerId} onPress={onTapSlot ? () => onTapSlot(slot, startIndex + i) : undefined} />
               ))}
             </View>
           );
@@ -290,10 +317,12 @@ export function LineupStrip({
 // variant "row" is the draft/edit card's collapsed WHO value (create-game-plan.md band 03): reads
 // "You · N held · M open" while only the host has a slot (nobody can have joined a game that
 // isn't published yet), falling back to a headcount once others have actually joined.
-export function lineupSummary(slots: LineupSlot[], costPerPlayer: number, variant: "row" | "strip" = "strip"): string {
-  const joined = slots.filter((s) => s.kind === "host" || s.kind === "joined").length;
+// Pass the game's server-side open_spots where there is one, so the summary can't disagree
+// with Discover's "Needs N" (§2.1); counting open slots is the fallback for drafts.
+export function lineupSummary(slots: LineupSlot[], costPerPlayer: number, variant: "row" | "strip" = "strip", openSpots?: number): string {
+  const joined = slots.filter((s) => s.kind === "host" || s.kind === "joined" || s.kind === "hidden").length;
   const held = slots.filter((s) => s.kind === "anon" || (s.kind === "named" && !s.claimed)).length;
-  const open = slots.filter((s) => s.kind === "open").length;
+  const open = openSpots ?? slots.filter((s) => s.kind === "open").length;
   const joinedLabel = variant === "row" && joined <= 1 ? "You" : `${joined} in`;
   return `${joinedLabel} · ${held} held · ${open} open · $${costPerPlayer} each`;
 }

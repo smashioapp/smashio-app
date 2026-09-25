@@ -13,8 +13,11 @@ import { useReduceMotion } from "../../lib/motion";
 import { makeScrollHideHandler, registerScrollToTop, unregisterScrollToTop } from "../../lib/navScroll";
 import { useDiscoverGames, useMyPastGames, useMyJoinedGames, useMyHostingGames } from "../../lib/queries/games";
 import { useDistanceUnits } from "../../lib/queries/settings";
-import { useVenuesForMap, useAmenityTypes } from "../../lib/queries/venues";
+import { useVenuesForMap, useAmenityTypes, useVenuesDirectory } from "../../lib/queries/venues";
+import { suburbHits, roundedPoint } from "../../lib/suburbs";
 import { useCreateAlert } from "../../lib/queries/alerts";
+import { AlertMeRow, type AlertState } from "../../components/AlertMeRow";
+import { SpotAlertsNudge } from "../../components/SpotAlertsCard";
 import { useUnreadNotificationCount } from "../../lib/queries/notifications";
 import { useProfileSports } from "../../lib/queries/profile";
 import { useSession } from "../../lib/session";
@@ -76,11 +79,23 @@ const WHEN_FILTERS: { key: WhenFilter; label: string }[] = [
 
 const LEVEL_FILTERS = TIERS.map((t) => ({ slug: t.id.toLowerCase(), label: t.id }));
 
+// D-U3 (short-a-player-ux-plan.md §9): the default is your tier and the ones either side, not
+// your exact tier. An Intermediate who'd happily play Advanced shouldn't see an empty list.
+function aroundLevel(tierSlug: string): string[] {
+  const i = LEVEL_FILTERS.findIndex((l) => l.slug === tierSlug);
+  if (i < 0) return [tierSlug];
+  return LEVEL_FILTERS.slice(Math.max(0, i - 1), i + 2).map((l) => l.slug);
+}
+
+function sameSet(a: string[], b: string[]): boolean {
+  return a.length === b.length && a.every((x) => b.includes(x));
+}
+
 const SORT_OPTIONS: { key: SortOption; label: string }[] = [
   { key: "soonest", label: "Soonest" },
   { key: "closest", label: "Closest" },
   { key: "cheapest", label: "Cheapest" },
-  { key: "most_spots", label: "Most spots" },
+  { key: "fewest_needed", label: "Fewest needed" },
 ];
 
 function priceCapLabel(cents: number): string {
@@ -153,6 +168,7 @@ function FiltersSheet({
   // amenity_types RLS is authenticated-only (reference table, not PII, just not worth a new
   // grant for this slice) — a session-less viewer just doesn't see the amenities section.
   const amenityTypesQuery = useAmenityTypes({ enabled: !!session });
+  const [amenitiesOpen, setAmenitiesOpen] = useState(false);
 
   return (
     <Sheet visible={visible} onClose={onClose} title="Filters & sort">
@@ -210,17 +226,6 @@ function FiltersSheet({
 
         <View className="gap-2">
           <Text className="text-[12.5px] font-body-bold" style={{ color: colors.textTertiary }}>
-            DISTANCE
-          </Text>
-          <View className="flex-row flex-wrap gap-2">
-            {DISCOVER_RADIUS_OPTIONS_KM.map((km) => (
-              <Chip key={km} label={`${km} km`} active={discoverRadiusKm === km} onPress={() => setDiscoverRadiusKm(km)} size="sm" />
-            ))}
-          </View>
-        </View>
-
-        <View className="gap-2">
-          <Text className="text-[12.5px] font-body-bold" style={{ color: colors.textTertiary }}>
             PRICE PER PLAYER
           </Text>
           <View className="flex-row flex-wrap gap-2">
@@ -247,16 +252,35 @@ function FiltersSheet({
           </View>
         </View>
 
+        {/* F12: 23 amenity chips buried the filters people actually use. One row, opened on demand. */}
         {(amenityTypesQuery.data?.length ?? 0) > 0 && (
           <View className="gap-2">
-            <Text className="text-[12.5px] font-body-bold" style={{ color: colors.textTertiary }}>
-              COURT AMENITIES
-            </Text>
-            <View className="flex-row flex-wrap gap-2">
-              {amenityTypesQuery.data!.map((a) => (
-                <Chip key={a.slug} label={a.label} active={amenityFilters.includes(a.slug)} onPress={() => toggleAmenityFilter(a.slug)} size="sm" />
-              ))}
-            </View>
+            <Pressable
+              testID="discover-amenities-toggle"
+              onPress={() => setAmenitiesOpen(!amenitiesOpen)}
+              className="flex-row items-center justify-between py-1"
+            >
+              <Text className="text-[12.5px] font-body-bold" style={{ color: colors.textTertiary }}>
+                COURT AMENITIES ({amenityTypesQuery.data!.length})
+              </Text>
+              <View className="flex-row items-center gap-1.5">
+                {amenityFilters.length > 0 && (
+                  <View className="rounded-full items-center justify-center" style={{ width: 17, height: 17, backgroundColor: colors.accent }}>
+                    <Text className="font-body-extrabold" style={{ fontSize: 10.5, color: colors.base }}>
+                      {amenityFilters.length}
+                    </Text>
+                  </View>
+                )}
+                <Ionicons name={amenitiesOpen ? "chevron-up" : "chevron-forward"} size={15} color={colors.textTertiary} />
+              </View>
+            </Pressable>
+            {amenitiesOpen && (
+              <View className="flex-row flex-wrap gap-2">
+                {amenityTypesQuery.data!.map((a) => (
+                  <Chip key={a.slug} label={a.label} active={amenityFilters.includes(a.slug)} onPress={() => toggleAmenityFilter(a.slug)} size="sm" />
+                ))}
+              </View>
+            )}
           </View>
         )}
 
@@ -269,7 +293,7 @@ function FiltersSheet({
         >
           <Ionicons name="business-outline" size={15} color={colors.textTertiary} />
           <Text className="font-body-bold text-[13px]" style={{ color: colors.textTertiary }}>
-            Browse venues
+            Browse all venues
           </Text>
         </Pressable>
 
@@ -300,40 +324,6 @@ function FiltersSheet({
 // D5 fallback ladder — a thin-results screen is a dead end everywhere else in the app; here it's
 // a ladder of labelled, honest next steps (Resy/GoodRec pattern), each computed from a relaxed
 // query so counts are never fabricated. "Host it" is always the last rung.
-type AlertState = "idle" | "saving" | "saved";
-
-// The retention primitive (D5): turns a failed search into a scheduled return visit by watching
-// the current level + radius and pushing when a matching game is posted. Deliberately its own
-// row style (bell, no count) — it isn't a ladder rung since it has nothing to count yet.
-function AlertMeRow({ state, onPress, label = "Alert me when a game matches" }: { state: AlertState; onPress: () => void; label?: string }) {
-  if (state === "saved") {
-    return (
-      <View
-        className="flex-row items-center justify-center gap-2 rounded-xl px-4 py-3.5 border"
-        style={{ borderColor: "rgba(53,214,166,0.3)", backgroundColor: "rgba(53,214,166,0.08)" }}
-      >
-        <Ionicons name="checkmark-circle" size={16} color={colors.intermediate} />
-        <Text className="font-body-bold text-[14px]" style={{ color: colors.intermediate }}>
-          Alert set, we'll ping you
-        </Text>
-      </View>
-    );
-  }
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={state === "saving"}
-      className="flex-row items-center justify-center gap-2 rounded-xl px-4 py-3.5 border"
-      style={{ borderColor: colors.cardBorder, backgroundColor: colors.surfaceAlt, opacity: state === "saving" ? 0.6 : 1 }}
-    >
-      <Ionicons name="notifications-outline" size={16} color={colors.textSecondary} />
-      <Text className="font-body-bold text-[14px]" style={{ color: colors.textSecondary }}>
-        {state === "saving" ? "Saving…" : label}
-      </Text>
-    </Pressable>
-  );
-}
-
 function FallbackLadder({
   rungs,
   onHost,
@@ -410,7 +400,7 @@ function ColdStartEmpty({
       <EmptyState
         character="kookaburra-shade"
         title="Court's quiet right now"
-        subtitle="Be the first to call a game this week, takes under a minute to set up."
+        subtitle="Got a court? Post it and nearby players get pinged."
         ctaLabel="Host a game"
         onCta={onHost}
       />
@@ -563,6 +553,119 @@ function FilterChipsRow({
   );
 }
 
+// F8 (short-a-player-ux-plan.md §4.4): where Discover looks, and how far. A picked suburb is
+// session state only; the spot-alert home point is set elsewhere and says so.
+function LocationSheet({
+  visible,
+  onClose,
+  deviceLabel,
+  poolSuburbs,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  deviceLabel: string;
+  poolSuburbs: { suburb: string; lat: number | null; lng: number | null }[];
+}) {
+  const { session } = useSession();
+  const { discoverPlace, setDiscoverPlace, discoverRadiusKm, setDiscoverRadiusKm } = useAppStore();
+  const [query, setQuery] = useState("");
+  const trimmed = query.trim();
+  const venuesQuery = useVenuesDirectory({ search: trimmed || undefined }, { enabled: !!session && visible && trimmed.length >= 2 });
+  const hits =
+    trimmed.length >= 2
+      ? suburbHits(
+          (venuesQuery.data ?? []).map((v) => ({ suburb: v.suburb, lat: v.lat, lng: v.lng })),
+          poolSuburbs,
+          trimmed
+        ).slice(0, 6)
+      : [];
+
+  return (
+    <Sheet visible={visible} onClose={onClose} title="Where to look">
+      <View className="gap-3 mt-1">
+        <Pressable
+          testID="discover-location-device"
+          onPress={() => {
+            haptics.tap();
+            setDiscoverPlace(null);
+            setQuery("");
+            onClose();
+          }}
+          className="flex-row items-center gap-3 rounded-2xl px-3.5 py-3 border"
+          style={{ backgroundColor: discoverPlace ? colors.card : colors.surfaceAlt, borderColor: discoverPlace ? colors.cardBorder : colors.accent }}
+        >
+          <Ionicons name="navigate" size={15} color={colors.accent} />
+          <Text className="flex-1 font-body-bold text-[14px]" style={{ color: colors.text }}>
+            Use my location
+          </Text>
+          {deviceLabel !== "Near you" && (
+            <Text className="text-[12.5px]" style={{ color: colors.textSecondary }}>
+              {deviceLabel}
+            </Text>
+          )}
+        </Pressable>
+
+        <View
+          className="flex-row items-center gap-2 rounded-pill px-4 border"
+          style={{ backgroundColor: colors.surface, borderColor: colors.cardBorder, height: 44 }}
+        >
+          <Ionicons name="search" size={15} color={colors.textTertiary} />
+          <TextInput
+            testID="discover-location-input"
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Type a suburb"
+            placeholderTextColor={colors.textTertiary}
+            className="flex-1 text-[14px]"
+            style={{ color: colors.text }}
+          />
+        </View>
+        {hits.map((h) => (
+          <Pressable
+            key={h.suburb}
+            onPress={() => {
+              haptics.tap();
+              setDiscoverPlace({ lat: h.lat, lng: h.lng, label: h.suburb });
+              setQuery("");
+              onClose();
+            }}
+            className="flex-row items-center gap-3 py-2.5"
+          >
+            <Ionicons name="location-outline" size={15} color={colors.textTertiary} />
+            <Text className="flex-1 font-body-bold text-[14px]" style={{ color: colors.text }}>
+              {h.suburb}
+            </Text>
+            <Text className="text-[12px]" style={{ color: colors.textSecondary }}>
+              {[h.venueCount > 0 ? `${h.venueCount} ${h.venueCount === 1 ? "venue" : "venues"}` : null, h.gameCount > 0 ? `${h.gameCount} ${h.gameCount === 1 ? "game" : "games"}` : null]
+                .filter(Boolean)
+                .join(" · ")}
+            </Text>
+          </Pressable>
+        ))}
+        {trimmed.length >= 2 && hits.length === 0 && !venuesQuery.isLoading && (
+          <Text className="text-[13px]" style={{ color: colors.textSecondary }}>
+            No venues in a suburb called that yet.
+          </Text>
+        )}
+
+        <View className="gap-2 mt-1">
+          <Text className="text-[12.5px] font-body-bold" style={{ color: colors.textTertiary }}>
+            HOW FAR
+          </Text>
+          <View className="flex-row flex-wrap gap-2">
+            {DISCOVER_RADIUS_OPTIONS_KM.map((km) => (
+              <Chip key={km} label={`${km} km`} active={discoverRadiusKm === km} onPress={() => setDiscoverRadiusKm(km)} size="sm" />
+            ))}
+          </View>
+        </View>
+        <Text className="text-[12px]" style={{ color: colors.textMuted }}>
+          This only changes what you're browsing. Spot alerts still use the suburb in your profile.
+        </Text>
+      </View>
+    </Sheet>
+  );
+}
+
 export default function Discover() {
   const {
     whenFilter,
@@ -588,8 +691,15 @@ export default function Discover() {
   } = useAppStore();
   const { session } = useSession();
   useSpotAlertsIntro(!!session);
-  const userLocation = useUserLocation();
-  const locationLabel = useLocationLabel(userLocation);
+  const deviceLocation = useUserLocation();
+  const deviceLabel = useLocationLabel(deviceLocation);
+  const discoverPlace = useAppStore((s) => s.discoverPlace);
+  const userLocation = useMemo(
+    () => (discoverPlace ? { ...roundedPoint(discoverPlace), isDeviceLocation: false } : deviceLocation),
+    [discoverPlace, deviceLocation]
+  );
+  const locationLabel = discoverPlace?.label ?? deviceLabel;
+  const [locationSheetOpen, setLocationSheetOpen] = useState(false);
   const distanceUnits = useDistanceUnits();
   const [selectedGameId, setSelectedGameId] = useState<string | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -696,7 +806,7 @@ export default function Discover() {
   }, []);
   useEffect(() => {
     if (!levelTouched.current && viewerTier?.slug && levelFilters.length === 0) {
-      toggleLevelFilter(viewerTier.slug);
+      setLevelFilters(aroundLevel(viewerTier.slug));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [viewerTier?.slug]);
@@ -870,7 +980,7 @@ export default function Discover() {
   const showError = discoverQuery.isError && !showInitialLoading;
   const advancedFilterCount = [
     discoverRadiusKm !== DEFAULT_DISCOVER_RADIUS_KM,
-    hasSpotsOnly,
+    !hasSpotsOnly,
     verifiedOnly,
     maxCostPerPlayerCents != null,
     amenityFilters.length > 0,
@@ -887,7 +997,12 @@ export default function Discover() {
     levelFilters.length > 0
       ? {
           key: "level",
-          label: levelFilters.length === 1 ? LEVEL_FILTERS.find((l) => l.slug === levelFilters[0])?.label ?? "Level" : `${levelFilters.length} levels`,
+          label:
+            viewerTier?.slug && sameSet(levelFilters, aroundLevel(viewerTier.slug))
+              ? "Around your level"
+              : levelFilters.length === 1
+                ? LEVEL_FILTERS.find((l) => l.slug === levelFilters[0])?.label ?? "Level"
+                : `${levelFilters.length} levels`,
           onClear: () => {
             levelTouched.current = true;
             setLevelFilters([]);
@@ -901,7 +1016,8 @@ export default function Discover() {
     maxCostPerPlayerCents != null
       ? { key: "price", label: priceCapLabel(maxCostPerPlayerCents), onClear: () => setMaxCostPerPlayerCents(null) }
       : null,
-    hasSpotsOnly ? { key: "spots", label: "Has spots", onClear: () => setHasSpotsOnly(false) } : null,
+    // Spots-open is the default now (F10), so the chip marks the departure from it.
+    !hasSpotsOnly ? { key: "spots", label: "Incl. full games", onClear: () => setHasSpotsOnly(true) } : null,
     verifiedOnly ? { key: "verified", label: "Court booked", onClear: () => setVerifiedOnly(false) } : null,
     amenityFilters.length > 0
       ? { key: "amenities", label: amenityFilters.length === 1 ? "1 amenity" : `${amenityFilters.length} amenities`, onClear: () => setAmenityFilters([]) }
@@ -1104,7 +1220,7 @@ export default function Discover() {
   };
 
   const filterSummary = [
-    levelFilters.length === 1 ? LEVEL_FILTERS.find((l) => l.slug === levelFilters[0])?.label : levelFilters.length > 1 ? "your levels" : null,
+    levelFilters.length === 1 ? LEVEL_FILTERS.find((l) => l.slug === levelFilters[0])?.label : levelFilters.length > 1 ? "around your level" : null,
     WHEN_FILTERS.find((w) => w.key === whenFilter)?.label,
   ]
     .filter(Boolean)
@@ -1140,20 +1256,26 @@ export default function Discover() {
     return todayMatches[0] ?? matches[0] ?? soon[0] ?? null;
   }, [chronological, games, viewerTierOrdinal]);
 
+  // Rails never repeat the hero, and "At your level" only earns its place in a deep pool: it
+  // renders when there are 8+ games and it would show 3+ that aren't already on the list's first
+  // screen (ux-plan §2.4, F9). In a thin launch market the plain list reads fuller.
   const rails = useMemo(() => {
     if (!chronological) return [];
     const now = Date.now();
-    const shortTonight = shortAPlayer(games, spotsLeft, now).slice(0, 10);
-    const atYourLevel =
-      viewerTierOrdinal != null ? games.filter((g) => levelFit(viewerTierOrdinal, g.skillTierOrdinal) === "match").slice(0, 10) : [];
+    const pool = heroGame ? games.filter((g) => g.id !== heroGame.id) : games;
+    const firstScreen = new Set(pool.slice(0, 6).map((g) => g.id));
+    const shortTonight = shortAPlayer(pool, spotsLeft, now).slice(0, 10);
+    const levelMatches =
+      viewerTierOrdinal != null ? pool.filter((g) => levelFit(viewerTierOrdinal, g.skillTierOrdinal) === "match").slice(0, 10) : [];
+    const atYourLevel = games.length >= 8 && levelMatches.filter((g) => !firstScreen.has(g.id)).length >= 3 ? levelMatches : [];
     const lastVenue = pastGamesQuery.data?.[0]?.venue;
-    const backAtVenue = lastVenue ? games.filter((g) => g.venue === lastVenue).slice(0, 10) : [];
+    const backAtVenue = lastVenue ? pool.filter((g) => g.venue === lastVenue).slice(0, 10) : [];
     return [
       { title: "Short a player tonight", games: shortTonight },
       { title: "At your level, near you", games: atYourLevel },
       ...(lastVenue ? [{ title: `Back at ${lastVenue}`, games: backAtVenue }] : []),
     ];
-  }, [chronological, games, viewerTierOrdinal, pastGamesQuery.data]);
+  }, [chronological, games, viewerTierOrdinal, pastGamesQuery.data, heroGame]);
 
   const discoverRows = useMemo(
     () => (chronological ? buildDiscoverRows(heroGame ? games.filter((g) => g.id !== heroGame.id) : games, rails) : []),
@@ -1177,9 +1299,23 @@ export default function Discover() {
               to render a second KM figure here — a viewport half-span, not the filter radius —
               so two numbers labelled KM meant different things, and the header's height changed
               underneath the map overlay that anchors to it. */}
-          <Text className="text-[12.5px] font-body-bold mt-0.5 uppercase" style={{ color: colors.textSecondary, letterSpacing: 0.6 }}>
-            {locationLabel.toUpperCase()} · {discoverRadiusKm}KM RADIUS
-          </Text>
+          <Pressable
+            testID="discover-location-pill"
+            accessibilityRole="button"
+            accessibilityLabel={`Looking near ${locationLabel}, ${discoverRadiusKm} kilometres. Change`}
+            onPress={() => {
+              haptics.tap();
+              setLocationSheetOpen(true);
+            }}
+            className="flex-row items-center gap-1 self-start rounded-pill px-2.5 py-1 mt-1 border"
+            style={{ borderColor: colors.cardBorder, backgroundColor: colors.surface }}
+          >
+            <Ionicons name={discoverPlace ? "location" : "navigate"} size={11} color={colors.textSecondary} />
+            <Text className="text-[12.5px] font-body-bold" style={{ color: colors.textSecondary }}>
+              {locationLabel} · {discoverRadiusKm} km
+            </Text>
+            <Ionicons name="chevron-down" size={12} color={colors.textSecondary} />
+          </Pressable>
         </View>
         <View className="flex-row gap-2" style={{ marginTop: 2 }}>
           {/* gtm-plan.md G9, moved here per v3 design's header icon cluster (screen 1 note):
@@ -1188,8 +1324,8 @@ export default function Discover() {
           <Pressable
             testID="discover-search-open"
             accessibilityRole="button"
-            accessibilityLabel="Search venues and suburbs"
-            onPress={() => router.push(session ? "/venues" : "/onboarding")}
+            accessibilityLabel="Search games, venues and suburbs"
+            onPress={() => router.push("/search")}
             className="w-[38px] h-[38px] rounded-full items-center justify-center border"
             style={{ backgroundColor: "#17171A", borderColor: "rgba(255,255,255,0.08)" }}
           >
@@ -1211,7 +1347,19 @@ export default function Discover() {
 
       <FilterChipsRow activeCount={activeFilterChips.length} chips={activeFilterChips} onPressFilters={() => setFiltersOpen(true)} />
 
+      {session && (
+        <View style={{ paddingHorizontal: LAYOUT.SCREEN_PAD, paddingBottom: 8 }}>
+          <SpotAlertsNudge />
+        </View>
+      )}
+
       <FiltersSheet visible={filtersOpen} onClose={() => setFiltersOpen(false)} markLevelTouched={markLevelTouched} />
+      <LocationSheet
+        visible={locationSheetOpen}
+        onClose={() => setLocationSheetOpen(false)}
+        deviceLabel={deviceLabel}
+        poolSuburbs={games.map((g) => ({ suburb: g.suburb, lat: g.venueLat, lng: g.venueLng }))}
+      />
 
       {showInitialLoading ? (
         <GameCardSkeletonList />

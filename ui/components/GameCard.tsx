@@ -126,7 +126,8 @@ function FeaturedGameCard({
             </Text>
           </Text>
           <Text className="text-[11.5px]" style={{ color: colors.textSecondary }}>
-            {needsLabel(open)} · {game.skill}
+            {/* F11: the kicker already leads with "NEEDS N" on the best match, don't say it twice. */}
+            {kicker?.startsWith("NEEDS") ? game.skill : `${needsLabel(open)} · ${game.skill}`}
           </Text>
         </View>
       </View>

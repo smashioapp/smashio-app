@@ -166,6 +166,7 @@ export default function MyGames() {
         venueAddress: game.venueAddress ?? "",
         skill: game.skill,
         maxPlayers: game.maxPlayers,
+        reservedSpots: game.reservedSpots,
         courtsBooked: game.courtsBooked,
         durationHours: game.durationHours,
         cost: game.cost,

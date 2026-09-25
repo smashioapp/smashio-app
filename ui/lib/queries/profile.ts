@@ -402,6 +402,25 @@ export function useRemoveProfileSport() {
   });
 }
 
+// Whether the viewer has a home point at all (short-a-player-ux-plan.md §6). The point itself
+// lives in profile_private (self-read only, 20260912000100) and never leaves this check.
+export function useHasHomePoint(userId: string | undefined) {
+  return useQuery({
+    queryKey: ["home_point", userId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("profile_private")
+        .select("profile_id")
+        .eq("profile_id", userId!)
+        .not("home_point", "is", null)
+        .maybeSingle();
+      if (error) throw error;
+      return !!data;
+    },
+    enabled: !!userId,
+  });
+}
+
 // profile-plan.md P5 — unlocks a distance fallback when location permission is denied, and
 // a "games near home" default on Discover, once enough profiles carry a home_point.
 export function useSetHomePoint() {
@@ -411,7 +430,10 @@ export function useSetHomePoint() {
       const { error } = await supabase.rpc("set_home_point", { p_lat: lat, p_lng: lng });
       if (error) throw error;
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["profile"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["profile"] });
+      queryClient.invalidateQueries({ queryKey: ["home_point"] });
+    },
   });
 }
 

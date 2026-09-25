@@ -27,6 +27,15 @@ import {
 } from "../../lib/queries/profile";
 import { track } from "../../lib/analytics";
 
+// F21 (short-a-player-ux-plan.md §6.3): what you can do, in plain words, rather than a label to
+// guess at. Voted levels only mean something if the starting pick is honest.
+const TIER_CAN: Record<TierId, string> = {
+  Beginner: "You can hit a few in a row and you're still learning the rules",
+  Intermediate: "You can keep a rally going and know where to stand in doubles",
+  Advanced: "You can clear, drop and smash on purpose and play to win",
+  Pro: "You play tournaments or top-grade pennant",
+};
+
 function TierCard({ tier, active, onPress }: { tier: (typeof TIERS)[number]; active: boolean; onPress: () => void }) {
   const scale = useSharedValue(1);
   const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
@@ -57,7 +66,7 @@ function TierCard({ tier, active, onPress }: { tier: (typeof TIERS)[number]; act
             {tier.id}
           </Text>
           <Text className="text-[13px] mt-0.5" style={{ color: colors.textSecondary }}>
-            {tier.desc}
+            {TIER_CAN[tier.id]}
           </Text>
         </View>
       </Pressable>
@@ -78,7 +87,8 @@ export default function Setup() {
 
   const [name, setName] = useState("");
   const [seeded, setSeeded] = useState(false);
-  const [skill, setSkill] = useState<TierId>("Intermediate");
+  // No preselection (F21): a pre-ticked Intermediate was the answer most people left in place.
+  const [skill, setSkill] = useState<TierId | null>(null);
   const [localPhotoUri, setLocalPhotoUri] = useState<string | null>(null);
   const [avatarKeyChoice, setAvatarKeyChoice] = useState<AnimalKey | null>(null);
   const [pickerVisible, setPickerVisible] = useState(false);
@@ -125,6 +135,10 @@ export default function Setup() {
   const finish = async () => {
     setError(null);
     const sport = sports?.find((s) => s.slug === SPORT_SLUG);
+    if (!skill) {
+      setError("Pick how you play first.");
+      return;
+    }
     const tierRow = tiers?.find((t) => t.label === skill);
     if (!sport || !tierRow) {
       setError("Still loading, give it a second and try again.");
@@ -157,7 +171,7 @@ export default function Setup() {
 
   const saving = updateProfile.isPending || upsertProfileSport.isPending;
   const previewUri = avatarKeyChoice ? null : localPhotoUri ?? providerPhotoUrl;
-  const canFinish = !!name.trim() && !saving;
+  const canFinish = !!name.trim() && !!skill && !saving;
 
   const resolvedAnimalKey = avatarKeyChoice ?? (session ? animalForId(session.user.id).key : null);
   const showRig = !previewUri && hasRig(resolvedAnimalKey);
@@ -239,7 +253,7 @@ export default function Setup() {
             How do you play?
           </Text>
           <Text className="text-[13px] -mt-1" style={{ color: colors.textSecondary }}>
-            Pick what feels right. Players you hit with will back it up after your first game.
+            Not sure? Pick the lower one. Players you play with vote your level up.
           </Text>
           {TIERS.map((tier) => (
             <TierCard key={tier.id} tier={tier} active={skill === tier.id} onPress={() => setSkill(tier.id)} />

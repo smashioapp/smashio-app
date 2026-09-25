@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { spotsLeft as openSpotsFor } from "../../lib/mockData";
+import { needsLabel } from "../../lib/trust";
 import { View, Text, Pressable, FlatList, Platform, Image, Alert } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -165,7 +167,7 @@ function GameShareCard({
       <View className="flex-row items-center justify-between">
         <View className="rounded-pill px-2 py-0.5" style={{ backgroundColor: colors.accent }}>
           <Text className="text-[9.5px] font-body-extrabold" style={{ color: colors.base }}>
-            {spotsLeft != null ? `${spotsLeft} SPOTS LEFT` : "GAME"}
+            {spotsLeft != null ? needsLabel(spotsLeft).toUpperCase() : "GAME"}
           </Text>
         </View>
       </View>
@@ -427,7 +429,7 @@ export default function ChatThread() {
                     {!m.me && <View style={{ width: 28 }} />}
                     <View style={{ maxWidth: 240, alignItems: m.me ? "flex-end" : "flex-start" }}>
                       <GameShareCard
-                        spotsLeft={game ? game.maxPlayers - game.joinedCount : null}
+                        spotsLeft={game ? openSpotsFor(game) : null}
                         venue={game ? [game.venue, game.courts].filter(Boolean).join(", ") : "Game"}
                         time={game ? `${game.date} · ${game.time}` : ""}
                         onPress={() => router.push(`/game/${gameId}`)}

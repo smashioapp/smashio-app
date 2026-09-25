@@ -91,7 +91,7 @@ export function GamePitch({
             "{notes}"
           </Text>
           <Text className="font-body-bold text-[11px] mt-1.5" style={{ color: colors.textTertiary }}>
-            — {hostName}, the host
+            {hostName}, the host
           </Text>
         </>
       )}

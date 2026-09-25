@@ -287,7 +287,7 @@ export default function Settings() {
             glyph: "volume-high-outline",
             glyphColor: colors.textSecondary,
             title: "Sound effects",
-            subtitle: "Hero moments only — joining, publishing, streaks",
+            subtitle: "Hero moments only: joining, publishing, streaks",
             trailingNode: <ToggleSwitch value={soundEnabled} onValueChange={toggleSound} />,
           },
           {

@@ -1,7 +1,7 @@
 import { View, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { colors } from "../lib/theme";
-import { formatDate, formatTimeRange, formatDistance } from "../lib/format";
+import { formatDate, formatTimeRange, formatDistance, startsWhenText } from "../lib/format";
 
 // Game detail redesign (docs/design-brief.md Prompt 7, artboard 01/10/11): one line that changes
 // with lifecycle mode, colour carries the mode, and it never reorders the page around it. Modes
@@ -18,13 +18,6 @@ export function gameMode(game: { status: string; startsAt: string; endsAt: strin
   if (now >= starts) return "live";
   if (starts - now <= 90 * 60_000) return "imminent";
   return "upcoming";
-}
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-function upcomingText(startsAt: string, endsAt: string): string {
-  const days = Math.max(1, Math.ceil((new Date(startsAt).getTime() - Date.now()) / DAY_MS));
-  return `Starts in ${days} ${days === 1 ? "day" : "days"} · ${formatDate(startsAt)}, ${formatTimeRange(startsAt, endsAt).split("–")[0]}`;
 }
 
 function tone(mode: GameMode): { bg: string; fg: string } {
@@ -61,7 +54,7 @@ export function StatusBand({
 }) {
   const { bg, fg } = tone(mode);
   let icon: keyof typeof Ionicons.glyphMap = "calendar-outline";
-  let text = upcomingText(startsAt, endsAt);
+  let text = startsWhenText(startsAt);
 
   if (mode === "imminent") {
     icon = "time-outline";

@@ -16,6 +16,7 @@ import { savePendingPath } from "../../lib/pendingGame";
 import { usePlayerCard } from "../../lib/queries/profile";
 import {
   useDecideJoinRequest,
+  useGameLineupPublic,
   useGameRoster,
   useJoinRequests,
   useLeaveGame,
@@ -28,7 +29,7 @@ import {
 import { Badge } from "../../components/Badge";
 import { BackButton } from "../../components/BackButton";
 import { Button } from "../../components/Button";
-import { HoldButton } from "../../components/HoldButton";
+import { sound } from "../../lib/sound";
 import { CourtBackdrop } from "../../components/CourtBackdrop";
 import { GameCover } from "../../components/GameCover";
 import { StatTile, StatTileRow } from "../../components/StatTile";
@@ -52,11 +53,11 @@ import { UtilityChipRow } from "../../components/UtilityChipRow";
 import { VerifiedSheet } from "../../components/VerifiedSheet";
 import { TrustRow } from "../../components/TrustRow";
 import { LevelSheet } from "../../components/LevelSheet";
-import { levelLine, turnsUpPercent } from "../../lib/trust";
+import { levelLine, needsLabel, turnsUpPercent } from "../../lib/trust";
 import { ReportSheet } from "../../components/ReportSheet";
 import { Sheet } from "../../components/Sheet";
 import { useUserLocation } from "../../lib/location";
-import { haversineMeters, formatDistance } from "../../lib/format";
+import { haversineMeters, formatDistance, relativeDayPhrase } from "../../lib/format";
 import { useDistanceUnits } from "../../lib/queries/settings";
 import { useDiscoverGames } from "../../lib/queries/games";
 
@@ -90,6 +91,9 @@ export default function GameDetails() {
 
   const membershipQuery = useMyMembership(gameId, game?.organizerId);
   const rosterQuery = useGameRoster(session ? gameId : "");
+  // Roster rows come back only for the host and approved members; everyone else signed in gets
+  // the public lineup (D-U2). Enabled once we know the roster is empty.
+  const lineupPublicQuery = useGameLineupPublic(gameId, !!session && rosterQuery.isSuccess && (rosterQuery.data?.length ?? 0) === 0);
   const requestToJoin = useRequestToJoin(gameId);
   const leaveGame = useLeaveGame(gameId);
   const waitlistPositionQuery = useWaitlistPosition(gameId, membershipQuery.data?.status === "waitlisted");
@@ -107,6 +111,7 @@ export default function GameDetails() {
   const [similarSheetOpen, setSimilarSheetOpen] = useState(false);
   const [invitePastOpen, setInvitePastOpen] = useState(false);
   const [levelSheetOpen, setLevelSheetOpen] = useState(false);
+  const [joinConfirmOpen, setJoinConfirmOpen] = useState(false);
   const findASub = useFindASub(gameId);
   const distanceUnits = useDistanceUnits();
   const location = useUserLocation();
@@ -190,6 +195,20 @@ export default function GameDetails() {
   const distanceM =
     game.venueLat != null && game.venueLng != null ? haversineMeters(location.lat, location.lng, game.venueLat, game.venueLng) : null;
 
+  // Keeps the success feel the hold used to give (haptic + chime), just on a tap.
+  const join = (waitlisted: boolean) => {
+    requestToJoin.mutate(
+      { waitlisted },
+      {
+        onSuccess: () => {
+          haptics.success();
+          sound.play("chime");
+        },
+        onError: () => Alert.alert(waitlisted ? "Couldn't join the waitlist" : "Couldn't send that", "Give it another go."),
+      }
+    );
+  };
+
   const confirmLeave = () => {
     haptics.tap();
     setLeaveSheetOpen(true);
@@ -207,6 +226,7 @@ export default function GameDetails() {
         venueAddress: game.venueAddress ?? "",
         skill: game.skill,
         maxPlayers: game.maxPlayers,
+        reservedSpots: game.reservedSpots,
         courtsBooked: game.courtsBooked,
         durationHours: game.durationHours,
         cost: game.cost,
@@ -228,7 +248,7 @@ export default function GameDetails() {
   };
 
   const confirmLeaveWaitlist = () => {
-    Alert.alert("Leave the waitlist?", "You'll lose your spot in the queue — you can join it again later.", [
+    Alert.alert("Leave the waitlist?", "You'll lose your spot in the queue. You can join it again later.", [
       { text: "Cancel", style: "cancel" },
       {
         text: "Leave waitlist",
@@ -248,33 +268,40 @@ export default function GameDetails() {
 
   // Lineup slots: host, then joins in join order, then holds, then open — stable order, never
   // re-sorts (create-game-plan.md §4.5).
-  const named = reservedSpotsQuery.data ?? [];
-  const namedSlots: LineupSlot[] = named.map((s) => ({
+  // Counts come from the game row (joinedCount, reserved*), never from how many roster rows RLS
+  // happens to return: a non-member reads no game_players rows, and building the strip from the
+  // roster made one game read "1 in · 5 open" here and "Needs 2" on Discover (ux-plan §2.1).
+  // A claimed hold is an approved roster row already, so only unclaimed holds are drawn as holds.
+  const heldCount = Math.max(0, game.reservedSpots - game.reservedClaimed);
+  const named = (reservedSpotsQuery.data ?? []).filter((s) => !s.claimedBy);
+  const namedSlots: LineupSlot[] = named.slice(0, heldCount).map((s) => ({
     kind: "named",
     id: s.id,
-    label: s.claimedName ?? s.invitedName ?? s.label,
-    claimed: !!s.claimedBy,
+    label: s.invitedName ?? s.label,
+    claimed: false,
     invitedProfileId: s.invitedProfileId,
     avatarKey: s.invitedAvatarKey,
     photoUri: s.invitedPhotoUri,
     expiringSoon: !s.pinned && !!s.expiresAt && new Date(s.expiresAt).getTime() - Date.now() <= 2 * 60 * 60 * 1000 && new Date(s.expiresAt).getTime() > Date.now(),
   }));
-  const joinedSlots: LineupSlot[] = joined.map((p) => ({ kind: "joined", id: p.id, name: p.name, avatarKey: p.avatarKey, photoUri: p.photoUri }));
-  const anonCount = Math.max(0, game.reservedSpots - named.length);
-  const anonSlots: LineupSlot[] = Array.from({ length: anonCount }, (_, i) => ({ kind: "anon", id: `anon-${i}` }));
-  const filledForStrip = 1 + joinedSlots.length + namedSlots.length + anonSlots.length;
-  const openSlots: LineupSlot[] = cancelled ? [] : Array.from({ length: Math.max(0, game.maxPlayers - filledForStrip) }, (_, i) => ({ kind: "open", id: `open-${i}` }));
+  const publicLineup = joined.length === 0 ? lineupPublicQuery.data ?? [] : [];
+  const joinedSlots: LineupSlot[] =
+    joined.length > 0
+      ? joined.map((p) => ({ kind: "joined", id: p.id, name: p.name, avatarKey: p.avatarKey, photoUri: p.photoUri }))
+      : publicLineup.map((p) => ({ kind: "joined", id: p.id, name: p.firstName, avatarKey: p.avatarKey, photoUri: p.photoUri }));
+  const hiddenSlots: LineupSlot[] = Array.from({ length: Math.max(0, game.joinedCount - joinedSlots.length) }, (_, i) => ({ kind: "hidden", id: `hidden-${i}` }));
+  const anonSlots: LineupSlot[] = Array.from({ length: Math.max(0, heldCount - namedSlots.length) }, (_, i) => ({ kind: "anon", id: `anon-${i}` }));
+  const openSlots: LineupSlot[] = cancelled ? [] : Array.from({ length: open }, (_, i) => ({ kind: "open", id: `open-${i}` }));
   const lineupSlots: LineupSlot[] = [
     { kind: "host", id: game.organizerId, name: organizer?.displayName || game.organizerName || "Host", avatarKey: organizer?.avatarKey },
     ...joinedSlots,
+    ...hiddenSlots,
     ...namedSlots,
     ...anonSlots,
     ...openSlots,
   ];
-
-  const heldCount = Math.max(0, game.reservedSpots - game.reservedClaimed);
-  const daysOut = Math.max(1, Math.ceil((new Date(game.startsAt).getTime() - Date.now()) / (24 * 60 * 60 * 1000)));
-  const covered = perPlayer * (joined.length + 1);
+  const inCount = game.joinedCount + 1;
+  const covered = perPlayer * inCount;
   const totalCost = perPlayer * game.maxPlayers;
   const shortfall = Math.max(0, totalCost - covered);
 
@@ -392,10 +419,10 @@ export default function GameDetails() {
                 style={{ borderColor: "rgba(214,255,63,0.25)", backgroundColor: colors.card }}
               >
                 <Text className="font-body-bold text-[15px]" style={{ color: colors.accent3 }}>
-                  {open > 0 ? `${open} ${open === 1 ? "spot" : "spots"} to fill, ${daysOut} ${daysOut === 1 ? "day" : "days"} out` : "Full house"}
+                  {open > 0 ? `${needsLabel(open)}, ${relativeDayPhrase(game.startsAt)}` : "Full, game on"}
                 </Text>
                 <Text className="text-[12.5px] mt-1" style={{ color: colors.textSecondary }}>
-                  {joined.length + 1} of {game.maxPlayers} in{heldCount > 0 ? `, ${heldCount} held` : ""}
+                  {inCount} of {game.maxPlayers} in{heldCount > 0 ? `, ${heldCount} held` : ""}
                 </Text>
               </View>
               <View className="flex-row flex-wrap gap-2 mt-2.5">
@@ -501,7 +528,7 @@ export default function GameDetails() {
             right={
               !cancelled ? (
                 <Text className="text-[11px] font-body-semibold" style={{ color: colors.textTertiary }}>
-                  {game.joinedCount + 1}/{game.maxPlayers} joined
+                  {needsLabel(open)} · {inCount} of {game.maxPlayers} in
                   {isOrganizer && !!waitlistCountQuery.data ? ` · ${waitlistCountQuery.data} waitlist` : ""}
                 </Text>
               ) : undefined
@@ -512,6 +539,7 @@ export default function GameDetails() {
           <LineupStrip
             slots={lineupSlots}
             courtsBooked={game.courtsBooked}
+            viewerId={session.user.id}
             onExpand={() => scrollRef.current?.scrollTo({ y: 999999, animated: true })}
             onTapSlot={(slot) => {
               if (slot.kind !== "host" && slot.kind !== "joined") return;
@@ -544,8 +572,29 @@ export default function GameDetails() {
             }}
           />
           <Text className="text-[12px] mt-2.5" style={{ color: cancelled ? colors.textMuted : colors.textSecondary }}>
-            {lineupSummary(lineupSlots, perPlayer)}
+            {lineupSummary(lineupSlots, perPlayer, "strip", cancelled ? undefined : open)}
           </Text>
+          {/* Real level, real players (gtm-strategy §2.2): who you'd be playing with, before you join. */}
+          {publicLineup.length > 0 && (
+            <View className="mt-2.5 gap-1">
+              {publicLineup.map((p) => {
+                const bits = [
+                  p.votedLevel ? `${p.votedLevel} (voted by ${p.votedLevelVotes})` : null,
+                  p.turnsUpPct != null ? `turns up ${p.turnsUpPct}%` : null,
+                ].filter(Boolean);
+                return (
+                  <Pressable key={p.id} onPress={() => router.push(`/player/${p.id}`)} className="flex-row">
+                    <Text className="text-[12px]" style={{ color: colors.textSecondary }}>
+                      <Text className="font-body-bold" style={{ color: colors.textDim }}>
+                        {p.firstName}
+                      </Text>
+                      {bits.length > 0 ? ` · ${bits.join(" · ")}` : ""}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          )}
 
           {!!session && (
             <ReservedSpots gameId={gameId} isOrganizer={isOrganizer} reservedSpots={game.reservedSpots} cancelled={cancelled} />
@@ -578,7 +627,7 @@ export default function GameDetails() {
                   Your break-even
                 </Text>
                 <Text className="text-[12.5px] mt-1" style={{ color: colors.textDim, lineHeight: 18 }}>
-                  Court's ${totalCost} total. {joined.length + 1} in at ${perPlayer}, that's ${covered}.{" "}
+                  Court's ${totalCost} total. {inCount} in at ${perPlayer}, that's ${covered}.{" "}
                   {shortfall > 0 ? `You're $${shortfall} short of covering it, ${open} ${open === 1 ? "spot" : "spots"} left to close the gap.` : "Fully covered."}
                 </Text>
               </View>
@@ -781,18 +830,8 @@ export default function GameDetails() {
           />
         ) : full ? (
           <View className="gap-1.5">
-            <HoldButton
-              testID="game-cta"
-              label="Hold to join waitlist"
-              completeLabel="You're on the list"
-              sfx="chime"
-              onComplete={() => {
-                requestToJoin.mutate(
-                  { waitlisted: true },
-                  { onError: () => Alert.alert("Couldn't join the waitlist", "Give it another go.") }
-                );
-              }}
-            />
+            {/* D-U1 (short-a-player-ux-plan.md §5): a plain tap, reversing not-boring-plan's hold. */}
+            <Button testID="game-cta" label="Join the waitlist" loading={requestToJoin.isPending} onPress={() => join(true)} />
             <Pressable
               className="items-center"
               onPress={() => {
@@ -806,16 +845,15 @@ export default function GameDetails() {
             </Pressable>
           </View>
         ) : (
-          <HoldButton
+          <Button
             testID="game-cta"
-            label={`Hold to join · $${perPlayer}`}
-            completeLabel="Request sent"
-            sfx="chime"
-            onComplete={() => {
-              requestToJoin.mutate(
-                { waitlisted: false },
-                { onError: () => Alert.alert("Couldn't send request", "Give it another go.") }
-              );
+            label={perPlayer > 0 ? `Join · $${perPlayer}` : "Join"}
+            loading={requestToJoin.isPending}
+            onPress={() => {
+              haptics.tap();
+              // Accidental-join guard only where money's involved; a free game joins on the tap.
+              if (perPlayer > 0) setJoinConfirmOpen(true);
+              else join(false);
             }}
           />
         )}
@@ -837,6 +875,23 @@ export default function GameDetails() {
           gameId={gameId}
         />
       )}
+      <Sheet visible={joinConfirmOpen} onClose={() => setJoinConfirmOpen(false)} title="Join this game?">
+        <Text className="text-[13.5px]" style={{ color: colors.textSecondary, lineHeight: 20 }}>
+          It's ${perPlayer} each, split with the group. You sort it with {hostName === "The host" ? "the host" : hostName} on the day.
+        </Text>
+        <View className="mt-4 gap-2.5">
+          <Button
+            testID="game-join-confirm"
+            label={`Join · $${perPlayer}`}
+            loading={requestToJoin.isPending}
+            onPress={() => {
+              setJoinConfirmOpen(false);
+              join(false);
+            }}
+          />
+          <Button label="Not yet" variant="secondary" onPress={() => setJoinConfirmOpen(false)} />
+        </View>
+      </Sheet>
       <Sheet visible={leaveSheetOpen} onClose={() => setLeaveSheetOpen(false)} title="Leave this game?">
         <Text className="text-[13.5px]" style={{ color: colors.textSecondary, lineHeight: 20 }}>
           Your spot opens up to whoever's next on the waitlist. If you change your mind, you'll need to ask to rejoin, same as anyone

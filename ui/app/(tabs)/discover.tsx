@@ -36,6 +36,8 @@ import { Rail } from "../../components/RailCard";
 import { DayHeader } from "../../components/DayHeader";
 import { SegmentedToggle } from "../../components/SegmentedToggle";
 import { Game, spotsLeft, levelFit } from "../../lib/mockData";
+import { heroKicker, shortAPlayer } from "../../lib/trust";
+import { useSpotAlertsIntro } from "../../lib/spotAlertsIntro";
 import { track } from "../../lib/analytics";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
@@ -241,7 +243,7 @@ function FiltersSheet({
           </Text>
           <View className="flex-row flex-wrap gap-2">
             <Chip label="Has spots open" active={hasSpotsOnly} onPress={() => setHasSpotsOnly(!hasSpotsOnly)} size="sm" />
-            <Chip label="Verified" active={verifiedOnly} onPress={() => setVerifiedOnly(!verifiedOnly)} size="sm" />
+            <Chip label="Court booked" active={verifiedOnly} onPress={() => setVerifiedOnly(!verifiedOnly)} size="sm" />
           </View>
         </View>
 
@@ -585,6 +587,7 @@ export default function Discover() {
     setSortBy,
   } = useAppStore();
   const { session } = useSession();
+  useSpotAlertsIntro(!!session);
   const userLocation = useUserLocation();
   const locationLabel = useLocationLabel(userLocation);
   const distanceUnits = useDistanceUnits();
@@ -884,7 +887,7 @@ export default function Discover() {
       ? { key: "price", label: priceCapLabel(maxCostPerPlayerCents), onClear: () => setMaxCostPerPlayerCents(null) }
       : null,
     hasSpotsOnly ? { key: "spots", label: "Has spots", onClear: () => setHasSpotsOnly(false) } : null,
-    verifiedOnly ? { key: "verified", label: "Verified", onClear: () => setVerifiedOnly(false) } : null,
+    verifiedOnly ? { key: "verified", label: "Court booked", onClear: () => setVerifiedOnly(false) } : null,
     amenityFilters.length > 0
       ? { key: "amenities", label: amenityFilters.length === 1 ? "1 amenity" : `${amenityFilters.length} amenities`, onClear: () => setAmenityFilters([]) }
       : null,
@@ -1112,22 +1115,26 @@ export default function Discover() {
     if (!chronological) return null;
     const now = Date.now();
     const soon = games.filter((g) => spotsLeft(g) > 0 && new Date(g.startsAt).getTime() - now < 24 * 60 * 60 * 1000);
-    const match = viewerTierOrdinal != null ? soon.find((g) => levelFit(viewerTierOrdinal, g.skillTierOrdinal) === "match") : undefined;
-    return match ?? soon[0] ?? null;
+    const matches = viewerTierOrdinal != null ? soon.filter((g) => levelFit(viewerTierOrdinal, g.skillTierOrdinal) === "match") : [];
+    // Short-a-player-plan S3 tiebreak: among today's level matches, the one needing the fewest
+    // players wins (stable sort, so ties keep the list's soonest-first order).
+    const today = new Date().toDateString();
+    const todayMatches = matches
+      .filter((g) => new Date(g.startsAt).toDateString() === today)
+      .sort((a, b) => spotsLeft(a) - spotsLeft(b));
+    return todayMatches[0] ?? matches[0] ?? soon[0] ?? null;
   }, [chronological, games, viewerTierOrdinal]);
 
   const rails = useMemo(() => {
     if (!chronological) return [];
     const now = Date.now();
-    const closingSoon = games
-      .filter((g) => spotsLeft(g) > 0 && new Date(g.startsAt).getTime() - now < 24 * 60 * 60 * 1000)
-      .slice(0, 10);
+    const shortTonight = shortAPlayer(games, spotsLeft, now).slice(0, 10);
     const atYourLevel =
       viewerTierOrdinal != null ? games.filter((g) => levelFit(viewerTierOrdinal, g.skillTierOrdinal) === "match").slice(0, 10) : [];
     const lastVenue = pastGamesQuery.data?.[0]?.venue;
     const backAtVenue = lastVenue ? games.filter((g) => g.venue === lastVenue).slice(0, 10) : [];
     return [
-      { title: "Closing soon", games: closingSoon },
+      { title: "Short a player tonight", games: shortTonight },
       { title: "At your level, near you", games: atYourLevel },
       ...(lastVenue ? [{ title: `Back at ${lastVenue}`, games: backAtVenue }] : []),
     ];
@@ -1254,7 +1261,11 @@ export default function Discover() {
               ListHeaderComponent={
                 heroGame ? (
                   <View className="pb-4">
-                    <GameCard game={heroGame} variant="featured" kicker="BEST MATCH FOR YOU" onPress={() => router.push(`/game/${heroGame.id}`)} />
+                    <GameCard
+                      game={heroGame}
+                      variant="featured"
+                      kicker={heroKicker(spotsLeft(heroGame), viewerTierOrdinal != null && levelFit(viewerTierOrdinal, heroGame.skillTierOrdinal) === "match", heroGame.startsAt)}
+                      onPress={() => router.push(`/game/${heroGame.id}`)} />
                   </View>
                 ) : null
               }

@@ -232,6 +232,9 @@ export default function Setup() {
           <Text className="font-body-extrabold text-[13px] uppercase tracking-wide" style={{ color: colors.textTertiary }}>
             How do you play?
           </Text>
+          <Text className="text-[13px] -mt-1" style={{ color: colors.textSecondary }}>
+            Pick what feels right. Players you hit with will back it up after your first game.
+          </Text>
           {TIERS.map((tier) => (
             <TierCard key={tier.id} tier={tier} active={skill === tier.id} onPress={() => setSkill(tier.id)} />
           ))}

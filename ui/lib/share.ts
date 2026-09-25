@@ -3,6 +3,7 @@ import * as Linking from "expo-linking";
 import * as Clipboard from "expo-clipboard";
 import { supabase } from "./supabase";
 import { track } from "./analytics";
+import { spotsLeft } from "./mockData";
 
 // notifications-v2-plan.md §6.1: one module for every "share a game" (and venue/post/profile/
 // achievement/invite/referral) call site, replacing four separate implementations that each had
@@ -16,7 +17,38 @@ export type ShareableGame = {
   date: string;
   time: string;
   sportName?: string | null;
+  // short-a-player-plan S7: what the game needs, at what level, and whether the court's booked.
+  // Explicit fields win; otherwise they're derived from a full Game row when one is passed.
+  openSpots?: number | null;
+  tierLabel?: string | null;
+  courtBooked?: boolean | null;
+  maxPlayers?: number;
+  joinedCount?: number;
+  reservedSpots?: number;
+  reservedClaimed?: number;
+  skill?: string;
+  verified?: boolean;
 };
+
+// "Need 2 for badminton at Alpha Auburn, Thu 7pm. Intermediate, court's booked." Falls back to
+// the plain invite when the game's full or the spot count is unknown.
+export function gameShareText(sport: string, game: ShareableGame): string {
+  const open =
+    game.openSpots ??
+    (game.maxPlayers != null && game.joinedCount != null
+      ? spotsLeft({
+          maxPlayers: game.maxPlayers,
+          joinedCount: game.joinedCount,
+          reservedSpots: game.reservedSpots ?? 0,
+          reservedClaimed: game.reservedClaimed ?? 0,
+        })
+      : null);
+  if (!open || open <= 0) return `Come play ${sport} at ${game.venue}, ${game.date} ${game.time}.`;
+  const tier = game.tierLabel ?? game.skill ?? null;
+  const booked = game.courtBooked ?? game.verified ?? false;
+  const detail = [tier, booked ? "court's booked" : null].filter(Boolean).join(", ");
+  return `Need ${open} for ${sport} at ${game.venue}, ${game.date} ${game.time}.${detail ? ` ${detail.charAt(0).toUpperCase()}${detail.slice(1)}.` : ""}`;
+}
 
 // §1.7: every sport string here used to be the literal "badminton" — an AGENTS.md violation
 // (sport is a config/data concern). Cached in-module since it's the same lookup on every share.
@@ -53,10 +85,10 @@ async function withAttribution(url: string, kind: string): Promise<string> {
 export async function shareGame(game: ShareableGame) {
   const sport = await sportName(game.sportName);
   const url = await withAttribution(`https://smashio.com.au/game/${game.id}`, "game");
-  const text = `Come play ${sport} at ${game.venue}, ${game.date} ${game.time}.`;
+  const text = gameShareText(sport, game);
   try {
     const result = await Share.share(
-      Platform.OS === "ios" ? { message: text, url } : { message: `${text} — ${url}` }
+      Platform.OS === "ios" ? { message: text, url } : { message: `${text} ${url}` }
     );
     if (result.action === Share.sharedAction) track("share_sent", { kind: "game", game_id: game.id });
   } catch {
@@ -70,7 +102,7 @@ export async function shareGame(game: ShareableGame) {
 export async function copyGameLinkForWhatsApp(game: ShareableGame) {
   const sport = await sportName(game.sportName);
   const url = await withAttribution(`https://smashio.com.au/game/${game.id}`, "game_whatsapp");
-  const text = `Come play ${sport} at ${game.venue}, ${game.date} ${game.time} — ${url}`;
+  const text = `${gameShareText(sport, game)} ${url}`;
   await Clipboard.setStringAsync(text);
   try {
     const result = await Share.share({ message: text });
@@ -90,7 +122,7 @@ export async function shareVenue(id: string, name: string) {
 // this (website/api/post/[id].js).
 export async function sharePost(id: string, excerpt?: string | null) {
   const url = await withAttribution(`https://smashio.com.au/post/${id}`, "post");
-  const text = excerpt ? `"${excerpt.slice(0, 80)}" — on Smashio` : "Check out this post on Smashio";
+  const text = excerpt ? `"${excerpt.slice(0, 80)}", on Smashio` : "Check out this post on Smashio";
   try {
     const result = await Share.share(
       Platform.OS === "ios" ? { message: text, url } : { message: `${text}: ${url}` }
@@ -133,7 +165,7 @@ export async function shareInvite(link: string) {
 // game to name here, so the copy stays sport-agnostic rather than hardcoding one.
 export async function shareReferral(referrerId: string) {
   const url = Linking.createURL("onboarding", { queryParams: { ref: referrerId } });
-  const text = "Come play with me on Smashio — find local games and join in:";
+  const text = "Come play with me on Smashio, find local games and join in:";
   try {
     const result = await Share.share(
       Platform.OS === "ios" ? { message: text, url } : { message: `${text} ${url}` }

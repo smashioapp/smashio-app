@@ -31,7 +31,7 @@ const CATEGORIES: { key: NotificationCategory; label: string; description: strin
   { key: "chat", label: "Chat messages", description: "New messages in your games' chats" },
   { key: "game_changes", label: "Game changes", description: "Cancellations, reschedules, and edits to games you're in" },
   { key: "reminders", label: "Reminders", description: "Upcoming games and post-game rating nudges" },
-  { key: "alerts", label: "Discover alerts", description: "New games matching what you're after" },
+  { key: "alerts", label: "Game alerts", description: "Last-minute spots near you at your level, plus games matching your saved alerts" },
   { key: "social", label: "Social", description: "Replies, reactions, new followers and achievements" },
   { key: "social_activity", label: "People you follow", description: "When someone you follow needs players" },
   { key: "marketing", label: "Product news & promos", description: "What's new with Smashio, every so often" },

@@ -274,7 +274,7 @@ module.exports = async function handler(req, res) {
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Smashio - Badminton in Sydney</title>
-<meta name="description" content="Smashio finds badminton games happening near you tonight. Real courts, real players, sorted by skill. Join in two taps or host your own. In private beta, Sydney first." />
+<meta name="description" content="Got a court, short a player? Smashio fills it tonight with someone your level who actually turns up. Or find a badminton game near you and join in two taps. In private beta, Sydney first." />
 <link rel="canonical" href="https://smashio.com.au/" />
 
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
@@ -284,13 +284,13 @@ module.exports = async function handler(req, res) {
 <meta property="og:type" content="website" />
 <meta property="og:url" content="https://smashio.com.au/" />
 <meta property="og:title" content="Smashio: games are on, find one or host your own." />
-<meta property="og:description" content="Smashio finds badminton games happening near you tonight. Real courts, real players, sorted by skill. In private beta, Sydney first." />
+<meta property="og:description" content="Got a court, short a player? Smashio fills it tonight with someone your level who actually turns up. Real court. Real level. Real players. In private beta, Sydney first." />
 <meta property="og:image" content="https://smashio.com.au/assets/og-image.png" />
 <meta property="og:image:width" content="1200" />
 <meta property="og:image:height" content="630" />
 <meta name="twitter:card" content="summary_large_image" />
 <meta name="twitter:title" content="Smashio: games are on, find one or host your own." />
-<meta name="twitter:description" content="Smashio finds badminton games happening near you tonight. Real courts, real players, sorted by skill. In private beta, Sydney first." />
+<meta name="twitter:description" content="Got a court, short a player? Smashio fills it tonight with someone your level who actually turns up. Real court. Real level. Real players. In private beta, Sydney first." />
 <meta name="twitter:image" content="https://smashio.com.au/assets/og-image.png" />
 <script type="application/ld+json">${escapeJsonLd(jsonLd(games))}</script>
 
@@ -506,7 +506,7 @@ ${captureFormStyles()}
 
   <div style="position:relative; max-width:1180px; margin:0 auto; padding:64px 20px 56px; display:flex; flex-direction:column; gap:22px">
     <div class="eyebrow lime">Live in Sydney right now</div>
-    <h1 class="d hero-h1" style="margin:0">Games are on.<br /><span class="dim2">Find one, or host your own.</span></h1>
+    <h1 class="d hero-h1" style="margin:0">Games are on.<br /><span class="dim2">Got a court? Short a player? Fill it tonight.</span></h1>
     <p style="margin:0; max-width:46ch; font-size:16px; line-height:1.6; color:#96969E">No accounts on this page, no bookings here either. See what's actually on below, right down to the open spots.</p>
 
     <div class="hero-cta" style="margin-top:4px">

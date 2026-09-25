@@ -126,7 +126,10 @@ function SkillVoteRow({
   return (
     <View className="gap-1.5">
       <Text className="text-[11.5px] font-body-semibold" style={{ color: colors.textMuted }}>
-        {declaredTier ? `They play as ${declaredTier}. Right level?` : "What level do they play at?"}
+        {/* short-a-player-plan S5: this vote is what other players see as "voted by N". */}
+        {declaredTier
+          ? `Keep levels honest. They say ${declaredTier}, what level did they play at?`
+          : "Keep levels honest. What level did they play at?"}
       </Text>
       <View className="flex-row flex-wrap gap-1.5">
         {tiers.map((t) => {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Switch, Text, View } from "react-native";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, {
@@ -20,6 +20,8 @@ import { CourtBackdrop } from "../../components/CourtBackdrop";
 import { requestLocation, suburbForFix } from "../../lib/location";
 import { useSetHomePoint, useUpdateProfile } from "../../lib/queries/profile";
 import { track } from "../../lib/analytics";
+import { useSetNotificationCategory } from "../../lib/queries/notificationPrefs";
+import { markSpotAlertsIntroSeen } from "../../lib/spotAlertsIntro";
 
 function PulsePin({ reduceMotion }: { reduceMotion: boolean }) {
   const ring = useSharedValue(0);
@@ -62,6 +64,9 @@ function PulsePin({ reduceMotion }: { reduceMotion: boolean }) {
 export default function Nearby() {
   const reduceMotion = useReduceMotion();
   const [busy, setBusy] = useState(false);
+  // D1: pre-ticked. Rides the `alerts` pref, so it's the same switch as in notification settings.
+  const [spotAlerts, setSpotAlerts] = useState(true);
+  const setCategory = useSetNotificationCategory();
 
   useEffect(() => {
     track("onboarding_step_completed", { step: "nearby" });
@@ -69,7 +74,10 @@ export default function Nearby() {
   const updateProfile = useUpdateProfile();
   const setHomePoint = useSetHomePoint();
 
-  const enter = () => router.replace("/");
+  const enter = () => {
+    markSpotAlertsIntroSeen();
+    router.replace("/");
+  };
 
   const enable = async () => {
     setBusy(true);
@@ -81,6 +89,7 @@ export default function Nearby() {
       const suburb = await suburbForFix(fix.lat, fix.lng);
       await setHomePoint.mutateAsync({ lat: fix.lat, lng: fix.lng }).catch(() => {});
       if (suburb) await updateProfile.mutateAsync({ home_suburb: suburb }).catch(() => {});
+      if (!spotAlerts) await setCategory.mutateAsync({ category: "alerts", enabled: false }).catch(() => {});
     }
     setBusy(false);
     enter();
@@ -125,6 +134,26 @@ export default function Nearby() {
           </View>
 
           <View style={{ flex: 1 }} />
+
+          <View
+            className="w-full flex-row items-center gap-3 rounded-2xl border px-4 py-3 mb-4"
+            style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}
+          >
+            <View className="flex-1">
+              <Text className="font-body-bold text-[14px]" style={{ color: colors.text }}>
+                Ping me about last-minute spots
+              </Text>
+              <Text className="text-[12.5px] mt-0.5" style={{ color: colors.textSecondary }}>
+                When someone nearby at your level is short a player. Two a day, max.
+              </Text>
+            </View>
+            <Switch
+              testID="nearby-spot-alerts"
+              value={spotAlerts}
+              onValueChange={setSpotAlerts}
+              trackColor={{ true: colors.accent, false: "rgba(255,255,255,0.15)" }}
+            />
+          </View>
 
           <View className="w-full gap-3">
             <Button label="Turn on location" loading={busy} onPress={enable} testID="nearby-enable" />

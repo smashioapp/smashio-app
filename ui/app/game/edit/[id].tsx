@@ -241,7 +241,7 @@ export default function EditGame() {
           {game.verified && (
             <View className="flex-row items-center gap-1 rounded-pill px-2 py-1" style={{ backgroundColor: "rgba(53,214,166,0.16)" }}>
               <Ionicons name="checkmark-outline" size={9} color={colors.intermediate} />
-              <Text className="font-body-extrabold text-[10px]" style={{ color: colors.intermediate }}>VERIFIED</Text>
+              <Text className="font-body-extrabold text-[10px]" style={{ color: colors.intermediate }}>COURT BOOKED</Text>
             </View>
           )}
           {countdown && (

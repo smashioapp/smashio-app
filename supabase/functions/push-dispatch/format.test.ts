@@ -22,6 +22,7 @@ import {
   newFollowerBody,
   nudgePendingBody,
   nudgeUnderfilledBody,
+  spotOpenBody,
   pick,
   playerLeftBody,
   type PostSummary,
@@ -387,7 +388,7 @@ Deno.test("bookingVerifiedBody confirms host uploaded booking", () => {
 
 Deno.test("nudgeUnderfilledBody shows open spot count", () => {
   const singleSpot = { ...summary, spots_left: 1 };
-  const { title, body } = nudgeUnderfilledBody(singleSpot);
+  const { title, body } = nudgeUnderfilledBody(singleSpot, new Date("2026-06-14T04:00:00Z"));
   assertMatch(title, /1 spot still open/);
   assertMatch(body, /tomorrow/);
   assertMatch(body, /Share it/);
@@ -573,4 +574,29 @@ Deno.test("achievementEarnedBody looks up the name and blurb, with a safe fallba
   assertEquals(achievementEarnedBody("played_10").title, "10 games played unlocked");
   assertMatch(achievementEarnedBody("played_10").expand!, /share it/);
   assertEquals(achievementEarnedBody("not_a_real_id").title, "New achievement unlocked");
+});
+
+Deno.test("nudgeUnderfilledBody says today for a same-day game", () => {
+  const { body } = nudgeUnderfilledBody(summary, new Date("2026-06-15T00:00:00Z"));
+  assertMatch(body, / is today at /);
+});
+
+// starts_at 2026-06-15T09:00Z = 7:00 pm Sydney (AEST).
+Deno.test("spotOpenBody says how many, tonight, where, level and court booked", () => {
+  const s = withSummary({ spots_left: 1, starts_at: "2026-06-15T09:00:00Z" });
+  const { title, body } = spotOpenBody(s, new Date("2026-06-15T02:00:00Z"));
+  assertEquals(title, "1 spot, tonight 7:00 pm at Test Courts");
+  assertEquals(body, "Intermediate, court's booked. Keen?");
+});
+
+Deno.test("spotOpenBody omits the booking when the court isn't verified, and pluralises", () => {
+  const s = withSummary({ spots_left: 2, verification_status: "none", starts_at: "2026-06-15T09:00:00Z" });
+  const { title, body } = spotOpenBody(s, new Date("2026-06-14T02:00:00Z"));
+  assertMatch(title, /^2 spots, tomorrow /);
+  assertEquals(body, "Intermediate. Keen?");
+});
+
+Deno.test("spotOpenBody has no em dashes", () => {
+  const { title, body, expand } = spotOpenBody(summary, new Date("2026-06-15T00:00:00Z"));
+  assertEquals(/—/.test(`${title}${body}${expand}`), false);
 });

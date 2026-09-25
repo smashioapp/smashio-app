@@ -154,7 +154,7 @@ export function UpcomingGameCard({
                   </Text>
                 </View>
                 {role === "hosting" && game.status !== "cancelled" && game.verificationStatus !== "none" && (
-                  <Badge state={game.verified ? "verified" : "pending"} label={game.verified ? "Verified" : "Pending"} />
+                  <Badge state={game.verified ? "verified" : "pending"} label={game.verified ? "Court booked" : "Checking booking"} />
                 )}
               </View>
               <Text className="font-display-bold text-[16.5px] mt-1" style={{ color: colors.text }}>

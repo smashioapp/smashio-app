@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { View, Text, TextInput, Pressable, ScrollView, Alert, ActivityIndicator, Platform } from "react-native";
 import { router } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { colors, tierColor } from "../lib/theme";
 import { Screen } from "../components/Screen";
@@ -97,6 +98,31 @@ export default function Compose() {
             ]}
           />
         </View>
+
+        {/* short-a-player-plan S6 (A14, D3): a booked court belongs in a game, where it gets the
+            roster, the trust signals and spot alerts. The text post stays for "anyone keen to
+            book something?" chatter. */}
+        {kind === "looking_for_players" && (
+          <Pressable
+            onPress={() => {
+              haptics.tap();
+              router.replace("/wizard");
+            }}
+            className="mx-5 mb-4 rounded-2xl p-4 border flex-row items-center gap-3"
+            style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}
+          >
+            <Ionicons name="flash-outline" size={18} color={colors.accent} />
+            <View className="flex-1">
+              <Text className="font-body-bold text-[14px]" style={{ color: colors.text }}>
+                Got a court booked?
+              </Text>
+              <Text className="text-[12.5px] mt-0.5" style={{ color: colors.textSecondary }}>
+                Post it as a game, it fills faster and nearby players get pinged.
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={15} color={colors.textTertiary} />
+          </Pressable>
+        )}
 
         <View className="px-5 mb-4">
           <TextInput

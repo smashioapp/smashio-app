@@ -5,7 +5,8 @@ Player-matching app for the Australian market — Playo (India) style, multi-spo
 - **Platform**: iOS/Android only (React Native + Expo). No in-app web — smashio.com.au ([website/](website/)) is marketing, store links, and read-only SEO/share pages for games, venues and clubs. Nothing on the web lets you join or host.
 - **UI direction**: CRED-style — dark theme, high creative/premium UX.
 - **Status**: ABN registered (sole trader), backend fully built and live, in **private beta** (Sydney, iOS via TestFlight and Android via Play internal testing as at 2026-09-10 — the Android opt-in link is live but the internal track is an allowlist, so the public Play listing is still unshipped). Core loop plus Discover, My Games, bottom nav, and the Google-Maps-backed map are all rebuilt and shipped; in-app account deletion is live. See [docs/backend-plan.md](docs/backend-plan.md), [docs/ux-plan.md](docs/ux-plan.md), and the [Docs](#docs) section below for what's still open.
-- **Since that status was written** (2026-08-12): a venue directory (56 venues), a social feed with follows and clubs, a reworked post-game/ratings flow, Host a Game v3, Profile & Settings v3, notifications with an activity inbox, and a new brand mark. The nav is now `Discover | Feed | My Games | Profile` — Chat merged into My Games. See the fuller [Docs](#docs) list below.
+- **Since that status was written** (2026-08-12): a venue directory (75 venues), a social feed with follows and clubs, a reworked post-game/ratings flow, Host a Game v3, Profile & Settings v3, notifications with an activity inbox, and a new brand mark. The nav is now `Discover | Feed | My Games | Profile` — Chat merged into My Games. See the fuller [Docs](#docs) list below.
+- **Promise (2026-09-24)**: "Got a court, short a player? Smashio fills it, with someone your level who actually turns up." Three trust signals back it: court booked (booking confirmation checked), level voted by co-players, host turns-up %. Last-minute spot alerts ping nearby players at the right level when a spot opens. See [docs/short-a-player-plan.md](docs/short-a-player-plan.md) — shipped 2026-09-25.
 
 ## Architecture
 
@@ -216,7 +217,7 @@ The list above stopped at 2026-08-15. The rest of `docs/`, added since (index up
 - [docs/create-game-plan.md](docs/create-game-plan.md) — Host a Game v3: draft card, lineup strip, reserved-spot holds (shipped, deviation log in §10)
 - [docs/post-game-plan.md](docs/post-game-plan.md) — attendance, no-shows, host/player rating dimensions (shipped). Read before touching ratings
 - [docs/notifications-plan.md](docs/notifications-plan.md) — every push and in-app notification, activity inbox, quiet hours (P0–P3 shipped)
-- [docs/venues-plan.md](docs/venues-plan.md) — facility directory: 56 venues, amenities, pricing, venue detail screen (A1–A6 P1 shipped; 51-venue P2 queue open)
+- [docs/venues-plan.md](docs/venues-plan.md) — facility directory: 75 venues, amenities, pricing, venue detail screen (A1–A6 shipped, P1 and P2 enrichment done)
 - [docs/avatars-plan.md](docs/avatars-plan.md) — 28 Smashimal bust avatars + AI-generated game covers (shipped)
 - [docs/smashimals-plan.md](docs/smashimals-plan.md) — props, the 4-character cast, the motion rig (app half shipped, website half not)
 - [docs/social-plan.md](docs/social-plan.md) — community + platform plan. The feed, follows, clubs seed and the nav merge shipped; §17 records the decisions, §0 the schema reconciliation
@@ -224,6 +225,7 @@ The list above stopped at 2026-08-15. The rest of `docs/`, added since (index up
 - [docs/quick-wins.md](docs/quick-wins.md) — running backlog of ≤1-day items. Check before proposing a "small improvement"
 - [docs/e2e-test-plan.md](docs/e2e-test-plan.md) — Maestro release gate. 17 flows exist; the gate policy is not approved and CI does not run them
 - [docs/business-context.md](docs/business-context.md) — entity, naming, positioning
+- [docs/short-a-player-plan.md](docs/short-a-player-plan.md) — the "short a player" promise: spot alerts, "Court booked", "Needs N", voted levels (signed off 2026-09-24, S1–S8 shipped 2026-09-25; §8 has the deviations)
 
 ## Scope discipline
 

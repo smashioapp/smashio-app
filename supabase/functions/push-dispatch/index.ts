@@ -17,6 +17,7 @@ import {
   achievementEarnedBody,
   type ActorSummary,
   alertMatchBody,
+  spotOpenBody,
   bookingVerifiedBody,
   CATEGORY_FOR_TYPE,
   chatMentionBody,
@@ -99,6 +100,7 @@ const CHANNEL_FOR_TYPE: Record<string, PushChannel> = {
   nudge_underfilled: "reminders",
   nudge_pending: "reminders",
   alert_match: "discovery",
+  spot_open: "spots",
   message: "chat",
   chat_mention: "chat",
   waitlist_promoted: "requests",
@@ -364,6 +366,8 @@ async function renderIndividual(row: NotificationRow): Promise<Rendered | null> 
     }
     case "alert_match":
       return { body: alertMatchBody(summary), screen: "game" };
+    case "spot_open":
+      return { body: spotOpenBody(summary), screen: "game" };
     case "spot_declined":
       return { body: spotDeclinedBody(row.params.label as string | null, summary), screen: "game" };
     case "hold_nudge":

@@ -3,6 +3,7 @@ import { colors, tierColor } from "../lib/theme";
 import { formatTimeShort } from "../lib/format";
 import { Game, spotsLeft } from "../lib/mockData";
 import { haptics } from "../lib/haptics";
+import { needsLabel } from "../lib/trust";
 
 // Venue-anchored map sheet card (docs/v2-design-plan.md §4.2) — the peek carousel groups by
 // venue, not by game: one card is "Riverside Badminton Centre · 1.8km" with a court row per
@@ -43,7 +44,7 @@ export function MapCarouselCard({
                   {[g.courts, formatTimeShort(g.startsAt)].filter(Boolean).join(" · ")}
                 </Text>
                 <Text numberOfLines={1} className="text-[11.5px] mt-0.5" style={{ color: colors.textSecondary }}>
-                  {g.skill} · {open === 0 ? "Full" : `${g.joinedCount + 1}/${g.maxPlayers} joined`}
+                  {[needsLabel(open), g.skill, g.verified ? "✓ Court booked" : null].filter(Boolean).join(" · ")}
                 </Text>
               </View>
               <Text className="font-display-bold text-[12.5px]" style={{ color: colors.textDim }}>

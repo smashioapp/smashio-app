@@ -85,6 +85,12 @@ product setting with a marketing consequence.
 
 ### 2.3 Competitive set
 
+> **Amended 2026-09-24:** "Direct AU competitor: none found" is wrong as of 2026-09. **Jigsaur Sports**
+> (jigsaur.app) is a direct Sydney competitor selling admin relief to organisers of big social
+> sessions (waitlist, payments, QR check-in, claims 1,000+ players). Smashio's response is to own the
+> small game instead, see [short-a-player-plan.md](short-a-player-plan.md) §0. The message this plan
+> sets in §1 is narrowed by that doc, not replaced.
+
 - **Direct AU competitor: none found.** Social Sport (Melbourne) runs operator-owned pickup games,
   not player-hosted matching, and isn't badminton or Sydney.
 - **Playtomic** is padel/pickleball and club-booking led; **Playo** is India. Neither is in market.

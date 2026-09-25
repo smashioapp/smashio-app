@@ -548,7 +548,7 @@ export default function Wizard() {
         setVerified(parsedData?.is_booking_confirmation === true);
       } catch {
         haptics.error();
-        Alert.alert("Game published", "Your booking confirmation couldn't be attached, so the game isn't verified yet. You can try again from the game page.");
+        Alert.alert("Game published", "Your booking confirmation couldn't be attached, so the game doesn't show court booked yet. You can try again from the game page.");
       }
     }
     setPublished(true);
@@ -947,6 +947,16 @@ export default function Wizard() {
               <Text className="text-[14.5px] text-center max-w-[260px]" style={{ color: colors.textSecondary }}>
                 Your game at {venue?.name ?? "your venue"} is live. Now's the moment to get people in.
               </Text>
+              {/* short-a-player-plan S6. Only what S1 actually does: a public game inside 24h
+                  pings nearby players at publish; later ones get pinged if a spot opens close to
+                  the day. Link-only games are never listed, so they get no line. */}
+              {wizard.visibility === "public" && (
+                <Text className="text-[13px] text-center max-w-[280px] -mt-1.5" style={{ color: colors.textTertiary }}>
+                  {wizard.startsAt.getTime() - Date.now() <= 24 * 60 * 60 * 1000
+                    ? "We're giving nearby players at your level a heads up now."
+                    : "If someone drops out close to the day, we'll tell nearby players at your level."}
+                </Text>
+              )}
               <View className="w-full rounded-2xl p-4 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
                 <Text className="font-body-bold text-[15.5px]" style={{ color: colors.text }}>{venue?.name ?? "your venue"}</Text>
                 <Text className="text-[14px] mt-1" style={{ color: colors.textSecondary }}>
@@ -954,7 +964,7 @@ export default function Wizard() {
                 </Text>
                 <View className="rounded-pill self-start px-2.5 py-1.5 mt-2.5" style={{ backgroundColor: verified ? "rgba(76,217,100,0.15)" : "rgba(255,182,72,0.15)" }}>
                   <Text className="font-body-extrabold text-[11.5px] uppercase" style={{ color: verified ? colors.intermediate : colors.advanced }}>
-                    {verified ? "Verified" : "Awaiting booking upload"}
+                    {verified ? "Court booked" : "Awaiting booking upload"}
                   </Text>
                 </View>
               </View>
@@ -968,6 +978,9 @@ export default function Wizard() {
                     venue: venue?.name ?? "the courts",
                     date: formatDate(wizard.startsAt.toISOString()),
                     time: formatTimeShort(wizard.startsAt.toISOString()),
+                    openSpots: openCount,
+                    tierLabel: wizard.skillMax !== wizard.skill ? `${wizard.skill} to ${wizard.skillMax}` : wizard.skill,
+                    courtBooked: verified,
                   });
                 }}
                 className="w-full rounded-pill py-4 items-center flex-row justify-center gap-2"
@@ -1025,9 +1038,9 @@ export default function Wizard() {
 
         {!parsing && entryMode === null && (
           <View className="items-center pt-10">
-            <Text className="font-display text-[28px] text-center" style={{ color: colors.text }}>Got a booking{"\n"}confirmation?</Text>
+            <Text className="font-display text-[28px] text-center" style={{ color: colors.text }}>Got a court{"\n"}booked?</Text>
             <Text className="text-[13.5px] text-center mt-3 max-w-[300px]" style={{ color: colors.textSecondary }}>
-              Hand it over and we'll fill in the venue and time for you, and mark your game verified. No competitor here can do that.
+              Snap the booking, we'll fill the spots. We pull the venue and time off it and show players your court's booked.
             </Text>
             <View className="w-[170px] h-[170px] rounded-3xl items-center justify-center mt-8 border-[1.5px]" style={{ backgroundColor: "#1d2110", borderColor: "rgba(214,255,63,.35)" }}>
               <Ionicons name="receipt-outline" size={54} color={colors.accent} />
@@ -1036,11 +1049,11 @@ export default function Wizard() {
               <LinearGradient colors={gradients.accent} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} className="rounded-pill mb-3">
                 <Pressable onPress={() => setUploadSheet(true)} className="py-4 items-center flex-row justify-center gap-2">
                   <Ionicons name="cloud-upload-outline" size={17} color={colors.base} />
-                  <Text className="font-body-extrabold text-[16.5px]" style={{ color: colors.base }}>Upload confirmation</Text>
+                  <Text className="font-body-extrabold text-[16.5px]" style={{ color: colors.base }}>Snap the booking</Text>
                 </Pressable>
               </LinearGradient>
               <Pressable onPress={() => { resetWizard(); setEntryMode("manual"); }} className="items-center py-3.5">
-                <Text className="font-body-bold text-[14.5px]" style={{ color: colors.textSecondary }}>I'll type it in instead →</Text>
+                <Text className="font-body-bold text-[14.5px]" style={{ color: colors.textSecondary }}>No booking yet, set it up →</Text>
               </Pressable>
             </View>
           </View>
@@ -1058,7 +1071,7 @@ export default function Wizard() {
                 {entryMode === "receipt" && parsedData?.is_booking_confirmation ? (
                   <View className="flex-row items-center gap-1.5 rounded-pill px-2.5 py-1" style={{ backgroundColor: "rgba(53,214,166,0.18)", borderWidth: 1, borderColor: "rgba(53,214,166,0.35)" }}>
                     <Ionicons name="checkmark-outline" size={10} color={colors.intermediate} />
-                    <Text className="font-body-extrabold text-[10px]" style={{ color: colors.intermediate }}>VERIFIED</Text>
+                    <Text className="font-body-extrabold text-[10px]" style={{ color: colors.intermediate }}>COURT BOOKED</Text>
                   </View>
                 ) : (
                   <View />

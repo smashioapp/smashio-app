@@ -47,6 +47,8 @@ const ANDROID_CHANNELS: { id: string; name: string; importance: Notifications.An
   { id: "chat", name: "Chat messages", importance: Notifications.AndroidImportance.HIGH },
   { id: "reminders", name: "Reminders", importance: Notifications.AndroidImportance.DEFAULT },
   { id: "discovery", name: "Games near you", importance: Notifications.AndroidImportance.LOW },
+  // spot_open (short-a-player-plan S1): a spot near you, hours out. Time-sensitive, so not LOW.
+  { id: "spots", name: "Last-minute spots", importance: Notifications.AndroidImportance.DEFAULT },
   { id: "social", name: "Social", importance: Notifications.AndroidImportance.LOW },
 ];
 

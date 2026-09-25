@@ -424,6 +424,21 @@ export function useCancelGame(gameId: string) {
   });
 }
 
+// Host "Find a sub" (short-a-player-plan S1): pings nearby players at the game's level in a wider
+// ring than the automatic spot alert, once per 6h. Returns how many players were told; the RPC
+// raises plain-English reasons when it can't send (link-only, outside 36h, already sent).
+export function useFindASub(gameId: string) {
+  return useMutation({
+    mutationFn: async (): Promise<number> => {
+      const { data, error } = await (supabase.rpc as any)("find_a_sub", { p_game_id: gameId });
+      if (error) throw error;
+      return (data as number | null) ?? 0;
+    },
+    onSuccess: (recipients) => track("spot_open_sent", { game_id: gameId, recipients, ring: "boost" }),
+    onError: (error) => captureMutationError("game.find_a_sub", error, { gameId }),
+  });
+}
+
 export function useGameDetail(gameId: string, enabled = true) {
   return useQuery({
     queryKey: ["games_public", gameId],
@@ -463,6 +478,9 @@ export type GamePreview = {
   maxPlayers: number;
   costCents: number;
   status: string;
+  // short-a-player-plan S7 (20260924000100). Null from a stale RPC without the columns.
+  openSpots: number | null;
+  courtBooked: boolean;
 };
 
 // Anon-safe teaser for a shared game link (see 20260820000100_game_preview_anon.sql) — used when
@@ -486,6 +504,8 @@ export function useGamePreview(gameId: string, enabled: boolean) {
         maxPlayers: data.max_players,
         costCents: data.cost_per_player_cents,
         status: data.status,
+        openSpots: typeof data.open_spots === "number" ? data.open_spots : null,
+        courtBooked: data.court_booked === true,
       };
     },
     enabled: enabled && !!gameId,

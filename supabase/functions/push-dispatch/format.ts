@@ -65,7 +65,7 @@ export type PushTier = "critical" | "normal" | "low";
 
 // Android channel per category, created client-side in ui/lib/notifications.ts with matching
 // importance. Keep the ids in sync with that file.
-export type PushChannel = "chat" | "requests" | "game-updates" | "reminders" | "discovery" | "social";
+export type PushChannel = "chat" | "requests" | "game-updates" | "reminders" | "discovery" | "spots" | "social";
 
 // iOS notification categories (P3) with action buttons. Map which types get which category.
 // P3 implements two action types: join_actions (approve/decline for A1) and chat_actions (reply for E1).
@@ -343,12 +343,14 @@ export function holdAutoReleasedBody(label: string | null, s: GameSummary): Push
 }
 
 // C4. Nudge host at T-24h if game still has open spots. (Low tier, goes to inbox if quiet hours.)
-export function nudgeUnderfilledBody(s: GameSummary): PushBody {
+// Since short-a-player-plan S1 this also fires for games created inside the last day, so the day
+// word comes from dayLabel instead of assuming "tomorrow".
+export function nudgeUnderfilledBody(s: GameSummary, now?: Date): PushBody {
   const open = s.spots_left;
   const plural = open === 1 ? "spot" : "spots";
   return {
     title: `${open} ${plural} still open`,
-    body: `${where(s)} is tomorrow at ${clockTime(s.starts_at)}. Share it to fill up.`,
+    body: `${where(s)} is ${dayLabel(s.starts_at, now).toLowerCase()} at ${clockTime(s.starts_at)}. Share it to fill up.`,
     expand: `${s.max_players - open} of ${s.max_players} in. Games that fill up usually do it in the last day.`,
   };
 }
@@ -374,6 +376,27 @@ export function alertMatchBody(s: GameSummary, alertName?: string | null): PushB
     expand: alertName
       ? `Matches your '${alertName}' alert. Turn it off in Discover any time.`
       : "Matches one of your saved alerts. Turn alerts off in Discover any time.",
+  };
+}
+
+// Short-a-player plan S1. A spot opened close to game time (drop-out, or a game published with
+// under a day to go) and this player is nearby at the right level. Says what's needed, when,
+// where, what level and whether the court's booked, in that order: the three things that decide
+// a last-minute join. (Normal tier; quiet hours are applied server-side when recipients are
+// picked, spot_open_recipients.)
+export function spotOpenBody(s: GameSummary, now: Date = new Date()): PushBody {
+  const open = Math.max(1, s.spots_left);
+  const spots = open === 1 ? "1 spot" : `${open} spots`;
+  const day = dayLabel(s.starts_at, now);
+  const hour = Number(
+    new Date(s.starts_at).toLocaleString("en-AU", { timeZone: SYDNEY_TZ, hour: "numeric", hourCycle: "h23" }),
+  );
+  const when = day === "Today" ? (hour >= 17 ? "tonight" : "today") : day === "Tomorrow" ? "tomorrow" : day;
+  const booked = s.verification_status === "verified" ? ", court's booked" : "";
+  return {
+    title: `${spots}, ${when} ${clockTime(s.starts_at)} at ${s.venue_name}`,
+    body: `${s.tier_name}${booked}. Keen?`,
+    expand: `${s.host_name} is short for ${s.sport_name} and you're nearby at the right level. Turn these off in notification settings under Game alerts.`,
   };
 }
 

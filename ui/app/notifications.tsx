@@ -57,6 +57,7 @@ const TYPE_STYLE: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: 
   nudge_underfilled: { icon: "megaphone-outline", color: colors.advanced },
   nudge_pending: { icon: "hourglass-outline", color: colors.advanced },
   alert_match: { icon: "sparkles-outline", color: colors.accent },
+  spot_open: { icon: "flash-outline", color: colors.accent },
   message: { icon: "chatbubble-outline", color: colors.textSecondary },
   chat_mention: { icon: "at-outline", color: colors.accent },
   post_reply: { icon: "chatbubble-ellipses-outline", color: colors.textSecondary },

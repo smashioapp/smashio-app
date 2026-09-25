@@ -33,7 +33,11 @@ export type AnalyticsEvent =
   | "post_to_game_converted"
   | "follow_added"
   | "club_joined"
-  | "club_game_published";
+  | "club_game_published"
+  // short-a-player-plan S8. Only the host-triggered boost ring is visible to the client; the
+  // automatic fan-outs and fill times are recorded server-side in spot_openings (time-to-fill is
+  // measured there, where the fill actually happens, instead of a client-side spot_filled guess).
+  | "spot_open_sent";
 
 type EventProperties = Record<string, string | number | boolean | undefined>;
 

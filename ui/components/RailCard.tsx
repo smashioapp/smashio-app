@@ -43,7 +43,7 @@ export function RailCard({ game, onPress, dimmed = false }: { game: Game; onPres
   );
 }
 
-// A named shelf with a stated reason ("Closing soon", "At your level, near you"). Same curation
+// A named shelf with a stated reason ("Short a player tonight", "At your level, near you"). Same curation
 // logic Discover always had — only the card weight changed.
 export function Rail({ title, games, onSeeAll }: { title: string; games: Game[]; onSeeAll?: () => void }) {
   if (games.length === 0) return null;

@@ -2,6 +2,7 @@ import { View, Text, Pressable, ActivityIndicator, Alert } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { levelLine } from "../lib/trust";
 import { colors, gradients, tierColor, reliabilityLabel, reliabilityColor, avatarColor } from "../lib/theme";
 import { Avatar } from "./Avatar";
 import { RollingNumber } from "./RollingNumber";
@@ -40,6 +41,7 @@ export function PlayerCardHeader({
   homeSuburb,
   memberSince,
   tierLabel,
+  levelNote,
   onEditPress,
   verified,
 }: {
@@ -50,6 +52,8 @@ export function PlayerCardHeader({
   homeSuburb: string | null;
   memberSince: string;
   tierLabel: string | null;
+  /** "Voted by 7 players" / "Their own pick" under the tier pill (short-a-player-plan S5). */
+  levelNote?: string | null;
   onEditPress?: () => void;
   verified?: boolean;
 }) {
@@ -89,6 +93,11 @@ export function PlayerCardHeader({
           Member since {memberSinceYear}
         </Text>
       </View>
+      {!!levelNote && (
+        <Text className="text-[11.5px] font-body-semibold" style={{ color: colors.textTertiary }}>
+          {levelNote}
+        </Text>
+      )}
     </View>
   );
 }
@@ -147,7 +156,13 @@ export function PlayerCard({
     );
   }
 
-  const primaryTier = card.sports.find((s) => s.sportSlug === "badminton")?.tierLabel ?? card.sports[0]?.tierLabel ?? null;
+  const selfTier = card.sports.find((s) => s.sportSlug === "badminton")?.tierLabel ?? card.sports[0]?.tierLabel ?? null;
+  // Someone else's card shows the level co-players voted once there are enough votes, and says
+  // plainly when it's still their own pick (S5, D4). Your own card keeps your pick in the pill;
+  // the voted level sits in the reputation grid on the profile tab.
+  const level = mode === "them" ? levelLine(card.peerSkillLabel, card.peerSkillVotes, selfTier) : null;
+  const primaryTier = level?.label ?? selfTier;
+  const levelNote = level ? (level.earned ? `Voted by ${card.peerSkillVotes} players` : "Their own pick, not voted on yet") : null;
   const showRating = mode === "me" || (card.ratingCount ?? 0) >= 5;
   // restricted is only ever true in "them" mode — player_card never restricts a viewer from
   // their own row (20260822000000: `c.vid <> c.id` in is_restricted).
@@ -173,6 +188,7 @@ export function PlayerCard({
         homeSuburb={card.homeSuburb}
         memberSince={card.memberSince}
         tierLabel={primaryTier}
+        levelNote={levelNote}
         onEditPress={onEditPress}
         verified={mode === "me" ? verified : undefined}
       />

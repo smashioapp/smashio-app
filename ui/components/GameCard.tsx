@@ -9,6 +9,8 @@ import { RailCard } from "./RailCard";
 import { formatTimeShort } from "../lib/format";
 import { Game, spotsLeft } from "../lib/mockData";
 import { haptics } from "../lib/haptics";
+import { needsLabel, turnsUpPercent } from "../lib/trust";
+import { TrustCompact } from "./TrustRow";
 
 /**
  * The v2 density system (docs/v2-design-plan.md §3.3, rule 2). One game, three weights:
@@ -59,7 +61,10 @@ export function GameRow({
     <ListRow
       dotColor={tierColor(game.skill)}
       title={`${game.venue}, ${formatTimeShort(game.startsAt)}`}
-      subtitle={[game.skill, game.distance, game.verified ? "Verified" : null, open === 0 ? "Full" : null]
+      // Leads with what the game needs (short-a-player-plan S3), then level, distance and the
+      // court-booked tick (S2). Host turns-up lives on the featured card and detail; a single
+      // line can't hold it without truncating mid-word.
+      subtitle={[open === 0 ? "Full · waitlist" : needsLabel(open), game.skill, game.distance, game.verified ? "✓ Court booked" : null]
         .filter(Boolean)
         .join(" · ")}
       leading={game.joined.length > 0 ? <AvatarStack people={game.joined} max={2} /> : undefined}
@@ -84,6 +89,7 @@ function FeaturedGameCard({
   onPress: () => void;
 }) {
   const open = spotsLeft(game);
+  const turnsUp = turnsUpPercent(game.organizerReliabilityScore, game.organizerHostedCount);
 
   return (
     <Hero tone="accent" coverKey={game.coverKey}>
@@ -92,7 +98,7 @@ function FeaturedGameCard({
         {game.verified && (
           <View className="rounded-pill" style={{ backgroundColor: "rgba(53,214,166,0.15)", paddingHorizontal: 10, paddingVertical: 5 }}>
             <Text className="font-body-extrabold text-[11px] uppercase" style={{ color: colors.intermediate, letterSpacing: 0.4 }}>
-              Verified venue
+              Court booked
             </Text>
           </View>
         )}
@@ -120,10 +126,15 @@ function FeaturedGameCard({
             </Text>
           </Text>
           <Text className="text-[11.5px]" style={{ color: colors.textSecondary }}>
-            {game.joinedCount + 1}/{game.maxPlayers} joined · {game.skill}
+            {needsLabel(open)} · {game.skill}
           </Text>
         </View>
       </View>
+      {turnsUp != null && (
+        <View className="mt-2">
+          <TrustCompact hostTurnsUp={turnsUp} />
+        </View>
+      )}
 
       <Pressable
         onPress={() => {

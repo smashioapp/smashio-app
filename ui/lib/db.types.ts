@@ -550,6 +550,8 @@ export type Database = {
           skill_tier_id: string
           skill_tier_max_id: string | null
           sport_id: string
+          spot_boost_sent_at: string | null
+          spot_open_sent_at: string | null
           starts_at: string
           status: string
           venue_id: string
@@ -586,6 +588,8 @@ export type Database = {
           skill_tier_id: string
           skill_tier_max_id?: string | null
           sport_id: string
+          spot_boost_sent_at?: string | null
+          spot_open_sent_at?: string | null
           starts_at: string
           status?: string
           venue_id: string
@@ -622,6 +626,8 @@ export type Database = {
           skill_tier_id?: string
           skill_tier_max_id?: string | null
           sport_id?: string
+          spot_boost_sent_at?: string | null
+          spot_open_sent_at?: string | null
           starts_at?: string
           status?: string
           venue_id?: string
@@ -1648,6 +1654,48 @@ export type Database = {
         }
         Relationships: []
       }
+      spot_openings: {
+        Row: {
+          filled_at: string | null
+          game_id: string
+          id: string
+          opened_at: string
+          recipients: number
+          ring: string
+        }
+        Insert: {
+          filled_at?: string | null
+          game_id: string
+          id?: string
+          opened_at?: string
+          recipients: number
+          ring: string
+        }
+        Update: {
+          filled_at?: string | null
+          game_id?: string
+          id?: string
+          opened_at?: string
+          recipients?: number
+          ring?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "spot_openings_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "spot_openings_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games_public"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_reports: {
         Row: {
           context_game_id: string | null
@@ -2343,6 +2391,11 @@ export type Database = {
         Args: { p_profile_ids: string[] }
         Returns: string[]
       }
+      find_a_sub: { Args: { p_game_id: string }; Returns: number }
+      fire_spot_open: {
+        Args: { p_game_id: string; p_ring: string }
+        Returns: number
+      }
       followers_of: {
         Args: { target_id: string }
         Returns: {
@@ -2369,9 +2422,11 @@ export type Database = {
         Args: { p_game_id: string }
         Returns: {
           cost_per_player_cents: number
+          court_booked: boolean
           ends_at: string
           id: string
           max_players: number
+          open_spots: number
           skill_tier_label: string
           sport_slug: string
           spots_left: number
@@ -2825,6 +2880,16 @@ export type Database = {
         Returns: undefined
       }
       shares_a_game_with: { Args: { a: string; b: string }; Returns: boolean }
+      spot_open_eligible: {
+        Args: { p_game_id: string; p_window: string }
+        Returns: boolean
+      }
+      spot_open_recipients: {
+        Args: { p_game_id: string; p_radius_m: number }
+        Returns: {
+          profile_id: string
+        }[]
+      }
       suggested_players_to_follow: {
         Args: {
           p_lat: number
@@ -2878,6 +2943,8 @@ export type Database = {
         Returns: {
           courts_total: number
           dedicated: boolean
+          lat: number
+          lng: number
           name: string
           region: string
           slug: string
@@ -2943,7 +3010,7 @@ export type Database = {
           p_source?: string
           p_suburb?: string
         }
-        Returns: undefined
+        Returns: boolean
       }
     }
     Enums: {

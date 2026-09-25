@@ -9,7 +9,7 @@ import { openDirections } from "../../lib/directions";
 import { useAppStore } from "../../lib/store";
 import { nextRebookSlot } from "../../lib/schedule";
 import { addGameToCalendar, hasCalendarEvent } from "../../lib/calendar";
-import { useAttendanceMarkedAt, useGameDetail, useGamePreview } from "../../lib/queries/games";
+import { useAttendanceMarkedAt, useFindASub, useGameDetail, useGamePreview } from "../../lib/queries/games";
 import { useMyRatedGameIds } from "../../lib/queries/ratings";
 import { useSession } from "../../lib/session";
 import { savePendingPath } from "../../lib/pendingGame";
@@ -50,6 +50,9 @@ import { VenueDetailCard } from "../../components/VenueDetailCard";
 import { ChatPreviewStrip } from "../../components/ChatPreviewStrip";
 import { UtilityChipRow } from "../../components/UtilityChipRow";
 import { VerifiedSheet } from "../../components/VerifiedSheet";
+import { TrustRow } from "../../components/TrustRow";
+import { LevelSheet } from "../../components/LevelSheet";
+import { levelLine, turnsUpPercent } from "../../lib/trust";
 import { ReportSheet } from "../../components/ReportSheet";
 import { Sheet } from "../../components/Sheet";
 import { useUserLocation } from "../../lib/location";
@@ -103,6 +106,8 @@ export default function GameDetails() {
   const [leaveSheetOpen, setLeaveSheetOpen] = useState(false);
   const [similarSheetOpen, setSimilarSheetOpen] = useState(false);
   const [invitePastOpen, setInvitePastOpen] = useState(false);
+  const [levelSheetOpen, setLevelSheetOpen] = useState(false);
+  const findASub = useFindASub(gameId);
   const distanceUnits = useDistanceUnits();
   const location = useUserLocation();
 
@@ -276,6 +281,15 @@ export default function GameDetails() {
   const showHostJob = isOrganizer && !cancelled && (mode === "upcoming" || mode === "imminent" || mode === "live");
   const showDoneRecap = isOrganizer && mode === "done" && !attendanceQuery.data;
   const hostName = organizer?.displayName || game.organizerName || "The host";
+  // Trust summary above the fold (short-a-player-plan S2, A9). Host signals come from the player
+  // card, so they respect profile_visibility: a hidden score is null and the row just isn't there.
+  const hostTurnsUp = organizer ? turnsUpPercent(organizer.reliabilityScore, organizer.gamesPlayed + organizer.gamesHosted) : null;
+  const hostLevel = organizer
+    ? levelLine(organizer.peerSkillLabel, organizer.peerSkillVotes, organizer.sports[0]?.tierLabel ?? null)
+    : null;
+  // "Find a sub" is only offered where the RPC will accept it: public, a spot open, inside 36h.
+  const hoursOut = (new Date(game.startsAt).getTime() - Date.now()) / (60 * 60 * 1000);
+  const canFindSub = isOrganizer && open > 0 && game.visibility !== "link_only" && hoursOut > 0.5 && hoursOut <= 36;
 
   return (
     <View className="flex-1" style={{ backgroundColor: colors.base }}>
@@ -320,7 +334,7 @@ export default function GameDetails() {
                     setVerifiedSheetOpen(true);
                   }}
                 >
-                  <Badge state={game.verified ? "verified" : "pending"} label={game.verified ? "Verified" : "Pending"} />
+                  <Badge state={game.verified ? "verified" : "pending"} label={game.verified ? "Court booked" : "Checking booking"} />
                 </Pressable>
               )}
             </View>
@@ -342,6 +356,20 @@ export default function GameDetails() {
             distanceM={distanceM}
             doneAt={game.endsAt}
           />
+
+          {!cancelled && !isOrganizer && (
+            <View className="mt-3">
+              <TrustRow
+                variant="full"
+                courtStatus={game.verificationStatus}
+                hostLevel={hostLevel}
+                hostTurnsUp={hostTurnsUp}
+                onCourtPress={() => setVerifiedSheetOpen(true)}
+                onLevelPress={() => setLevelSheetOpen(true)}
+                onHostPress={() => router.push(`/player/${game.organizerId}`)}
+              />
+            </View>
+          )}
 
           {cancelled && (
             <View
@@ -371,6 +399,31 @@ export default function GameDetails() {
                 </Text>
               </View>
               <View className="flex-row flex-wrap gap-2 mt-2.5">
+                {canFindSub && (
+                  <Pressable
+                    className="flex-row items-center gap-1.5 rounded-pill px-3 py-2 border"
+                    style={{ backgroundColor: colors.surface, borderColor: colors.cardBorder, opacity: findASub.isPending ? 0.5 : 1 }}
+                    disabled={findASub.isPending}
+                    onPress={() => {
+                      haptics.tap();
+                      findASub.mutate(undefined, {
+                        onSuccess: (n) =>
+                          Alert.alert(
+                            n > 0 ? "Sorted, we've pinged them" : "No one new to ping yet",
+                            n > 0
+                              ? `${n} ${n === 1 ? "player" : "players"} nearby at this level just got a heads up.`
+                              : "Everyone nearby at this level has already heard about it. Share the link too.",
+                          ),
+                        onError: (e) => Alert.alert("Couldn't send that", e instanceof Error ? e.message : "Give it another go."),
+                      });
+                    }}
+                  >
+                    <Ionicons name="flash-outline" size={13} color={colors.textSecondary} />
+                    <Text className="font-body-bold text-[11.5px]" style={{ color: colors.textSecondary }}>
+                      Find a sub
+                    </Text>
+                  </Pressable>
+                )}
                 <Pressable
                   className="flex-row items-center gap-1.5 rounded-pill px-3 py-2 border"
                   style={{ backgroundColor: colors.surface, borderColor: colors.cardBorder }}
@@ -546,7 +599,7 @@ export default function GameDetails() {
             {[
               ["Joining", game.autoApprove ? "Auto-approved" : "Host approves each request"],
               ["Visibility", game.visibility === "link_only" ? "Link only" : "Public"],
-              ["If you drop out", "Spot opens to the waitlist"],
+              ["If you drop out", "Spot goes to the waitlist, then nearby players"],
               ["Bring", "Your own racquet"],
             ].map(([label, value]) => (
               <View key={label} className="flex-row justify-between">
@@ -768,6 +821,7 @@ export default function GameDetails() {
         )}
       </View>
 
+      <LevelSheet visible={levelSheetOpen} onClose={() => setLevelSheetOpen(false)} name={hostName} level={hostLevel} />
       <VerifiedSheet
         visible={verifiedSheetOpen}
         onClose={() => setVerifiedSheetOpen(false)}
@@ -902,10 +956,19 @@ function GamePreviewTeaser({ gameId }: { gameId: string }) {
             <Text className="text-[14px] mt-1" style={{ color: colors.textDim }}>
               {preview.suburb} · {preview.date} · {preview.time}
             </Text>
+            {preview.courtBooked && (
+              <Text className="text-[13px] font-body-bold mt-1.5" style={{ color: colors.intermediate }}>
+                ✓ Court booked
+              </Text>
+            )}
 
             <StatTileRow>
               <StatTile value={`$${preview.costCents / 100}`} label="per player" tone={colors.accent} />
-              <StatTile value={`${preview.maxPlayers}`} label="max players" />
+              {preview.openSpots != null ? (
+                <StatTile value={preview.openSpots > 0 ? `${preview.openSpots}` : "Full"} label={preview.openSpots > 0 ? "needed" : "waitlist open"} />
+              ) : (
+                <StatTile value={`${preview.maxPlayers}`} label="max players" />
+              )}
               <StatTile value={preview.skill} label="skill level" small />
             </StatTileRow>
 

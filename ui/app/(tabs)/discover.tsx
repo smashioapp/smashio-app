@@ -604,6 +604,21 @@ export default function Discover() {
   const scrollHide = useRef(makeScrollHideHandler()).current;
   const carouselRef = useRef<FlatList<Game[]>>(null);
   const carouselScrollIsProgrammatic = useRef(false);
+  // Guards every /game/:id push in this file against a rapid double-tap enqueuing two pushes of
+  // the same route (expo-router then stacks two live instances, and one back press only pops
+  // one) — reset on focus rather than a timeout, since "focus regained" is exactly the moment a
+  // deliberate second visit is legitimate again.
+  const pendingGamePushRef = useRef(false);
+  const goToGame = useCallback((id: string) => {
+    if (pendingGamePushRef.current) return;
+    pendingGamePushRef.current = true;
+    router.push(`/game/${id}`);
+  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      pendingGamePushRef.current = false;
+    }, [])
+  );
 
   // "Search this area" (map-plan.md §P3) frames a viewport the user panned to, independent of
   // the device-location + radius filter that drives the list. Null = map follows the filters
@@ -1247,7 +1262,7 @@ export default function Discover() {
                     alertState={alertState}
                     onAlert={handleSetAlert}
                     onHost={handleHost}
-                    onSelectGame={(id) => router.push(`/game/${id}`)}
+                    onSelectGame={(id) => goToGame(id)}
                   />
                 )
               }
@@ -1265,7 +1280,7 @@ export default function Discover() {
                       game={heroGame}
                       variant="featured"
                       kicker={heroKicker(spotsLeft(heroGame), viewerTierOrdinal != null && levelFit(viewerTierOrdinal, heroGame.skillTierOrdinal) === "match", heroGame.startsAt)}
-                      onPress={() => router.push(`/game/${heroGame.id}`)} />
+                      onPress={() => goToGame(heroGame.id)} />
                   </View>
                 ) : null
               }
@@ -1285,7 +1300,7 @@ export default function Discover() {
                   <View className="px-5 pb-3">
                     <GameCard
                       game={item.game}
-                      onPress={() => router.push(`/game/${item.game.id}`)}
+                      onPress={() => goToGame(item.game.id)}
                       testID={`discover-card-${item.game.id}`}
                     />
                   </View>
@@ -1303,7 +1318,7 @@ export default function Discover() {
               onScroll={(e: NativeSyntheticEvent<NativeScrollEvent>) => scrollHide(e.nativeEvent.contentOffset.y)}
               scrollEventThrottle={32}
               renderItem={({ item, index }: { item: Game; index: number }) => (
-                <GameCard game={item} onPress={() => router.push(`/game/${item.id}`)} testID={`discover-card-${item.id}`} />
+                <GameCard game={item} onPress={() => goToGame(item.id)} testID={`discover-card-${item.id}`} />
               )}
             />
           )}
@@ -1465,7 +1480,7 @@ export default function Discover() {
             showTierLegend={mapMode === "games"}
             peekVariant={mapSheetPeekVariant}
             bodyKey={`${mapMode}|${mapSheetTitle}|${mapAreaOverride ? "area" : "filters"}`}
-            onCardPress={(id) => router.push(`/game/${id}`)}
+            onCardPress={(id) => goToGame(id)}
             onCarouselSettle={handleCarouselSettle}
             carouselRef={carouselRef}
             onSnapChange={handleMapSnapChange}
@@ -1531,7 +1546,7 @@ export default function Discover() {
                       Yours nearby
                     </Text>
                     {ownMapGames.map((g) => (
-                      <GameCard key={g.id} game={g} onPress={() => router.push(`/game/${g.id}`)} />
+                      <GameCard key={g.id} game={g} onPress={() => goToGame(g.id)} />
                     ))}
                   </View>
                 )}

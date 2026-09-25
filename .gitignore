@@ -34,3 +34,6 @@ __pycache__/
 
 .vercel
 .env*
+
+# Playwright MCP console logs/screenshots from browser verification
+.playwright-mcp/

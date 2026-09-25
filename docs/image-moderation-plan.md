@@ -1,7 +1,8 @@
 # Image moderation plan: one classifier for feed photos and chat photos
 
-Written 2026-09-25. **Implemented 2026-09-25: I1, I2, I3, B3a and avatar classification (§8 Q3).**
-§9 records what shipped, where it deviates from the body below, and the deploy order. B3b
+Written 2026-09-25. **Implemented and deployed 2026-09-25: I1, I2, I3, B3a and avatar
+classification (§8 Q3).** Merged in smashioapp/smashio-app#11; migrations, edge functions and the app
+(OTA) are all live. §9 records what shipped, where it deviates from the body below, and the deploy. B3b
 (`feed_profile`) is still to build. Four owner decisions from 2026-09-25 are recorded in §7, and the
 §8 answers are recorded in place.
 
@@ -277,10 +278,33 @@ for the sender, and avatar upload through `set_avatar_photo`. pgTAP coverage in
 - **`ai_proxy_url` Vault override**, same pattern as `push_dispatch_url`, so a local stack can
   exercise both the text and image classifiers.
 
-**Deploy order:** migrations first, then `ai-proxy` + `purge-confirmations` + `delete-account`,
-then the app (OTA). Between the migration and the OTA, an old client's avatar upload fails
-(overwrite of `avatar.jpg` and the direct `photo_path` write are both refused now) and the old
-composer still works (the new `p_media_paths` has a default).
+**Deployed 2026-09-25**, in this order:
+
+1. `ai-proxy` v13 first. It's backward compatible: the new `classify_image` mode is only called by
+   the new migrations, and every existing mode is unchanged.
+2. The three migrations, applied through the Supabase MCP and then re-versioned in
+   `supabase_migrations.schema_migrations` to `20260925000000`/`000100`/`000200` so they match the
+   repo filenames and a later `supabase db push` won't try to re-apply them.
+3. `purge-confirmations` v5 (adds `type: 'media'`) and `delete-account` v6 (removes `post-media`).
+
+The app went out by OTA on merge, roughly 7-9 minutes *before* step 2 (merge 10:28 UTC, migrations 10:35-10:37 UTC). In that window the new
+composer's `create_post(p_media_paths)` and `set_avatar_photo` calls had nothing to call, so posting
+and avatar changes failed for testers who had already picked up the update. Next time, deploy the
+backend before merging anything that touches `ui/**` and depends on it: `runtimeVersion` is
+`appVersion`, so a merge to `main` is a release to every installed binary.
+
+Old clients (still on the pre-merge JS) can't change their avatar: overwriting `avatar.jpg` and
+the direct `photo_path` write are both refused now. Their composer keeps working, because
+`p_media_paths` has a default. Chat photos sent before the deploy stay `unchecked`, since the
+classifier only runs on new sends.
+
+Verified live after deploy: `assert_no_public_definer_execute()` passes, one `create_post`
+overload, `authenticated` can execute `create_post`/`set_avatar_photo` and can't execute
+`resolve_media_flag`, `anon` can't execute `can_read_post_media`, threshold 0.8, the
+`purge-orphan-media` cron is scheduled, and Postgres reaches the new mode with the shared key (a
+deliberately invalid request returned ai-proxy's 400 validation error, not a 403). **Not yet
+verified: a real photo through Gemini.** The first real post photo, chat photo or avatar change is
+the first live test.
 
 **Reviewer queue:** `select * from moderation_queue where storage_path is not null;`, open the
 object in the dashboard storage browser, then `select resolve_media_flag('<flag id>', 'approve' |

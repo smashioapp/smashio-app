@@ -615,6 +615,8 @@ which is why it's the one thing still open.
    launched yet.
    **Recommendation: (b).** V2.4 is already last in the sequence, so holding it costs nothing that
    isn't already sequenced away, and it turns a risk decision into a timing one.
+   **Reconfirmed by the owner 2026-09-25: (b), keep holding.** Revisit once the app is out of
+   TestFlight and the runner/Xcode/jsi coupling is settled.
 2. **Which phases are actually approved to build**, and in what order. §7 sequences them but
    nothing here is signed off. V2.0 and V2.1 are the two with no open dependencies.
 

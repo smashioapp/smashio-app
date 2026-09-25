@@ -787,6 +787,15 @@ Three constraints, all load-bearing:
 
 ### 13.4 Held — not approved
 
+> **Amended 2026-09-25: B3 is unheld, behind the image classifier.** The owner approved feed photos
+> (`post_media`, **up to 4 per post**, on `looking_for_players` and `question`) plus `feed_profile`,
+> on the condition that the image path this table names as the gate gets built first. That path
+> has its own plan, [image-moderation-plan.md](image-moderation-plan.md) (slices I1-I3, and it
+> covers chat photos too). B3's remaining feed work is that doc's B3a/B3b. `post_comments` and
+> `post_reactions` shipped earlier as replies and reactions (§17's 2026-09-07 amendment), so they
+> are no longer part of B3. The rest of this table is still held: C1/C2/D1/D2 stay behind the §1
+> trigger (reconfirmed 2026-09-25), and §12 booking stays deferred.
+
 Sized here so each is a small decision when its turn comes.
 
 | Slice | Scope | Est. | Gate |
@@ -1081,8 +1090,10 @@ later decision or a caveat to carry.
   gtm §2.1 identifies as the core badminton audience. So a weak feed result on iOS beta is weaker
   evidence than it looks, and a strong one is not yet proof it generalises. Read the kill criterion
   with that in mind rather than treating it as a clean read on the whole market.
-- **B3 and downstream** (§13.4) — decided after B2 is live and post→game conversion is measured.
-  B3 specifically needs an image-classification path before it can ship (§13.4).
+- ~~**B3 and downstream** (§13.4) — decided after B2 is live and post→game conversion is measured.
+  B3 specifically needs an image-classification path before it can ship (§13.4).~~ **B3 approved
+  2026-09-25**, gated on [image-moderation-plan.md](image-moderation-plan.md) I1-I3. See the §13.4
+  amendment. Downstream (C1+) is still held behind the §1 trigger.
 - **Everything in §2 marked Build-later, and all of §12**, which remain proposed.
 
 Two calls made in passing, recorded so they are not re-litigated: **B0 never ships alone** (follows

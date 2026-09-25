@@ -29,6 +29,9 @@ their existing contracts except where called out.
 > - **What is actually left in Phase A:** the 238 P4-bucket leads (low-precision Places sweep hits,
 >   never triaged for a P3 pass), the deferred amenity-filter UI from A4, and the pending-photo
 >   moderation queue UI from A5.
+>   **Reconfirmed held 2026-09-25 (owner):** all three stay held until after launch.
+>   [image-moderation-plan.md](image-moderation-plan.md) §8 Q4 proposes routing venue photo
+>   uploads through the new image classifier, so A5's queue would only see low-confidence items.
 > - Two things built *after* this doc that read from its data: the amenity filters
 >   (`20260823000000_amenity_filters.sql`, `a2d73a3`) and the server-rendered venue SEO pages
 >   (`20260831020000_venue_seo_pages.sql` + `website/api/venue/[slug].js`,

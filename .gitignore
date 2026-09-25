@@ -37,3 +37,12 @@ __pycache__/
 
 # Playwright MCP console logs/screenshots from browser verification
 .playwright-mcp/
+
+# Local only, not published (repo is public)
+*.log
+docs/security-audit-*.md
+data/venues/*.json
+data/venues/*.csv
+brand/explorations/
+brand/source/
+ui/assets/screenshots/IMG_3597.PNG

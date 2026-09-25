@@ -5,7 +5,7 @@ Written 2026-09-24. **Signed off and implemented 2026-09-24**, committed on bran
 D1-D4 taken as recommended). S1-S8 built and tested against the local stack, then **shipped
 2026-09-25**: both migrations pushed to the hosted project, `push-dispatch` redeployed, app and
 website changes merged to `main` (OTA to testers, Vercel for the site). The inline **Ask to join**
-push action followed 2026-09-25 (§8.2; JS-only, no store build needed after all). Still open: the
+push action followed 2026-09-25 (§8.2; JS-only, no store build needed after all; `push-dispatch` v16 + OTA live). Still open: the
 store subtitle/keywords (A19, console) and the S8 read-out. See §8 for what shipped and where it
 deviates from the slices below.
 
@@ -306,4 +306,10 @@ The "needs a store build" call above was wrong. Notification categories are regi
   Categories are now registered on both platforms from one table, which fixes Approve/Decline
   and Reply on Android too.
 - Deploy order doesn't matter: a push carrying a category the app hasn't registered yet shows
-  without buttons. Deploy `push-dispatch`, push to `main` (OTA).
+  without buttons.
+
+| Step | Where | State |
+|---|---|---|
+| App | `8e1fb89` on `main` | OTA run succeeded, CI green |
+| `push-dispatch` | hosted v16 (`spot_open` → `spot_actions`) | Live |
+| Device check | tester phone, iOS + Android | Not done yet: confirm "Ask to join" on a `spot_open` push, and Approve/Decline + Reply now show on Android |

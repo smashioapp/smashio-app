@@ -64,16 +64,19 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          kind: string
           profile_id: string
         }
         Insert: {
           created_at?: string
           id?: string
+          kind?: string
           profile_id: string
         }
         Update: {
           created_at?: string
           id?: string
+          kind?: string
           profile_id?: string
         }
         Relationships: [
@@ -768,6 +771,7 @@ export type Database = {
           image_path: string | null
           kind: string
           mentions: string[]
+          moderation_status: string
           reply_to_body: string | null
           reply_to_kind: string | null
           reply_to_message_id: string | null
@@ -787,6 +791,7 @@ export type Database = {
           image_path?: string | null
           kind?: string
           mentions?: string[]
+          moderation_status?: string
           reply_to_body?: string | null
           reply_to_kind?: string | null
           reply_to_message_id?: string | null
@@ -806,6 +811,7 @@ export type Database = {
           image_path?: string | null
           kind?: string
           mentions?: string[]
+          moderation_status?: string
           reply_to_body?: string | null
           reply_to_kind?: string | null
           reply_to_message_id?: string | null
@@ -858,33 +864,69 @@ export type Database = {
           },
         ]
       }
+      moderation_config: {
+        Row: {
+          chat_photos_per_day: number
+          id: boolean
+          image_confidence_threshold: number
+          updated_at: string
+        }
+        Insert: {
+          chat_photos_per_day?: number
+          id?: boolean
+          image_confidence_threshold?: number
+          updated_at?: string
+        }
+        Update: {
+          chat_photos_per_day?: number
+          id?: boolean
+          image_confidence_threshold?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       moderation_flags: {
         Row: {
           author_id: string
           category: string | null
+          confidence: number | null
           created_at: string
           id: string
           reason: string | null
           status: string
-          text: string
+          storage_bucket: string | null
+          storage_path: string | null
+          subject_id: string | null
+          subject_type: string
+          text: string | null
         }
         Insert: {
           author_id: string
           category?: string | null
+          confidence?: number | null
           created_at?: string
           id?: string
           reason?: string | null
           status?: string
-          text: string
+          storage_bucket?: string | null
+          storage_path?: string | null
+          subject_id?: string | null
+          subject_type?: string
+          text?: string | null
         }
         Update: {
           author_id?: string
           category?: string | null
+          confidence?: number | null
           created_at?: string
           id?: string
           reason?: string | null
           status?: string
-          text?: string
+          storage_bucket?: string | null
+          storage_path?: string | null
+          subject_id?: string | null
+          subject_type?: string
+          text?: string | null
         }
         Relationships: [
           {
@@ -1037,6 +1079,66 @@ export type Database = {
             columns: ["profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      post_media: {
+        Row: {
+          author_id: string
+          classifier_category: string | null
+          classifier_confidence: number | null
+          created_at: string
+          decided_at: string | null
+          height: number | null
+          id: string
+          media_status: string
+          ordinal: number
+          post_id: string
+          storage_path: string
+          width: number | null
+        }
+        Insert: {
+          author_id: string
+          classifier_category?: string | null
+          classifier_confidence?: number | null
+          created_at?: string
+          decided_at?: string | null
+          height?: number | null
+          id?: string
+          media_status: string
+          ordinal?: number
+          post_id: string
+          storage_path: string
+          width?: number | null
+        }
+        Update: {
+          author_id?: string
+          classifier_category?: string | null
+          classifier_confidence?: number | null
+          created_at?: string
+          decided_at?: string | null
+          height?: number | null
+          id?: string
+          media_status?: string
+          ordinal?: number
+          post_id?: string
+          storage_path?: string
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_media_author_id_fkey"
+            columns: ["author_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "post_media_post_id_fkey"
+            columns: ["post_id"]
+            isOneToOne: false
+            referencedRelation: "posts"
             referencedColumns: ["id"]
           },
         ]
@@ -2190,12 +2292,15 @@ export type Database = {
       moderation_queue: {
         Row: {
           author_id: string | null
+          confidence: number | null
           created_at: string | null
           detail: string | null
           id: string | null
           reason: string | null
           source: string | null
           status: string | null
+          storage_bucket: string | null
+          storage_path: string | null
           subject_id: string | null
           subject_type: string | null
         }
@@ -2215,6 +2320,7 @@ export type Database = {
         Args: { p_game_id: string; p_label?: string }
         Returns: string
       }
+      ai_proxy_url: { Args: never; Returns: string }
       approve_chat_photo: { Args: { p_message_id: string }; Returns: undefined }
       approve_join_action: {
         Args: { p_game_id: string; p_notification_id: string }
@@ -2224,6 +2330,7 @@ export type Database = {
       assert_is_organizer: { Args: { p_game_id: string }; Returns: undefined }
       assert_no_public_definer_execute: { Args: never; Returns: undefined }
       auto_close_stale_chats: { Args: never; Returns: undefined }
+      avatar_is_live: { Args: { p_name: string }; Returns: boolean }
       blocked_between: { Args: { a: string; b: string }; Returns: boolean }
       can_post_in_chat: {
         Args: { p_game_id: string; p_profile_id: string }
@@ -2233,6 +2340,8 @@ export type Database = {
         Args: { p_game_id: string; p_profile_id: string }
         Returns: boolean
       }
+      can_read_post_media: { Args: { p_name: string }; Returns: boolean }
+      chat_media_is_removed: { Args: { p_name: string }; Returns: boolean }
       chat_push_recipients: {
         Args: { p_message_id: string }
         Returns: {
@@ -2259,6 +2368,17 @@ export type Database = {
       city_seo_stats: { Args: never; Returns: Json }
       claim_reserved_spot: { Args: { p_token: string }; Returns: string }
       claimed_reserved_count: { Args: { p_game_id: string }; Returns: number }
+      classify_images: {
+        Args: {
+          p_author_id: string
+          p_bucket: string
+          p_paths: string[]
+          p_subject_id?: string
+          p_subject_type: string
+          p_text?: string
+        }
+        Returns: Json
+      }
       classify_post_text: {
         Args: { p_author_id: string; p_text: string }
         Returns: boolean
@@ -2302,11 +2422,12 @@ export type Database = {
           p_body?: string
           p_kind: string
           p_max_players?: number
+          p_media_paths?: string[]
           p_skill_tier_label?: string
           p_starts_at?: string
           p_venue_id?: string
         }
-        Returns: string
+        Returns: Json
       }
       create_reply: {
         Args: { p_body: string; p_post_id: string }
@@ -2502,6 +2623,13 @@ export type Database = {
       mark_attendance: {
         Args: { p_game_id: string; p_no_shows?: string[] }
         Returns: undefined
+      }
+      media_sweep_candidates: {
+        Args: { p_limit?: number }
+        Returns: {
+          bucket_id: string
+          name: string
+        }[]
       }
       my_reacted_post_ids: { Args: { p_post_ids: string[] }; Returns: string[] }
       nearby_games: {
@@ -2847,6 +2975,10 @@ export type Database = {
         Returns: string
       }
       request_to_join: { Args: { p_game_id: string }; Returns: undefined }
+      resolve_media_flag: {
+        Args: { p_action: string; p_flag_id: string }
+        Returns: undefined
+      }
       respond_to_game_invite: {
         Args: { p_accept: boolean; p_game_id: string }
         Returns: undefined
@@ -2855,6 +2987,7 @@ export type Database = {
         Args: { p_game_id: string; p_notification_id: string; p_text: string }
         Returns: undefined
       }
+      set_avatar_photo: { Args: { p_path: string }; Returns: Json }
       set_chat_broadcast_settings: {
         Args: {
           p_game_id: string
@@ -3030,12 +3163,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3059,11 +3192,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3084,11 +3217,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3109,11 +3242,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3126,11 +3259,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

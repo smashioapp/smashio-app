@@ -9,6 +9,8 @@ const MAX_LONG_EDGE = 1600;
 // Resizes to fit within MAX_LONG_EDGE (never upscales — scale is clamped to 1) and re-compresses
 // to JPEG @ 0.8, matching the quality the picker already asked for. width/height come straight
 // from the ImagePicker asset, so no extra image load is needed to know the long edge.
+// Also the prep step for feed photos and avatars (image-moderation-plan.md §0): the re-encode
+// drops EXIF, GPS included, and keeps every upload under post-media's 5 MB cap.
 export async function prepareConfirmationImage(uri: string, width: number, height: number): Promise<string> {
   const longEdge = Math.max(width, height);
   const scale = Math.min(1, MAX_LONG_EDGE / longEdge);
@@ -20,3 +22,5 @@ export async function prepareConfirmationImage(uri: string, width: number, heigh
   const result = await rendered.saveAsync({ compress: 0.8, format: SaveFormat.JPEG });
   return result.uri;
 }
+
+export const preparePhotoForUpload = prepareConfirmationImage;

@@ -10,7 +10,7 @@
 // purgeRetention touch the network and storage — cover those with integration tests against a
 // local `supabase start` stack instead, not here.
 import { assertEquals } from "jsr:@std/assert@1";
-import { orphanCutoffIso, pathsToRemove, retentionCutoffIso } from "./index.ts";
+import { groupByBucket, orphanCutoffIso, pathsToRemove, retentionCutoffIso } from "./index.ts";
 
 Deno.test("orphanCutoffIso: 24 hours before the given instant", () => {
   const now = new Date("2026-06-15T12:00:00.000Z");
@@ -43,4 +43,14 @@ Deno.test("pathsToRemove: empty input yields an empty array", () => {
 
 Deno.test("pathsToRemove: all-null input yields an empty array", () => {
   assertEquals(pathsToRemove([{ storage_path: null }, { storage_path: null }]), []);
+});
+
+Deno.test("groupByBucket: one remove() list per bucket, order kept", () => {
+  const grouped = groupByBucket([
+    { bucket_id: "post-media", name: "u/a.jpg" },
+    { bucket_id: "avatars", name: "u/b.jpg" },
+    { bucket_id: "post-media", name: "u/c.jpg" },
+  ]);
+  assertEquals(grouped.get("post-media"), ["u/a.jpg", "u/c.jpg"]);
+  assertEquals(grouped.get("avatars"), ["u/b.jpg"]);
 });

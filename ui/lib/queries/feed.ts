@@ -2,7 +2,9 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import { supabase } from "../supabase";
 import { track } from "../analytics";
 import { signAvatarUrl, signAvatarUrls } from "../avatarUrls";
+import { preparePhotoForUpload } from "../imagePrep";
 import { DEFAULT_LAT, DEFAULT_LNG, SPORT_SLUG } from "./games";
+import { uuidv4 } from "./messages";
 import type { FeedKind, FeedMode } from "../store";
 
 const PAGE_SIZE = 20;
@@ -25,7 +27,61 @@ export type FeedPost = {
   createdAt: string;
   distanceBucket: string | null;
   isFollowedAuthor: boolean;
+  media: PostMedia[];
 };
+
+// ---------------------------------------------------------------------------------------------
+// Post photos (image-moderation-plan.md §2, social-plan B3a). post_media RLS already decides who
+// sees which row: visible rows for everyone who can read the post, plus every row on your own
+// post so the author can see "being checked" and "removed" states. Only visible and your own
+// review photos get a signed URL (the storage policy refuses the rest anyway).
+// ---------------------------------------------------------------------------------------------
+
+export type PostMediaStatus = "visible" | "review" | "rejected";
+
+export type PostMedia = {
+  id: string;
+  postId: string;
+  authorId: string;
+  ordinal: number;
+  status: PostMediaStatus;
+  url: string | null;
+};
+
+const POST_MEDIA_URL_TTL_SECONDS = 3600;
+
+export async function fetchPostMedia(postIds: string[]): Promise<Map<string, PostMedia[]>> {
+  const out = new Map<string, PostMedia[]>();
+  if (postIds.length === 0) return out;
+  const { data, error } = await supabase
+    .from("post_media")
+    .select("id, post_id, author_id, ordinal, media_status, storage_path")
+    .in("post_id", postIds)
+    .order("ordinal", { ascending: true });
+  if (error) throw error;
+  const rows = data ?? [];
+  const signable = rows.filter((r) => r.media_status !== "rejected").map((r) => r.storage_path);
+  const urls = new Map<string, string>();
+  if (signable.length > 0) {
+    const { data: signed } = await supabase.storage.from("post-media").createSignedUrls(signable, POST_MEDIA_URL_TTL_SECONDS);
+    (signed ?? []).forEach((d, i) => {
+      if (d.signedUrl) urls.set(signable[i], d.signedUrl);
+    });
+  }
+  for (const r of rows) {
+    const list = out.get(r.post_id) ?? [];
+    list.push({
+      id: r.id,
+      postId: r.post_id,
+      authorId: r.author_id,
+      ordinal: r.ordinal,
+      status: r.media_status as PostMediaStatus,
+      url: urls.get(r.storage_path) ?? null,
+    });
+    out.set(r.post_id, list);
+  }
+  return out;
+}
 
 // social-plan.md B1 — feed_home. v3 Feed design (screen 1/2) added p_mode + p_kind on top of the
 // original radius/follow union (20260901100000_feed_v3_replies_reactions.sql).
@@ -53,7 +109,10 @@ export function useFeedHome(
       });
       if (error) throw error;
       const rows = data ?? [];
-      const urlMap = await signAvatarUrls(rows.map((r) => r.author_photo_path));
+      const [urlMap, mediaMap] = await Promise.all([
+        signAvatarUrls(rows.map((r) => r.author_photo_path)),
+        fetchPostMedia(rows.filter((r) => r.kind !== "system").map((r) => r.id)),
+      ]);
       return rows.map(
         (r): FeedPost => ({
           id: r.id,
@@ -73,6 +132,7 @@ export function useFeedHome(
           createdAt: r.created_at,
           distanceBucket: r.distance_bucket,
           isFollowedAuthor: r.is_followed_author,
+          media: mediaMap.get(r.id) ?? [],
         })
       );
     },
@@ -85,6 +145,8 @@ export function useFeedHome(
   });
 }
 
+export type PickedPhoto = { uri: string; width: number; height: number };
+
 export type CreatePostInput = {
   kind: "question" | "looking_for_players";
   body: string;
@@ -92,16 +154,41 @@ export type CreatePostInput = {
   startsAt?: Date;
   skillTierLabel?: string;
   maxPlayers?: number;
+  photos?: PickedPhoto[];
 };
 
-// B2 composer — text only, looking_for_players first (§13.1). Pre-publish classification
-// (§10 item 4) runs inside create_post itself now (20260901070000_server_side_moderation.sql),
-// not here — a client-side-only check could be skipped by calling the RPC directly, so the RPC
-// throws the community-guidelines error itself if the text is flagged.
+export type CreatePostResult = { postId: string; photosDropped: number; photosInReview: number };
+
+export const MAX_POST_PHOTOS = 4;
+
+// B2 composer, plus B3a photos. Classification (text and images) runs inside create_post itself
+// (20260901070000, 20260925000100), not here: a client-side-only check could be skipped by calling
+// the RPC directly. The client's only jobs are the downscale/EXIF strip and the upload; the RPC
+// refuses the whole post on flagged text or a confidently violating photo, and reports photos it
+// dropped (IM2, classifier timeout) or is holding for review.
 export function useCreatePost() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: CreatePostInput) => {
+    mutationFn: async (input: CreatePostInput): Promise<CreatePostResult> => {
+      const photos = (input.photos ?? []).slice(0, MAX_POST_PHOTOS);
+      let mediaPaths: string[] | undefined;
+      if (photos.length > 0) {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) throw new Error("Not signed in.");
+        const { File } = await import("expo-file-system");
+        mediaPaths = await Promise.all(
+          photos.map(async (p) => {
+            const prepped = await preparePhotoForUpload(p.uri, p.width, p.height);
+            const bytes = await new File(prepped).arrayBuffer();
+            const path = `${user.id}/${uuidv4()}.jpg`;
+            const { error } = await supabase.storage.from("post-media").upload(path, bytes, { contentType: "image/jpeg" });
+            if (error) throw error;
+            return path;
+          })
+        );
+      }
       const { data, error } = await supabase.rpc("create_post", {
         p_kind: input.kind,
         p_body: input.body,
@@ -109,12 +196,24 @@ export function useCreatePost() {
         p_starts_at: input.startsAt?.toISOString(),
         p_skill_tier_label: input.skillTierLabel,
         p_max_players: input.maxPlayers,
+        p_media_paths: mediaPaths,
       });
       if (error) throw error;
-      return data as string;
+      const result = (data ?? {}) as { post_id?: string; photos_dropped?: number; photos_in_review?: number };
+      return {
+        postId: result.post_id ?? "",
+        photosDropped: result.photos_dropped ?? 0,
+        photosInReview: result.photos_in_review ?? 0,
+      };
     },
-    onSuccess: (postId, input) => {
-      track("post_created", { post_id: postId, kind: input.kind });
+    onSuccess: (result, input) => {
+      track("post_created", {
+        post_id: result.postId,
+        kind: input.kind,
+        photos: input.photos?.length ?? 0,
+        photos_dropped: result.photosDropped,
+        photos_in_review: result.photosInReview,
+      });
       queryClient.invalidateQueries({ queryKey: ["feed_home"] });
     },
   });
@@ -242,11 +341,12 @@ export function usePostDetail(postId: string | undefined) {
         .single();
       if (error) throw error;
       const author = data.profiles as { display_name: string | null; photo_path: string | null; avatar_key: string | null } | null;
+      const [authorPhotoUrl, mediaMap] = await Promise.all([signAvatarUrl(author?.photo_path), fetchPostMedia([data.id as string])]);
       return {
         id: data.id as string,
         authorId: data.author_id as string | null,
         authorDisplayName: author?.display_name ?? null,
-        authorPhotoUrl: await signAvatarUrl(author?.photo_path),
+        authorPhotoUrl,
         authorAvatarKey: author?.avatar_key ?? null,
         kind: data.kind as string,
         body: data.body as string | null,
@@ -256,6 +356,7 @@ export function usePostDetail(postId: string | undefined) {
         reactionCount: data.reaction_count as number,
         createdAt: data.created_at as string,
         acceptedAnswerId: data.accepted_answer_id as string | null,
+        media: mediaMap.get(data.id as string) ?? [],
       };
     },
     enabled: !!postId,

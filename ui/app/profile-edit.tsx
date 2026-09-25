@@ -14,7 +14,7 @@ import { AvatarPicker } from "../components/AvatarPicker";
 import { OfflineStatus, SessionExpiredStatus } from "../components/SubscreenStatus";
 import type { AnimalKey } from "../lib/avatars";
 import { useSession } from "../lib/session";
-import { useProfile, useProfileSports, useUpdateProfile, useUpsertProfileSport, useUploadAvatar, useSetHomePoint } from "../lib/queries/profile";
+import { useProfile, useProfileSports, useUpdateProfile, useUpsertProfileSport, useUploadAvatar, useSetHomePoint, avatarStatusMessage } from "../lib/queries/profile";
 import { useSports, useSkillTiers } from "../lib/queries/sports";
 import { SPORT_SLUG } from "../lib/queries/games";
 import { supabase } from "../lib/supabase";
@@ -154,7 +154,11 @@ export default function ProfileEdit() {
     const badminton = sports?.find((s) => s.slug === SPORT_SLUG);
     const tierRow = tiers?.find((t) => t.label === skill);
     try {
-      if (localPhotoUri) await uploadAvatar.mutateAsync(localPhotoUri);
+      if (localPhotoUri) {
+        const { status } = await uploadAvatar.mutateAsync(localPhotoUri);
+        const message = avatarStatusMessage(status);
+        if (message) Alert.alert(message.title, message.body);
+      }
       const trimmedSuburb = suburb.trim();
       await updateProfile.mutateAsync({
         display_name: name.trim(),

@@ -8,8 +8,9 @@ import { colors } from "../lib/theme";
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 
-// Full-screen photo viewer — pinch to zoom, pan while zoomed, double-tap to reset.
-export function ChatLightbox({ uri, onClose }: { uri: string | null; onClose: () => void }) {
+// Full-screen photo viewer — pinch to zoom, pan while zoomed, double-tap to reset. Also the feed's
+// photo viewer (B3a), which passes onReport for someone else's photo.
+export function ChatLightbox({ uri, onClose, onReport }: { uri: string | null; onClose: () => void; onReport?: () => void }) {
   const insets = useSafeAreaInsets();
   const scale = useSharedValue(1);
   const savedScale = useSharedValue(1);
@@ -78,13 +79,25 @@ export function ChatLightbox({ uri, onClose }: { uri: string | null; onClose: ()
           >
             <Ionicons name="close" size={20} color={colors.text} />
           </Pressable>
-          <Pressable
-            onPress={() => Sharing.isAvailableAsync().then((ok) => { if (ok) Sharing.shareAsync(uri); })}
-            className="w-9 h-9 rounded-full items-center justify-center"
-            style={{ backgroundColor: "rgba(255,255,255,0.12)" }}
-          >
-            <Ionicons name="share-outline" size={18} color={colors.text} />
-          </Pressable>
+          {onReport ? (
+            <Pressable
+              onPress={onReport}
+              className="w-9 h-9 rounded-full items-center justify-center"
+              style={{ backgroundColor: "rgba(255,255,255,0.12)" }}
+              accessibilityRole="button"
+              accessibilityLabel="Report photo"
+            >
+              <Ionicons name="flag-outline" size={17} color={colors.text} />
+            </Pressable>
+          ) : (
+            <Pressable
+              onPress={() => Sharing.isAvailableAsync().then((ok) => { if (ok) Sharing.shareAsync(uri); })}
+              className="w-9 h-9 rounded-full items-center justify-center"
+              style={{ backgroundColor: "rgba(255,255,255,0.12)" }}
+            >
+              <Ionicons name="share-outline" size={18} color={colors.text} />
+            </Pressable>
+          )}
         </View>
       </View>
     </Modal>

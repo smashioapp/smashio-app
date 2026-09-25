@@ -50,11 +50,16 @@ if (import.meta.main) {
     if (rpcError) return json({ error: rpcError.message }, 500);
     const result = (data ?? {}) as DeleteResult;
 
-    // 2. Storage. Avatars are {uid}/…, so the folder listing is the user's whole set;
+    // 2. Storage. Avatars and post photos are {uid}/…, so the folder listing is the user's whole set;
     //    confirmations are keyed by game, so the RPC hands back the exact paths it deleted rows for.
-    const { data: avatarFiles } = await serviceClient.storage.from("avatars").list(user.id);
+    const { data: avatarFiles } = await serviceClient.storage.from("avatars").list(user.id, { limit: 1000 });
     if (avatarFiles?.length) {
       await serviceClient.storage.from("avatars").remove(avatarPathsFor(user.id, avatarFiles));
+    }
+    // post-media is {uid}/… too (image-moderation-plan.md §5 deploy notes, social-plan B7).
+    const { data: postMediaFiles } = await serviceClient.storage.from("post-media").list(user.id, { limit: 1000 });
+    if (postMediaFiles?.length) {
+      await serviceClient.storage.from("post-media").remove(avatarPathsFor(user.id, postMediaFiles));
     }
     if (result.confirmation_paths?.length) {
       await serviceClient.storage.from("confirmations").remove(result.confirmation_paths);

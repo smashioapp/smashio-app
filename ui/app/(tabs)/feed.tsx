@@ -13,6 +13,7 @@ import { dayLabel, formatTimeShort, relativeTime } from "../../lib/format";
 import { Screen } from "../../components/Screen";
 import { EmptyState } from "../../components/EmptyState";
 import { Avatar } from "../../components/Avatar";
+import { PostPhotoGrid } from "../../components/PostPhotoGrid";
 import { Chip } from "../../components/Chip";
 import { SegmentedToggle } from "../../components/SegmentedToggle";
 import { Sheet } from "../../components/Sheet";
@@ -213,6 +214,8 @@ function FeedRow({ post, reacted, onToggleReaction }: { post: FeedPost; reacted:
       <Text className="text-[14.5px]" style={{ color: colors.textDim, lineHeight: 21 }}>
         {post.body}
       </Text>
+
+      <PostPhotoGrid media={post.media} />
 
       {post.kind === "looking_for_players" && (
         <>

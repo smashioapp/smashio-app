@@ -33,6 +33,9 @@ function formatClock(iso: string): string {
 export type ChatMessageKind = "text" | "image" | "system" | "game_share";
 export type SendStatus = "sent" | "pending" | "failed";
 export type ApprovalStatus = "approved" | "pending";
+// image-moderation-plan.md §3. Only image messages ever leave 'unchecked'. 'removed' rows only
+// reach their sender (RLS), who sees "Photo removed" instead of the photo.
+export type ModerationStatus = "unchecked" | "clean" | "review" | "removed";
 
 export type ReplyPreview = { senderId: string | null; body: string; kind: ChatMessageKind };
 
@@ -55,6 +58,7 @@ export type ChatMessage = {
   replyTo: ReplyPreview | null;
   gameShareId: string | null;
   approvalStatus: ApprovalStatus;
+  moderationStatus: ModerationStatus;
 };
 
 type MessageRow = Database["public"]["Tables"]["messages"]["Row"];
@@ -78,6 +82,7 @@ function toChatMessage(row: MessageRow, uid: string): ChatMessage {
       : null,
     gameShareId: row.game_share_id,
     approvalStatus: row.approval_status as ApprovalStatus,
+    moderationStatus: row.moderation_status as ModerationStatus,
   };
 }
 
@@ -179,8 +184,16 @@ export function useMessages(gameId: string) {
         { event: "UPDATE", schema: "public", table: "messages", filter: `game_id=eq.${gameId}` },
         (payload) => {
           const row = payload.new as MessageRow;
-          if (!row.deleted_at) return;
-          patchMessages(queryClient, gameId, (pages) => pages.map((p) => ({ ...p, items: p.items.filter((m) => m.id !== row.id) })));
+          if (row.deleted_at) {
+            patchMessages(queryClient, gameId, (pages) => pages.map((p) => ({ ...p, items: p.items.filter((m) => m.id !== row.id) })));
+            return;
+          }
+          // Classifier write-back on a photo. Realtime applies RLS to the new row, so only readers
+          // who can still see it get this: the sender on a removal, everyone on clean/review.
+          const status = row.moderation_status as ModerationStatus;
+          patchMessages(queryClient, gameId, (pages) =>
+            pages.map((p) => ({ ...p, items: p.items.map((m) => (m.id === row.id && m.moderationStatus !== status ? { ...m, moderationStatus: status } : m)) })),
+          );
         },
       )
       .subscribe();
@@ -251,6 +264,7 @@ export function useSendMessage(gameId: string) {
         replyTo: replyTo ? { senderId: replyTo.senderId, body: replyTo.body, kind: replyTo.kind } : null,
         gameShareId: null,
         approvalStatus: "approved",
+        moderationStatus: "unchecked",
       };
       patchMessages(queryClient, gameId, (pages) => {
         if (pages.length === 0) return [{ items: [optimistic], oldestCursor: optimistic.createdAt }];
@@ -306,6 +320,7 @@ export function useSendGameShare(gameId: string) {
         replyTo: null,
         gameShareId: gameId,
         approvalStatus: "approved",
+        moderationStatus: "unchecked",
       };
       patchMessages(queryClient, gameId, (pages) => {
         if (pages.length === 0) return [{ items: [optimistic], oldestCursor: optimistic.createdAt }];
@@ -366,6 +381,7 @@ export function useSendChatImage(gameId: string) {
         replyTo: null,
         gameShareId: null,
         approvalStatus: "approved",
+        moderationStatus: "unchecked",
       };
       patchMessages(queryClient, gameId, (pages) => {
         if (pages.length === 0) return [{ items: [optimistic], oldestCursor: optimistic.createdAt }];

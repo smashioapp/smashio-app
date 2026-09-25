@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { File } from "expo-file-system";
 import { supabase } from "../supabase";
+import { uuidv4 } from "./messages";
 import type { Database, TablesUpdate } from "../db.types";
 import { computeWeekStreak } from "../format";
 import { avatarColor } from "../theme";
@@ -414,45 +415,69 @@ export function useSetHomePoint() {
   });
 }
 
+// image-moderation-plan.md §8 Q3 (owner, 2026-09-25): a profile photo reaches every stranger who
+// sees a roster, so it's classified before it goes live. Each upload gets a fresh
+// {uid}/{uuid}.jpg (the storage policy refuses overwrites and re-uploads under a live name), then
+// set_avatar_photo classifies it and only points photo_path at it on a confident clean.
+//   visible     -> live now; the previous object is deleted
+//   review      -> old avatar stays until a human approves the new one
+//   rejected    -> refused, old avatar stays
+//   unavailable -> classifier couldn't be reached, nothing changed, try again
+export type AvatarUploadStatus = "visible" | "review" | "rejected" | "unavailable";
+
+async function uploadAndSetAvatar(bytes: ArrayBuffer): Promise<{ id: string; status: AvatarUploadStatus }> {
+  const id = await currentUserId();
+  const path = `${id}/${uuidv4()}.jpg`;
+  const { error: uploadError } = await supabase.storage.from("avatars").upload(path, bytes, { contentType: "image/jpeg" });
+  if (uploadError) throw uploadError;
+
+  const { data, error } = await supabase.rpc("set_avatar_photo", { p_path: path });
+  if (error) throw error;
+  const result = (data ?? {}) as { status?: AvatarUploadStatus; previous_path?: string | null };
+  const status = result.status ?? "unavailable";
+
+  if (status === "visible" && result.previous_path && result.previous_path.startsWith(`${id}/`)) {
+    // Best effort: the hourly media sweep picks up anything this misses.
+    await supabase.storage.from("avatars").remove([result.previous_path]).catch(() => {});
+  }
+  return { id, status };
+}
+
+export function avatarStatusMessage(status: AvatarUploadStatus): { title: string; body: string } | null {
+  switch (status) {
+    case "review":
+      return { title: "Photo's being checked", body: "It'll show on your profile once it's sorted. Your old one stays up till then." };
+    case "rejected":
+      return { title: "Can't use that photo", body: "It doesn't fit our community guidelines. Pick another one." };
+    case "unavailable":
+      return { title: "Photo not updated", body: "We couldn't check your photo just now. Give it another go in a minute." };
+    default:
+      return null;
+  }
+}
+
 export function useUploadAvatar() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (localUri: string) => {
-      const id = await currentUserId();
       const bytes = await new File(localUri).arrayBuffer();
-      const path = `${id}/avatar.jpg`;
-      const { error: uploadError } = await supabase.storage
-        .from("avatars")
-        .upload(path, bytes, { contentType: "image/jpeg", upsert: true });
-      if (uploadError) throw uploadError;
-
-      const { error: updateError } = await supabase.from("profiles").update({ photo_path: path }).eq("id", id);
-      if (updateError) throw updateError;
-      return id;
+      return uploadAndSetAvatar(bytes);
     },
-    onSuccess: (id) => queryClient.invalidateQueries({ queryKey: ["profile", id] }),
+    onSuccess: ({ id }) => queryClient.invalidateQueries({ queryKey: ["profile", id] }),
   });
 }
 
 // Prefills from the OAuth provider's own photo (e.g. Google's `avatar_url`) — fetched
-// server-side-shaped, so it goes straight to arrayBuffer, no base64 round trip needed.
+// server-side-shaped, so it goes straight to arrayBuffer, no base64 round trip needed. Goes
+// through the same classifier as a picked photo.
 export function useUploadAvatarFromUrl() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (remoteUrl: string) => {
-      const id = await currentUserId();
       const response = await fetch(remoteUrl);
       const arrayBuffer = await response.arrayBuffer();
-      const path = `${id}/avatar.jpg`;
-      const { error: uploadError } = await supabase.storage
-        .from("avatars")
-        .upload(path, arrayBuffer, { contentType: "image/jpeg", upsert: true });
-      if (uploadError) throw uploadError;
-
-      const { error: updateError } = await supabase.from("profiles").update({ photo_path: path }).eq("id", id);
-      if (updateError) throw updateError;
-      return id;
+      return uploadAndSetAvatar(arrayBuffer);
     },
-    onSuccess: (id) => queryClient.invalidateQueries({ queryKey: ["profile", id] }),
+    onSuccess: ({ id }) => queryClient.invalidateQueries({ queryKey: ["profile", id] }),
   });
 }

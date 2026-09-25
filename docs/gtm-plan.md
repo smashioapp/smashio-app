@@ -11,6 +11,12 @@ needs product work it points at an existing plan doc or an existing quick-win it
 Status: **proposed, not signed off.** §3 (gap fixes) needs approval before code lands; §4–§7
 (channels, sequence, budget) need approval before money is spent.
 
+> **Amended 2026-09-25: strategy now lives in [gtm-strategy.md](gtm-strategy.md).** That doc is the
+> authority for all GTM planning. This one stays as history and as the G1–G15 gap audit (§3). Where
+> they disagree, gtm-strategy wins. Two things here are known wrong: §2.3's "no direct AU
+> competitor" (Jigsaur Sports is one, see gtm-strategy §3.1), and §4.1's organiser-first targeting
+> (replaced by court bookers plus the alert pool, gtm-strategy §2.4 and §4).
+
 ---
 
 ## 0. Verdict up front

@@ -13,6 +13,7 @@ import { Sheet } from "../../components/Sheet";
 import { Avatar } from "../../components/Avatar";
 import { SegmentedToggle } from "../../components/SegmentedToggle";
 import { ReputationGrid } from "../../components/ReputationGrid";
+import { SpotAlertsCard } from "../../components/SpotAlertsCard";
 import { TrophyCase } from "../../components/TrophyCase";
 import { ShareCard, type ShareCardFormat } from "../../components/ShareCard";
 import { Heatmap } from "../../components/Heatmap";
@@ -284,6 +285,11 @@ export default function Profile() {
                       />
                     </View>
                   )}
+
+                  {/* Own profile only: the alert pool status under Reputation (ux-plan §6.1). */}
+                  <View className="mt-5">
+                    <SpotAlertsCard />
+                  </View>
 
                   <View className="mt-5" style={{ opacity: hasPlayedAnything ? 1 : 0.4 }}>
                     <View className="rounded-2xl border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder, padding: 16 }}>

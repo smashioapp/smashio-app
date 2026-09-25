@@ -100,6 +100,46 @@ export function formatCountdown(startsAtIso: string, now: Date = new Date()): st
   return `Starts in ${h}h ${m}m`;
 }
 
+function calendarDaysBetween(from: Date, to: Date): number {
+  const a = new Date(from);
+  a.setHours(0, 0, 0, 0);
+  const b = new Date(to);
+  b.setHours(0, 0, 0, 0);
+  return Math.round((b.getTime() - a.getTime()) / DAY_MS);
+}
+
+function shortSpan(ms: number): string {
+  const totalMins = Math.max(0, Math.round(ms / 60000));
+  const h = Math.floor(totalMins / 60);
+  const m = totalMins % 60;
+  if (h === 0) return `${m}m`;
+  return m === 0 ? `${h}h` : `${h}h ${m}m`;
+}
+
+// Game page status line for a game more than 90 min out (short-a-player-ux-plan.md §2.3). By
+// calendar day, never by rounded-up 24h blocks: a game at 10pm tonight was "Starts in 1 day".
+//   same day   -> "Tonight, 10:57pm · in 3h 37m" ("Today" before 5pm)
+//   next day   -> "Tomorrow, 5:57am"
+//   later      -> "In 3 days · Mon 28 Sept, 8pm"
+export function startsWhenText(startsAtIso: string, now: Date = new Date()): string {
+  const start = new Date(startsAtIso);
+  const days = calendarDaysBetween(now, start);
+  const time = formatTimeShort(startsAtIso);
+  if (days <= 0) return `${start.getHours() >= 17 ? "Tonight" : "Today"}, ${time} · in ${shortSpan(start.getTime() - now.getTime())}`;
+  if (days === 1) return `Tomorrow, ${time}`;
+  const date = start.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" }).replace(/,/g, "");
+  return `In ${days} days · ${date}, ${time}`;
+}
+
+// Short relative day for inline copy: "tonight", "today", "tomorrow", "in 3 days".
+export function relativeDayPhrase(startsAtIso: string, now: Date = new Date()): string {
+  const start = new Date(startsAtIso);
+  const days = calendarDaysBetween(now, start);
+  if (days <= 0) return start.getHours() >= 17 ? "tonight" : "today";
+  if (days === 1) return "tomorrow";
+  return `in ${days} days`;
+}
+
 // Feed post/reply timestamps ("42m ago", "2h ago") — matches the v3 Feed design's relative
 // time strings. Falls over to a short date once it's more than a week old, same threshold
 // most social feeds use before relative time stops being useful.

@@ -181,7 +181,7 @@ function HostButton() {
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel="Host a game"
+      accessibilityLabel="Fill your court"
       onPress={() => {
         haptics.tap();
         // G5 (gtm-plan.md §3.2): host is walled for a session-less viewer, same as join.

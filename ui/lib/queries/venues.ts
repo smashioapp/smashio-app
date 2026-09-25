@@ -147,6 +147,9 @@ export type VenueDirectoryRow = {
   photo_path: string | null;
   cheapest_cents: number | null;
   cheapest_unit: string | null;
+  // Set only when the query passed a point (short-a-player-ux-plan.md §4.1).
+  distance_m: number | null;
+  upcoming_game_count: number;
   total_count: number;
 };
 
@@ -156,6 +159,8 @@ export type VenueDirectoryFilters = {
   dedicated?: boolean;
   bookableNow?: boolean;
   amenitySlugs?: string[];
+  // Nearest-first when given (F3). Rounded by the caller so GPS jitter doesn't refetch.
+  near?: { lat: number; lng: number } | null;
 };
 
 // "Court amenities" filter section (item 1, 2026-08-23) — shared amenity_types list backing
@@ -177,8 +182,9 @@ export function useAmenityTypes(options: { enabled?: boolean } = {}) {
 // Venue Screen Redesign panel 6 ("Courts near me") — state-bound directory list, independent
 // of the Discover map's viewport-bound venues_near. Every seeded venue is NSW, so this is
 // effectively "Sydney" today without depending on the unpopulated venues.region column.
-export function useVenuesDirectory(filters: VenueDirectoryFilters) {
+export function useVenuesDirectory(filters: VenueDirectoryFilters, options: { enabled?: boolean } = {}) {
   return useQuery({
+    enabled: options.enabled ?? true,
     queryKey: ["venuesDirectory", filters],
     queryFn: async () => {
       const { data, error } = await supabase.rpc("venues_directory", {
@@ -190,6 +196,8 @@ export function useVenuesDirectory(filters: VenueDirectoryFilters) {
         p_amenity_slugs: filters.amenitySlugs?.length ? filters.amenitySlugs : undefined,
         p_limit: 100,
         p_offset: 0,
+        p_lat: filters.near?.lat ?? undefined,
+        p_lng: filters.near?.lng ?? undefined,
       });
       if (error) throw error;
       return (data ?? []) as VenueDirectoryRow[];

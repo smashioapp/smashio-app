@@ -39,7 +39,7 @@ export default function ViewAs() {
           <View className="rounded-2xl p-3.5 mt-3" style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.cardBorder }}>
             <Text className="text-[12px] leading-4" style={{ color: colors.textSecondary }}>
               Your visibility is set to "Players I've played with", so a stranger opening this
-              card would see your name, photo and suburb only — reliability, rating and badges
+              card would see your name, photo and suburb only. Reliability, rating and badges
               stay hidden until you've played together, or while they have an open request to
               join your game.
             </Text>

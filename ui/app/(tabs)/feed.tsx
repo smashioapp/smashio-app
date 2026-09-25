@@ -6,7 +6,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { colors, avatarColor, tierColor, LAYOUT, type TierId } from "../../lib/theme";
 import { NAV, useTabBarSpace } from "../../lib/nav";
 import { useUserLocation } from "../../lib/location";
-import { useFeedHome, useMyReactedPostIds, useToggleReaction, useSuggestedFollows, type FeedPost } from "../../lib/queries/feed";
+import { useFeedHome, useFeedGameStates, useMyReactedPostIds, useToggleReaction, useSuggestedFollows, type FeedGameState, type FeedPost } from "../../lib/queries/feed";
+import { needsLabel } from "../../lib/trust";
 import { useFollowPlayer } from "../../lib/queries/follows";
 import { useAppStore, FEED_RADIUS_OPTIONS_KM, DEFAULT_FEED_RADIUS_KM, type FeedKind } from "../../lib/store";
 import { dayLabel, formatTimeShort, relativeTime } from "../../lib/format";
@@ -62,21 +63,21 @@ const PTAG: Record<string, { label: string; bg: string; fg: string }> = {
 
 // v3 Feed design's "small live-game-card treatment" — the one place a Feed item is allowed to
 // look like a GameRow, reserved for system posts that are actionable listings (still open).
-function SystemGameCard({ post }: { post: FeedPost }) {
+// Only open games reach here (full/started/cancelled ones are filtered out in buildFeedItems), so
+// the tail is the live "Needs N", never the publish-time max_players snapshot.
+function SystemGameCard({ post, live }: { post: FeedPost; live?: FeedGameState }) {
   const payload = (post.payload ?? {}) as Record<string, string | number | undefined>;
   const venue = (payload.venue_name as string) ?? post.venueName ?? "A venue";
   const tierLabel = payload.skill_tier_label as string | undefined;
   const dotColor = tierLabel ? tierColor(tierLabel) : colors.pro;
-  const startsAt = payload.starts_at as string | undefined;
-  const maxPlayers = payload.max_players as number | undefined;
-  const isFilled = payload.event === "game_filled";
+  const startsAt = live?.startsAt || (payload.starts_at as string | undefined);
   const timePart = startsAt ? `${dayLabel(startsAt)}, ${formatTimeShort(startsAt)}` : "";
-  const tail = isFilled ? "Full, waitlist open" : maxPlayers ? `${maxPlayers} spots` : null;
+  const tail = live ? needsLabel(live.openSpots) : null;
 
   return (
     <View style={{ paddingHorizontal: 24, paddingTop: 12, paddingBottom: 4 }}>
       <Text className="font-body-bold text-[10.5px] uppercase mb-2" style={{ color: colors.textTertiary, letterSpacing: 1 }}>
-        {isFilled ? "Just filled up" : "Game published"}
+        Game published
       </Text>
       <Pressable
         onPress={() => post.gameId && router.push(`/game/${post.gameId}`)}
@@ -171,7 +172,76 @@ function ReactionStrip({ post, reacted, onToggle }: { post: FeedPost; reacted: b
   );
 }
 
-function FeedRow({ post, reacted, onToggleReaction }: { post: FeedPost; reacted: boolean; onToggleReaction: () => void }) {
+// "3 new venues near you this week": one line instead of a card per venue (ux-plan §7).
+function VenueDigestRow({ count }: { count: number }) {
+  return (
+    <Pressable
+      onPress={() => {
+        haptics.tap();
+        router.push("/venues");
+      }}
+      className="flex-row items-center gap-3"
+      style={{ paddingHorizontal: 24, paddingVertical: 13 }}
+    >
+      <View className="w-8 h-8 rounded-full items-center justify-center" style={{ backgroundColor: colors.surfaceAlt }}>
+        <Ionicons name="location-outline" size={15} color={colors.textSecondary} />
+      </View>
+      <Text className="flex-1 text-[13.5px]" style={{ color: colors.textSecondary }}>
+        <Text className="font-body-bold" style={{ color: colors.textDim }}>
+          {count} new {count === 1 ? "venue" : "venues"}
+        </Text>{" "}
+        near you this week
+      </Text>
+      <Ionicons name="chevron-forward" size={15} color={colors.textTertiary} />
+    </Pressable>
+  );
+}
+
+const GAME_EVENTS = new Set(["game_published", "game_filled"]);
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
+function postEvent(post: FeedPost): string | undefined {
+  return (post.payload as Record<string, unknown> | null)?.event as string | undefined;
+}
+
+type FeedItem = { type: "post"; post: FeedPost } | { type: "venue_digest"; id: string; count: number };
+
+// Feed hygiene (ux-plan §2.1, §7): game cards only while the live game still needs someone, and
+// "was added near you" venue posts folded into one digest line at the first one's position.
+function buildFeedItems(posts: FeedPost[], gameStates: Map<string, FeedGameState> | undefined, now: number = Date.now()): FeedItem[] {
+  const items: FeedItem[] = [];
+  let digest: { type: "venue_digest"; id: string; count: number } | null = null;
+  for (const post of posts) {
+    const event = postEvent(post);
+    if (post.kind === "system" && event === "new_venue") {
+      if (now - new Date(post.createdAt).getTime() > WEEK_MS) continue;
+      if (!digest) {
+        digest = { type: "venue_digest", id: `venue-digest-${post.id}`, count: 0 };
+        items.push(digest);
+      }
+      digest.count++;
+      continue;
+    }
+    if (post.kind === "system" && event && GAME_EVENTS.has(event)) {
+      const live = post.gameId ? gameStates?.get(post.gameId) : undefined;
+      if (!live || live.status !== "published" || live.openSpots <= 0 || new Date(live.startsAt).getTime() <= now) continue;
+    }
+    items.push({ type: "post", post });
+  }
+  return items;
+}
+
+function FeedRow({
+  post,
+  reacted,
+  onToggleReaction,
+  live,
+}: {
+  post: FeedPost;
+  reacted: boolean;
+  onToggleReaction: () => void;
+  live?: FeedGameState;
+}) {
   const isSystem = post.kind === "system";
   const payload = (post.payload ?? {}) as Record<string, string | number | undefined>;
   const photoUrl = post.authorPhotoUrl;
@@ -180,7 +250,7 @@ function FeedRow({ post, reacted, onToggleReaction }: { post: FeedPost; reacted:
 
   if (isSystem) {
     const isCard = payload.event === "game_published" || payload.event === "game_filled";
-    return isCard ? <SystemGameCard post={post} /> : <SystemRow post={post} />;
+    return isCard ? <SystemGameCard post={post} live={live} /> : <SystemRow post={post} />;
   }
 
   return (
@@ -527,6 +597,10 @@ export default function Feed() {
     { enabled: !!session }
   );
   const toggleReaction = useToggleReaction();
+  const gameStatesQuery = useFeedGameStates(
+    posts.filter((p) => p.kind === "system" && GAME_EVENTS.has(postEvent(p) ?? "") && !!p.gameId).map((p) => p.gameId as string)
+  );
+  const items = useMemo(() => buildFeedItems(posts, gameStatesQuery.data), [posts, gameStatesQuery.data]);
 
   useEffect(() => {
     track("feed_viewed");
@@ -590,11 +664,20 @@ export default function Feed() {
         isFiltered ? <FilteredEmpty location={location} activeFilterLabel={activeFilterLabel} /> : <ColdStartEmpty location={location} />
       ) : (
         <FlatList
-          data={posts}
-          keyExtractor={(p) => p.id}
-          renderItem={({ item }) => (
-            <FeedRow post={item} reacted={reactedQuery.data?.has(item.id) ?? false} onToggleReaction={() => toggleReaction.mutate(item.id)} />
-          )}
+          data={items}
+          keyExtractor={(it) => (it.type === "post" ? it.post.id : it.id)}
+          renderItem={({ item }) =>
+            item.type === "venue_digest" ? (
+              <VenueDigestRow count={item.count} />
+            ) : (
+              <FeedRow
+                post={item.post}
+                reacted={reactedQuery.data?.has(item.post.id) ?? false}
+                onToggleReaction={() => toggleReaction.mutate(item.post.id)}
+                live={item.post.gameId ? gameStatesQuery.data?.get(item.post.gameId) : undefined}
+              />
+            )
+          }
           ItemSeparatorComponent={() => <View className="h-px" style={{ backgroundColor: colors.cardBorder, marginHorizontal: 24 }} />}
           contentContainerStyle={{ paddingTop: 4, paddingBottom: tabBarSpace + NAV.FAB_RISE }}
           onEndReached={() => feedQuery.hasNextPage && feedQuery.fetchNextPage()}

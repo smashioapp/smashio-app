@@ -233,7 +233,7 @@ export default function Splash() {
               className="text-center font-body-semibold text-[16.5px]"
               style={{ color: colors.textDim, lineHeight: 24, maxWidth: 300 }}
             >
-              Find your court. Match your level.{"\n"}Never scramble for a fourth again.
+              Short a player? Fill your court.{"\n"}Real level, real players.
             </Text>
           </Animated.View>
 

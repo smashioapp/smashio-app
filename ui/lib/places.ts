@@ -5,6 +5,9 @@
 const PLACES_BASE = "https://maps.googleapis.com/maps/api/place";
 const API_KEY = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
 
+// Blank key = no autocomplete at all; callers with a fallback (the home-suburb sheet) check this.
+export const hasPlacesKey = API_KEY.length > 0;
+
 export type PlacePrediction = {
   placeId: string;
   mainText: string;

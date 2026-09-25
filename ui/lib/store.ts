@@ -58,12 +58,14 @@ const initialWizard: WizardDraft = {
   startsAt: defaultStartsAt(),
   skill: "Intermediate",
   skillMax: "Intermediate",
-  maxPlayers: 8,
+  // D-U6 (short-a-player-ux-plan.md §3.1): the doubles-one-short case. 3 already in (you + 2
+  // anonymous holds), need 1. maxPlayers is derived from the two WHO questions, never asked.
+  maxPlayers: 4,
   courtsBooked: 1,
   courtLabel: "",
   durationHours: DEFAULT_DURATION_HOURS,
   cost: 8,
-  reservedSpots: 0,
+  reservedSpots: 2,
   namedSpots: [],
   format: "social",
   visibility: "public",
@@ -86,6 +88,9 @@ export type RebookSeed = {
   durationHours: number;
   cost: number;
   startsAt: Date;
+  // Holds to carry over (duplicate/rebook), so "already in" and "need" both come across. Absent
+  // means none: a converted feed post has no idea who the poster's already got.
+  reservedSpots?: number;
 };
 
 // Discover map's "no games here yet — host one" pin (map-plan.md §5.10): seeds only the venue,
@@ -123,12 +128,17 @@ export type EditGameDraft = {
 };
 
 export type WhenFilter = "tonight" | "tomorrow" | "week" | "all";
-export type SortOption = "soonest" | "closest" | "cheapest" | "most_spots";
+export type DiscoverPlace = { lat: number; lng: number; label: string };
+// "fewest_needed" replaced "most_spots" (short-a-player-ux-plan.md F12): a game one short is the
+// most satisfying join and the most valuable one to its host. Sorted client-side.
+export type SortOption = "soonest" | "closest" | "cheapest" | "fewest_needed";
 
 // 15km default (discover-map-ux-plan.md §4.5, D6) — 50km from a Sydney suburb spans most of
 // Greater Sydney, so the radius ring never fits the opening viewport. 50 stays selectable.
 export const DISCOVER_RADIUS_OPTIONS_KM = [5, 10, 15, 25, 50];
-export const DEFAULT_DISCOVER_RADIUS_KM = 15;
+// D-U4 (short-a-player-ux-plan.md §9): 10km, the same radius spot alerts use, so what Discover
+// shows and what pings you describe the same patch of the city.
+export const DEFAULT_DISCOVER_RADIUS_KM = 10;
 export const PRICE_CAP_OPTIONS_CENTS = [1000, 2000, 3000];
 
 // v3 Feed design (claude.ai/design 23bc2cae…, "SMASHIO v3 - Feed.html", screen 2's Filters sheet).
@@ -140,6 +150,10 @@ export const DEFAULT_FEED_RADIUS_KM = 15;
 type AppState = {
   discoverView: "list" | "map";
   setDiscoverView: (v: "list" | "map") => void;
+  // F8: where Discover is looking, when the viewer picked a suburb. Session-only on purpose, and
+  // never the home point: changing where you look isn't changing where you get pinged.
+  discoverPlace: DiscoverPlace | null;
+  setDiscoverPlace: (p: DiscoverPlace | null) => void;
   whenFilter: WhenFilter;
   setWhenFilter: (v: WhenFilter) => void;
   levelFilters: string[];
@@ -191,7 +205,13 @@ type AppState = {
   setDurationHours: (n: number) => void;
   setCost: (n: number) => void;
   setReservedSpots: (n: number) => void;
-  addNamedSpot: (spot: { label: string | null; invitedProfileId?: string | null; invitedName?: string | null }) => void;
+  // The two WHO questions (ux-plan §3.1). "Already in" counts the host + named + anonymous holds;
+  // changing either one keeps the other fixed and moves maxPlayers.
+  setAlreadyInCount: (n: number) => void;
+  setNeedCount: (n: number) => void;
+  // fillOpen: true when the host tapped an open slot (someone fills a needed spot), false when
+  // they added someone to "already in" (need stays put, the game grows by one).
+  addNamedSpot: (spot: { label: string | null; invitedProfileId?: string | null; invitedName?: string | null }, opts?: { fillOpen?: boolean }) => void;
   removeNamedSpot: (localId: string) => void;
   setFormat: (v: string) => void;
   setVisibility: (v: "public" | "link_only") => void;
@@ -224,6 +244,8 @@ type AppState = {
 export const useAppStore = create<AppState>((set) => ({
   discoverView: "list",
   setDiscoverView: (v) => set({ discoverView: v }),
+  discoverPlace: null,
+  setDiscoverPlace: (p) => set({ discoverPlace: p }),
   whenFilter: "week",
   setWhenFilter: (v) => set({ whenFilter: v }),
   levelFilters: [],
@@ -232,7 +254,9 @@ export const useAppStore = create<AppState>((set) => ({
   setLevelFilters: (v) => set({ levelFilters: v }),
   discoverRadiusKm: DEFAULT_DISCOVER_RADIUS_KM,
   setDiscoverRadiusKm: (v) => set({ discoverRadiusKm: v }),
-  hasSpotsOnly: false,
+  // F10: full games are one chip away (and the fallback ladder offers the waitlist), but the
+  // default list is games you can actually join.
+  hasSpotsOnly: true,
   setHasSpotsOnly: (v) => set({ hasSpotsOnly: v }),
   verifiedOnly: false,
   setVerifiedOnly: (v) => set({ verifiedOnly: v }),
@@ -249,7 +273,7 @@ export const useAppStore = create<AppState>((set) => ({
       whenFilter: "all",
       levelFilters: [],
       discoverRadiusKm: DEFAULT_DISCOVER_RADIUS_KM,
-      hasSpotsOnly: false,
+      hasSpotsOnly: true,
       verifiedOnly: false,
       maxCostPerPlayerCents: null,
       amenityFilters: [],
@@ -329,14 +353,29 @@ export const useAppStore = create<AppState>((set) => ({
   setCourtLabel: (v) => set((s) => ({ wizard: { ...s.wizard, courtLabel: v } })),
   setDurationHours: (n) => set((s) => ({ wizard: { ...s.wizard, durationHours: n } })),
   setCost: (n) => set((s) => ({ wizard: { ...s.wizard, cost: n } })),
-  setReservedSpots: (n) => set((s) => ({ wizard: { ...s.wizard, reservedSpots: Math.max(0, Math.min(s.wizard.maxPlayers, n)) } })),
+  setReservedSpots: (n) => set((s) => ({ wizard: { ...s.wizard, reservedSpots: Math.max(0, Math.min(s.wizard.maxPlayers - 1 - s.wizard.namedSpots.length, n)) } })),
+  setAlreadyInCount: (n) =>
+    set((s) => {
+      const w = s.wizard;
+      const need = Math.max(0, w.maxPlayers - 1 - w.namedSpots.length - w.reservedSpots);
+      const floor = 1 + w.namedSpots.length;
+      const alreadyIn = Math.max(floor, Math.min(MAX_PLAYERS - Math.max(1, need), n));
+      return { wizard: { ...w, reservedSpots: alreadyIn - floor, maxPlayers: alreadyIn + need } };
+    }),
+  setNeedCount: (n) =>
+    set((s) => {
+      const w = s.wizard;
+      const alreadyIn = 1 + w.namedSpots.length + w.reservedSpots;
+      const need = Math.max(1, Math.min(MAX_PLAYERS - alreadyIn, n));
+      return { wizard: { ...w, maxPlayers: Math.max(MIN_PLAYERS, alreadyIn + need) } };
+    }),
   // Named spots eat into the open pool first; if the game's already full (no open slot left),
   // bump maxPlayers by one instead of silently failing (create-game-plan.md §5's "Bumped to 6
   // so Raj fits" rule — never silent).
-  addNamedSpot: (spot) =>
+  addNamedSpot: (spot, opts) =>
     set((s) => {
       const openBefore = Math.max(0, s.wizard.maxPlayers - 1 - s.wizard.namedSpots.length - s.wizard.reservedSpots);
-      const maxPlayers = openBefore > 0 ? s.wizard.maxPlayers : Math.min(MAX_PLAYERS, s.wizard.maxPlayers + 1);
+      const maxPlayers = opts?.fillOpen && openBefore > 0 ? s.wizard.maxPlayers : Math.min(MAX_PLAYERS, s.wizard.maxPlayers + 1);
       return {
         wizard: {
           ...s.wizard,
@@ -353,8 +392,16 @@ export const useAppStore = create<AppState>((set) => ({
         },
       };
     }),
+  // Removing someone from "already in" shrinks the game rather than turning them into a spot the
+  // host now needs to fill.
   removeNamedSpot: (localId) =>
-    set((s) => ({ wizard: { ...s.wizard, namedSpots: s.wizard.namedSpots.filter((sp) => sp.localId !== localId) } })),
+    set((s) => ({
+      wizard: {
+        ...s.wizard,
+        namedSpots: s.wizard.namedSpots.filter((sp) => sp.localId !== localId),
+        maxPlayers: Math.max(MIN_PLAYERS, s.wizard.maxPlayers - 1),
+      },
+    })),
   setFormat: (v) => set((s) => ({ wizard: { ...s.wizard, format: v } })),
   setVisibility: (v) => set((s) => ({ wizard: { ...s.wizard, visibility: v } })),
   setAutoApprove: (v) => set((s) => ({ wizard: { ...s.wizard, autoApprove: v } })),

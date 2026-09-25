@@ -78,8 +78,9 @@ function fromRow(row: Row | null): NotificationPrefs {
 
 // No row until the user changes a setting (the migration's notification_pref_enabled() coalesces
 // a missing row to "on"), so a fresh install reads as every category enabled without a write.
-export function useNotificationPrefs() {
+export function useNotificationPrefs(options: { enabled?: boolean } = {}) {
   return useQuery({
+    enabled: options.enabled ?? true,
     queryKey: ["notification_prefs"],
     queryFn: async () => {
       const { data, error } = await supabase.from("notification_prefs").select("*").maybeSingle();

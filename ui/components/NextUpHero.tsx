@@ -9,7 +9,9 @@ import { Hero } from "./Hero";
 import { formatCountdown } from "../lib/format";
 import { openDirections } from "../lib/directions";
 import { addGameToCalendar } from "../lib/calendar";
-import type { Game, Player } from "../lib/mockData";
+import { spotsLeft, type Game, type Player } from "../lib/mockData";
+import { needsLabel } from "../lib/trust";
+import { shareGame } from "../lib/share";
 import type { MyRole } from "./UpcomingGameCard";
 
 const ROLE_LABEL: Record<MyRole, string> = {
@@ -68,6 +70,10 @@ export function NextUpHero({
   const dotStyle = useAnimatedStyle(() => ({ opacity: 0.6 + pulse.value * 0.4, transform: [{ scale: 1 + pulse.value * 0.5 }] }));
 
   const perPlayer = game.cost;
+  // F17: the host's day-of job is filling the court, not remembering cash. Players keep "Bring $8".
+  const hosting = role === "hosting";
+  const open = spotsLeft(game);
+  const hostFilling = hosting && open > 0 && !live;
 
   return (
     <Hero tone={tone} coverKey={game.coverKey} onPress={onPress}>
@@ -105,20 +111,36 @@ export function NextUpHero({
 
       <View className="flex-row items-center justify-between mt-4">
         {roster.length > 0 ? <AvatarStack people={roster} max={5} /> : <View />}
-        <Text className="text-[13px] font-body-bold" style={{ color: colors.textMuted }}>
-          Bring ${perPlayer}
-        </Text>
+        {hosting ? (
+          <Text className="text-[13px] font-body-bold" style={{ color: open > 0 ? colors.accent : colors.textMuted }}>
+            {open > 0 ? needsLabel(open) : "Full, game on"}
+          </Text>
+        ) : (
+          <Text className="text-[13px] font-body-bold" style={{ color: colors.textMuted }}>
+            Bring ${perPlayer}
+          </Text>
+        )}
       </View>
 
       {/* Three buttons (docs/v2-design-plan.md §4.4, B11 shipped) — Directions and Calendar
           neutral, Open chat lime (rule 5: lime once per screen). Hidden for role === "requested"
           — matches Game Detail's approved-or-host gate, since a request can still be declined. */}
       <View className="flex-row items-center gap-2 pt-3 mt-3.5 border-t" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
-        <HeroAction icon="navigate" label="Directions" onPress={() => openDirections(game)} />
-        {role !== "requested" && (
-          <HeroAction icon="calendar" label="Calendar" onPress={() => addGameToCalendar(game, game.organizerName)} />
+        {hostFilling ? (
+          <>
+            <HeroAction icon="share-outline" label="Share link" accent onPress={() => shareGame(game)} />
+            <HeroAction icon="chatbubble" label="Open chat" unread={unread} onPress={() => router.push(`/chat/${game.id}`)} />
+            <HeroAction icon="navigate" label="Directions" onPress={() => openDirections(game)} />
+          </>
+        ) : (
+          <>
+            <HeroAction icon="navigate" label="Directions" onPress={() => openDirections(game)} />
+            {role !== "requested" && (
+              <HeroAction icon="calendar" label="Calendar" onPress={() => addGameToCalendar(game, game.organizerName)} />
+            )}
+            <HeroAction icon="chatbubble" label="Open chat" unread={unread} accent onPress={() => router.push(`/chat/${game.id}`)} />
+          </>
         )}
-        <HeroAction icon="chatbubble" label="Open chat" unread={unread} accent onPress={() => router.push(`/chat/${game.id}`)} />
       </View>
     </Hero>
   );

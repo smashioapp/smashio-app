@@ -4,7 +4,7 @@
 -- 20260817000100_venues_directory_rpc.sql, 20260815000900_venue_photos_corrections.sql).
 -- Run: supabase test db
 BEGIN;
-SELECT plan(16);
+SELECT plan(20);
 
 set local role postgres;
 
@@ -108,6 +108,27 @@ SELECT is(
   (select total_count from public.venues_directory(null, 'Chatswood', null, null, null, null, 1, 0) limit 1),
   1::bigint,
   'venues_directory total_count reflects the full match set even under p_limit'
+);
+
+-- short-a-player-ux-plan.md U2: distance ordering and the per-venue games list.
+SELECT is(
+  (select name from public.venues_directory('VIC', null, null, null, null, null, 50, 0, -37.8, 144.9) limit 1),
+  'Melbourne Courts',
+  'venues_directory with p_lat/p_lng puts the nearest venue first'
+);
+SELECT ok(
+  (select distance_m < 1000 from public.venues_directory('VIC', null, null, null, null, null, 50, 0, -37.8, 144.9) limit 1),
+  'venues_directory returns distance_m when given a point'
+);
+SELECT is(
+  (select distance_m from public.venues_directory('VIC') limit 1),
+  null::double precision,
+  'venues_directory leaves distance_m null without a point'
+);
+SELECT is(
+  (select count(*)::int from public.venue_upcoming_games('d3333333-3333-3333-3333-333333333333')),
+  0,
+  'venue_upcoming_games is empty for a venue with no listed games'
 );
 
 -- --- report_venue_correction -------------------------------------------------------------------

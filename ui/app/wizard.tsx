@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, Pressable, ScrollView, Alert, Image, TextInput, ActivityIndicator, PanResponder } from "react-native";
 import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
@@ -8,7 +8,9 @@ import * as DocumentPicker from "expo-document-picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { MAX_COST_PER_PLAYER_PER_HOUR, MAX_COURTS_BOOKED, MAX_PLAYERS, MIN_COURTS_BOOKED, MIN_PLAYERS, useAppStore } from "../lib/store";
 import { colors, gradients, TIERS, tierColor, type TierId } from "../lib/theme";
-import { formatDate, formatTimeRange, formatTimeShort } from "../lib/format";
+import { formatDate, formatDistance, formatTimeRange, formatTimeShort } from "../lib/format";
+import { useUserLocation } from "../lib/location";
+import { roundedPoint } from "../lib/suburbs";
 import {
   DURATION_STEP_HOURS,
   MAX_DURATION_HOURS,
@@ -23,7 +25,10 @@ import { useSkillTiers, useSports } from "../lib/queries/sports";
 import {
   useAttachConfirmation,
   useCreateGame,
+  useMyHostingGames,
+  useMyPastGames,
   useParseConfirmation,
+  useUploadConfirmation,
   useUploadConfirmationFiles,
   type ParsedBooking,
 } from "../lib/queries/games";
@@ -34,7 +39,8 @@ import { Burst } from "../components/Burst";
 import { Glow } from "../components/Glow";
 import { PropOverlay } from "../components/PropOverlay";
 import { Sheet } from "../components/Sheet";
-import { LineupStrip, lineupSummary, type LineupSlot } from "../components/LineupStrip";
+import { LineupStrip, type LineupSlot } from "../components/LineupStrip";
+import { needsLabel } from "../lib/trust";
 import { AccordionRow, PriceSlider, RowLabel, Stepper } from "../components/DraftCardParts";
 import { animalFor } from "../lib/avatars";
 import { useSession } from "../lib/session";
@@ -63,6 +69,16 @@ const DURATION_CHIPS = [1, 1.5, 2, 2.5];
 
 type RowKey = "where" | "when" | "who" | "cost" | null;
 type FieldKey = "where" | "when" | "who" | "cost";
+
+// "doubles", "singles"... under the WHO steppers (ux-plan §3.1). Grouping follows courts booked,
+// same as the lineup strip: 8 on one court is a rotation, not two games.
+function shapeHint(players: number, courts: number): string {
+  if (courts > 1) return `about ${Math.ceil(players / courts)} a court`;
+  if (players === 2) return "singles";
+  if (players === 4) return "doubles";
+  if (players <= 6) return "rotating on 1 court";
+  return "rotating, a second court would help";
+}
 
 function sharesToken(a: string, b: string): boolean {
   const words = (s: string) => new Set(s.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter((w) => w.length > 2));
@@ -171,6 +187,9 @@ export default function Wizard() {
     setCost,
     addNamedSpot,
     removeNamedSpot,
+    setReservedSpots,
+    setAlreadyInCount,
+    setNeedCount,
     setFormat,
     setVisibility,
     setAutoApprove,
@@ -186,6 +205,7 @@ export default function Wizard() {
   const { data: sports = [] } = useSports();
   const { data: tiers = [] } = useSkillTiers(SPORT_SLUG);
   const createGame = useCreateGame();
+  const uploadConfirmation = useUploadConfirmation();
   const uploadConfirmationFiles = useUploadConfirmationFiles();
   const parseConfirmation = useParseConfirmation();
   const attachConfirmation = useAttachConfirmation();
@@ -217,6 +237,10 @@ export default function Wizard() {
   const [priceSuggestionApplied, setPriceSuggestionApplied] = useState(false);
   const [priceOfferAccepted, setPriceOfferAccepted] = useState(false);
   const [courtsExpanded, setCourtsExpanded] = useState(false);
+  // F15: "Booked, but no screenshot?" skips the snap but still means a real court.
+  const [bookedNoProof, setBookedNoProof] = useState(false);
+  // F16: the court's total price, optional. When set, per-player is derived from it.
+  const [courtCost, setCourtCost] = useState<number | null>(null);
 
   const [venueQuery, setVenueQuery] = useState("");
   const [venueResults, setVenueResults] = useState<PlacePrediction[]>([]);
@@ -226,17 +250,35 @@ export default function Wizard() {
   const sessionTokenRef = useRef(newSessionToken());
 
   const [debouncedVenueQuery, setDebouncedVenueQuery] = useState("");
-  const { data: smashioVenues = [] } = useVenuesDirectory({ search: debouncedVenueQuery || undefined });
+  // F3 host side (ux-plan §3.4): nearest first, and the host's own recent venues above that.
+  const deviceLocation = useUserLocation();
+  const { data: smashioVenues = [] } = useVenuesDirectory({ search: debouncedVenueQuery || undefined, near: roundedPoint(deviceLocation) });
+  const hostingQuery = useMyHostingGames();
+  const pastQuery = useMyPastGames();
+  const yourVenues = useMemo(() => {
+    const seen = new Map<string, { id: string; name: string; suburb: string; address: string }>();
+    const mine = [...(hostingQuery.data ?? []), ...(pastQuery.data ?? [])]
+      .filter((g) => g.organizerId === session?.user.id && g.venueId)
+      .sort((a, b) => b.startsAt.localeCompare(a.startsAt));
+    for (const g of mine) {
+      if (seen.has(g.venueId!)) continue;
+      seen.set(g.venueId!, { id: g.venueId!, name: g.venue, suburb: g.suburb, address: g.venueAddress ?? g.suburb });
+      if (seen.size >= 3) break;
+    }
+    return Array.from(seen.values());
+  }, [hostingQuery.data, pastQuery.data, session?.user.id]);
 
   useEffect(() => {
     const seed = useAppStore.getState().rebookSeed;
     const hostHereSeed = useAppStore.getState().hostHereSeed;
     if (seed) {
       useAppStore.getState().clearRebookSeed();
+      resetWizard();
       selectVenue(seed.venueId);
       setStartsAt(seed.startsAt);
       selectWizardTier(seed.skill);
       setMaxPlayers(seed.maxPlayers);
+      setReservedSpots(seed.reservedSpots ?? 0);
       setCourtsBooked(seed.courtsBooked);
       setDurationHours(seed.durationHours);
       setCost(seed.cost);
@@ -274,6 +316,8 @@ export default function Wizard() {
     setExpandedRow(null);
     setPriceSuggestionApplied(false);
     setPriceOfferAccepted(false);
+    setBookedNoProof(false);
+    setCourtCost(null);
     sessionTokenRef.current = newSessionToken();
   }, []);
 
@@ -306,6 +350,12 @@ export default function Wizard() {
   const maxCost = wizard.durationHours * MAX_COST_PER_PLAYER_PER_HOUR;
   const startInPast = !isSlotBookable(wizard.startsAt, wizard.startsAt.getHours(), wizard.startsAt.getMinutes());
   const endsAt = new Date(wizard.startsAt.getTime() + durationMs(wizard.durationHours));
+
+  // Court price split (F16), rounded up so the host is covered, same rule as a parsed booking.
+  const costFromCourt = courtCost != null && courtCost > 0 ? Math.min(maxCost, Math.max(1, Math.ceil(courtCost / wizard.maxPlayers))) : null;
+  useEffect(() => {
+    if (costFromCourt != null && costFromCourt !== wizard.cost) setCost(costFromCourt);
+  }, [costFromCourt]);
 
   const suggestedCost = parsedData?.total_cost_aud
     ? Math.min(maxCost, Math.max(1, Math.ceil(parsedData.total_cost_aud / wizard.maxPlayers)))
@@ -530,7 +580,13 @@ export default function Wizard() {
         autoApprove: wizard.autoApprove,
         shuttles: wizard.shuttles,
         notes: wizard.notes,
-        spots: wizard.namedSpots.map((s) => ({ label: s.label, invitedProfileId: s.invitedProfileId })),
+        // Anonymous "already in" holds ride along as blank spots (add_reserved_spot with no
+        // label), so reserved_spots is right from the first write (ux-plan §3.1).
+        spots: [
+          ...wizard.namedSpots.map((s) => ({ label: s.label, invitedProfileId: s.invitedProfileId })),
+          ...Array.from({ length: wizard.reservedSpots }, () => ({ label: null, invitedProfileId: null })),
+        ],
+        pinHeldSpots: true,
       });
     } catch {
       // Inline banner, not a dialog — the game and its holds write together, so a failure can
@@ -570,6 +626,8 @@ export default function Wizard() {
   const anonSlots: LineupSlot[] = Array.from({ length: wizard.reservedSpots }, (_, i) => ({ kind: "anon", id: `anon-${i}` }));
   const filledCount = 1 + namedSlots.length + anonSlots.length;
   const openCount = Math.max(0, wizard.maxPlayers - filledCount);
+  const alreadyIn = filledCount;
+  const shape = shapeHint(wizard.maxPlayers, wizard.courtsBooked);
   const openSlots: LineupSlot[] = Array.from({ length: openCount }, (_, i) => ({ kind: "open", id: `open-${i}` }));
   const lineupSlots: LineupSlot[] = [
     { kind: "host", id: session?.user.id ?? "host", name: myName, avatarKey: profile?.avatar_key },
@@ -604,9 +662,35 @@ export default function Wizard() {
         </Text>
       )}
 
+      {!selectedVenue && venueQuery.trim().length === 0 && yourVenues.length > 0 && (
+        <View className="mt-1 mb-2">
+          <RowLabel>Your venues</RowLabel>
+          {yourVenues.map((v) => (
+            <Pressable
+              key={v.id}
+              onPress={() => {
+                selectVenue(v.id);
+                setSelectedVenue({ name: v.name, suburb: v.suburb, address: v.address });
+                setVenueQuery(v.name);
+                setVenueResults([]);
+                markEdited("where");
+              }}
+              className="flex-row items-center gap-3 rounded-2xl px-3.5 py-3 mb-2 border-[1.5px]"
+              style={{ backgroundColor: colors.card, borderColor: "rgba(214,255,63,0.2)" }}
+            >
+              <Ionicons name="time-outline" size={16} color={colors.accent} />
+              <View className="flex-1">
+                <Text className="font-body-bold text-[15px]" style={{ color: colors.text }}>{v.name}</Text>
+                <Text className="text-[13px] mt-0.5" style={{ color: colors.textSecondary }}>{v.suburb}</Text>
+              </View>
+            </Pressable>
+          ))}
+        </View>
+      )}
+
       {!selectedVenue && smashioVenues.length > 0 && (
         <View className="mt-1">
-          <RowLabel>{venueQuery.trim().length === 0 ? "Popular near you" : "Smashio venues"}</RowLabel>
+          <RowLabel>{venueQuery.trim().length === 0 ? "Nearest" : "Smashio venues"}</RowLabel>
           {smashioVenues.slice(0, 6).map((v) => {
             const badge = venueBadge(v);
             return (
@@ -627,7 +711,9 @@ export default function Wizard() {
                 </View>
                 <View className="flex-1">
                   <Text className="font-body-bold text-[15.5px]" style={{ color: colors.text }}>{v.name}</Text>
-                  <Text className="text-[13.5px] mt-0.5" style={{ color: colors.textSecondary }}>{v.suburb} · {v.courts_badminton ?? "?"} courts</Text>
+                  <Text className="text-[13.5px] mt-0.5" style={{ color: colors.textSecondary }}>
+                    {[v.suburb, v.distance_m != null ? formatDistance(v.distance_m) : null, v.courts_badminton ? `${v.courts_badminton} courts` : null].filter(Boolean).join(" · ")}
+                  </Text>
                 </View>
                 <View className="rounded-pill px-2.5 py-1" style={{ backgroundColor: badge.bg }}>
                   <Text className="font-body-extrabold text-[10.5px]" style={{ color: badge.color }}>{badge.label}</Text>
@@ -788,7 +874,7 @@ export default function Wizard() {
         </View>
       )}
       <Text className="text-[11.5px] mt-2" style={{ color: colors.textMuted }}>
-        {wizard.courtsBooked > 1 ? `Lineup splits into ${wizard.courtsBooked} court groups.` : "One court — everyone rotates together."}
+        {wizard.courtsBooked > 1 ? `Lineup splits into ${wizard.courtsBooked} court groups.` : "One court, everyone rotates together."}
       </Text>
 
       <RowLabel style={{ marginTop: 18 }}>Court number (optional)</RowLabel>
@@ -804,14 +890,48 @@ export default function Wizard() {
     </View>
   );
 
+  // The two WHO questions (short-a-player-ux-plan.md §3.1, F4). A host who's one short thinks
+  // "3 of us, need 1", never "total players including me", so maxPlayers is derived.
   const renderWhoRow = () => (
     <View>
-      <RowLabel>Total players (including you)</RowLabel>
-      <View className="flex-row items-center justify-center gap-6 rounded-2xl p-4 mb-2 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
-        <Stepper onPress={() => setMaxPlayers(Math.max(MIN_PLAYERS, 1 + wizard.namedSpots.length, wizard.maxPlayers - 1))} icon="remove" disabled={wizard.maxPlayers <= Math.max(MIN_PLAYERS, 1 + wizard.namedSpots.length)} />
-        <Text className="font-display text-[26px]" style={{ color: colors.accent }}>{wizard.maxPlayers}</Text>
-        <Stepper onPress={() => setMaxPlayers(Math.min(MAX_PLAYERS, wizard.maxPlayers + 1))} icon="add" disabled={wizard.maxPlayers >= MAX_PLAYERS} />
+      <RowLabel>Who's already in?</RowLabel>
+      <LineupStrip
+        slots={lineupSlots.filter((s) => s.kind !== "open")}
+        courtsBooked={1}
+        onTapSlot={(slot) => {
+          if (slot.kind !== "named") return;
+          haptics.tap();
+          Alert.alert(slot.label ?? "Held spot", "Take them off the list?", [
+            { text: "Keep", style: "cancel" },
+            { text: "Remove", style: "destructive", onPress: () => removeNamedSpot(slot.id) },
+          ]);
+        }}
+      />
+      <Pressable onPress={() => { haptics.tap(); setAddSomeoneOpen(true); }} className="flex-row items-center gap-1.5 mt-3">
+        <Ionicons name="add-circle-outline" size={16} color={colors.accent} />
+        <Text className="font-body-bold text-[13.5px]" style={{ color: colors.accent }}>Add someone by name</Text>
+      </Pressable>
+      <View className="flex-row items-center justify-between rounded-2xl px-4 py-3 mt-3 mb-2 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
+        <Text className="text-[13px] flex-1 pr-2" style={{ color: colors.textSecondary }}>Or just a number, including you</Text>
+        <View className="flex-row items-center gap-4">
+          <Stepper onPress={() => setAlreadyInCount(alreadyIn - 1)} icon="remove" disabled={alreadyIn <= 1 + wizard.namedSpots.length} />
+          <Text testID="wizard-already-in" className="font-display text-[22px]" style={{ color: colors.text, minWidth: 22, textAlign: "center" }}>{alreadyIn}</Text>
+          <Stepper onPress={() => setAlreadyInCount(alreadyIn + 1)} icon="add" disabled={wizard.maxPlayers >= MAX_PLAYERS} />
+        </View>
       </View>
+
+      <RowLabel style={{ marginTop: 14 }}>How many do you need?</RowLabel>
+      <View className="flex-row items-center justify-center gap-6 rounded-2xl p-4 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
+        <Stepper onPress={() => setNeedCount(openCount - 1)} icon="remove" disabled={openCount <= 1} />
+        <Text testID="wizard-need" className="font-display text-[26px]" style={{ color: colors.accent }}>{openCount}</Text>
+        <Stepper onPress={() => setNeedCount(openCount + 1)} icon="add" disabled={wizard.maxPlayers >= MAX_PLAYERS} />
+      </View>
+      <Text className="text-[12px] mt-2" style={{ color: colors.textSecondary }}>
+        {wizard.visibility === "public" ? "Nearby players at your level get pinged for these." : "Share the link and they can grab these."}
+      </Text>
+      <Text className="font-body-bold text-[13px] mt-2.5" style={{ color: colors.textDim }}>
+        {`${wizard.maxPlayers} players on ${wizard.courtsBooked} ${wizard.courtsBooked === 1 ? "court" : "courts"} · ${shape}`}
+      </Text>
 
       <RowLabel style={{ marginTop: 14 }}>Skill range</RowLabel>
       <View className="flex-row gap-2 flex-wrap mb-4">
@@ -841,12 +961,6 @@ export default function Wizard() {
         })}
       </View>
 
-      <RowLabel>Who's coming</RowLabel>
-      <LineupStrip slots={lineupSlots} courtsBooked={wizard.courtsBooked} onTapSlot={(slot) => { if (slot.kind === "open") { haptics.tap(); setAddSomeoneOpen(true); } }} />
-      <Pressable onPress={() => { haptics.tap(); setAddSomeoneOpen(true); }} className="flex-row items-center gap-1.5 mt-3">
-        <Ionicons name="add-circle-outline" size={16} color={colors.accent} />
-        <Text className="font-body-bold text-[13.5px]" style={{ color: colors.accent }}>Add someone</Text>
-      </Pressable>
     </View>
   );
 
@@ -936,6 +1050,26 @@ export default function Wizard() {
     wizard.shuttles.trim() ? wizard.shuttles : "No shuttle note",
   ].join(" · ");
 
+  // Same upload path as the My Games hosting card (M3): the proxy parses it against the game.
+  const addBookingAfterPublish = async () => {
+    if (!createdGameId) return;
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      Alert.alert("Can't get to your photos", "Turn it on in Settings, or add it later from My Games.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ["images"], quality: 0.8 });
+    if (result.canceled) return;
+    haptics.tap();
+    uploadConfirmation.mutate(
+      { gameId: createdGameId, localUri: result.assets[0].uri },
+      {
+        onSuccess: () => Alert.alert("Got it", "We're checking your booking. The tick shows up once it's confirmed."),
+        onError: (e) => Alert.alert("Couldn't upload that", e instanceof Error ? e.message : "Give it another go."),
+      },
+    );
+  };
+
   const publishDisabledReason = !wizard.venueId ? "Pick a venue first" : startInPast ? "Pick a time that hasn't passed" : null;
 
   if (published && createdGameId) {
@@ -962,11 +1096,31 @@ export default function Wizard() {
                 <Text className="text-[14px] mt-1" style={{ color: colors.textSecondary }}>
                   {formatDate(wizard.startsAt.toISOString())} · {formatTimeRange(wizard.startsAt.toISOString(), endsAt.toISOString())}
                 </Text>
-                <View className="rounded-pill self-start px-2.5 py-1.5 mt-2.5" style={{ backgroundColor: verified ? "rgba(76,217,100,0.15)" : "rgba(255,182,72,0.15)" }}>
-                  <Text className="font-body-extrabold text-[11.5px] uppercase" style={{ color: verified ? colors.intermediate : colors.advanced }}>
-                    {verified ? "Court booked" : "Awaiting booking upload"}
-                  </Text>
-                </View>
+                {verified ? (
+                  <View className="rounded-pill self-start px-2.5 py-1.5 mt-2.5" style={{ backgroundColor: "rgba(76,217,100,0.15)" }}>
+                    <Text className="font-body-extrabold text-[11.5px] uppercase" style={{ color: colors.intermediate }}>
+                      Court booked
+                    </Text>
+                  </View>
+                ) : (
+                  // F14: an instruction, not a status stamp.
+                  <View className="flex-row items-center gap-2.5 mt-3">
+                    <Text className="flex-1 text-[13px]" style={{ color: colors.textSecondary }}>
+                      Add your booking for a Court booked tick
+                    </Text>
+                    <Pressable
+                      testID="wizard-success-add-booking"
+                      disabled={uploadConfirmation.isPending}
+                      onPress={addBookingAfterPublish}
+                      className="rounded-pill px-3 py-1.5 border"
+                      style={{ borderColor: colors.cardBorder, opacity: uploadConfirmation.isPending ? 0.5 : 1 }}
+                    >
+                      <Text className="font-body-bold text-[12px]" style={{ color: colors.text }}>
+                        {uploadConfirmation.isPending ? "Adding…" : "Add booking"}
+                      </Text>
+                    </Pressable>
+                  </View>
+                )}
               </View>
 
               <Pressable
@@ -1006,7 +1160,7 @@ export default function Wizard() {
           <Ionicons name="chevron-back-outline" size={16} color={colors.text} />
         </Pressable>
         <Text className="font-display text-[20px]" style={{ color: colors.text }}>
-          {entryMode === null ? "Host a game" : "Your game"}
+          {entryMode === null ? "Fill your court" : "Your game"}
         </Text>
         {!parsing && (
           <View className="ml-auto rounded-pill px-2 py-1" style={{ backgroundColor: colors.surfaceAlt }}>
@@ -1052,8 +1206,12 @@ export default function Wizard() {
                   <Text className="font-body-extrabold text-[16.5px]" style={{ color: colors.base }}>Snap the booking</Text>
                 </Pressable>
               </LinearGradient>
-              <Pressable onPress={() => { resetWizard(); setEntryMode("manual"); }} className="items-center py-3.5">
-                <Text className="font-body-bold text-[14.5px]" style={{ color: colors.textSecondary }}>No booking yet, set it up →</Text>
+              {/* F15: phone and friend bookings are real courts too, they just lack a screenshot. */}
+              <Pressable testID="wizard-booked-no-proof" onPress={() => { resetWizard(); setBookedNoProof(true); setEntryMode("manual"); }} className="items-center py-3">
+                <Text className="font-body-bold text-[14.5px]" style={{ color: colors.textSecondary }}>Booked, but no screenshot? Skip for now →</Text>
+              </Pressable>
+              <Pressable testID="wizard-no-court" onPress={() => { resetWizard(); setBookedNoProof(false); setEntryMode("manual"); }} className="items-center py-3">
+                <Text className="font-body-bold text-[14.5px]" style={{ color: colors.textSecondary }}>No court yet? Set it up →</Text>
               </Pressable>
             </View>
           </View>
@@ -1093,7 +1251,7 @@ export default function Wizard() {
                 <View className="flex-row items-center justify-between mt-2">
                   <View className="flex-row items-center gap-1.5">
                     <View className="w-2 h-2 rounded-full" style={{ backgroundColor: tierColor(wizard.skill) }} />
-                    <Text className="text-[11.5px]" style={{ color: colors.textSecondary }}>{filledCount}/{wizard.maxPlayers}</Text>
+                    <Text className="text-[11.5px] font-body-bold" style={{ color: colors.textSecondary }}>{needsLabel(openCount)}</Text>
                   </View>
                   <Text className="font-display text-[15px]" style={{ color: colors.text }}>${wizard.cost}/player</Text>
                 </View>
@@ -1102,6 +1260,11 @@ export default function Wizard() {
             <Text className="text-[11.5px] font-body-bold text-center mt-2" style={{ color: colors.textSecondary }}>
               This is what players will see on Discover
             </Text>
+            {bookedNoProof && (
+              <Text className="text-[11.5px] text-center mt-1" style={{ color: colors.textTertiary }}>
+                You can add the booking later for a Court booked tick.
+              </Text>
+            )}
 
             <AccordionRow
               label="WHERE"
@@ -1137,7 +1300,7 @@ export default function Wizard() {
 
             <AccordionRow
               label="WHO"
-              value={lineupSummary(lineupSlots, wizard.cost, "row")}
+              value={`${alreadyIn} in · ${needsLabel(openCount)} · ${shape}`}
               placeholder=""
               expanded={expandedRow === "who"}
               onToggle={() => setExpandedRow(expandedRow === "who" ? null : "who")}
@@ -1172,7 +1335,7 @@ export default function Wizard() {
             ) : (
               <AccordionRow
                 label="COST"
-                value={`$${wizard.cost} per player`}
+                value={costFromCourt != null ? `$${wizard.cost} each · $${courtCost} court` : `$${wizard.cost} per player`}
                 placeholder="Set a price per player"
                 expanded={expandedRow === "cost"}
                 onToggle={() => setExpandedRow(expandedRow === "cost" ? null : "cost")}
@@ -1292,13 +1455,38 @@ export default function Wizard() {
   function renderCostControl() {
     return (
       <View>
-        <View className="items-center mb-4">
+        <RowLabel>What did the court cost? (optional)</RowLabel>
+        <View className="flex-row items-center gap-2 rounded-2xl px-3.5 border mb-2" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
+          <Text className="font-display text-[18px]" style={{ color: colors.textTertiary }}>$</Text>
+          <TextInput
+            testID="wizard-court-cost"
+            value={courtCost != null ? String(courtCost) : ""}
+            onChangeText={(t) => {
+              const digits = t.replace(/[^0-9]/g, "");
+              setCourtCost(digits === "" ? null : Math.min(9999, parseInt(digits, 10)));
+            }}
+            placeholder="e.g. 35"
+            placeholderTextColor={colors.textMuted}
+            keyboardType="number-pad"
+            maxLength={4}
+            className="flex-1 py-3 text-[16px]"
+            style={{ color: colors.text }}
+          />
+        </View>
+        {costFromCourt != null && courtCost != null && (
+          <Text className="text-[12.5px] mb-4" style={{ color: colors.textDim }}>
+            ${courtCost} ÷ {wizard.maxPlayers} = ${costFromCourt} each, rounded up so you're covered.
+          </Text>
+        )}
+        <View className="items-center mb-4 mt-2">
           <View className="flex-row items-baseline">
             <Text className="font-display text-[26px]" style={{ color: colors.textTertiary }}>$</Text>
             <TextInput
               value={String(wizard.cost)}
               onChangeText={(t) => {
                 const digits = t.replace(/[^0-9]/g, "");
+                // A hand-set price wins over the split; drop the court total so it can't snap back.
+                setCourtCost(null);
                 setCost(digits === "" ? 1 : Math.min(maxCost, Math.max(1, parseInt(digits, 10))));
               }}
               keyboardType="number-pad"
@@ -1310,7 +1498,7 @@ export default function Wizard() {
           </View>
           <Text className="text-[12px] mt-1" style={{ color: colors.textSecondary }}>per player</Text>
           <View className="w-full mt-3 px-1">
-            <PriceSlider value={wizard.cost} min={1} max={maxCost} onChange={setCost} />
+            <PriceSlider value={wizard.cost} min={1} max={maxCost} onChange={(v) => { setCourtCost(null); setCost(v); }} />
             <View className="flex-row justify-between mt-1">
               <Text className="text-[11px]" style={{ color: colors.textTertiary }}>$1</Text>
               <Text className="text-[11px]" style={{ color: colors.textTertiary }}>${maxCost} cap</Text>

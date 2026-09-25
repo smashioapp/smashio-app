@@ -1,6 +1,7 @@
 appId: com.smashio.app
 ---
-# C1: open …01 (open game, test user not a member) from Discover, hold-to-join, CTA flips
+# C1: open …01 (open game, test user not a member) from Discover, tap to join (D-U1,
+# short-a-player-ux-plan.md §5), confirm the cost sheet, CTA flips
 # to "Request sent". Fixture: supabase/seed.sql "…01 open, 2/6 approved" comment.
 - runFlow: login.yaml
 - tapOn:
@@ -15,15 +16,21 @@ appId: com.smashio.app
     visible:
       id: "game-cta"
     timeout: 15000
-# Maestro's text selector here needs the FULL button label, not a prefix — "Hold to
-# join" alone (a substring of the real "Hold to join · $12") never matched even though
-# the hierarchy dump confirmed the node was present and on-screen. …01 costs $12/player
+# Maestro's text selector here needs the FULL button label, not a prefix — "Join"
+# alone (a substring of the real "Join · $12") never matched even though the hierarchy
+# dump confirmed the node was present and on-screen. …01 costs $12/player
 # (supabase/seed.sql, cost_cents 1200).
 - extendedWaitUntil:
-    visible: "Hold to join · [$]12"
+    visible: "Join · [$]12"
     timeout: 20000
-- longPressOn:
+- tapOn:
     id: "game-cta"
+- extendedWaitUntil:
+    visible:
+      id: "game-join-confirm"
+    timeout: 10000
+- tapOn:
+    id: "game-join-confirm"
 - extendedWaitUntil:
     visible: "Request sent"
     timeout: 15000

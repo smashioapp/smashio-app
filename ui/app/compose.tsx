@@ -12,6 +12,12 @@ import { useVenuesDirectory } from "../lib/queries/venues";
 import { useSkillTiers } from "../lib/queries/sports";
 import { useCreatePost, MAX_POST_PHOTOS, type PickedPhoto } from "../lib/queries/feed";
 import { SPORT_SLUG } from "../lib/queries/games";
+import { useCreateAlert } from "../lib/queries/alerts";
+import { useProfileSports } from "../lib/queries/profile";
+import { useSession } from "../lib/session";
+import { useUserLocation } from "../lib/location";
+import { useAppStore } from "../lib/store";
+import { SPOT_ALERT_RADIUS_KM } from "../lib/alertPool";
 import { haptics } from "../lib/haptics";
 
 type Kind = "looking_for_players" | "question";
@@ -22,8 +28,14 @@ const BODY_LIMIT = 280;
 // looking_for_players ships as the default tab (§13.1: "ships before plain text, build the flow
 // that justifies the feature first"). Up to 4 photos on either kind (B3a, image-moderation-plan
 // IM3); create_post classifies them server-side before anything publishes.
+// D-U5 (short-a-player-ux-plan.md §7): "Looking for players" forked two different people. With a
+// court, the default is a game (roster, trust signals, spot alerts); the text post is the fallback.
+// Without one, it's "Looking for a game", and posting also saves an alert so the post turns into a
+// ping the moment a matching spot opens.
 export default function Compose() {
   const [kind, setKind] = useState<Kind>("looking_for_players");
+  const [hasCourt, setHasCourt] = useState<boolean | null>(null);
+  const [textWithCourt, setTextWithCourt] = useState(false);
   const [body, setBody] = useState("");
   const [venueId, setVenueId] = useState<string | null>(null);
   const [startsAt, setStartsAt] = useState<Date>(() => {
@@ -46,8 +58,21 @@ export default function Compose() {
   const venuesQuery = useVenuesDirectory({ search: debouncedVenueQuery || undefined });
   const tiersQuery = useSkillTiers(SPORT_SLUG);
   const createPost = useCreatePost();
+  const createAlert = useCreateAlert();
+  const { session } = useSession();
+  const profileSportsQuery = useProfileSports(session?.user.id);
+  const location = useUserLocation();
 
-  const canSubmit = body.trim().length > 0 && (kind === "question" || !!venueId) && !createPost.isPending;
+  const lookingForGame = kind === "looking_for_players" && hasCourt === false;
+  const showForm = kind === "question" || lookingForGame || (hasCourt === true && textWithCourt);
+  const canSubmit = showForm && body.trim().length > 0 && (kind === "question" || !!venueId) && !createPost.isPending;
+
+  const postAsGame = () => {
+    haptics.tap();
+    const v = (venuesQuery.data ?? []).find((x) => x.id === venueId);
+    if (v) useAppStore.getState().setHostHereSeed({ venueId: v.id, venueName: v.name, venueSuburb: v.suburb, venueAddress: `${v.suburb}, ${v.state}` });
+    router.replace("/wizard");
+  };
 
   const pickPhotos = async () => {
     const remaining = MAX_POST_PHOTOS - photos.length;
@@ -78,6 +103,21 @@ export default function Compose() {
           ? { kind, body: body.trim(), venueId: venueId!, startsAt, skillTierLabel: tierLabel ?? undefined, maxPlayers: 4, photos }
           : { kind, body: body.trim(), photos }
       );
+      if (lookingForGame) {
+        // Best effort: the post is up either way. Centred on the venue they named, else on them.
+        const v = (venuesQuery.data ?? []).find((x) => x.id === venueId);
+        const tierSlug =
+          (tiersQuery.data ?? []).find((t) => t.label === tierLabel)?.slug ??
+          (profileSportsQuery.data?.[0]?.skill_tiers as { slug: string } | null)?.slug ??
+          null;
+        await createAlert
+          .mutateAsync({
+            tierSlugs: tierSlug ? [tierSlug] : [],
+            radiusKm: SPOT_ALERT_RADIUS_KM,
+            center: v ? { lat: v.lat, lng: v.lng } : { lat: location.lat, lng: location.lng },
+          })
+          .catch(() => {});
+      }
       haptics.success();
       if (result.photosDropped > 0) {
         Alert.alert("Posted, but without your photos", "We couldn't check your photos in time. Give them another go.");
@@ -127,42 +167,95 @@ export default function Compose() {
             value={kind}
             onChange={setKind}
             options={[
-              { key: "looking_for_players" as const, label: "Looking for players" },
+              { key: "looking_for_players" as const, label: hasCourt === false ? "Looking for a game" : "Looking for players" },
               { key: "question" as const, label: "Ask a question" },
             ]}
           />
         </View>
 
-        {/* short-a-player-plan S6 (A14, D3): a booked court belongs in a game, where it gets the
-            roster, the trust signals and spot alerts. The text post stays for "anyone keen to
-            book something?" chatter. */}
-        {kind === "looking_for_players" && (
-          <Pressable
-            onPress={() => {
-              haptics.tap();
-              router.replace("/wizard");
-            }}
-            className="mx-5 mb-4 rounded-2xl p-4 border flex-row items-center gap-3"
-            style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}
-          >
-            <Ionicons name="flash-outline" size={18} color={colors.accent} />
-            <View className="flex-1">
-              <Text className="font-body-bold text-[14px]" style={{ color: colors.text }}>
-                Got a court booked?
-              </Text>
-              <Text className="text-[12.5px] mt-0.5" style={{ color: colors.textSecondary }}>
-                Post it as a game, it fills faster and nearby players get pinged.
-              </Text>
-            </View>
-            <Ionicons name="chevron-forward" size={15} color={colors.textTertiary} />
-          </Pressable>
+        {kind === "looking_for_players" && hasCourt === null && (
+          <View className="px-5 mb-4 gap-2.5">
+            <Text className="font-body-bold text-[12px] uppercase" style={{ color: colors.textTertiary, letterSpacing: 0.5 }}>
+              Got a court?
+            </Text>
+            <Pressable
+              testID="compose-has-court"
+              onPress={() => {
+                haptics.tap();
+                setHasCourt(true);
+              }}
+              className="rounded-2xl p-4 border flex-row items-center gap-3"
+              style={{ backgroundColor: colors.card, borderColor: "rgba(214,255,63,0.3)" }}
+            >
+              <Ionicons name="flash-outline" size={18} color={colors.accent} />
+              <View className="flex-1">
+                <Text className="font-body-bold text-[14px]" style={{ color: colors.text }}>
+                  Yep, I've got a court
+                </Text>
+                <Text className="text-[12.5px] mt-0.5" style={{ color: colors.textSecondary }}>
+                  Short a player or two
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={15} color={colors.textTertiary} />
+            </Pressable>
+            <Pressable
+              testID="compose-no-court"
+              onPress={() => {
+                haptics.tap();
+                setHasCourt(false);
+              }}
+              className="rounded-2xl p-4 border flex-row items-center gap-3"
+              style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}
+            >
+              <Ionicons name="search-outline" size={18} color={colors.textSecondary} />
+              <View className="flex-1">
+                <Text className="font-body-bold text-[14px]" style={{ color: colors.text }}>
+                  No, I'm after a game
+                </Text>
+                <Text className="text-[12.5px] mt-0.5" style={{ color: colors.textSecondary }}>
+                  Tell people you're keen, and we'll ping you when a spot opens
+                </Text>
+              </View>
+              <Ionicons name="chevron-forward" size={15} color={colors.textTertiary} />
+            </Pressable>
+          </View>
         )}
 
+        {/* short-a-player-plan S6 (A14, D3), now the default: a booked court belongs in a game,
+            where it gets the roster, the trust signals and spot alerts. */}
+        {kind === "looking_for_players" && hasCourt === true && !textWithCourt && (
+          <View className="px-5 mb-4 gap-3">
+            <Pressable
+              testID="compose-post-as-game"
+              onPress={postAsGame}
+              className="rounded-pill py-4 items-center flex-row justify-center gap-2"
+              style={{ backgroundColor: colors.accent }}
+            >
+              <Ionicons name="flash" size={16} color={colors.base} />
+              <Text className="font-body-extrabold text-[15px]" style={{ color: colors.base }}>
+                Post as a game, nearby players get pinged
+              </Text>
+            </Pressable>
+            <Pressable onPress={() => setTextWithCourt(true)} className="items-center py-1">
+              <Text className="font-body-bold text-[13px]" style={{ color: colors.textSecondary }}>
+                Or just post it to the feed
+              </Text>
+            </Pressable>
+          </View>
+        )}
+
+        {showForm && (
         <View className="px-5 mb-4">
           <TextInput
             value={body}
             onChangeText={(t) => setBody(t.slice(0, BODY_LIMIT))}
-            placeholder={kind === "looking_for_players" ? "Anyone free at NBC Thursday 8pm?" : "Best stringing tension for a beginner racquet?"}
+            placeholder={
+              kind === "question"
+                ? "Best stringing tension for a beginner racquet?"
+                : lookingForGame
+                  ? "Keen for a hit around Homebush Thursday night"
+                  : "Anyone free at NBC Thursday 8pm?"
+            }
             placeholderTextColor={colors.textTertiary}
             multiline
             className="rounded-2xl p-4 border text-[15px]"
@@ -172,7 +265,9 @@ export default function Compose() {
             {body.length}/{BODY_LIMIT}
           </Text>
         </View>
+        )}
 
+        {showForm && (
         <View className="px-5 mb-4">
           <View className="flex-row flex-wrap gap-2">
             {photos.map((p, i) => (
@@ -212,8 +307,9 @@ export default function Compose() {
             </Text>
           )}
         </View>
+        )}
 
-        {kind === "looking_for_players" && (
+        {kind === "looking_for_players" && showForm && (
           <>
             <View className="px-5 mb-4">
               <Text className="font-body-bold text-[12px] uppercase mb-2" style={{ color: colors.textTertiary, letterSpacing: 0.5 }}>
@@ -333,10 +429,12 @@ export default function Compose() {
           </>
         )}
 
-        {venueId && kind === "looking_for_players" && (
+        {venueId && kind === "looking_for_players" && showForm && (
           <View className="mx-5 rounded-2xl p-3.5 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
             <Text className="text-[12px]" style={{ color: colors.textSecondary }}>
-              This posts to the local feed. Anyone can reply "I'm in" by turning it into a game.
+              {lookingForGame
+                ? "This posts to the local feed, and we'll ping you when a spot opens at your level near here."
+                : "This posts to the local feed. Anyone can reply \"I'm in\" by turning it into a game."}
             </Text>
           </View>
         )}

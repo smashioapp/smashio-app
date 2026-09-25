@@ -27,6 +27,9 @@ jobs:
       - name: Typecheck
         run: npx tsc --noEmit
 
+      - name: Copy check (no em dashes in UI strings)
+        run: node scripts/check-copy.js
+
       - name: Expo export (android)
         run: npx expo export --platform android
 

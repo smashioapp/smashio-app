@@ -94,7 +94,7 @@ export default function Referral() {
           </Text>
           {!friends || friends.length === 0 ? (
             <Text className="text-[12.5px]" style={{ color: colors.textSecondary }}>
-              Nobody yet — share your code to earn a priority spot credit per friend who joins.
+              Nobody yet. Share your code to earn a priority spot credit per friend who joins.
             </Text>
           ) : (
             <View className="rounded-2xl border overflow-hidden px-3.5" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>

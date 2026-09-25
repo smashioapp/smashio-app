@@ -38,7 +38,9 @@ insert into public.venues (id, name, suburb, state, location, source) values
   ('55555555-0000-0000-0000-000000000004', 'Sydney Badminton', 'Hurstville', 'NSW', extensions.ST_SetSRID(extensions.ST_MakePoint(151.1027, -33.9669), 4326), 'partner'),
   ('55555555-0000-0000-0000-000000000005', 'Willoughby Leisure Centre', 'Willoughby', 'NSW', extensions.ST_SetSRID(extensions.ST_MakePoint(151.1993, -33.8039), 4326), 'partner'),
   ('55555555-0000-0000-0000-000000000006', 'MUSAC', 'Macquarie Park', 'NSW', extensions.ST_SetSRID(extensions.ST_MakePoint(151.1219, -33.7749), 4326), 'partner'),
-  ('55555555-0000-0000-0000-000000000007', 'PCYC Marrickville', 'Marrickville', 'NSW', extensions.ST_SetSRID(extensions.ST_MakePoint(151.1552, -33.9107), 4326), 'partner'),
+  -- No …0007 row: PCYC Marrickville already comes from 20260817000200_p2_enrichment.sql (slug
+  -- pcyc-marrickville). A second NULL-place_id copy here showed up twice in every local venue
+  -- list (short-a-player-ux-plan.md F25). The games below reference it by slug.
   ('55555555-0000-0000-0000-000000000008', 'Australian Badminton Academy - North Parramatta', 'North Parramatta', 'NSW', extensions.ST_SetSRID(extensions.ST_MakePoint(151.0021, -33.8020), 4326), 'partner');
 
 -- Test games/users land once slice 3 (create wizard) can produce a real organizer + game.
@@ -198,7 +200,7 @@ insert into public.games (
 select
   g.id::uuid,
   (select id from public.sports where slug = 'badminton'),
-  g.venue_id::uuid,
+  case when g.venue_id = 'pcyc-marrickville' then (select id from public.venues where slug = 'pcyc-marrickville') else g.venue_id::uuid end,
   (select st.id from public.skill_tiers st join public.sports s on s.id = st.sport_id where s.slug = 'badminton' and st.slug = g.tier_slug),
   g.organizer_id::uuid,
   now() + g.starts_offset, now() + g.starts_offset + make_interval(hours => g.duration),
@@ -207,9 +209,9 @@ from (values
   -- id suffix, venue_id, tier, organizer, starts offset, duration hours, max players, cost/player cents, status
   -- venue …0002 (Alpha Badminton, Silverwater) is ~15.2km from the Sydney CBD e2e geo fix
   -- (docs/e2e-test-plan.md P-5) — just outside Discover's default 15km radius filter, which
-  -- silently dropped these two from the "near you" list. …0007/…0006 are both confirmed
+  -- silently dropped these two from the "near you" list. pcyc-marrickville/…0006 are both confirmed
   -- inside range.
-  ('44444444-0000-0000-0000-000000000001', '55555555-0000-0000-0000-000000000007', 'intermediate', '22222222-0000-0000-0000-000000000001', interval '26 hours', 2, 6, 1200, 'published'),
+  ('44444444-0000-0000-0000-000000000001', 'pcyc-marrickville', 'intermediate', '22222222-0000-0000-0000-000000000001', interval '26 hours', 2, 6, 1200, 'published'),
   -- max_players 5, not 6: approved_player_count() (supabase/migrations) counts game_players
   -- rows only, never the organizer — 5 approved rows + organizer was never actually full at
   -- max_players=6, it always had 1 open spot. This is the C4 "full game" fixture; it needs to
@@ -220,7 +222,7 @@ from (values
   ('44444444-0000-0000-0000-000000000005', '55555555-0000-0000-0000-000000000006', 'intermediate', '11111111-1111-1111-1111-111111111111', interval '31 hours', 2, 6, 1500, 'published'),
   ('44444444-0000-0000-0000-000000000006', '55555555-0000-0000-0000-000000000006', 'intermediate', '11111111-1111-1111-1111-111111111111', interval '48 hours', 2, 6, 1500, 'published'),
   ('44444444-0000-0000-0000-000000000007', '55555555-0000-0000-0000-000000000005', 'intermediate', '22222222-0000-0000-0000-000000000002', interval '33 hours', 2, 6, 1200, 'published'),
-  ('44444444-0000-0000-0000-000000000010', '55555555-0000-0000-0000-000000000007', 'intermediate', '22222222-0000-0000-0000-000000000003', interval '30 hours', 2, 6, 1200, 'cancelled'),
+  ('44444444-0000-0000-0000-000000000010', 'pcyc-marrickville', 'intermediate', '22222222-0000-0000-0000-000000000003', interval '30 hours', 2, 6, 1200, 'cancelled'),
   ('44444444-0000-0000-0000-000000000011', '55555555-0000-0000-0000-000000000004', 'beginner', '22222222-0000-0000-0000-000000000004', interval '34 hours', 2, 8, 800, 'published'),
   ('44444444-0000-0000-0000-000000000012', '55555555-0000-0000-0000-000000000001', 'advanced', '22222222-0000-0000-0000-000000000005', interval '35 hours', 2, 6, 3000, 'published')
 ) as g(id, venue_id, tier_slug, organizer_id, starts_offset, duration, max_players, cost_cents, status);

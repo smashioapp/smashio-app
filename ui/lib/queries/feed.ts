@@ -147,6 +147,31 @@ export function useFeedHome(
 
 export type PickedPhoto = { uri: string; width: number; height: number };
 
+export type FeedGameState = { openSpots: number; status: string; startsAt: string };
+
+// System game posts carry a snapshot payload from publish time; the live row is the truth
+// (short-a-player-ux-plan.md §2.1/§7). One query for every game card on the loaded pages. A
+// game id missing from the result is gone for this viewer (deleted, link-only), so hide it.
+export function useFeedGameStates(gameIds: string[]) {
+  const ids = Array.from(new Set(gameIds)).sort();
+  return useQuery({
+    queryKey: ["feed_game_states", ids],
+    queryFn: async (): Promise<Map<string, FeedGameState>> => {
+      if (ids.length === 0) return new Map();
+      const { data, error } = await supabase.from("games_public").select("id, open_spots, status, starts_at").in("id", ids);
+      if (error) throw error;
+      const map = new Map<string, FeedGameState>();
+      for (const r of data ?? []) {
+        if (!r.id) continue;
+        map.set(r.id, { openSpots: r.open_spots ?? 0, status: r.status ?? "published", startsAt: r.starts_at ?? "" });
+      }
+      return map;
+    },
+    enabled: ids.length > 0,
+    staleTime: 30_000,
+  });
+}
+
 export type CreatePostInput = {
   kind: "question" | "looking_for_players";
   body: string;

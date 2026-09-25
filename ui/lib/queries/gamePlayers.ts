@@ -40,6 +40,42 @@ export function useGameRoster(gameId: string) {
   });
 }
 
+export type LineupPlayer = {
+  id: string;
+  firstName: string;
+  avatarKey: string | null;
+  photoUri: string | null;
+  votedLevel: string | null;
+  votedLevelVotes: number | null;
+  turnsUpPct: number | null;
+};
+
+// D-U2 (short-a-player-ux-plan.md §5): who's in, for a signed-in viewer who isn't on the roster
+// (RLS hides game_players from them). Omits blocked and players_only strangers; the game page pads
+// those as anonymous "Joined" slots from approved_count.
+export function useGameLineupPublic(gameId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["game_lineup_public", gameId],
+    enabled: enabled && !!gameId,
+    queryFn: async (): Promise<LineupPlayer[]> => {
+      const { data, error } = await supabase.rpc("game_lineup_public", { p_game_id: gameId });
+      if (error) throw error;
+      const rows = data ?? [];
+      const urlMap = await signAvatarUrls(rows.map((r) => r.photo_path));
+      return rows.map((r) => ({
+        id: r.profile_id,
+        firstName: r.first_name || "Player",
+        avatarKey: r.avatar_key,
+        photoUri: r.photo_path ? urlMap.get(r.photo_path) ?? null : null,
+        votedLevel: r.voted_level,
+        votedLevelVotes: r.voted_level_votes,
+        turnsUpPct: r.turns_up_pct,
+      }));
+    },
+    staleTime: 30_000,
+  });
+}
+
 // One query across every game on My Games, not one per card — cheap under RLS
 // (organizer + approved members can read game_players) and the roster-faces upgrade doesn't
 // scale with list length.

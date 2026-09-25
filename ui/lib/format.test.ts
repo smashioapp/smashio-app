@@ -1,4 +1,4 @@
-import { computeWeekStreak, dayLabel, formatCountdown, formatDistance, formatTimeShort, monthLabel } from "./format";
+import { computeWeekStreak, dayLabel, formatCountdown, formatDistance, formatTimeShort, monthLabel, relativeDayPhrase, startsWhenText } from "./format";
 
 describe("formatDistance", () => {
   it("shows metres under 1km", () => {
@@ -114,5 +114,40 @@ describe("computeWeekStreak", () => {
 
   it("counts from last week when nothing played yet this week", () => {
     expect(computeWeekStreak(["2026-08-11T10:00:00"], now)).toBe(1);
+  });
+});
+
+describe("startsWhenText", () => {
+  it("says tonight with a countdown for a same-day evening game", () => {
+    expect(startsWhenText("2026-09-25T22:57:00", new Date("2026-09-25T19:20:00"))).toBe("Tonight, 10:57pm · in 3h 37m");
+  });
+
+  it("says today for a same-day daytime game", () => {
+    expect(startsWhenText("2026-09-25T14:00:00", new Date("2026-09-25T09:00:00"))).toBe("Today, 2pm · in 5h");
+  });
+
+  it("goes by calendar day across midnight, not by 24h blocks", () => {
+    expect(startsWhenText("2026-09-26T00:30:00", new Date("2026-09-25T23:30:00"))).toBe("Tomorrow, 12:30am");
+  });
+
+  it("says tomorrow for a next-morning game", () => {
+    expect(startsWhenText("2026-09-26T05:57:00", new Date("2026-09-25T19:00:00"))).toBe("Tomorrow, 5:57am");
+  });
+
+  it("counts days and names the date further out", () => {
+    const text = startsWhenText("2026-09-28T20:00:00", new Date("2026-09-25T10:00:00"));
+    expect(text.startsWith("In 3 days · ")).toBe(true);
+    expect(text.endsWith(", 8pm")).toBe(true);
+    expect(text).toMatch(/28/);
+  });
+});
+
+describe("relativeDayPhrase", () => {
+  it("covers tonight, tomorrow and later", () => {
+    const now = new Date("2026-09-25T10:00:00");
+    expect(relativeDayPhrase("2026-09-25T19:00:00", now)).toBe("tonight");
+    expect(relativeDayPhrase("2026-09-25T12:00:00", now)).toBe("today");
+    expect(relativeDayPhrase("2026-09-26T19:00:00", now)).toBe("tomorrow");
+    expect(relativeDayPhrase("2026-09-29T19:00:00", now)).toBe("in 4 days");
   });
 });

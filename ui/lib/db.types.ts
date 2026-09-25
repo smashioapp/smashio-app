@@ -2539,6 +2539,18 @@ export type Database = {
           photo_path: string
         }[]
       }
+      game_lineup_public: {
+        Args: { p_game_id: string }
+        Returns: {
+          avatar_key: string
+          first_name: string
+          photo_path: string
+          profile_id: string
+          turns_up_pct: number
+          voted_level: string
+          voted_level_votes: number
+        }[]
+      }
       game_preview: {
         Args: { p_game_id: string }
         Returns: {
@@ -3084,12 +3096,52 @@ export type Database = {
           suburb: string
         }[]
       }
+      venue_upcoming_games: {
+        Args: { p_limit?: number; p_venue_id: string }
+        Returns: {
+          approved_count: number
+          cost_per_player_cents: number
+          court_label: string
+          courts_booked: number
+          cover_key: string
+          distance_m: number
+          duration_minutes: number
+          ends_at: string
+          format_label: string
+          id: string
+          max_players: number
+          notes: string
+          open_spots: number
+          organizer_avatar_key: string
+          organizer_display_name: string
+          organizer_hosted_count: number
+          organizer_id: string
+          organizer_photo_path: string
+          organizer_reliability_score: number
+          reserved_claimed: number
+          reserved_spots: number
+          skill_tier_label: string
+          skill_tier_max_label: string
+          skill_tier_ordinal: number
+          skill_tier_slug: string
+          starts_at: string
+          status: string
+          venue_address: string
+          venue_lat: number
+          venue_lng: number
+          venue_name: string
+          venue_suburb: string
+          verification_status: string
+        }[]
+      }
       venues_directory: {
         Args: {
           p_amenity_slugs?: string[]
           p_bookable_now?: boolean
           p_dedicated?: boolean
+          p_lat?: number
           p_limit?: number
+          p_lng?: number
           p_min_courts?: number
           p_offset?: number
           p_search?: string
@@ -3102,6 +3154,7 @@ export type Database = {
           confidence: string
           courts_badminton: number
           dedicated: boolean
+          distance_m: number
           has_profile: boolean
           id: string
           lat: number
@@ -3112,6 +3165,7 @@ export type Database = {
           suburb: string
           surface: string
           total_count: number
+          upcoming_game_count: number
           verified_at: string
         }[]
       }

@@ -6,6 +6,7 @@ import { confidenceState, VenueDirectoryRow } from "../lib/queries/venues";
 import { VenueCourtHeader } from "./VenueCourtHeader";
 import { HatchPattern } from "./HatchPattern";
 import { haptics } from "../lib/haptics";
+import { formatDistance } from "../lib/format";
 
 const THUMB = 56;
 
@@ -47,8 +48,15 @@ export function VenueCard({ venue }: { venue: VenueDirectoryRow }) {
           {venue.name}
         </Text>
         <Text numberOfLines={1} className="text-[11px] mt-0.5" style={{ color: colors.textSecondary }}>
-          {venue.suburb}
-          {venue.courts_badminton != null ? ` · ${venue.courts_badminton} ${venue.courts_badminton === 1 ? "court" : "courts"}` : ""}
+          {/* F3: distance and live games say more about "can I play here" than a court count. */}
+          {[
+            venue.suburb,
+            venue.distance_m != null ? formatDistance(venue.distance_m) : null,
+            venue.upcoming_game_count > 0 ? `${venue.upcoming_game_count} ${venue.upcoming_game_count === 1 ? "game" : "games"} on` : null,
+            venue.courts_badminton != null ? `${venue.courts_badminton} ${venue.courts_badminton === 1 ? "court" : "courts"}` : null,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
         </Text>
 
         <View className="flex-row items-center gap-2 mt-1.5">

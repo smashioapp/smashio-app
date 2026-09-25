@@ -8,11 +8,15 @@ import { BackButton } from "../../components/BackButton";
 import { Chip } from "../../components/Chip";
 import { VenueCard } from "../../components/VenueCard";
 import { EmptyState } from "../../components/EmptyState";
+import { useUserLocation } from "../../lib/location";
+import { roundedPoint } from "../../lib/suburbs";
 
 type FilterKey = "bookable" | "min4" | "dedicated";
 
+// "Casual play", not "Bookable now" (short-a-player-ux-plan.md §8): gtm-strategy §2.3 bans booking
+// framing. Same bookability = 'public' data underneath.
 const FILTERS: { key: FilterKey; label: string }[] = [
-  { key: "bookable", label: "Bookable now" },
+  { key: "bookable", label: "Casual play" },
   { key: "min4", label: "4+ courts" },
   { key: "dedicated", label: "Dedicated" },
 ];
@@ -25,6 +29,8 @@ export default function VenuesDirectoryScreen() {
   const [active, setActive] = useState<Set<FilterKey>>(new Set());
   const [activeAmenities, setActiveAmenities] = useState<Set<string>>(new Set());
   const amenityTypesQuery = useAmenityTypes();
+  // F3: nearest first, with distance on every row.
+  const location = useUserLocation();
 
   const toggle = (key: FilterKey) => {
     setActive((prev) => {
@@ -48,6 +54,7 @@ export default function VenuesDirectoryScreen() {
     minCourts: active.has("min4") ? 4 : undefined,
     dedicated: active.has("dedicated") || undefined,
     amenitySlugs: activeAmenities.size > 0 ? Array.from(activeAmenities) : undefined,
+    near: roundedPoint(location),
   });
 
   const venues = query.data ?? [];
@@ -59,7 +66,7 @@ export default function VenuesDirectoryScreen() {
         <View className="flex-row items-center gap-3">
           <BackButton onPress={() => router.back()} />
           <Text className="font-display text-[22px] flex-1" style={{ color: colors.text }}>
-            Courts near me
+            Venues near you
           </Text>
         </View>
 

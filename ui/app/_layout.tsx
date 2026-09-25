@@ -96,6 +96,7 @@ export default function RootLayout() {
                   <Stack.Screen name="game/[id]" options={{ presentation: "card" }} />
                   <Stack.Screen name="venue/[id]" options={{ presentation: "card" }} />
                   <Stack.Screen name="venues/index" options={{ presentation: "card" }} />
+                  <Stack.Screen name="search" options={{ presentation: "card" }} />
                   <Stack.Screen name="game/edit/[id]" options={{ presentation: "modal" }} />
                   <Stack.Screen name="my-games/past" options={{ presentation: "card" }} />
                   <Stack.Screen name="chat/[id]" options={{ presentation: "card" }} />

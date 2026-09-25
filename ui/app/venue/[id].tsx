@@ -1,4 +1,9 @@
 import { useState } from "react";
+import { useSession } from "../../lib/session";
+import { useVenueUpcomingGames } from "../../lib/queries/games";
+import { useCreateAlert } from "../../lib/queries/alerts";
+import { GameCard } from "../../components/GameCard";
+import { AlertMeRow, type AlertState } from "../../components/AlertMeRow";
 import { View, Text, Pressable, ScrollView, Alert, Linking, Image, useWindowDimensions } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -52,6 +57,11 @@ export default function VenueScreen() {
   const photoUrlsQuery = useVenuePhotoUrls(photoPaths);
   const reportCorrection = useReportCorrection();
   const [reportSent, setReportSent] = useState(false);
+  const { session } = useSession();
+  const gamesQuery = useVenueUpcomingGames(venue ? { id: venue.id, name: venue.name, lat: venue.lat, lng: venue.lng } : null, { anon: !session });
+  const createAlert = useCreateAlert();
+  const [alertState, setAlertState] = useState<AlertState>("idle");
+  const [showAllGames, setShowAllGames] = useState(false);
 
   if (venueQuery.isLoading) {
     return (
@@ -91,7 +101,7 @@ export default function VenueScreen() {
         text: "Report an issue",
         onPress: () => {
           reportCorrection.mutate(
-            { venueId: venue.id, field: "general", note: "Flagged from venue screen — see app for context." },
+            { venueId: venue.id, field: "general", note: "Flagged from venue screen, see app for context." },
             {
               onSuccess: () => setReportSent(true),
               onError: (e) => Alert.alert("Couldn't send that", e instanceof Error ? e.message : "Give it another go."),
@@ -100,6 +110,28 @@ export default function VenueScreen() {
         },
       },
     ]);
+  };
+
+  const games = gamesQuery.data ?? [];
+
+  // Saved alert centred on this venue, 2km, any level: a game posted here is what fires it.
+  const handleVenueAlert = () => {
+    if (!session) {
+      router.push("/onboarding");
+      return;
+    }
+    haptics.tap();
+    setAlertState("saving");
+    createAlert.mutate(
+      { tierSlugs: [], radiusKm: 2, center: { lat: venue.lat, lng: venue.lng } },
+      {
+        onSuccess: () => {
+          setAlertState("saved");
+          haptics.success();
+        },
+        onError: () => setAlertState("idle"),
+      }
+    );
   };
 
   const handleHostHere = () => {
@@ -207,17 +239,36 @@ export default function VenueScreen() {
             </View>
           )}
 
+          {/* F1 (short-a-player-ux-plan.md §4.2): the games themselves, one tap from joining. This
+              is where a venue QR poster lands (gtm-strategy §7.2), so it can't be a count. */}
           <SectionLabel>Play here</SectionLabel>
-          <View className="rounded-2xl p-4 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
-            <Text className="text-[14.5px]" style={{ color: colors.textSecondary }}>
-              {venue.upcoming_game_count > 0
-                ? `${venue.upcoming_game_count} upcoming ${venue.upcoming_game_count === 1 ? "game" : "games"}${venue.next_game_at ? ` · next ${formatTimeShort(venue.next_game_at)}` : ""}`
-                : "No games on here yet."}
-            </Text>
-            <View className="mt-3">
-              <Button label="Host a game here" size="md" onPress={handleHostHere} />
+          {games.length > 0 ? (
+            <View style={{ gap: 10 }}>
+              {(showAllGames ? games : games.slice(0, 5)).map((g) => (
+                <GameCard key={g.id} game={g} onPress={() => router.push(`/game/${g.id}`)} testID={`venue-game-${g.id}`} />
+              ))}
+              {games.length > 5 && !showAllGames && (
+                <Pressable onPress={() => setShowAllGames(true)} className="items-center py-2">
+                  <Text className="font-body-bold text-[13.5px]" style={{ color: colors.accent }}>
+                    See all {games.length}
+                  </Text>
+                </Pressable>
+              )}
+              <View className="mt-1">
+                <Button label="Host a game here" size="md" variant="secondary" onPress={handleHostHere} />
+              </View>
             </View>
-          </View>
+          ) : (
+            <View className="rounded-2xl p-4 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
+              <Text className="text-[14.5px]" style={{ color: colors.textSecondary }}>
+                {gamesQuery.isLoading ? "Checking for games…" : "No games on here yet. Host one, or get pinged when one's posted."}
+              </Text>
+              <View className="mt-3" style={{ gap: 10 }}>
+                <Button label="Host a game here" size="md" onPress={handleHostHere} />
+                <AlertMeRow state={alertState} onPress={handleVenueAlert} label="Ping me when a game's posted here" />
+              </View>
+            </View>
+          )}
 
           {venue.pricing_bands.length > 0 && (
             <>

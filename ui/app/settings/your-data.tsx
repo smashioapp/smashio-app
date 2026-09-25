@@ -40,7 +40,7 @@ export default function YourData() {
   const sessionExpired = !sessionLoading && !session;
 
   const requestExport = () => {
-    Alert.alert("Not ready yet", "Data export isn't live yet — this button is a placeholder for the work, not a working request.");
+    Alert.alert("Not ready yet", "Data export isn't live yet. This button is a placeholder for the work, not a working request.");
   };
 
   return (
@@ -106,7 +106,7 @@ export default function YourData() {
               Delete my account
             </Text>
             <Text className="text-[12px] mt-1" style={{ color: colors.textSecondary }}>
-              Permanent — see exactly what gets deleted and what stays
+              Permanent. See exactly what gets deleted and what stays
             </Text>
           </View>
           <Ionicons name="chevron-forward" size={16} color={colors.danger} />

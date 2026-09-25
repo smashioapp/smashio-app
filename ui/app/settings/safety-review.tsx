@@ -71,8 +71,8 @@ export default function SafetyReview() {
           title="Who can see your profile"
           detail={
             profile?.profile_visibility === "players_only"
-              ? "Set to players you've played with — your reputation stays hidden from everyone else."
-              : "Set to everyone — any signed-in player can open your full profile."
+              ? "Set to players you've played with, so your reputation stays hidden from everyone else."
+              : "Set to everyone, so any signed-in player can open your full profile."
           }
           cta="Review visibility"
           onPress={() => router.push("/settings/visibility")}
@@ -102,7 +102,7 @@ export default function SafetyReview() {
         <Step
           icon="flag-outline"
           title="Report and block from anywhere"
-          detail="Every player card carries a ⋯ menu with Report and Block — you don't need to come back here to use either one."
+          detail="Every player card carries a ⋯ menu with Report and Block, so you don't need to come back here to use either one."
           cta="See how you look"
           onPress={() => router.push("/settings/view-as")}
         />

@@ -16,6 +16,7 @@ import { SwipeToDecide } from "./SwipeToDecide";
 import { VenueCourtHeader } from "./VenueCourtHeader";
 import { GameCover } from "./GameCover";
 import { Game, Player, spotsLeft } from "../lib/mockData";
+import { needsLabel } from "../lib/trust";
 import { haptics } from "../lib/haptics";
 import { openDirections } from "../lib/directions";
 import { shareGame } from "../lib/share";
@@ -150,7 +151,8 @@ export function UpcomingGameCard({
               <View className="flex-row items-center gap-1.5">
                 <View className="rounded-pill px-2 py-0.5" style={{ backgroundColor: "rgba(214,255,63,0.12)" }}>
                   <Text className="text-[11px] font-body-extrabold" style={{ color: colors.accent }}>
-                    {ROLE_LABEL[role]}
+                    {/* ux-plan F17: a host scanning My Games wants what's left to fill, not a headcount. */}
+                    {role === "hosting" && game.status !== "cancelled" ? `Hosting · ${needsLabel(spotsOpen)}` : ROLE_LABEL[role]}
                   </Text>
                 </View>
                 {role === "hosting" && game.status !== "cancelled" && game.verificationStatus !== "none" && (
@@ -181,7 +183,7 @@ export function UpcomingGameCard({
 
           {role === "invited" && (
             <Text className="text-[12.5px] font-body-bold" style={{ color: colors.accent }}>
-              You're invited — tap to respond
+              You're invited, tap to respond
             </Text>
           )}
 

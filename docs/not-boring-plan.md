@@ -73,6 +73,10 @@ This is a product change with backend implications (new tables, new queries), no
 
 1. **Audio: yes.** `expo-audio` goes in. Sound files are *synthesized* rather than downloaded — a build-time Node script writes short WAVs from sine/noise envelopes into `ui/assets/sfx/`. No licensing question, no network dependency, files are a few KB each, and the script is checked in so the sounds are reproducible and tweakable.
 2. **Hold-to-join: yes, ship it.** `HoldButton` goes on Join Game, no flag. The friction is the point.
+   > **Reversed 2026-09-25** (owner, [short-a-player-ux-plan.md](short-a-player-ux-plan.md) D-U1):
+   > joining becomes a plain tap. Finding a game has to be effortless, so the join button can't
+   > add friction. Paid games get a lightweight confirm sheet instead. `HoldButton` stays for
+   > the other places that use it (e.g. onboarding "Hold to start playing").
 3. **Season ladder: parked.** Phase 4 stays written down but unstarted. Revisit after phases 0–3 land.
 
 ## Working order

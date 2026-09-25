@@ -34,7 +34,13 @@ export function StatTile({
     >
       <Text
         numberOfLines={1}
-        className={small ? "font-body-extrabold text-[13px]" : "font-display-bold text-[22px]"}
+        className={
+          small
+            ? value.length > 9
+              ? "font-body-extrabold text-[10.5px]"
+              : "font-body-extrabold text-[13px]"
+            : "font-display-bold text-[22px]"
+        }
         style={{ color: tone ?? colors.text }}
       >
         {value}

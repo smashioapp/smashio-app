@@ -1,4 +1,6 @@
 appId: com.smashio.app
+tags:
+  - smoke
 ---
 # A3: relaunch WITHOUT clearState must land straight on the tabs, no sign-in screen.
 #

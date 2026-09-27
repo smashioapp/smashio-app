@@ -51,6 +51,9 @@ jobs:
       - name: Assert no PUBLIC-executable security definer functions
         run: supabase db query --local "select public.assert_no_public_definer_execute();"
 
+      - name: pgTAP tests (RLS, grants, capacity, reserved spots, Discover visibility)
+        run: supabase test db
+
   test:
     runs-on: ubuntu-latest
     defaults:

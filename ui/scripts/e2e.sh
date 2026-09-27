@@ -63,5 +63,6 @@ fi
 echo "Installing + launching dev build..."
 npx expo run:android
 
-echo "Running Maestro flows..."
-maestro test .maestro
+# E2E_TAGS=smoke runs only flows tagged `smoke` (see .claude/skills/e2e-smoke). Unset = all flows.
+echo "Running Maestro flows${E2E_TAGS:+ (tags: $E2E_TAGS)}..."
+maestro test ${E2E_TAGS:+--include-tags="$E2E_TAGS"} .maestro

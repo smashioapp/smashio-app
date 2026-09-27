@@ -293,12 +293,12 @@ SELECT is(
   'p_include_requested widens the set to pending requesters (bug #1: cancel/reschedule)'
 );
 
--- 16. spots_left is max - approved - reserved (8 - 1 - 2), the number every host-facing string
+-- 16. spots_left is max - host - approved - reserved (8 - 1 - 1 - 2), the number every host-facing string
 -- quotes back to the user.
 SELECT is(
   (select spots_left from public.push_game_summary('a0000000-0000-0000-0000-000000000006')),
-  5,
-  'push_game_summary.spots_left subtracts both approved players and reserved spots'
+  4,
+  'push_game_summary.spots_left subtracts the host, approved players and reserved spots'
 );
 
 -- ---------------------------------------------------------------------------------------------
@@ -370,7 +370,7 @@ SELECT is(
 
 insert into public.games (id, sport_id, venue_id, organizer_id, starts_at, ends_at, skill_tier_id, max_players, status)
 select 'a0000000-0000-0000-0000-000000000010', s.id, 'b5555555-5555-5555-5555-555555555555',
-  'b1111111-1111-1111-1111-111111111111', now() - interval '5 hours', now() - interval '3 hours',
+  'b1111111-1111-1111-1111-111111111111', now() - interval '7 hours', now() - interval '4 hours',
   t.id, 8, 'completed'
 from public.sports s join public.skill_tiers t on t.sport_id = s.id where s.slug = 'badminton' limit 1;
 
@@ -384,17 +384,17 @@ select public.dispatch_post_game_prompts();
 SELECT ok(
   (select rate_prompted_at from public.games where id = 'a0000000-0000-0000-0000-000000000010') is not null
   and (select count(*) from net.http_request_queue) > (select n from _queue_before),
-  'a game completed more than 2 hours ago queues one post_game_rate push and stamps rate_prompted_at (C3)'
+  'a game completed more than 3 hours ago queues one post_game_rate push and stamps rate_prompted_at (C3)'
 );
 
 drop table _queue_before;
 
--- 22. One approved player: only the host has someone to rate (the player's rate list excludes
--- themselves, and the host has no game_players row).
+-- 22. One approved player: host and player can rate each other (open_rateable_count >= 2), so
+-- both get the prompt.
 SELECT is(
   (select count(*)::int from public.push_post_game_recipients('a0000000-0000-0000-0000-000000000010')),
-  1,
-  'with a single approved player the rating prompt goes to the host alone'
+  2,
+  'with a single approved player the rating prompt goes to the host and that player'
 );
 
 -- 23. Two approved players: everyone has a co-player to rate.

@@ -1,4 +1,6 @@
 appId: com.smashio.app
+tags:
+  - smoke
 ---
 # C1: open …01 (open game, test user not a member) from Discover, tap to join (D-U1,
 # short-a-player-ux-plan.md §5), confirm the cost sheet, CTA flips

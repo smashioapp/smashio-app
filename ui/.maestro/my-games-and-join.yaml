@@ -1,4 +1,6 @@
 appId: com.smashio.app
+tags:
+  - smoke
 ---
 # Covers: My Games list renders with fixture data, opening a game detail screen works,
 # join-lifecycle CTA is reachable. Fixture guarantees the test user has upcoming games

@@ -7,6 +7,8 @@ on:
       - "ui/**"
       - "!ui/ios/**"
       - "!ui/android/**"
+      - "!ui/.maestro/**"
+      - "!ui/scripts/e2e.sh"
 
 jobs:
   publish:

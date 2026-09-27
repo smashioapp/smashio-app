@@ -1,4 +1,6 @@
 appId: com.smashio.app
+tags:
+  - smoke
 ---
 # Exercises the real typed sign-in form (login.yaml uses the __DEV__ auto-login
 # shortcut instead — this is the flow that actually covers form input + auth).

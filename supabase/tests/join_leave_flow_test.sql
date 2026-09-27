@@ -5,8 +5,8 @@
 BEGIN;
 SELECT plan(16);
 
--- Fixture: organizer + 4 candidate players, one venue, one game capped at max_players = 2 so the
--- capacity check in decide_join_request is actually exercised.
+-- Fixture: organizer + 4 candidate players, one venue, one game capped at max_players = 3 (host + 2
+-- players, the host occupies a slot) so the capacity check in decide_join_request is exercised.
 set local role postgres;
 
 insert into auth.users (id, email) values
@@ -26,7 +26,7 @@ select
   '66666666-6666-6666-6666-666666666666',
   'b1111111-1111-1111-1111-111111111111',
   now() + interval '1 day', now() + interval '1 day 2 hours',
-  t.id, 2
+  t.id, 3
 from public.sports s
 join public.skill_tiers t on t.sport_id = s.id
 where s.slug = 'badminton'
@@ -87,7 +87,7 @@ SELECT throws_ok(
   'a non-organizer cannot decide join requests'
 );
 
--- Organizer approves playerA and playerB, filling the game to max_players = 2.
+-- Organizer approves playerA and playerB, filling the game to max_players = 3 (host + 2).
 select set_config('request.jwt.claims', json_build_object('sub', 'b1111111-1111-1111-1111-111111111111', 'role', 'authenticated')::text, true);
 select public.decide_join_request('77777777-7777-7777-7777-777777777777', 'a2222222-2222-2222-2222-222222222222', true);
 SELECT is(
@@ -103,7 +103,7 @@ SELECT is(
   'organizer approves playerB, filling the game'
 );
 
--- Game is now full (2/2) — approving playerC must fail the capacity check.
+-- Game is now full (3/3 incl. host) — approving playerC must fail the capacity check.
 SELECT throws_ok(
   $$ select public.decide_join_request('77777777-7777-7777-7777-777777777777', 'a4444444-4444-4444-4444-444444444444', true) $$,
   'P0001',
@@ -119,13 +119,14 @@ SELECT is(
   'organizer rejects playerD'
 );
 
--- request_to_join reopens a rejected row back to requested.
+-- request_to_join reopens a rejected row. The game is full (3/3 incl. host) so it lands on the
+-- waitlist rather than as a plain request.
 select set_config('request.jwt.claims', json_build_object('sub', 'a5555555-5555-5555-5555-555555555555', 'role', 'authenticated')::text, true);
 select public.request_to_join('77777777-7777-7777-7777-777777777777');
 SELECT is(
   (select status from public.game_players where game_id = '77777777-7777-7777-7777-777777777777' and profile_id = 'a5555555-5555-5555-5555-555555555555'),
-  'requested',
-  'a rejected player can request to join again, reopening the row'
+  'waitlisted',
+  'a rejected player can request to join again, reopening the row (waitlisted while full)'
 );
 
 -- leave_game: an approved player leaving.
@@ -159,7 +160,7 @@ SELECT is(
 SELECT throws_ok(
   $$ select public.remove_player('77777777-7777-7777-7777-777777777777', 'b1111111-1111-1111-1111-111111111111') $$,
   'P0001',
-  'The organiser can''t be removed from their own game',
+  'The organizer cannot be removed',
   'organizer cannot remove themself'
 );
 
@@ -168,7 +169,7 @@ select set_config('request.jwt.claims', json_build_object('sub', 'a2222222-2222-
 SELECT throws_ok(
   $$ select public.remove_player('77777777-7777-7777-7777-777777777777', 'a4444444-4444-4444-4444-444444444444') $$,
   'P0001',
-  'Only the organiser can remove players',
+  'Only the organizer can remove players',
   'a non-organizer cannot remove players'
 );
 

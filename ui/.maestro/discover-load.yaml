@@ -1,4 +1,6 @@
 appId: com.smashio.app
+tags:
+  - smoke
 ---
 - runFlow: login.yaml
 - tapOn:

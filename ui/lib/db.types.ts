@@ -89,6 +89,24 @@ export type Database = {
           },
         ]
       }
+      ai_proxy_parse_calls: {
+        Row: {
+          created_at: string
+          id: string
+          profile_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          profile_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          profile_id?: string
+        }
+        Relationships: []
+      }
       amenity_types: {
         Row: {
           category: string
@@ -2120,6 +2138,7 @@ export type Database = {
         Row: {
           address: string | null
           created_at: string
+          created_by: string | null
           google_place_id: string | null
           id: string
           location: unknown
@@ -2133,6 +2152,7 @@ export type Database = {
         Insert: {
           address?: string | null
           created_at?: string
+          created_by?: string | null
           google_place_id?: string | null
           id?: string
           location: unknown
@@ -2146,6 +2166,7 @@ export type Database = {
         Update: {
           address?: string | null
           created_at?: string
+          created_by?: string | null
           google_place_id?: string | null
           id?: string
           location?: unknown
@@ -2320,6 +2341,16 @@ export type Database = {
         Args: { p_game_id: string; p_label?: string }
         Returns: string
       }
+      ai_proxy_take_slot: {
+        Args: {
+          p_count?: number
+          p_kind: string
+          p_per_day: number
+          p_per_minute: number
+          p_profile_id: string
+        }
+        Returns: string
+      }
       ai_proxy_url: { Args: never; Returns: string }
       approve_chat_photo: { Args: { p_message_id: string }; Returns: undefined }
       approve_join_action: {
@@ -2394,7 +2425,9 @@ export type Database = {
           slug: string
         }[]
       }
+      coarse_point: { Args: { p: unknown }; Returns: unknown }
       complete_past_games: { Args: never; Returns: undefined }
+      confirmation_object_locked: { Args: { p_name: string }; Returns: boolean }
       create_game_with_spots: {
         Args: {
           p_auto_approve?: boolean
@@ -2643,7 +2676,50 @@ export type Database = {
           name: string
         }[]
       }
+      moderation_breaker_check: { Args: never; Returns: undefined }
+      moderation_breaker_tripped: { Args: never; Returns: boolean }
+      my_profile: {
+        Args: never
+        Returns: {
+          about_you: string | null
+          avatar_key: string | null
+          created_at: string
+          deleted_at: string | null
+          display_name: string
+          distance_units: string
+          follower_count: number
+          following_count: number
+          home_suburb: string | null
+          home_venue_id: string | null
+          id: string
+          photo_path: string | null
+          profile_visibility: string
+          referral_code: string
+          referral_priority_credits: number
+          referred_by: string | null
+          reliability_score: number
+          show_suburb: boolean
+          timezone: string
+          usual_nights: string[]
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "profiles"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       my_reacted_post_ids: { Args: { p_post_ids: string[] }; Returns: string[] }
+      my_referrals: {
+        Args: never
+        Returns: {
+          avatar_key: string
+          created_at: string
+          display_name: string
+          id: string
+          photo_path: string
+        }[]
+      }
       nearby_games: {
         Args: {
           from_ts?: string
@@ -3020,6 +3096,7 @@ export type Database = {
         Args: { p_game_id: string; p_muted: boolean; p_profile_id: string }
         Returns: undefined
       }
+      set_referrer: { Args: { p_referrer_id: string }; Returns: undefined }
       set_reserved_spot_expiry: {
         Args: { p_hours_before: number; p_pinned: boolean; p_spot_id: string }
         Returns: undefined
@@ -3217,12 +3294,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3246,11 +3323,11 @@ export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3271,11 +3348,11 @@ export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3296,11 +3373,11 @@ export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
     | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }
@@ -3313,11 +3390,11 @@ export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never) = never,
+    : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

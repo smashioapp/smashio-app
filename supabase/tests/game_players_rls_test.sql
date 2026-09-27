@@ -1,7 +1,7 @@
 -- RLS + RPC coverage for public.game_players (supabase/migrations/20260808000000_game_players.sql).
 -- Run: supabase test db
 BEGIN;
-SELECT plan(13);
+SELECT plan(14);
 
 -- Fixture: organizer, an approved member, a requester, and a stranger. Reuses seed.sql's
 -- badminton sport/skill_tier (slug is unique — inserting a fresh one would collide).
@@ -58,10 +58,18 @@ SELECT throws_ok(
   'cannot self-insert with a status other than requested'
 );
 
-SELECT lives_ok(
+-- H5 (security review 2026-09-27): no direct insert at all, joins go through request_to_join.
+SELECT throws_ok(
   $$ insert into public.game_players (game_id, profile_id, status)
      values ('66666666-6666-6666-6666-666666666666', '44444444-4444-4444-4444-444444444444', 'requested') $$,
-  'can insert own requested row'
+  '42501',
+  null,
+  'cannot insert own requested row directly (must use request_to_join)'
+);
+
+SELECT lives_ok(
+  $$ select public.request_to_join('66666666-6666-6666-6666-666666666666') $$,
+  'can request to join through the RPC'
 );
 
 SELECT throws_ok(

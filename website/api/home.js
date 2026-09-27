@@ -26,9 +26,20 @@ const SYD = "Australia/Sydney";
 // re-billed per pageview — venue locations change rarely, per website-plan.md §5's cost-check note.
 const MAP_ID = "65180cd85350fca689a8eb06"; // same cloud-styled dark Map ID the app's Discover map uses (docs/map-plan.md)
 
+// Per-instance memo on top of the CDN cache, so even a CDN miss storm costs one upstream call
+// per warm instance per day.
+let tileMemo = null;
+const TILE_MEMO_MS = 24 * 60 * 60 * 1000;
+
 async function serveMapTile(res) {
   const apiKey = process.env.GOOGLE_MAPS_STATIC_API_KEY;
   if (!apiKey) return res.status(404).end();
+
+  if (tileMemo && Date.now() - tileMemo.at < TILE_MEMO_MS) {
+    res.setHeader("Content-Type", tileMemo.type);
+    res.setHeader("Cache-Control", "public, max-age=86400, s-maxage=604800, stale-while-revalidate=2592000");
+    return res.status(200).send(tileMemo.buf);
+  }
 
   let venues = [];
   try {
@@ -49,7 +60,9 @@ async function serveMapTile(res) {
   if (!upstream.ok) return res.status(502).end();
 
   const buf = Buffer.from(await upstream.arrayBuffer());
-  res.setHeader("Content-Type", upstream.headers.get("content-type") || "image/png");
+  const type = upstream.headers.get("content-type") || "image/png";
+  tileMemo = { buf, type, at: Date.now() };
+  res.setHeader("Content-Type", type);
   res.setHeader("Cache-Control", "public, max-age=86400, s-maxage=604800, stale-while-revalidate=2592000");
   res.status(200).send(buf);
 }
@@ -233,7 +246,12 @@ function jsonLd(games) {
 }
 
 module.exports = async function handler(req, res) {
-  if (req.query && req.query.map === "1") return serveMapTile(res);
+  if (req.query && req.query.map === "1") {
+    // M9: any extra query param would make a fresh CDN cache key and a fresh billed Static Maps
+    // call. Only the exact /api/map-tile request is served.
+    if (Object.keys(req.query).length !== 1) return res.status(404).end();
+    return serveMapTile(res);
+  }
 
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.setHeader("Cache-Control", "public, max-age=60, s-maxage=300, stale-while-revalidate=86400");

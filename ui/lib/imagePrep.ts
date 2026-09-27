@@ -24,3 +24,10 @@ export async function prepareConfirmationImage(uri: string, width: number, heigh
 }
 
 export const preparePhotoForUpload = prepareConfirmationImage;
+
+// Same prep when the caller doesn't have the picker's width/height (avatar uploads). Renders once
+// to learn the size, then re-encodes, so EXIF/GPS never leaves the phone.
+export async function preparePhotoForUploadAnySize(uri: string): Promise<string> {
+  const probe = await ImageManipulator.manipulate(uri).renderAsync();
+  return prepareConfirmationImage(uri, probe.width, probe.height);
+}

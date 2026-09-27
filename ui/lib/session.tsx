@@ -4,6 +4,8 @@ import { Linking, Platform } from "react-native";
 import { router } from "expo-router";
 import { supabase } from "./supabase";
 import { consumePendingReferral } from "./referral";
+import { consumePendingPath } from "./pendingGame";
+import { queryClient } from "./queryClient";
 import { identify, resetAnalytics } from "./analytics";
 
 // Best-effort, once per captured link (profile-plan.md P5) — consumePendingReferral clears the
@@ -11,7 +13,8 @@ import { identify, resetAnalytics } from "./analytics";
 async function attributeReferral(userId: string) {
   const referrerId = await consumePendingReferral();
   if (!referrerId || referrerId === userId) return;
-  await supabase.from("profiles").update({ referred_by: referrerId }).eq("id", userId).is("referred_by", null);
+  // set_referrer owns the rules (no self-referral, first write wins, new accounts only).
+  await supabase.rpc("set_referrer", { p_referrer_id: referrerId });
 }
 
 type SessionContextValue = {
@@ -90,7 +93,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         identify(nextSession.user.id);
         attributeReferral(nextSession.user.id).catch(() => {});
       }
-      if (event === "SIGNED_OUT") resetAnalytics();
+      if (event === "SIGNED_OUT") {
+        resetAnalytics();
+        // The next account on this phone must not see the last one's cached chats and games,
+        // or inherit a deep link / referral captured before the sign-out.
+        queryClient.clear();
+        consumePendingPath().catch(() => {});
+        consumePendingReferral().catch(() => {});
+      }
     });
 
     return () => subscription.subscription.unsubscribe();

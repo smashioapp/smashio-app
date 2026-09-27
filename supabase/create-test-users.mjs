@@ -2,15 +2,29 @@
 // Creates/verifies the fixed set of test accounts used by seed-test-data.sql against the
 // LINKED hosted Supabase project. Idempotent — skips any email that already exists.
 //
-// Usage: node supabase/create-test-users.mjs
+// Usage:
+//   SMASHIO_TEST_USER_PASSWORD='<long random>' SMASHIO_ALLOW_HOSTED_TEST_USERS=1 //     node supabase/create-test-users.mjs
 //
 // Never persists the service-role key: fetched fresh from the Supabase CLI (which is
 // already authenticated + linked) for the duration of this process only.
+//
+// Security review 2026-09-27 (M10): the password used to be a constant in this public repo, so
+// anyone could sign in to accounts it created on the hosted project. It now comes from the
+// environment, must be strong, and the script refuses to touch the hosted project unless you
+// opt in explicitly. Keep the password in a password manager, never in the repo or docs.
 
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
-const PASSWORD = "Test1234!";
+const PASSWORD = process.env.SMASHIO_TEST_USER_PASSWORD ?? "";
+if (PASSWORD.length < 16 || !/[A-Za-z]/.test(PASSWORD) || !/[0-9]/.test(PASSWORD)) {
+  console.error("Set SMASHIO_TEST_USER_PASSWORD (16+ chars, letters and digits). Refusing to run.");
+  process.exit(1);
+}
+if (process.env.SMASHIO_ALLOW_HOSTED_TEST_USERS !== "1") {
+  console.error("This creates sign-in-able accounts on the LINKED HOSTED project. Set SMASHIO_ALLOW_HOSTED_TEST_USERS=1 to confirm.");
+  process.exit(1);
+}
 
 // [email, display_name] — first three are named personal accounts (App Store review + team);
 // bot1-5 are "existing user" accounts that host events so discover/map aren't empty on first run.

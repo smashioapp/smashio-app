@@ -7,6 +7,21 @@ if (dsn) {
     dsn,
     tracesSampleRate: __DEV__ ? 1.0 : 0.2,
     debug: __DEV__,
+    // REST URLs carry filter values (ids, coordinates) in the query string. Keep the path for
+    // debugging, drop the query.
+    beforeBreadcrumb(breadcrumb) {
+      const url = breadcrumb.data?.url;
+      if (typeof url === "string" && url.includes("?")) {
+        breadcrumb.data = { ...breadcrumb.data, url: url.split("?")[0] };
+      }
+      return breadcrumb;
+    },
+    beforeSend(event) {
+      if (event.request?.url) event.request.url = event.request.url.split("?")[0];
+      if (event.request) delete event.request.query_string;
+      if (event.user) event.user = { id: event.user.id };
+      return event;
+    },
   });
 }
 

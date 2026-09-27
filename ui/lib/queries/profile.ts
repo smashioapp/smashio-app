@@ -6,6 +6,7 @@ import type { Database, TablesUpdate } from "../db.types";
 import { computeWeekStreak } from "../format";
 import { avatarColor } from "../theme";
 import { signAvatarUrl } from "../avatarUrls";
+import { preparePhotoForUploadAnySize } from "../imagePrep";
 
 async function currentUserId() {
   const {
@@ -19,8 +20,11 @@ export function useProfile(userId: string | undefined) {
   return useQuery({
     queryKey: ["profile", userId],
     queryFn: async () => {
-      const { data, error } = await supabase.from("profiles").select("*").eq("id", userId!).single();
+      // Own row through my_profile(): the pattern-of-life columns aren't selectable over REST.
+      // useProfile is only ever called with the signed-in user's id.
+      const { data, error } = await supabase.rpc("my_profile").single();
       if (error) throw error;
+      if (data.id !== userId) throw new Error("Profile mismatch");
       return data;
     },
     enabled: !!userId,
@@ -62,13 +66,12 @@ export function useReferralStats(profileId: string | undefined) {
   return useQuery({
     queryKey: ["referral_stats", profileId],
     queryFn: async () => {
-      const [count, profile] = await Promise.all([
-        supabase.from("profiles").select("id", { count: "exact", head: true }).eq("referred_by", profileId!),
-        supabase.from("profiles").select("referral_priority_credits, referral_code").eq("id", profileId!).single(),
-      ]);
-      if (count.error) throw count.error;
+      // Own stats only (profileId is always the signed-in user): referred_by isn't selectable
+      // over REST, so both halves come from the self-scoped RPCs.
+      const [referrals, profile] = await Promise.all([supabase.rpc("my_referrals"), supabase.rpc("my_profile").single()]);
+      if (referrals.error) throw referrals.error;
       if (profile.error) throw profile.error;
-      return { count: count.count ?? 0, credits: profile.data.referral_priority_credits, code: profile.data.referral_code };
+      return { count: referrals.data?.length ?? 0, credits: profile.data.referral_priority_credits, code: profile.data.referral_code };
     },
     enabled: !!profileId,
   });
@@ -82,13 +85,9 @@ export function useReferredFriends(profileId: string | undefined) {
   return useQuery({
     queryKey: ["referred_friends", profileId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("id, display_name, avatar_key, photo_path, created_at")
-        .eq("referred_by", profileId!)
-        .order("created_at", { ascending: false });
+      const { data, error } = await supabase.rpc("my_referrals");
       if (error) throw error;
-      return data;
+      return data ?? [];
     },
     enabled: !!profileId,
   });
@@ -482,7 +481,9 @@ export function useUploadAvatar() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (localUri: string) => {
-      const bytes = await new File(localUri).arrayBuffer();
+      // Re-encode first: a raw camera photo carries GPS in its EXIF (M14, security review 2026-09-27).
+      const preparedUri = await preparePhotoForUploadAnySize(localUri);
+      const bytes = await new File(preparedUri).arrayBuffer();
       return uploadAndSetAvatar(bytes);
     },
     onSuccess: ({ id }) => queryClient.invalidateQueries({ queryKey: ["profile", id] }),

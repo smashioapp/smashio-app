@@ -58,6 +58,17 @@ import {
 } from "./format.ts";
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
+// Expo "enhanced push security": once enabled on the Expo project, sends without this token are
+// rejected, so a leaked device token alone can't be used to push to someone.
+const EXPO_ACCESS_TOKEN = Deno.env.get("EXPO_ACCESS_TOKEN");
+
+function expoHeaders(): Record<string, string> {
+  return {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+    ...(EXPO_ACCESS_TOKEN ? { Authorization: `Bearer ${EXPO_ACCESS_TOKEN}` } : {}),
+  };
+}
 
 type Recipient = { profile_id: string; expo_token: string; platform?: string };
 
@@ -152,7 +163,7 @@ async function sendExpoPush(
     const chunk = messages.slice(i, i + 100);
     const res = await fetch(EXPO_PUSH_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      headers: expoHeaders(),
       body: JSON.stringify(chunk),
     });
     await recordReceiptHandoff(res, chunk);
@@ -192,7 +203,7 @@ async function pruneDeadTokens(): Promise<void> {
 
   const res = await fetch("https://exp.host/--/api/v2/push/getReceipts", {
     method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    headers: expoHeaders(),
     body: JSON.stringify({ ids: batch.map((b) => b.ticket_id) }),
   });
   const json = await res.json().catch(() => null);
@@ -398,11 +409,17 @@ async function renderCoalesced(row: NotificationRow, count: number): Promise<Ren
   return null;
 }
 
-async function fetchTokens(profileIds: string[]): Promise<Map<string, Recipient>> {
+// Every device a person is signed in on (push_tokens is unique per profile+token). Was one
+// token per profile, so a second phone or tablet never got anything.
+async function fetchTokens(profileIds: string[]): Promise<Map<string, Recipient[]>> {
   if (profileIds.length === 0) return new Map();
   const { data } = await supabase.from("push_tokens").select("profile_id, expo_token, platform").in("profile_id", profileIds);
-  const map = new Map<string, Recipient>();
-  for (const row of (data ?? []) as Recipient[]) map.set(row.profile_id, row);
+  const map = new Map<string, Recipient[]>();
+  for (const row of (data ?? []) as Recipient[]) {
+    const list = map.get(row.profile_id) ?? [];
+    list.push(row);
+    map.set(row.profile_id, list);
+  }
   return map;
 }
 
@@ -482,11 +499,11 @@ async function dispatchNotifications(ids: string[]): Promise<void> {
     }
 
     const { title, body, expand } = rendered.body;
-    const recipient = tokens.get(row.profile_id);
-    if (recipient) {
+    const recipients = tokens.get(row.profile_id);
+    if (recipients?.length) {
       const badge = await getUnreadCount(row.profile_id);
       const categoryId = CATEGORY_FOR_TYPE[row.type];
-      await sendExpoPush([recipient], {
+      await sendExpoPush(recipients, {
         title,
         body,
         expand,

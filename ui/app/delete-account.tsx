@@ -5,7 +5,8 @@ import { colors } from "../lib/theme";
 import { Screen } from "../components/Screen";
 import { BackButton } from "../components/BackButton";
 import { useSession } from "../lib/session";
-import { useDeleteAccount, useHostedUpcomingCount } from "../lib/queries/account";
+import { ReauthRequiredError, useDeleteAccount, useHostedUpcomingCount } from "../lib/queries/account";
+import { signOut } from "../lib/auth";
 import { haptics } from "../lib/haptics";
 
 const POLICY_URL = "https://smashio.com.au/delete-account.html";
@@ -69,6 +70,24 @@ export default function DeleteAccount() {
               },
               onError: (e) => {
                 haptics.error();
+                if (e instanceof ReauthRequiredError) {
+                  Alert.alert(
+                    "Sign in again first",
+                    "To keep your account safe, we need you to have signed in recently before deleting it. Sign out, sign back in, then come back here.",
+                    [
+                      { text: "Not now", style: "cancel" },
+                      {
+                        text: "Sign out",
+                        onPress: () => {
+                          signOut()
+                            .catch(() => {})
+                            .finally(() => router.replace("/onboarding"));
+                        },
+                      },
+                    ]
+                  );
+                  return;
+                }
                 Alert.alert(
                   "Couldn't delete your account",
                   e instanceof Error ? e.message : "Give it another go, or email hello@smashio.com.au."

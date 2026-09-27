@@ -207,6 +207,16 @@ function confirmSignup({ email, source }) {
   });
 }
 
+// x-vercel-forwarded-for is set by Vercel's edge and can't be spoofed by the caller; a client can
+// prepend anything it likes to x-forwarded-for, which would dodge the per-IP rate limit (L8).
+function clientIp(req) {
+  const vercel = req.headers["x-vercel-forwarded-for"];
+  if (typeof vercel === "string" && vercel.trim()) return vercel.split(",")[0].trim();
+  const realIp = req.headers["x-real-ip"];
+  if (typeof realIp === "string" && realIp.trim()) return realIp.trim();
+  return req.socket?.remoteAddress || null;
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader("Content-Type", "application/json; charset=utf-8");
 
@@ -216,9 +226,11 @@ module.exports = async function handler(req, res) {
   }
 
   const body = req.body && typeof req.body === "object" ? req.body : {};
-  const email = typeof body.email === "string" ? body.email.trim() : "";
-  const suburb = typeof body.suburb === "string" ? body.suburb.trim() : "";
-  const source = typeof body.source === "string" ? body.source.trim() || "footer" : "footer";
+  const email = typeof body.email === "string" ? body.email.trim().slice(0, 254) : "";
+  const suburb = typeof body.suburb === "string" ? body.suburb.trim().slice(0, 60) : "";
+  // source ends up in an email subject and a DB column: page-defined slugs only (L8).
+  const rawSource = typeof body.source === "string" ? body.source.trim() : "";
+  const source = /^[a-z0-9_]{1,40}$/.test(rawSource) ? rawSource : "footer";
   // Hidden field real visitors never fill; named to look like a normal field to a scraping bot.
   const honeypot = typeof body.website === "string" ? body.website : "";
   const turnstileToken = typeof body.turnstileToken === "string" ? body.turnstileToken : "";
@@ -227,9 +239,7 @@ module.exports = async function handler(req, res) {
     return res.status(400).json({ ok: false, error: "invalid_email" });
   }
 
-  // Vercel sets x-forwarded-for to "client, proxy1, proxy2..." — the first hop is the visitor.
-  const forwardedFor = typeof req.headers["x-forwarded-for"] === "string" ? req.headers["x-forwarded-for"] : "";
-  const ip = forwardedFor.split(",")[0].trim() || req.socket?.remoteAddress || null;
+  const ip = clientIp(req);
 
   const turnstileOk = await verifyTurnstile(turnstileToken, ip);
   if (!turnstileOk) {

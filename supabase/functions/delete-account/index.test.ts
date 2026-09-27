@@ -10,7 +10,7 @@
 // auth.admin.deleteUser all touch the network — cover those with integration tests against a
 // local `supabase start` stack instead, not here.
 import { assertEquals } from "jsr:@std/assert@1";
-import { avatarPathsFor } from "./index.ts";
+import { avatarPathsFor, lastSignInEpoch } from "./index.ts";
 
 Deno.test("avatarPathsFor: prefixes every filename with the user id", () => {
   const files = [{ name: "avatar.jpg" }, { name: "avatar-old.jpg" }];
@@ -19,4 +19,19 @@ Deno.test("avatarPathsFor: prefixes every filename with the user id", () => {
 
 Deno.test("avatarPathsFor: empty file list yields an empty array", () => {
   assertEquals(avatarPathsFor("user-1", []), []);
+});
+
+// M6 (security review 2026-09-27): deletion needs a recent sign-in, read off the JWT's amr.
+function fakeJwt(payload: unknown): string {
+  const b64 = btoa(JSON.stringify(payload)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  return `x.${b64}.y`;
+}
+
+Deno.test("lastSignInEpoch takes the newest amr timestamp", () => {
+  assertEquals(lastSignInEpoch(fakeJwt({ amr: [{ method: "password", timestamp: 100 }, { method: "otp", timestamp: 250 }] })), 250);
+});
+
+Deno.test("lastSignInEpoch is null without amr or on junk", () => {
+  assertEquals(lastSignInEpoch(fakeJwt({ sub: "x" })), null);
+  assertEquals(lastSignInEpoch("not-a-jwt"), null);
 });

@@ -12,6 +12,9 @@
 import { assertEquals } from "jsr:@std/assert@1";
 import {
   chatStatusFor,
+  isSafeConfirmationPath,
+  isSafeDraftPath,
+  isSafeMediaPath,
   normaliseVerdict,
   outcomeFor,
   reviewStatusFor,
@@ -135,4 +138,35 @@ Deno.test("validateImageRequest: chat photos are {game}/{sender}/…, one per me
     typeof validateImageRequest({ bucket: "chat-media", paths: [`${GAME}/${OTHER}/x.jpg`], author_id: AUTHOR, subject_type: "message", subject_id: GAME }),
     "string"
   );
+});
+
+// H4 (security review 2026-09-27): storage paths must match their exact shape.
+const SAFE_UID = "11111111-2222-3333-4444-555555555555";
+const SAFE_GAME = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+
+Deno.test("isSafeDraftPath accepts the client's draft shape", () => {
+  assertEquals(isSafeDraftPath(`drafts/${SAFE_UID}/1727400000000-k3j9x2a.jpg`, SAFE_UID), true);
+  assertEquals(isSafeDraftPath(`drafts/${SAFE_UID}/1727400000000-k3j9x2a.pdf`, SAFE_UID), true);
+});
+
+Deno.test("isSafeDraftPath rejects traversal and other users", () => {
+  assertEquals(isSafeDraftPath(`drafts/${SAFE_UID}/../../../chat-media/${SAFE_GAME}/${SAFE_UID}/x.jpg`, SAFE_UID), false);
+  assertEquals(isSafeDraftPath(`drafts/${SAFE_UID}/%2e%2e/x.jpg`, SAFE_UID), false);
+  assertEquals(isSafeDraftPath(`drafts/${SAFE_GAME}/1727400000000-k3j9x2a.jpg`, SAFE_UID), false);
+  assertEquals(isSafeDraftPath(`/drafts/${SAFE_UID}/1727400000000-k3j9x2a.jpg`, SAFE_UID), false);
+});
+
+Deno.test("isSafeConfirmationPath only allows the game's confirmation files", () => {
+  assertEquals(isSafeConfirmationPath(`${SAFE_GAME}/confirmation.jpg`, SAFE_GAME), true);
+  assertEquals(isSafeConfirmationPath(`${SAFE_GAME}/confirmation-2.pdf`, SAFE_GAME), true);
+  assertEquals(isSafeConfirmationPath(`${SAFE_GAME}/../${SAFE_UID}/confirmation.jpg`, SAFE_GAME), false);
+  assertEquals(isSafeConfirmationPath(`${SAFE_GAME}/other.jpg`, SAFE_GAME), false);
+  assertEquals(isSafeConfirmationPath(`${SAFE_GAME}/confirmation.jpg`, "not-a-uuid"), false);
+});
+
+Deno.test("isSafeMediaPath matches post/avatar and chat shapes", () => {
+  assertEquals(isSafeMediaPath(`${SAFE_UID}/${SAFE_GAME}.jpg`, "post", SAFE_UID), true);
+  assertEquals(isSafeMediaPath(`${SAFE_GAME}/${SAFE_UID}/${SAFE_GAME}.jpg`, "message", SAFE_UID), true);
+  assertEquals(isSafeMediaPath(`${SAFE_UID}/../${SAFE_GAME}/x.jpg`, "post", SAFE_UID), false);
+  assertEquals(isSafeMediaPath(`${SAFE_GAME}/${SAFE_UID}/x.svg`, "message", SAFE_UID), false);
 });

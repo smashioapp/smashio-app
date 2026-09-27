@@ -23,6 +23,14 @@ export function useHostedUpcomingCount(profileId: string | undefined) {
   });
 }
 
+// delete-account wants a sign-in from the last 15 minutes (security review 2026-09-27, M6).
+export class ReauthRequiredError extends Error {
+  constructor() {
+    super("reauth_required");
+    this.name = "ReauthRequiredError";
+  }
+}
+
 // functions.invoke collapses any non-2xx into a generic "non-2xx status code" message and hangs
 // the actual Response off `context` — dig the server's message back out so the user sees why.
 async function functionErrorMessage(error: unknown): Promise<string> {
@@ -42,7 +50,12 @@ export function useDeleteAccount() {
   return useMutation({
     mutationFn: async () => {
       const { error } = await supabase.functions.invoke("delete-account", { body: {} });
-      if (error) throw new Error(await functionErrorMessage(error));
+      if (error) {
+        const message = await functionErrorMessage(error);
+        if (message === "reauth_required") throw new ReauthRequiredError();
+        if (message === "delete_failed") throw new Error("Something's gone wrong, give it another go, or email hello@smashio.com.au.");
+        throw new Error(message);
+      }
 
       // The auth user no longer exists server-side, so a normal sign-out would 403 on the
       // revoke call. Drop the local session and every cached query keyed to it instead.

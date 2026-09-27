@@ -11,7 +11,24 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 const serviceClient = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-type DeleteResult = { cancelled_game_ids?: string[]; confirmation_paths?: string[] };
+type DeleteResult = { cancelled_game_ids?: string[]; confirmation_paths?: string[]; chat_media_paths?: string[] };
+
+// M6 (security review 2026-09-27): a stolen access token is valid for about an hour, which is
+// long enough to delete someone's account. Deletion needs a sign-in (any method) within this
+// window. The JWT's amr timestamps are the session's sign-in times and survive token refreshes.
+export const RECENT_SIGN_IN_SECONDS = 15 * 60;
+
+export function lastSignInEpoch(jwt: string): number | null {
+  try {
+    const payload = JSON.parse(atob(jwt.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+    const stamps = Array.isArray(payload.amr)
+      ? payload.amr.map((a: { timestamp?: unknown }) => Number(a?.timestamp)).filter((n: number) => Number.isFinite(n))
+      : [];
+    return stamps.length ? Math.max(...stamps) : null;
+  } catch {
+    return null;
+  }
+}
 
 function json(body: unknown, status: number) {
   return new Response(JSON.stringify(body), {
@@ -42,12 +59,20 @@ if (import.meta.main) {
     } = await callerClient.auth.getUser();
     if (!user) return new Response("Unauthorized", { status: 401 });
 
+    const signedInAt = lastSignInEpoch(authHeader.replace(/^Bearer\s+/i, ""));
+    if (signedInAt === null || Date.now() / 1000 - signedInAt > RECENT_SIGN_IN_SECONDS) {
+      return json({ error: "reauth_required" }, 403);
+    }
+
     // 1. Postgres side, one transaction: cancel upcoming hosted games (players get pushed),
     //    drop the per-user rows, scrub the profile down to a tombstone.
     const { data, error: rpcError } = await serviceClient.rpc("delete_account", {
       p_profile_id: user.id,
     });
-    if (rpcError) return json({ error: rpcError.message }, 500);
+    if (rpcError) {
+      console.error("delete_account failed", rpcError);
+      return json({ error: "delete_failed" }, 500);
+    }
     const result = (data ?? {}) as DeleteResult;
 
     // 2. Storage. Avatars and post photos are {uid}/…, so the folder listing is the user's whole set;
@@ -61,6 +86,9 @@ if (import.meta.main) {
     if (postMediaFiles?.length) {
       await serviceClient.storage.from("post-media").remove(avatarPathsFor(user.id, postMediaFiles));
     }
+    if (result.chat_media_paths?.length) {
+      await serviceClient.storage.from("chat-media").remove(result.chat_media_paths);
+    }
     if (result.confirmation_paths?.length) {
       await serviceClient.storage.from("confirmations").remove(result.confirmation_paths);
     }
@@ -69,7 +97,10 @@ if (import.meta.main) {
     //    account whose data is still sitting there — this way a retry just re-runs an idempotent
     //    scrub and finishes the job.
     const { error: deleteError } = await serviceClient.auth.admin.deleteUser(user.id);
-    if (deleteError) return json({ error: deleteError.message }, 500);
+    if (deleteError) {
+      console.error("auth deleteUser failed", deleteError);
+      return json({ error: "delete_failed" }, 500);
+    }
 
     return json({ ok: true, cancelled_games: result.cancelled_game_ids?.length ?? 0 }, 200);
   });

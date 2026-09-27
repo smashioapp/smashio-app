@@ -10,16 +10,22 @@ on:
       - "!ui/.maestro/**"
       - "!ui/scripts/e2e.sh"
 
+permissions:
+  contents: read
+
 jobs:
   publish:
     runs-on: ubuntu-latest
+    # A GitHub Environment so a required reviewer can gate every OTA (Settings > Environments >
+    # ota > Required reviewers). Anything published here reaches every installed app on next
+    # launch (security review 2026-09-27, M12).
+    environment: ota
     defaults:
       run:
         working-directory: ui
     steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
@@ -30,6 +36,16 @@ jobs:
 
       - name: Check expo-modules-jsi pin matches expo-modules-core
         run: node scripts/check-jsi-pin.js
+
+      # Same gates as CI, so a push that breaks types or tests never ships over the air.
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Copy check
+        run: node scripts/check-copy.js
+
+      - name: Unit tests
+        run: npm test -- --ci
 
       - name: Publish EAS Update
         env:
@@ -42,4 +58,4 @@ jobs:
           EXPO_PUBLIC_POSTHOG_HOST: ${{ secrets.EXPO_PUBLIC_POSTHOG_HOST }}
           EXPO_PUBLIC_UPDATE_CHANNEL: production
           COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
-        run: npx eas-cli@latest update --branch production --message "${COMMIT_MESSAGE%%$'\n'*}" --non-interactive
+        run: npx eas-cli@24.8.0 update --branch production --message "${COMMIT_MESSAGE%%$'\n'*}" --non-interactive

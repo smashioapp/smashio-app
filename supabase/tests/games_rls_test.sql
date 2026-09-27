@@ -66,7 +66,7 @@ SELECT lives_ok(
 
 SELECT throws_ok(
   $$ update public.games set status = 'completed' where id = '66666666-6666-6666-6666-666666666666' $$,
-  '42501',
+  'P0001',
   null,
   'client cannot transition a game to completed directly'
 );

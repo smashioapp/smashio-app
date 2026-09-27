@@ -30,7 +30,14 @@ export async function continueWithEmail(email: string, password: string) {
   }
 
   const { error: signUpError } = await supabase.auth.signUp({ email, password });
-  if (signUpError) throw signUpError;
+  if (signUpError) {
+    // Don't confirm that an account exists for this email (L16): a wrong password on an existing
+    // account reads the same as any other bad sign-in.
+    if (/already (registered|exists)/i.test(signUpError.message)) {
+      throw new Error("That email and password don't match. Double-check them and give it another go.");
+    }
+    throw signUpError;
+  }
 }
 
 // Matches the `smashio://onboarding` redirect URL whitelisted in the Supabase dashboard.

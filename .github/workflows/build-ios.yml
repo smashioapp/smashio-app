@@ -2,8 +2,9 @@ name: Build iOS
 
 on:
   workflow_dispatch:
-  release:
-    types: [published]
+
+permissions:
+  contents: read
 
 jobs:
   build:
@@ -21,17 +22,12 @@ jobs:
       EXPO_PUBLIC_POSTHOG_HOST: ${{ secrets.EXPO_PUBLIC_POSTHOG_HOST }}
       SENTRY_ORG: smashio
       SENTRY_PROJECT: smashio-sentry-app
-      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
       KEYCHAIN_PASSWORD: temporary-ci-keychain-password
-      IOS_DIST_CERT_BASE64: ${{ secrets.IOS_DIST_CERT_BASE64 }}
-      IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
-      IOS_CERT_PASSWORD: ${{ secrets.IOS_CERT_PASSWORD }}
-      ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
-      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
-      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+    # Signing and upload secrets are scoped to the one step that needs each of them, never the
+    # job: npm ci, expo prebuild and pod install run third-party code that could read job env
+    # (security review 2026-09-27, H7).
     steps:
-      - uses: actions/checkout@v4
-
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       # Offset past the build numbers the old EAS pipeline already burned in
       # App Store Connect (it reached 17); Apple requires each upload to be
       # strictly higher than the last. Computed in shell because GitHub
@@ -39,11 +35,11 @@ jobs:
       - name: Compute build number
         run: echo "BUILD_NUMBER=$((GITHUB_RUN_NUMBER + 1000))" >> "$GITHUB_ENV"
 
-      - uses: maxim-lobanov/setup-xcode@v1
+      - uses: maxim-lobanov/setup-xcode@ed7a3b1fda3918c0306d1b724322adc0b8cc0a90 # v1
         with:
           xcode-version: latest-stable
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
           cache: npm
@@ -59,7 +55,7 @@ jobs:
         run: npx expo prebuild --platform ios --no-install
 
       - name: Cache CocoaPods
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: |
             ui/ios/Pods
@@ -73,20 +69,24 @@ jobs:
         run: pod install
 
       - name: Cache DerivedData
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/Library/Developer/Xcode/DerivedData
           key: ${{ runner.os }}-deriveddata-${{ github.run_id }}
           restore-keys: |
             ${{ runner.os }}-deriveddata-
 
-      - uses: ruby/setup-ruby@v1
+      - uses: ruby/setup-ruby@14594264cd68ce8a2345dd349bc3d138a4ef85c8 # v1
         with:
           ruby-version: "3.3"
           bundler-cache: true
           working-directory: ui
 
       - name: Import signing cert + provisioning profile
+        env:
+          IOS_DIST_CERT_BASE64: ${{ secrets.IOS_DIST_CERT_BASE64 }}
+          IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+          IOS_CERT_PASSWORD: ${{ secrets.IOS_CERT_PASSWORD }}
         run: |
           python3 -c "import base64,os; open('dist-cert.p12','wb').write(base64.b64decode(os.environ['IOS_DIST_CERT_BASE64']))"
           python3 -c "import base64,os; open('profile.mobileprovision','wb').write(base64.b64decode(os.environ['IOS_PROVISIONING_PROFILE_BASE64']))"
@@ -115,9 +115,13 @@ jobs:
           openssl smime -inform der -verify -noverify -in profile.mobileprovision -out profile.plist
           PROFILE_UUID=$(/usr/libexec/PlistBuddy -c "Print UUID" profile.plist)
           echo "PROFILE_UUID=$PROFILE_UUID" >> "$GITHUB_ENV"
+          rm -f dist-cert.p12
 
       - name: Archive
         working-directory: ui/ios
+        env:
+          # Sentry's Xcode build phase uploads source maps / dSYMs during the archive.
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
         run: |
           WORKSPACE=$(ls -d *.xcworkspace | head -1)
           PROJECT_NAME=$(basename "$(ls -d *.xcodeproj | head -1)" .xcodeproj)
@@ -168,7 +172,7 @@ jobs:
             -exportPath build/export \
             -exportOptionsPlist exportOptions.plist
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ios-ipa
           path: ui/ios/build/export/*.ipa
@@ -177,6 +181,9 @@ jobs:
         working-directory: ui/ios
         env:
           BUNDLE_GEMFILE: ${{ github.workspace }}/ui/Gemfile
+          ASC_API_KEY_P8: ${{ secrets.ASC_API_KEY_P8 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
         run: |
           # Sanity-check the secret's shape without echoing it.
           case "$ASC_API_KEY_P8" in
@@ -210,3 +217,10 @@ jobs:
             echo "Upload attempt $attempt failed, retrying in 30s..."
             sleep 30
           done
+          rm -f api_key.json
+
+      - name: Remove signing material
+        if: always()
+        run: |
+          security delete-keychain ci-build.keychain 2>/dev/null || true
+          rm -f dist-cert.p12 profile.mobileprovision profile.plist ios/api_key.json

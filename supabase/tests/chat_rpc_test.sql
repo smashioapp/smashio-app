@@ -38,9 +38,9 @@ insert into public.game_players (game_id, profile_id, status, requested_at, deci
 set local role authenticated;
 
 -- --- can_post_in_chat baseline: open mode, nobody muted, chat not closed. -------------------
-SELECT is(public.can_post_in_chat('77777777-7777-7777-7777-777777777777', 'b1111111-1111-1111-1111-111111111111'), true, 'organizer can post by default');
-SELECT is(public.can_post_in_chat('77777777-7777-7777-7777-777777777777', 'a2222222-2222-2222-2222-222222222222'), true, 'approved player can post by default');
-SELECT is(public.can_post_in_chat('77777777-7777-7777-7777-777777777777', 'a4444444-4444-4444-4444-444444444444'), false, 'a non-member cannot post');
+SELECT is(private.can_post_in_chat('77777777-7777-7777-7777-777777777777', 'b1111111-1111-1111-1111-111111111111'), true, 'organizer can post by default');
+SELECT is(private.can_post_in_chat('77777777-7777-7777-7777-777777777777', 'a2222222-2222-2222-2222-222222222222'), true, 'approved player can post by default');
+SELECT is(private.can_post_in_chat('77777777-7777-7777-7777-777777777777', 'a4444444-4444-4444-4444-444444444444'), false, 'a non-member cannot post');
 
 -- --- set_chat_mode -----------------------------------------------------------------------------
 select set_config('request.jwt.claims', json_build_object('sub', 'a2222222-2222-2222-2222-222222222222', 'role', 'authenticated')::text, true);
@@ -63,8 +63,8 @@ SELECT is(
   'switching mode writes exactly one system message'
 );
 
-SELECT is(public.can_post_in_chat('77777777-7777-7777-7777-777777777777', 'b1111111-1111-1111-1111-111111111111'), true, 'host can still post in announce mode');
-SELECT is(public.can_post_in_chat('77777777-7777-7777-7777-777777777777', 'a2222222-2222-2222-2222-222222222222'), false, 'a player cannot post in announce mode');
+SELECT is(private.can_post_in_chat('77777777-7777-7777-7777-777777777777', 'b1111111-1111-1111-1111-111111111111'), true, 'host can still post in announce mode');
+SELECT is(private.can_post_in_chat('77777777-7777-7777-7777-777777777777', 'a2222222-2222-2222-2222-222222222222'), false, 'a player cannot post in announce mode');
 
 select public.set_chat_mode('77777777-7777-7777-7777-777777777777', 'open');
 SELECT is(
@@ -89,10 +89,10 @@ SELECT throws_ok(
 );
 
 select public.set_player_chat_mute('77777777-7777-7777-7777-777777777777', 'a2222222-2222-2222-2222-222222222222', true);
-SELECT is(public.can_post_in_chat('77777777-7777-7777-7777-777777777777', 'a2222222-2222-2222-2222-222222222222'), false, 'a muted player cannot post');
+SELECT is(private.can_post_in_chat('77777777-7777-7777-7777-777777777777', 'a2222222-2222-2222-2222-222222222222'), false, 'a muted player cannot post');
 
 select public.set_player_chat_mute('77777777-7777-7777-7777-777777777777', 'a2222222-2222-2222-2222-222222222222', false);
-SELECT is(public.can_post_in_chat('77777777-7777-7777-7777-777777777777', 'a2222222-2222-2222-2222-222222222222'), true, 'unmuting restores posting');
+SELECT is(private.can_post_in_chat('77777777-7777-7777-7777-777777777777', 'a2222222-2222-2222-2222-222222222222'), true, 'unmuting restores posting');
 
 -- --- set_chat_broadcast_settings (pause) ----------------------------------------------------
 select set_config('request.jwt.claims', json_build_object('sub', 'a2222222-2222-2222-2222-222222222222', 'role', 'authenticated')::text, true);
@@ -104,11 +104,11 @@ SELECT throws_ok(
 
 select set_config('request.jwt.claims', json_build_object('sub', 'b1111111-1111-1111-1111-111111111111', 'role', 'authenticated')::text, true);
 select public.set_chat_broadcast_settings('77777777-7777-7777-7777-777777777777', now() + interval '1 hour', true);
-SELECT is(public.can_post_in_chat('77777777-7777-7777-7777-777777777777', 'a2222222-2222-2222-2222-222222222222'), false, 'a paused chat blocks players from posting');
-SELECT is(public.can_post_in_chat('77777777-7777-7777-7777-777777777777', 'b1111111-1111-1111-1111-111111111111'), true, 'the host can still post while chat is paused');
+SELECT is(private.can_post_in_chat('77777777-7777-7777-7777-777777777777', 'a2222222-2222-2222-2222-222222222222'), false, 'a paused chat blocks players from posting');
+SELECT is(private.can_post_in_chat('77777777-7777-7777-7777-777777777777', 'b1111111-1111-1111-1111-111111111111'), true, 'the host can still post while chat is paused');
 
 select public.set_chat_broadcast_settings('77777777-7777-7777-7777-777777777777', null, false);
-SELECT is(public.can_post_in_chat('77777777-7777-7777-7777-777777777777', 'a2222222-2222-2222-2222-222222222222'), true, 'clearing the pause restores posting');
+SELECT is(private.can_post_in_chat('77777777-7777-7777-7777-777777777777', 'a2222222-2222-2222-2222-222222222222'), true, 'clearing the pause restores posting');
 
 -- --- toggle_message_reaction -----------------------------------------------------------------
 -- Fixture rows inserted as postgres (bypasses the sender_id = auth.uid() insert policy) since
@@ -191,7 +191,7 @@ SELECT is(
   'closing an already-closed chat is idempotent (one system message, no error)'
 );
 
-SELECT is(public.can_post_in_chat('77777777-7777-7777-7777-777777777777', 'b1111111-1111-1111-1111-111111111111'), false, 'a closed chat blocks even the host');
+SELECT is(private.can_post_in_chat('77777777-7777-7777-7777-777777777777', 'b1111111-1111-1111-1111-111111111111'), false, 'a closed chat blocks even the host');
 
 SELECT * FROM finish();
 ROLLBACK;

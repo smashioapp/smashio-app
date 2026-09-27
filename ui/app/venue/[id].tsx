@@ -30,9 +30,14 @@ const AMENITY_CATEGORY_LABELS: Record<string, string> = {
 
 // Book link (item 2, 2026-08-23): prefer the venue's own booking_url, then its website, then a
 // Google Maps place page (via google_place_id) so there's always somewhere to go beyond Directions.
+function isHttps(url: string): boolean {
+  return /^https:\/\/[^\s]+$/i.test(url.trim());
+}
+
 function bookHref(venue: { google_place_id: string | null }, profile: { booking_url: string | null; website_url: string | null } | null): string | null {
-  if (profile?.booking_url) return profile.booking_url;
-  if (profile?.website_url) return profile.website_url;
+  // https only: curated data today, but openURL on any other scheme could launch another app.
+  if (profile?.booking_url && isHttps(profile.booking_url)) return profile.booking_url;
+  if (profile?.website_url && isHttps(profile.website_url)) return profile.website_url;
   if (venue.google_place_id) return `https://www.google.com/maps/place/?q=place_id:${venue.google_place_id}`;
   return null;
 }

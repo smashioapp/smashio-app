@@ -72,7 +72,7 @@ export type PushChannel = "chat" | "requests" | "game-updates" | "reminders" | "
 // spot_actions ("Ask to join") is short-a-player-plan S1. Categories are registered client-side in
 // ui/lib/notifications.ts on both platforms; an app that hasn't registered one yet just shows the
 // push without buttons.
-export type NotificationCategory = "join_actions" | "chat_actions" | "spot_actions" | null;
+export type NotificationCategory = "join_actions" | "chat_actions" | "spot_actions" | "spot_actions_auto" | "spot_actions_view" | null;
 export const CATEGORY_FOR_TYPE: Record<string, NotificationCategory> = {
   join_request: "join_actions",
   message: "chat_actions",
@@ -96,6 +96,7 @@ export type GameSummary = {
   per_player_cents: number;
   tier_name: string;
   verification_status: string;
+  auto_approve?: boolean;
 };
 
 export type PushBody = { title: string; body: string; expand?: string };
@@ -396,7 +397,8 @@ export function alertMatchBody(s: GameSummary, alertName?: string | null): PushB
 // Short-a-player plan S1. A spot opened close to game time (drop-out, or a game published with
 // under a day to go) and this player is nearby at the right level. Says what's needed, when,
 // where, what level and whether the court's booked, in that order: the three things that decide
-// a last-minute join. (Normal tier; quiet hours are applied server-side when recipients are
+// a last-minute join. Since fill-the-spot P2 the price is in the body too (distance isn't: it's
+// per recipient and this copy is built once per game). (Normal tier; quiet hours are applied server-side when recipients are
 // picked, spot_open_recipients.)
 export function spotOpenBody(s: GameSummary, now: Date = new Date()): PushBody {
   const open = Math.max(1, s.spots_left);
@@ -408,8 +410,8 @@ export function spotOpenBody(s: GameSummary, now: Date = new Date()): PushBody {
   const when = day === "Today" ? (hour >= 17 ? "tonight" : "today") : day === "Tomorrow" ? "tomorrow" : day;
   const booked = s.verification_status === "verified" ? ", court's booked" : "";
   return {
-    title: `${spots}, ${when} ${clockTime(s.starts_at)} at ${s.venue_name}`,
-    body: `${s.tier_name}${booked}. Keen?`,
+    title: `${spots} ${when} ${clockTime(s.starts_at)} · ${s.venue_name}`,
+    body: `${money(s.per_player_cents)} each · ${s.tier_name}${booked}. Keen?`,
     expand: `${s.host_name} is short for ${s.sport_name} and you're nearby at the right level. Turn these off in notification settings under Game alerts.`,
   };
 }
@@ -601,4 +603,12 @@ export function expoMessages(
 // and stops at the newline in the collapsed view.
 function androidBody(body: string, expand?: string): string {
   return expand ? `${body}\n${expand}` : body;
+}
+
+// fill-the-spot P2 (D4): which inline action a spot_open push carries. An instant-join game under
+// $20 gets "I'm in" (one tap, no surprise bill). Instant-join at $20 or more opens the spot card
+// so the player sees the price and confirms. Request-mode games keep "Ask to join".
+export function spotOpenCategory(s: GameSummary): NotificationCategory {
+  if (s.auto_approve === false) return "spot_actions";
+  return s.per_player_cents < 2000 ? "spot_actions_auto" : "spot_actions_view";
 }

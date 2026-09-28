@@ -75,6 +75,10 @@ export type Game = {
   // each other. Null/undefined means the host never entered one, so the break-even card has
   // nothing honest to compare against and stays hidden.
   courtCostCents?: number | null;
+  // fill-the-spot P2.4 (F7): how the host wants to be paid. Information only, no money moves
+  // through Smashio. Null when the host didn't say.
+  paymentMethod?: "cash" | "transfer" | "chat" | null;
+  paymentHandle?: string | null;
 };
 
 export type PastPlayer = {

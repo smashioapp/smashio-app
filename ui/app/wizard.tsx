@@ -51,6 +51,7 @@ import { needsLabel } from "../lib/trust";
 import { AccordionRow, PriceSlider, RowLabel, Stepper, WhenChip } from "../components/DraftCardParts";
 import { animalFor } from "../lib/avatars";
 import { useSession } from "../lib/session";
+import { PAYMENT_OPTIONS } from "../lib/payment";
 import { useProfile } from "../lib/queries/profile";
 import { haptics } from "../lib/haptics";
 import { sound } from "../lib/sound";
@@ -252,6 +253,9 @@ export default function Wizard() {
   const [bookedNoProof, setBookedNoProof] = useState(false);
   // F16: the court's total price, optional. When set, per-player is derived from it.
   const [courtCost, setCourtCost] = useState<number | null>(null);
+  // P2.4: how the host wants to be paid. Information only, shown to players on the spot card.
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "transfer" | "chat" | null>(null);
+  const [paymentHandle, setPaymentHandle] = useState("");
 
   const [venueQuery, setVenueQuery] = useState("");
   const [venueResults, setVenueResults] = useState<PlacePrediction[]>([]);
@@ -342,6 +346,8 @@ export default function Wizard() {
     setPriceOfferAccepted(false);
     setBookedNoProof(false);
     setCourtCost(null);
+    setPaymentMethod(null);
+    setPaymentHandle("");
     sessionTokenRef.current = newSessionToken();
   }, []);
 
@@ -606,6 +612,8 @@ export default function Wizard() {
         shuttles: wizard.shuttles,
         notes: wizard.notes,
         courtCostCents: courtCost != null && courtCost > 0 ? courtCost * 100 : undefined,
+        paymentMethod: paymentMethod ?? undefined,
+        paymentHandle: paymentMethod === "transfer" ? paymentHandle : undefined,
         // Anonymous "already in" holds ride along as blank spots (add_reserved_spot with no
         // label), so reserved_spots is right from the first write (ux-plan §3.1).
         spots: [
@@ -1089,6 +1097,33 @@ export default function Wizard() {
           <View className="w-5 h-5 rounded-full" style={{ backgroundColor: colors.base, alignSelf: wizard.autoApprove ? "flex-end" : "flex-start" }} />
         </View>
       </Pressable>
+
+      <RowLabel>How do people pay you?</RowLabel>
+      <View className="flex-row gap-2 flex-wrap mb-2">
+        {PAYMENT_OPTIONS.map((o) => (
+          <Pressable
+            key={o.value}
+            testID={`wizard-pay-${o.value}`}
+            onPress={() => setPaymentMethod(paymentMethod === o.value ? null : o.value)}
+            className="rounded-pill px-3.5 py-2"
+            style={{ backgroundColor: paymentMethod === o.value ? colors.accent : colors.surface, borderWidth: 1, borderColor: paymentMethod === o.value ? colors.accent : colors.cardBorder }}
+          >
+            <Text className="font-body-bold text-[12.5px]" style={{ color: paymentMethod === o.value ? colors.base : colors.textDim }}>{o.label}</Text>
+          </Pressable>
+        ))}
+      </View>
+      {paymentMethod === "transfer" && (
+        <TextInput
+          value={paymentHandle}
+          onChangeText={setPaymentHandle}
+          placeholder="PayID or name to pay (optional)"
+          placeholderTextColor={colors.textMuted}
+          maxLength={80}
+          className="rounded-2xl p-3.5 mb-2 border text-[14px]"
+          style={{ backgroundColor: colors.card, borderColor: colors.cardBorder, color: colors.text }}
+        />
+      )}
+      <Text className="text-[11px] mb-4" style={{ color: colors.textMuted }}>Just so players know. Smashio doesn't handle any money.</Text>
 
       <RowLabel>Shuttles</RowLabel>
       <TextInput

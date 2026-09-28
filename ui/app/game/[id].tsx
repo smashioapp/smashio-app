@@ -52,6 +52,8 @@ import { ChatPreviewStrip } from "../../components/ChatPreviewStrip";
 import { UtilityChipRow } from "../../components/UtilityChipRow";
 import { VerifiedSheet } from "../../components/VerifiedSheet";
 import { TrustRow } from "../../components/TrustRow";
+import { SpotCard } from "../../components/SpotCard";
+import { YoureInSheet } from "../../components/YoureInSheet";
 import { LevelSheet } from "../../components/LevelSheet";
 import { levelLine, needsLabel, turnsUpPercent } from "../../lib/trust";
 import { ReportSheet } from "../../components/ReportSheet";
@@ -112,6 +114,7 @@ export default function GameDetails() {
   const [invitePastOpen, setInvitePastOpen] = useState(false);
   const [levelSheetOpen, setLevelSheetOpen] = useState(false);
   const [joinConfirmOpen, setJoinConfirmOpen] = useState(false);
+  const [youreInOpen, setYoureInOpen] = useState(false);
   const findASub = useFindASub(gameId);
   const distanceUnits = useDistanceUnits();
   const location = useUserLocation();
@@ -203,6 +206,8 @@ export default function GameDetails() {
         onSuccess: () => {
           haptics.success();
           sound.play("chime");
+          // P2.3: say what happens next. The waitlist has its own footer state, no sheet.
+          if (!waitlisted) setYoureInOpen(true);
         },
         onError: () => Alert.alert(waitlisted ? "Couldn't join the waitlist" : "Couldn't send that", "Give it another go."),
       }
@@ -312,6 +317,8 @@ export default function GameDetails() {
   const courtCost = game.courtCostCents != null ? game.courtCostCents / 100 : null;
   const shortfall = courtCost != null ? Math.max(0, courtCost - covered) : 0;
 
+  // P2.2: a non-member weighing a join gets the spot card instead of the status pill + trust rows.
+  const showSpotCard = !cancelled && !isOrganizer && !membership?.status && (mode === "upcoming" || mode === "imminent");
   const showHostJob = isOrganizer && !cancelled && (mode === "upcoming" || mode === "imminent" || mode === "live");
   const showDoneRecap = isOrganizer && mode === "done" && !attendanceQuery.data;
   const hostName = organizer?.displayName || game.organizerName || "The host";
@@ -382,16 +389,38 @@ export default function GameDetails() {
         </View>
 
         <View className="px-5 pt-4" style={{ gap: 0 }}>
-          <StatusBand
-            mode={mode}
-            startsAt={game.startsAt}
-            endsAt={game.endsAt}
-            courts={game.courts}
-            distanceM={distanceM}
-            doneAt={game.endsAt}
-          />
+          {showSpotCard && (
+            <SpotCard
+              game={game}
+              hostName={hostName}
+              hostId={game.organizerId}
+              hostPhotoUri={organizer?.photoUrl}
+              hostAvatarKey={organizer?.avatarKey}
+              hostedCount={organizer?.gamesHosted}
+              hostTurnsUp={hostTurnsUp}
+              hostLevel={hostLevel}
+              inCount={inCount}
+              open={open}
+              distanceM={distanceM}
+              units={distanceUnits}
+              onCourtPress={() => setVerifiedSheetOpen(true)}
+              onLevelPress={() => setLevelSheetOpen(true)}
+              onHostPress={() => router.push(`/player/${game.organizerId}`)}
+            />
+          )}
 
-          {!cancelled && !isOrganizer && (
+          {!showSpotCard && (
+            <StatusBand
+              mode={mode}
+              startsAt={game.startsAt}
+              endsAt={game.endsAt}
+              courts={game.courts}
+              distanceM={distanceM}
+              doneAt={game.endsAt}
+            />
+          )}
+
+          {!showSpotCard && !cancelled && !isOrganizer && (
             <View className="mt-3">
               <TrustRow
                 variant="full"
@@ -908,6 +937,7 @@ export default function GameDetails() {
           <Button label="Not yet" variant="secondary" onPress={() => setJoinConfirmOpen(false)} />
         </View>
       </Sheet>
+      <YoureInSheet visible={youreInOpen} onClose={() => setYoureInOpen(false)} game={game} hostName={hostName} instant={!!game.autoApprove} />
       <Sheet visible={leaveSheetOpen} onClose={() => setLeaveSheetOpen(false)} title="Leave this game?">
         <Text className="text-[13.5px]" style={{ color: colors.textSecondary, lineHeight: 20 }}>
           Your spot opens up to whoever's next on the waitlist. If you change your mind, you'll need to ask to rejoin, same as anyone

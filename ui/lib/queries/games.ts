@@ -114,6 +114,8 @@ function toGameFromPublicRow(row: GamesPublicRow, avatarUrls: Map<string, string
     shuttles: row.shuttles,
     notes: row.notes,
     courtCostCents: row.court_cost_cents,
+    paymentMethod: (row.payment_method as Game["paymentMethod"]) ?? null,
+    paymentHandle: row.payment_handle,
   };
 }
 
@@ -362,6 +364,8 @@ export function useCreateGame() {
       shuttles?: string;
       notes?: string;
       courtCostCents?: number;
+      paymentMethod?: "cash" | "transfer" | "chat";
+      paymentHandle?: string;
       spots?: NamedSpotInput[];
       // "Who's already in?" holds (short-a-player-ux-plan.md §3.1) are people who are coming,
       // not seats on offer, so they shouldn't expire 4h out and fire a spot_open. Pins every
@@ -392,6 +396,8 @@ export function useCreateGame() {
         p_cover_key: randomCoverKey(),
         p_spots: (input.spots ?? []).map((s) => ({ label: s.label, invited_profile_id: s.invitedProfileId ?? null })),
         p_court_cost_cents: input.courtCostCents ?? undefined,
+        p_payment_method: input.paymentMethod ?? undefined,
+        p_payment_handle: input.paymentHandle?.trim() || undefined,
       });
       if (error) throw error;
       const gameId = data as string;

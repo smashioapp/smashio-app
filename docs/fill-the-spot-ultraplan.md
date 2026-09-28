@@ -302,6 +302,13 @@ D1-D6 settled by adopting every recommendation above. Working on branch `feat/fi
 - Wizard: WHEN is Day chips (Tonight/Tomorrow/Sat/Sun/Pick a date) + time chips (6-9pm/Other), native pickers behind the last chip. Default slot: before 5pm next common slot today, else 7pm tomorrow. Venue pick auto-opens WHEN, a time chip collapses it. Summary line + reach line above Publish. "Same as last time" card on the fork from the host's latest past game.
 - Skipped: venue-specific popular start times (no data yet, fixed 6-9pm), host's usual day/time default (rebook card covers it), summary line as the default share text (post-publish share copy unchanged).
 
-**P2-P6: not started.**
+**P2: implemented locally, not deployed, not verified (no Docker, no device).**
+- Migration `20260928000200_fill_the_spot_p2.sql`: `games.payment_method` (cash/transfer/chat) + `payment_handle`, on `games_public` and `create_game_with_spots`; `push_game_summary` gains `auto_approve`. No pgTAP added for it yet.
+- push-dispatch: alert is now "1 spot tonight 7:00 pm · MUSAC" / "$9 each · Intermediate, court's booked. Keen?". Category per game (`spotOpenCategory`): instant under $20 = "I'm in", instant $20+ = "Have a look" (opens the spot card), request mode = "Ask to join". Deno tests pass (74).
+- Client: `SpotCard` (when, where, how much, who, real) replaces the status pill and trust rows for non-members. `YoureInSheet` after a join (instant: chat, calendar, directions; request mode: "Asked, will confirm"). Wizard More options has "How do people pay you?" chips. New categories registered in `lib/notifications.ts`.
+- Skipped: distance in the alert (per-recipient, the copy is built once per game), "Not for me" action (feeds P4), lineup strip moved into the spot card (still below it), pre-typed "Hey, keen for tonight" in chat (chat screen has no draft param), payment field on the edit-game screen, PublishStamp animation on the sheet.
+- Old app builds don't know the two new categories, so they get the push without buttons until they update.
 
-**Deploy order:** `supabase db push` (both migrations), deploy `push-dispatch`, then JS/OTA.
+**P3-P6: not started.**
+
+**Deploy order:** `supabase db push` (all three migrations), deploy `push-dispatch`, then JS/OTA.

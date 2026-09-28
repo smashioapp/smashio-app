@@ -551,6 +551,8 @@ export type Database = {
           chat_photo_approval: boolean
           cost_per_player_cents: number
           court_cost_cents: number | null
+          payment_handle: string | null
+          payment_method: string | null
           court_label: string | null
           courts_booked: number
           cover_key: string
@@ -590,6 +592,8 @@ export type Database = {
           chat_photo_approval?: boolean
           cost_per_player_cents?: number
           court_cost_cents?: number | null
+          payment_handle?: string | null
+          payment_method?: string | null
           court_label?: string | null
           courts_booked?: number
           cover_key?: string
@@ -629,6 +633,8 @@ export type Database = {
           chat_photo_approval?: boolean
           cost_per_player_cents?: number
           court_cost_cents?: number | null
+          payment_handle?: string | null
+          payment_method?: string | null
           court_label?: string | null
           courts_booked?: number
           cover_key?: string
@@ -2235,6 +2241,8 @@ export type Database = {
           auto_approve: boolean | null
           cost_per_player_cents: number | null
           court_cost_cents: number | null
+          payment_handle: string | null
+          payment_method: string | null
           court_label: string | null
           courts_booked: number | null
           cover_key: string | null
@@ -2437,6 +2445,8 @@ export type Database = {
           p_auto_approve?: boolean
           p_cost_per_player_cents: number
           p_court_cost_cents?: number
+          p_payment_handle?: string
+          p_payment_method?: string
           p_court_label?: string
           p_courts_booked: number
           p_cover_key?: string

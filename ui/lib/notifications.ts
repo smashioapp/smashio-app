@@ -92,6 +92,24 @@ const NOTIFICATION_CATEGORIES: Record<string, Notifications.NotificationAction[]
       options: { opensAppToForeground: true },
     },
   ],
+  // fill-the-spot P2 (D4): instant-join games under $20 say "I'm in" (one tap, joins for real).
+  // The server picks the category per game (push-dispatch spotOpenCategory); an older build that
+  // hasn't registered these just shows the push without buttons.
+  spot_actions_auto: [
+    {
+      identifier: "join_spot",
+      buttonTitle: "I'm in",
+      options: { opensAppToForeground: true },
+    },
+  ],
+  // Instant-join at $20 or more: no blind join, open the spot card with the price on it.
+  spot_actions_view: [
+    {
+      identifier: "view_spot",
+      buttonTitle: "Have a look",
+      options: { opensAppToForeground: true },
+    },
+  ],
 };
 
 // The token this device is currently registered with, so sign-out can delete exactly this row
@@ -209,6 +227,11 @@ async function handleNotificationAction(response: Notifications.NotificationResp
   if (actionId === "join_spot") {
     const { error } = await supabase.rpc("request_to_join", { p_game_id: data.game_id });
     if (!error) track("join_requested", { game_id: data.game_id, waitlisted: false, source: "push_action" });
+    router.push(`/game/${data.game_id}`);
+    return;
+  }
+
+  if (actionId === "view_spot") {
     router.push(`/game/${data.game_id}`);
     return;
   }

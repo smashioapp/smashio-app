@@ -18,8 +18,10 @@ import {
   type ActorSummary,
   alertMatchBody,
   spotOpenBody,
+  spotOpenCategory,
   bookingVerifiedBody,
   CATEGORY_FOR_TYPE,
+  type NotificationCategory,
   chatMentionBody,
   detailsChangedBody,
   expoMessages,
@@ -274,7 +276,7 @@ const getPostSummary = makeCache(async (postId: string) => {
   return data as PostSummary | null;
 });
 
-type Rendered = { body: PushBody; screen: string; extra?: Record<string, unknown> };
+type Rendered = { body: PushBody; screen: string; extra?: Record<string, unknown>; category?: NotificationCategory };
 
 // One row, one recipient — every notification type's individual (non-coalesced) copy.
 async function renderIndividual(row: NotificationRow): Promise<Rendered | null> {
@@ -384,7 +386,7 @@ async function renderIndividual(row: NotificationRow): Promise<Rendered | null> 
     case "alert_match":
       return { body: alertMatchBody(summary), screen: "game" };
     case "spot_open":
-      return { body: spotOpenBody(summary), screen: "game" };
+      return { body: spotOpenBody(summary), screen: "game", category: spotOpenCategory(summary) };
     case "spot_declined":
       return { body: spotDeclinedBody(row.params.label as string | null, summary), screen: "game" };
     case "hold_nudge":
@@ -508,7 +510,7 @@ async function dispatchNotifications(ids: string[]): Promise<void> {
     const recipients = tokens.get(row.profile_id);
     if (recipients?.length) {
       const badge = await getUnreadCount(row.profile_id);
-      const categoryId = CATEGORY_FOR_TYPE[row.type];
+      const categoryId = rendered.category ?? CATEGORY_FOR_TYPE[row.type];
       await sendExpoPush(recipients, {
         title,
         body,

@@ -57,7 +57,7 @@ import { levelLine, needsLabel, turnsUpPercent } from "../../lib/trust";
 import { ReportSheet } from "../../components/ReportSheet";
 import { Sheet } from "../../components/Sheet";
 import { useUserLocation } from "../../lib/location";
-import { haversineMeters, formatDistance, relativeDayPhrase } from "../../lib/format";
+import { haversineMeters, formatDistance } from "../../lib/format";
 import { useDistanceUnits } from "../../lib/queries/settings";
 import { useDiscoverGames } from "../../lib/queries/games";
 
@@ -300,10 +300,17 @@ export default function GameDetails() {
     ...anonSlots,
     ...openSlots,
   ];
-  const inCount = game.joinedCount + 1;
-  const covered = perPlayer * inCount;
+  // "If full" cost, shown to everyone regardless of whether the host entered a real court cost.
   const totalCost = perPlayer * game.maxPlayers;
-  const shortfall = Math.max(0, totalCost - covered);
+  // Break-even (fill-the-spot-ultraplan.md P0.3, F10): a held/reserved spot is a friend the host
+  // is already committed to charging, same as an approved player — leaving it out of "paying"
+  // made a fully-booked game look alarmingly short. Gated on courtCostCents because perPlayer is
+  // set independently of any real booking total (mockData.ts's Game.cost comment); without a real
+  // number there's nothing honest to compare the paying count against.
+  const inCount = game.joinedCount + 1 + game.reservedSpots;
+  const covered = perPlayer * inCount;
+  const courtCost = game.courtCostCents != null ? game.courtCostCents / 100 : null;
+  const shortfall = courtCost != null ? Math.max(0, courtCost - covered) : 0;
 
   const showHostJob = isOrganizer && !cancelled && (mode === "upcoming" || mode === "imminent" || mode === "live");
   const showDoneRecap = isOrganizer && mode === "done" && !attendanceQuery.data;
@@ -418,8 +425,10 @@ export default function GameDetails() {
                 className="rounded-2xl p-4 border"
                 style={{ borderColor: "rgba(214,255,63,0.25)", backgroundColor: colors.card }}
               >
+                {/* F18: the day/time is already right above in StatusBand's pill — repeating it
+                    here was the third line saying the same thing. */}
                 <Text className="font-body-bold text-[15px]" style={{ color: colors.accent3 }}>
-                  {open > 0 ? `${needsLabel(open)}, ${relativeDayPhrase(game.startsAt)}` : "Full, game on"}
+                  {open > 0 ? needsLabel(open) : "Full, game on"}
                 </Text>
                 <Text className="text-[12.5px] mt-1" style={{ color: colors.textSecondary }}>
                   {inCount} of {game.maxPlayers} in{heldCount > 0 ? `, ${heldCount} held` : ""}
@@ -621,17 +630,17 @@ export default function GameDetails() {
                 ${totalCost}
               </Text>
             </View>
-            {isOrganizer ? (
+            {isOrganizer && courtCost != null ? (
               <View className="rounded-xl p-3" style={{ backgroundColor: "rgba(214,255,63,0.1)" }}>
                 <Text className="text-[13px] font-body-bold" style={{ color: colors.accent }}>
                   Your break-even
                 </Text>
                 <Text className="text-[12.5px] mt-1" style={{ color: colors.textDim, lineHeight: 18 }}>
-                  Court's ${totalCost} total. {inCount} in at ${perPlayer}, that's ${covered}.{" "}
-                  {shortfall > 0 ? `You're $${shortfall} short of covering it, ${open} ${open === 1 ? "spot" : "spots"} left to close the gap.` : "Fully covered."}
+                  Court's ${courtCost}. {inCount} of {game.maxPlayers} paying, that's ${covered}.{" "}
+                  {shortfall > 0 ? `You're $${shortfall} short until the last spot fills.` : "Fully covered."}
                 </Text>
               </View>
-            ) : (
+            ) : !isOrganizer ? (
               <View className="rounded-xl p-3 flex-row justify-between items-center" style={{ backgroundColor: "rgba(214,255,63,0.1)" }}>
                 <Text className="text-[14.5px] font-body-bold" style={{ color: colors.accent }}>
                   Your share
@@ -640,7 +649,7 @@ export default function GameDetails() {
                   ${perPlayer}
                 </Text>
               </View>
-            )}
+            ) : null}
           </View>
 
           <SectionLabel>Good to know</SectionLabel>
@@ -812,8 +821,10 @@ export default function GameDetails() {
             </View>
           </View>
         ) : membership?.status === "requested" ? (
+          // F1.2: this state now only happens on a request-mode game (auto-approve games skip
+          // 'requested' entirely), so it can finally say what's actually still true.
           <View className="gap-1.5">
-            <Button testID="game-cta" label="Request sent" variant="secondary" disabled />
+            <Button testID="game-cta" label={`Asked. ${hostName === "The host" ? "The host" : hostName} will reply soon`} variant="secondary" disabled />
             <Pressable className="items-center" onPress={() => leaveGame.mutate()}>
               <Text className="font-body-semibold text-[11.5px]" style={{ color: colors.textTertiary }}>
                 Withdraw request
@@ -845,9 +856,14 @@ export default function GameDetails() {
             </Pressable>
           </View>
         ) : (
+          // F1.2: says up front whether a tap gets you in or just asks the host.
           <Button
             testID="game-cta"
-            label={perPlayer > 0 ? `Join · $${perPlayer}` : "Join"}
+            label={
+              game.autoApprove
+                ? perPlayer > 0 ? `Join · $${perPlayer}` : "Join"
+                : perPlayer > 0 ? `Ask to join · $${perPlayer}` : "Ask to join"
+            }
             loading={requestToJoin.isPending}
             onPress={() => {
               haptics.tap();
@@ -875,14 +891,14 @@ export default function GameDetails() {
           gameId={gameId}
         />
       )}
-      <Sheet visible={joinConfirmOpen} onClose={() => setJoinConfirmOpen(false)} title="Join this game?">
+      <Sheet visible={joinConfirmOpen} onClose={() => setJoinConfirmOpen(false)} title={game.autoApprove ? "Join this game?" : "Ask to join this game?"}>
         <Text className="text-[13.5px]" style={{ color: colors.textSecondary, lineHeight: 20 }}>
           It's ${perPlayer} each, split with the group. You sort it with {hostName === "The host" ? "the host" : hostName} on the day.
         </Text>
         <View className="mt-4 gap-2.5">
           <Button
             testID="game-join-confirm"
-            label={`Join · $${perPlayer}`}
+            label={game.autoApprove ? `Join · $${perPlayer}` : `Ask to join · $${perPlayer}`}
             loading={requestToJoin.isPending}
             onPress={() => {
               setJoinConfirmOpen(false);

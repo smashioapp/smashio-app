@@ -284,3 +284,19 @@ Push action "I'm in" is a JS category change, OTA-safe (short-a-player §8.2 pre
 - `supabase db reset`, pgTAP for `request_to_join` in both modes, `npx tsc --noEmit`.
 - Web preview at 375x812 for layout (`verify-ui`), Maestro smoke for join (`e2e-smoke`).
 - Device check on iOS + Android for push copy, actions and the you're-in sheet (web can't).
+
+---
+
+## 10. Status (2026-09-28)
+
+D1-D6 settled by adopting every recommendation above. Working on branch `feat/fill-the-spot`.
+
+**P0: implemented locally, committed, not deployed.**
+- Migration `20260928000000_fill_the_spot_p0.sql`: `request_to_join` auto-approves on `auto_approve` games (host gets a `player_joined` push, `game_full` when it fills, chat "joined" message fires on the direct-approve path), `games.court_cost_cents`, `create_game_with_spots(p_court_cost_cents)`, `spot_open_reach(game_id)` (organizer only). pgTAP: 356 pass, new `request_to_join_auto_approve_test.sql`.
+- push-dispatch: `player_joined` copy, routing and `requests` channel.
+- Client: break-even card uses the real court cost (hidden when unknown), F18 date line removed, Ask-to-join labels, "Asked. {host} will reply soon", guest "+" saves `/wizard` as the pending path, wizard passes the existing court total (F16) as `courtCostCents`, success screen reads `spot_open_reach` so copy is honest.
+- Skipped: F9 stray "Ben" label (needs live repro), court cost on the edit-game screen, "Scheduled" success state (waits for P4).
+
+**P1-P6: not started.**
+
+**Deploy order:** `supabase db push`, deploy `push-dispatch`, then JS/OTA.

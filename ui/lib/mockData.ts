@@ -70,6 +70,11 @@ export type Game = {
   autoApprove?: boolean;
   shuttles?: string | null;
   notes?: string | null;
+  // fill-the-spot-ultraplan.md P0.3 (F10). What the host says the court actually costs them in
+  // total, entered separately from `cost` (the per-player rate) — the two aren't derived from
+  // each other. Null/undefined means the host never entered one, so the break-even card has
+  // nothing honest to compare against and stays hidden.
+  courtCostCents?: number | null;
 };
 
 export type PastPlayer = {

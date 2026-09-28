@@ -22,6 +22,7 @@ import { useSession } from "../lib/session";
 import { haptics } from "../lib/haptics";
 import { sound } from "../lib/sound";
 import { SPRING } from "../lib/motion";
+import { savePendingPath } from "../lib/pendingGame";
 
 type TabBarProps = {
   state: { index: number; routes: { key: string; name: string }[] };
@@ -185,8 +186,10 @@ function HostButton() {
       onPress={() => {
         haptics.tap();
         // G5 (gtm-plan.md §3.2): host is walled for a session-less viewer, same as join.
+        // F17 (fill-the-spot-ultraplan.md P0.5): a guest's tap here used to just vanish after
+        // sign-in, landing back on Discover instead of the host flow they actually asked for.
         if (!session) {
-          router.push("/onboarding");
+          savePendingPath("/wizard").finally(() => router.push("/onboarding"));
           return;
         }
         sound.play("whoosh");

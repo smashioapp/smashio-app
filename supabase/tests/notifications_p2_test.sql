@@ -66,10 +66,13 @@ SELECT is(
 
 -- 7-8. notification_prefs opts a category out before enqueue_notifications ever writes a row —
 -- the P1 pref gate, now load-bearing for the inbox too, not just push delivery.
-insert into public.games (id, sport_id, venue_id, organizer_id, starts_at, ends_at, skill_tier_id, max_players, status)
+-- auto_approve = false: this block tests the join_requests notification-pref gate, which only
+-- applies while a request needs the host's review. Fill-the-spot-ultraplan P0
+-- (20260928000000_fill_the_spot_p0.sql) skips 'requested' entirely on an auto-approve game.
+insert into public.games (id, sport_id, venue_id, organizer_id, starts_at, ends_at, skill_tier_id, max_players, status, auto_approve)
 select 'c0000000-0000-0000-0000-000000000002', s.id, 'c5555555-5555-5555-5555-555555555555',
   'c3333333-3333-3333-3333-333333333333', now() + interval '1 day', now() + interval '1 day 2 hours',
-  t.id, 8, 'published'
+  t.id, 8, 'published', false
 from public.sports s join public.skill_tiers t on t.sport_id = s.id where s.slug = 'badminton' limit 1;
 
 insert into public.notification_prefs (profile_id, join_requests) values

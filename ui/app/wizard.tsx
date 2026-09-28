@@ -28,6 +28,7 @@ import {
   useMyHostingGames,
   useMyPastGames,
   useParseConfirmation,
+  useSpotOpenReach,
   useUploadConfirmation,
   useUploadConfirmationFiles,
   type ParsedBooking,
@@ -219,6 +220,8 @@ export default function Wizard() {
   const [publishing, setPublishing] = useState(false);
   const [published, setPublished] = useState(false);
   const [publishError, setPublishError] = useState(false);
+  const withinPingWindow = wizard.startsAt.getTime() - Date.now() <= 24 * 60 * 60 * 1000;
+  const spotOpenReach = useSpotOpenReach(createdGameId ?? "", published && !!createdGameId && wizard.visibility === "public" && withinPingWindow);
 
   const [entryMode, setEntryMode] = useState<"manual" | "receipt" | null>(null);
   const [uploadSheet, setUploadSheet] = useState(false);
@@ -580,6 +583,7 @@ export default function Wizard() {
         autoApprove: wizard.autoApprove,
         shuttles: wizard.shuttles,
         notes: wizard.notes,
+        courtCostCents: courtCost != null && courtCost > 0 ? courtCost * 100 : undefined,
         // Anonymous "already in" holds ride along as blank spots (add_reserved_spot with no
         // label), so reserved_spots is right from the first write (ux-plan §3.1).
         spots: [
@@ -1081,14 +1085,19 @@ export default function Wizard() {
               <Text className="text-[14.5px] text-center max-w-[260px]" style={{ color: colors.textSecondary }}>
                 Your game at {venue?.name ?? "your venue"} is live. Now's the moment to get people in.
               </Text>
-              {/* short-a-player-plan S6. Only what S1 actually does: a public game inside 24h
-                  pings nearby players at publish; later ones get pinged if a spot opens close to
-                  the day. Link-only games are never listed, so they get no line. */}
+              {/* short-a-player-plan S6, made honest by fill-the-spot-ultraplan P0.4 (F11): this
+                  used to claim a ping regardless of whether one actually went out. Now it reads
+                  spot_open_reach — the real recipient count from the same fan-out — instead of
+                  promising one unconditionally. Link-only games are never listed, so no line. */}
               {wizard.visibility === "public" && (
                 <Text className="text-[13px] text-center max-w-[280px] -mt-1.5" style={{ color: colors.textTertiary }}>
-                  {wizard.startsAt.getTime() - Date.now() <= 24 * 60 * 60 * 1000
-                    ? "We're giving nearby players at your level a heads up now."
-                    : "If someone drops out close to the day, we'll tell nearby players at your level."}
+                  {!withinPingWindow
+                    ? "If someone drops out close to the day, we'll tell nearby players at your level."
+                    : spotOpenReach.isPending
+                    ? "Checking who's nearby…"
+                    : (spotOpenReach.data ?? 0) > 0
+                    ? `We've pinged ${spotOpenReach.data} nearby players at your level.`
+                    : "No one nearby has alerts on yet. Share it to your group, that's the quickest fill."}
                 </Text>
               )}
               <View className="w-full rounded-2xl p-4 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>

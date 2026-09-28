@@ -38,6 +38,7 @@ import {
   newFollowerBody,
   nudgePendingBody,
   nudgeUnderfilledBody,
+  playerJoinedBody,
   playerLeftBody,
   type PostSummary,
   postGameAttendanceBody,
@@ -94,6 +95,7 @@ const supabase = createClient(
 const CHANNEL_FOR_TYPE: Record<string, PushChannel> = {
   join_request: "requests",
   player_left: "requests",
+  player_joined: "requests",
   game_full: "requests",
   join_decision: "requests",
   game_cancelled: "game-updates",
@@ -341,6 +343,10 @@ async function renderIndividual(row: NotificationRow): Promise<Rendered | null> 
     case "player_left": {
       const actor = row.actor_id ? await getActorName(row.actor_id) : "A player";
       return { body: playerLeftBody(actor, summary), screen: "game" };
+    }
+    case "player_joined": {
+      const actor = row.actor_id ? await getActorName(row.actor_id) : "A player";
+      return { body: playerJoinedBody(actor, summary), screen: "game" };
     }
     case "game_full":
       return { body: gameFullBody(summary), screen: "game" };

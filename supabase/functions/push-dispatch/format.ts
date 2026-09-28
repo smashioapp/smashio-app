@@ -189,6 +189,16 @@ export function joinDecisionBody(
   return joinDeclinedBody(s);
 }
 
+// F1 (fill-the-spot-ultraplan.md P0.1). Auto-approve games skip the request entirely, so this is
+// the only roster news a host gets when it happens — no approve/decline to do, just told.
+export function playerJoinedBody(actor: string, s: GameSummary): PushBody {
+  const filled = s.approved_count + s.reserved_spots;
+  return {
+    title: `${actor} joined your game`,
+    body: `${where(s)}, ${shortTime(s.starts_at)} · ${filled} of ${s.max_players} in.`,
+  };
+}
+
 // A6. The one thing a host can still act on: a spot reopened.
 export function playerLeftBody(actor: string, s: GameSummary): PushBody {
   const title = pick([`${actor} dropped out`, `${actor} pulled out`], s.game_id);

@@ -113,6 +113,7 @@ function toGameFromPublicRow(row: GamesPublicRow, avatarUrls: Map<string, string
     autoApprove: row.auto_approve ?? undefined,
     shuttles: row.shuttles,
     notes: row.notes,
+    courtCostCents: row.court_cost_cents,
   };
 }
 
@@ -360,6 +361,7 @@ export function useCreateGame() {
       autoApprove?: boolean;
       shuttles?: string;
       notes?: string;
+      courtCostCents?: number;
       spots?: NamedSpotInput[];
       // "Who's already in?" holds (short-a-player-ux-plan.md §3.1) are people who are coming,
       // not seats on offer, so they shouldn't expire 4h out and fire a spot_open. Pins every
@@ -389,6 +391,7 @@ export function useCreateGame() {
         p_notes: input.notes?.trim() || undefined,
         p_cover_key: randomCoverKey(),
         p_spots: (input.spots ?? []).map((s) => ({ label: s.label, invited_profile_id: s.invitedProfileId ?? null })),
+        p_court_cost_cents: input.courtCostCents ?? undefined,
       });
       if (error) throw error;
       const gameId = data as string;
@@ -446,6 +449,7 @@ export function useUpdateGame(gameId: string) {
       autoApprove?: boolean;
       shuttles?: string;
       notes?: string;
+      courtCostCents?: number | null;
     }) => {
       const { error } = await supabase
         .from("games")
@@ -465,6 +469,7 @@ export function useUpdateGame(gameId: string) {
           auto_approve: input.autoApprove ?? true,
           shuttles: input.shuttles?.trim() || null,
           notes: input.notes?.trim() || null,
+          ...(input.courtCostCents !== undefined ? { court_cost_cents: input.courtCostCents } : {}),
         })
         .eq("id", gameId);
       if (error) throw error;
@@ -526,6 +531,22 @@ export function useAttendanceMarkedAt(gameId: string, enabled: boolean) {
       const { data, error } = await supabase.from("games").select("attendance_marked_at").eq("id", gameId).maybeSingle();
       if (error) throw error;
       return data?.attendance_marked_at ?? null;
+    },
+    enabled: enabled && !!gameId,
+  });
+}
+
+// fill-the-spot-ultraplan.md P0.4 (F11). The publish success screen used to promise a ping
+// unconditionally; this is the one honest number behind that promise. games_spot_open is a
+// deferred constraint trigger (fires at commit, after create_game_with_spots already returned),
+// so the wizard reads it back with a follow-up call instead of getting it from the create RPC.
+export function useSpotOpenReach(gameId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["spot_open_reach", gameId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("spot_open_reach", { p_game_id: gameId });
+      if (error) throw error;
+      return data ?? 0;
     },
     enabled: enabled && !!gameId,
   });

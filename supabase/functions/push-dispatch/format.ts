@@ -98,6 +98,8 @@ export type GameSummary = {
   tier_name: string;
   verification_status: string;
   auto_approve?: boolean;
+  payment_method?: string | null;
+  payment_handle?: string | null;
 };
 
 export type PushBody = { title: string; body: string; expand?: string };
@@ -298,16 +300,34 @@ export function reminder24hBody(s: GameSummary, now?: Date): PushBody {
   };
 }
 
-// C2.
+// C2. Since fill-the-spot P5 this is the game-day card in push form: time, court, headcount and,
+// when the host said, how to pay. Information only.
 export function reminder2hBody(s: GameSummary): PushBody {
   const title = pick(["Starts in 2 hours", "Two hours out", "Nearly time"], s.game_id);
   // approved_count + reserved_spots left the host out of their own headcount (post-game-plan
   // D1) — max_players minus what's still open is the whole room, host included.
   const playing = s.max_players - s.spots_left;
+  const pay = payLine(s);
   return {
     title,
     body: `${where(s)}, ${clockTime(s.starts_at)}${courtSuffix(s)} · ${playing} playing. Grab your gear.`,
+    ...(pay ? { expand: pay } : {}),
   };
+}
+
+function payLine(s: GameSummary): string | null {
+  if (!s.per_player_cents) return null;
+  const host = s.host_name || "the host";
+  switch (s.payment_method) {
+    case "cash":
+      return `${money(s.per_player_cents)} each, cash to ${host} on the day.`;
+    case "transfer":
+      return `${money(s.per_player_cents)} each, bank transfer to ${s.payment_handle?.trim() || host}.`;
+    case "chat":
+      return `${money(s.per_player_cents)} each, ${host} will sort it in chat.`;
+    default:
+      return null;
+  }
 }
 
 // C3. Feeds ratings, which feed reliability, which feed trust — the plan's highest-value
@@ -458,9 +478,14 @@ export function chatMentionBody(summary: MessageSummary): PushBody {
 }
 
 // E2. §4E: 3+ unread messages from one game within 5 min collapse the same way A2 does.
-export function messageCoalescedBody(n: number, s: GameSummary): PushBody {
+export function messageCoalescedBody(n: number, s: GameSummary, now: Date = new Date()): PushBody {
+  // fill-the-spot P5 (F8): lead with the venue and a human time ("MUSAC, tomorrow 9:00 am"), not
+  // "Badminton at MUSAC" followed by a raw weekday and clock.
+  const day = dayLabel(s.starts_at, now);
+  const hour = Number(new Date(s.starts_at).toLocaleString("en-AU", { timeZone: SYDNEY_TZ, hour: "numeric", hourCycle: "h23" }));
+  const dayWord = day === "Today" ? (hour >= 17 ? "tonight" : "today") : day === "Tomorrow" ? "tomorrow" : day;
   return {
-    title: where(s),
+    title: `${s.venue_name}, ${dayWord} ${clockTime(s.starts_at)}`,
     body: `${n} new messages`,
   };
 }

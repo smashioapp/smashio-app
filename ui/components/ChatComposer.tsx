@@ -37,6 +37,7 @@ export function ChatComposer({
   attachTrayOpen,
   replyTo,
   onCancelReply,
+  gameDay = false,
 }: {
   state: ComposerState;
   members: ChatMember[];
@@ -46,6 +47,7 @@ export function ChatComposer({
   attachTrayOpen: boolean;
   replyTo: ChatMessage | null;
   onCancelReply: () => void;
+  gameDay?: boolean;
 }) {
   const [input, setInput] = useState("");
   const [mentionIds, setMentionIds] = useState<Set<string>>(new Set());
@@ -116,7 +118,7 @@ export function ChatComposer({
       )}
 
       {keyboardVisible && !input.trim() && !replyTo && (
-        <ChatQuickReplies onPick={(text) => onSendText(text, [])} />
+        <ChatQuickReplies gameDay={gameDay} onPick={(text) => onSendText(text, [])} />
       )}
 
       {replyTo && (

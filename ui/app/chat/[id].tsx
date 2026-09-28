@@ -261,6 +261,8 @@ export default function ChatThread() {
   const announce = metaQuery.data?.chatMode === "announce";
   const paused = !!metaQuery.data?.chatPauseUntil && new Date(metaQuery.data.chatPauseUntil) > new Date();
 
+  // P5.2: 3h before to 1h after the game, the quick replies are about getting there.
+  const isGameDay = !!game && Date.now() >= new Date(game.startsAt).getTime() - 3 * 3600_000 && Date.now() <= new Date(game.endsAt).getTime() + 3600_000;
   const composerState: ComposerState = membersQuery.isLoading || !isMember
     ? "locked_not_member"
     : closed
@@ -579,6 +581,7 @@ export default function ChatThread() {
           attachTrayOpen={attachTrayOpen}
           replyTo={replyTo}
           onCancelReply={() => setReplyTo(null)}
+          gameDay={isGameDay}
         />
       </View>
 

@@ -86,6 +86,42 @@ function groupLabel(iso: string): string {
   return "Earlier";
 }
 
+// fill-the-spot P5.3 (F8): three chat pushes for one game were three identical inbox rows. Fold
+// each game's chat messages within a day bucket into the newest one. Mentions stay separate, they
+// are the one chat push that is definitely for you.
+type InboxItem = NotificationItem & { mergedIds?: string[]; mergedCount?: number };
+
+function coalesceChat(items: NotificationItem[]): InboxItem[] {
+  const out: InboxItem[] = [];
+  const seen = new Map<string, InboxItem>();
+  for (const item of items) {
+    if (item.type !== "message" || !item.gameId) {
+      out.push(item);
+      continue;
+    }
+    const key = `${item.gameId}|${groupLabel(item.createdAt)}`;
+    const head = seen.get(key);
+    if (!head) {
+      const first: InboxItem = { ...item, mergedIds: [item.id], mergedCount: 1 };
+      seen.set(key, first);
+      out.push(first);
+      continue;
+    }
+    head.mergedIds!.push(item.id);
+    head.mergedCount = (head.mergedCount ?? 1) + 1;
+    if (!item.readAt) head.readAt = null;
+  }
+  for (const it of out) {
+    if ((it.mergedCount ?? 1) > 1) {
+      const game = (it.title ?? "").split(" · ").slice(1).join(" · ") || it.title;
+      it.title = game;
+      it.body = `${it.mergedCount} new messages`;
+      it.expand = null;
+    }
+  }
+  return out;
+}
+
 function groupItems(items: NotificationItem[]): { title: string; data: NotificationItem[] }[] {
   const order = ["Today", "Yesterday", "This week", "Earlier"];
   const buckets = new Map<string, NotificationItem[]>();
@@ -223,7 +259,7 @@ export default function NotificationsInbox() {
   const markAllRead = useMarkAllNotificationsRead();
   const [refreshing, setRefreshing] = useState(false);
 
-  const sections = useMemo(() => groupItems(items ?? []), [items]);
+  const sections = useMemo(() => groupItems(coalesceChat(items ?? [])), [items]);
   const rows = useMemo(
     () => sections.flatMap((s) => [{ kind: "header" as const, title: s.title }, ...s.data.map((item) => ({ kind: "item" as const, item }))]),
     [sections],
@@ -237,7 +273,9 @@ export default function NotificationsInbox() {
 
   const openItem = (item: NotificationItem) => {
     haptics.tick();
-    if (!item.readAt) markRead.mutate(item.id);
+    for (const id of (item as InboxItem).mergedIds ?? [item.id]) {
+      if (!item.readAt || (item as InboxItem).mergedIds) markRead.mutate(id);
+    }
     const route = routeForNotification(item);
     if (route) router.push(route as never);
   };

@@ -3122,6 +3122,9 @@ export type Database = {
         Returns: boolean
       }
       spot_open_reach: { Args: { p_game_id: string }; Returns: number }
+      set_host_here: { Args: { p_game_id: string }; Returns: undefined }
+      game_host_here: { Args: { p_game_id: string }; Returns: string | null }
+      dismiss_spot: { Args: { p_game_id: string }; Returns: undefined }
       record_game_view: { Args: { p_game_id: string }; Returns: undefined }
       game_fill_status: {
         Args: { p_game_id: string }

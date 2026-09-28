@@ -360,9 +360,9 @@ Deno.test("messageBody: text truncated to 140 chars", () => {
   assertEquals(messageBody({ ...message, body: "x".repeat(200) }).body.length, 140);
 });
 
-Deno.test("messageCoalescedBody titles with the game and states the count", () => {
-  const { title, body } = messageCoalescedBody(5, summary);
-  assertMatch(title, /Badminton at Test Courts/);
+Deno.test("messageCoalescedBody leads with the venue and a human time, and states the count", () => {
+  const { title, body } = messageCoalescedBody(5, withSummary({ starts_at: "2026-06-15T09:00:00Z" }), new Date("2026-06-14T02:00:00Z"));
+  assertEquals(title, "Test Courts, tomorrow 7:00 pm");
   assertMatch(body, /^5 new messages$/);
 });
 
@@ -615,4 +615,11 @@ Deno.test("stillShortBody says how many are short and offers the wider ping, no 
   assertEquals(title, "Still 1 short for tonight");
   assertMatch(body, /15 km out\?$/);
   assertEquals(/—/.test(`${title}${body}`), false);
+});
+
+Deno.test("reminder2hBody says how to pay when the host said, and stays quiet when they didn't", () => {
+  assertEquals(reminder2hBody(withSummary({ payment_method: "cash", host_name: "Ava" })).expand, "$12 each, cash to Ava on the day.");
+  assertEquals(reminder2hBody(withSummary({ payment_method: "transfer", payment_handle: "ava@pay.id" })).expand, "$12 each, bank transfer to ava@pay.id.");
+  assertEquals(reminder2hBody(withSummary({ payment_method: null })).expand, undefined);
+  assertEquals(reminder2hBody(withSummary({ payment_method: "cash", per_player_cents: 0 })).expand, undefined);
 });

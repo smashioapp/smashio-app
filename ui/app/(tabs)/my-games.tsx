@@ -27,7 +27,8 @@ import { ListRow } from "../../components/ListRow";
 import { Rail } from "../../components/RailCard";
 import { NextUpHero } from "../../components/NextUpHero";
 import type { MyRole } from "../../components/UpcomingGameCard";
-import type { Game } from "../../lib/mockData";
+import { spotsLeft, type Game } from "../../lib/mockData";
+import { GameDayCard, isGameDay } from "../../components/GameDayCard";
 
 type AlertRowState = "idle" | "saving" | "saved";
 
@@ -266,6 +267,15 @@ export default function MyGames() {
               unread={unreadGameIds.has(heroGame.id)}
               onPress={() => router.push(`/game/${heroGame.id}`)}
             />
+            {(heroGame.role === "playing" || heroGame.role === "hosting") && isGameDay(heroGame) && (
+              <View className="px-5 pt-3">
+                <GameDayCard
+                  game={heroGame}
+                  isHost={heroGame.role === "hosting"}
+                  playing={heroGame.maxPlayers - spotsLeft(heroGame)}
+                />
+              </View>
+            )}
           </View>
         )}
 

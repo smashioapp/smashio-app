@@ -324,6 +324,12 @@ D1-D6 settled by adopting every recommendation above. Working on branch `feat/fi
 - pgTAP `spot_relevance_test.sql` written, unrun. **Existing spot alert pgTAP that sends two pings in one day, or relies on a candidate scoring under the new floors, may need adjusting once Docker is up.**
 - Weights and the 0.1 / 0.5 thresholds are a first guess, not tuned on data.
 
-**P5-P6: not started.**
+**P5: implemented locally, not deployed, not verified (no Docker, no device).**
+- Migration `20260928000500_fill_the_spot_p5.sql`: `games.host_here_at`, `set_host_here` (organizer, from 3h before to 1h after), `game_host_here` (organizer and approved players), `push_game_summary` gains `payment_method` / `payment_handle`. No pgTAP for these yet.
+- push-dispatch: the 2h reminder carries how to pay when the host said ("$9 each, cash to Ava on the day."), coalesced chat title now leads with the venue and a human time ("MUSAC, tomorrow 7:00 pm"). Deno tests pass (76).
+- Client: `GameDayCard` under the My Games hero inside 2h of start (court, playing count, how to pay, host "I'm here" status, Directions, Chat, and an "I'm here" button for the host). Chat quick replies switch to "On my way / Running 10 late / Here, at reception" from 3h before to 1h after. Inbox folds each game's chat messages per day into one row ("N new messages"), mentions stay separate.
+- Skipped: "meet point" as its own field (the court label and chat cover it), a push to players when the host taps "I'm here", host-typed court label from the card (still edited via edit-game).
 
-**Deploy order:** `supabase db push` (all four migrations), deploy `push-dispatch`, then JS/OTA.
+**P6: not started (later work per the plan: paste from WhatsApp, venue QR deep link, Live Activity).**
+
+**Deploy order:** `supabase db push` (all six migrations), deploy `push-dispatch`, then JS/OTA.

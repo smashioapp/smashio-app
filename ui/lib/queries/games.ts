@@ -962,3 +962,29 @@ export function recordGameView(gameId: string) {
     () => {},
   );
 }
+
+// fill-the-spot P5: the host's "I'm here". Members read it, only the host writes it.
+export function useGameHostHere(gameId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["game_host_here", gameId],
+    queryFn: async (): Promise<string | null> => {
+      const { data, error } = await supabase.rpc("game_host_here", { p_game_id: gameId });
+      if (error) throw error;
+      return data ?? null;
+    },
+    enabled: enabled && !!gameId,
+    refetchInterval: (query) => (query.state.data ? false : 30_000),
+  });
+}
+
+export function useSetHostHere(gameId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc("set_host_here", { p_game_id: gameId });
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["game_host_here", gameId] }),
+    onError: (error) => captureMutationError("game.set_host_here", error, { gameId }),
+  });
+}

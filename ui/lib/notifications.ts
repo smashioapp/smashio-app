@@ -91,6 +91,11 @@ const NOTIFICATION_CATEGORIES: Record<string, Notifications.NotificationAction[]
       buttonTitle: "Ask to join",
       options: { opensAppToForeground: true },
     },
+    {
+      identifier: "not_for_me",
+      buttonTitle: "Not for me",
+      options: { opensAppToForeground: false },
+    },
   ],
   // fill-the-spot P2 (D4): instant-join games under $20 say "I'm in" (one tap, joins for real).
   // The server picks the category per game (push-dispatch spotOpenCategory); an older build that
@@ -100,6 +105,11 @@ const NOTIFICATION_CATEGORIES: Record<string, Notifications.NotificationAction[]
       identifier: "join_spot",
       buttonTitle: "I'm in",
       options: { opensAppToForeground: true },
+    },
+    {
+      identifier: "not_for_me",
+      buttonTitle: "Not for me",
+      options: { opensAppToForeground: false },
     },
   ],
   // fill-the-spot P3.3: T-3h "still short" host nudge. Same call as the game page's ping-wider.
@@ -116,6 +126,11 @@ const NOTIFICATION_CATEGORIES: Record<string, Notifications.NotificationAction[]
       identifier: "view_spot",
       buttonTitle: "Have a look",
       options: { opensAppToForeground: true },
+    },
+    {
+      identifier: "not_for_me",
+      buttonTitle: "Not for me",
+      options: { opensAppToForeground: false },
     },
   ],
 };
@@ -236,6 +251,13 @@ async function handleNotificationAction(response: Notifications.NotificationResp
     const { error } = await supabase.rpc("request_to_join", { p_game_id: data.game_id });
     if (!error) track("join_requested", { game_id: data.game_id, waitlisted: false, source: "push_action" });
     router.push(`/game/${data.game_id}`);
+    return;
+  }
+
+  // fill-the-spot P4.3: "Not for me" teaches the alert ranking which venue and slot to skip for
+  // 30 days. Silent on purpose, no navigation and no toast.
+  if (actionId === "not_for_me") {
+    await (supabase.rpc as any)("dismiss_spot", { p_game_id: data.game_id });
     return;
   }
 

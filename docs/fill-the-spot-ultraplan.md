@@ -316,6 +316,14 @@ D1-D6 settled by adopting every recommendation above. Working on branch `feat/fi
 - Skipped: Realtime (the tracker polls every 20s while a spot is open), "Hold a spot" under More ways (ReservedSpots already sits lower on the page), small celebration animation on fill, price in the default share text, "Jay joined. You're full, game on" is already covered by P0's `player_joined` + `game_full`.
 - Fill time is publish to last approval, so it includes hosts who filled it from their own group, not just alert joins.
 
-**P4-P6: not started.**
+**P4: implemented locally, not deployed, not verified (no Docker, no device).**
+- Migration `20260928000400_fill_the_spot_p4.sql`: `dispatch_spot_open_sweep` cron every 15 min re-runs recipients for games still open (`spot_open_sent_at` null or within 12h, inside the 24h window). That delivers quiet-hours players once their hours end (F3) and games that cross into the window (F4), and never double-sends because `spot_open_recipients` already skips anyone with a `spot_open` for the game. No queue table.
+- `spot_relevance()` (distance .30, level fit .20, plays this slot .20, host turns up .15, court booked .15, minus "Not for me"). `spot_open_recipients` now needs 0.1 for a first ping and 0.5 for the second of the day. Cap stays 2.
+- `spot_dismissals` + `dismiss_spot` (30-day penalty: same venue -0.4, same weekday and day/evening -0.3). "Not for me" button added to the three spot alert categories.
+- `spot_alert_mute_rate(days)` for the weekly scorecard, service role only. Add the weekly number to gtm §9 by hand.
+- pgTAP `spot_relevance_test.sql` written, unrun. **Existing spot alert pgTAP that sends two pings in one day, or relies on a candidate scoring under the new floors, may need adjusting once Docker is up.**
+- Weights and the 0.1 / 0.5 thresholds are a first guess, not tuned on data.
 
-**Deploy order:** `supabase db push` (all three migrations), deploy `push-dispatch`, then JS/OTA.
+**P5-P6: not started.**
+
+**Deploy order:** `supabase db push` (all four migrations), deploy `push-dispatch`, then JS/OTA.

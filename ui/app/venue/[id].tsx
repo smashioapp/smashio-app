@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSession } from "../../lib/session";
 import { useVenueUpcomingGames } from "../../lib/queries/games";
 import { useCreateAlert } from "../../lib/queries/alerts";
@@ -53,7 +53,7 @@ function unitLabel(unit: string): string {
 }
 
 export default function VenueScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, host } = useLocalSearchParams<{ id: string; host?: string }>();
   const venueId = id ?? "";
   const { width } = useWindowDimensions();
   const venueQuery = useVenueDetail(venueId);
@@ -67,6 +67,22 @@ export default function VenueScreen() {
   const createAlert = useCreateAlert();
   const [alertState, setAlertState] = useState<AlertState>("idle");
   const [showAllGames, setShowAllGames] = useState(false);
+
+  // P6 venue poster QR: https://smashio.com.au/venue/<uuid>?host=1 lands straight in the host flow
+  // with this venue filled in. Signed-out visitors stay on the venue page (the Host button there
+  // already routes them to sign in), and the ref stops a back-swipe from bouncing them forward again.
+  const autoHosted = useRef(false);
+  useEffect(() => {
+    if (host !== "1" || autoHosted.current || !venue || !session) return;
+    autoHosted.current = true;
+    useAppStore.getState().setHostHereSeed({
+      venueId: venue.id,
+      venueName: venue.name,
+      venueSuburb: venue.suburb,
+      venueAddress: venue.address ?? `${venue.suburb}, ${venue.state}`,
+    });
+    router.push("/wizard");
+  }, [host, venue, session]);
 
   if (venueQuery.isLoading) {
     return (

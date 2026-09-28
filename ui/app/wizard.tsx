@@ -33,6 +33,8 @@ import {
   useMyHostingGames,
   useMyPastGames,
   useParseConfirmation,
+  useParsePost,
+  type ParsedPost,
   useSpotOpenReach,
   useSpotReachEstimate,
   useUploadConfirmation,
@@ -216,6 +218,7 @@ export default function Wizard() {
   const uploadConfirmation = useUploadConfirmation();
   const uploadConfirmationFiles = useUploadConfirmationFiles();
   const parseConfirmation = useParseConfirmation();
+  const parsePost = useParsePost();
   const attachConfirmation = useAttachConfirmation();
   const upsertPlaceVenue = useUpsertPlaceVenue();
 
@@ -232,6 +235,8 @@ export default function Wizard() {
 
   const [entryMode, setEntryMode] = useState<"manual" | "receipt" | null>(null);
   const [uploadSheet, setUploadSheet] = useState(false);
+  const [pasteSheet, setPasteSheet] = useState(false);
+  const [pasteText, setPasteText] = useState("");
   const [parsing, setParsing] = useState(false);
   const [parsedData, setParsedData] = useState<ParsedBooking | null>(null);
   const [draftConfirmationId, setDraftConfirmationId] = useState<string | null>(null);
@@ -296,6 +301,48 @@ export default function Wizard() {
     setSelectedVenue({ name: seed.venueName, suburb: seed.venueSuburb, address: seed.venueAddress });
     setVenueQuery(seed.venueName);
     setEntryMode("manual");
+  };
+
+  // P6: fill the draft from a pasted group-chat post. Only fields the parser was sure of are set,
+  // everything else keeps its default, and the venue lands in the search box for the host to pick
+  // (we never guess a venue). Nothing here claims a booking, so no verified badge.
+  const applyPastedPost = (p: ParsedPost) => {
+    resetWizard();
+    setBookedNoProof(false);
+    const hours = p.duration_hours ? Math.min(MAX_DURATION_HOURS, Math.max(MIN_DURATION_HOURS, Math.round(p.duration_hours * 4) / 4)) : null;
+    if (hours) setDurationHours(hours);
+    if (p.courts) setCourtsBooked(Math.min(MAX_COURTS_BOOKED, Math.max(MIN_COURTS_BOOKED, p.courts)));
+    if (p.starts_at_local) {
+      const slot = new Date(p.starts_at_local);
+      if (!isNaN(slot.getTime()) && isSlotBookable(slot, slot.getHours(), slot.getMinutes())) setStartsAt(slot);
+    }
+    if (p.spots_needed) setNeedCount(p.spots_needed);
+    if (p.cost_per_player_aud != null) setCost(Math.min((hours ?? wizard.durationHours) * MAX_COST_PER_PLAYER_PER_HOUR, Math.round(p.cost_per_player_aud)));
+    const level = (p.level_hint ?? "").toLowerCase();
+    if (/beginner|new|social|casual/.test(level)) selectWizardTier("Beginner");
+    else if (/intermediate|inter|\b[bc][\s-]?grade|mid/.test(level)) selectWizardTier("Intermediate");
+    else if (/advanced|\ba[\s-]?grade|strong/.test(level)) selectWizardTier("Advanced");
+    setSelectedVenue(null);
+    setVenueQuery(p.venue_name ?? "");
+    setVenueResults([]);
+    setEntryMode("manual");
+  };
+
+  const submitPaste = async () => {
+    const text = pasteText.trim();
+    if (!text || parsePost.isPending) return;
+    try {
+      const parsed = await parsePost.mutateAsync(text);
+      if (!parsed.is_game_post) {
+        Alert.alert("Doesn't look like a game post", "Paste the message you'd send the group, something like \"need 1 for dubs 7pm, $10 each\".");
+        return;
+      }
+      setPasteSheet(false);
+      setPasteText("");
+      applyPastedPost(parsed);
+    } catch (e) {
+      Alert.alert("Couldn't read that one", e instanceof Error ? e.message : "Give it another go, or fill it in yourself.");
+    }
   };
 
   // P1.5: the host's most recent finished game, offered as a one-tap rebook on the fork.
@@ -1374,6 +1421,9 @@ export default function Wizard() {
                   <Text className="font-body-extrabold text-[16.5px]" style={{ color: colors.base }}>Snap the booking</Text>
                 </Pressable>
               </LinearGradient>
+              <Pressable testID="wizard-paste" onPress={() => setPasteSheet(true)} className="items-center py-3">
+                <Text className="font-body-bold text-[14.5px]" style={{ color: colors.textSecondary }}>Already posted it in a group? Paste it →</Text>
+              </Pressable>
               {/* F15: phone and friend bookings are real courts too, they just lack a screenshot. */}
               <Pressable testID="wizard-booked-no-proof" onPress={() => { resetWizard(); setBookedNoProof(true); setEntryMode("manual"); }} className="items-center py-3">
                 <Text className="font-body-bold text-[14.5px]" style={{ color: colors.textSecondary }}>Booked, but no screenshot? Skip for now →</Text>
@@ -1572,6 +1622,32 @@ export default function Wizard() {
             <Text className="font-body-bold text-[13px]" style={{ color: colors.text }}>Choose a file</Text>
           </Pressable>
         </View>
+      </Sheet>
+
+      <Sheet visible={pasteSheet} onClose={() => setPasteSheet(false)} title="Paste your post">
+        <Text className="text-[13px]" style={{ color: colors.textSecondary }}>
+          Paste what you sent the group and we'll fill in what we can. You check it before it goes anywhere.
+        </Text>
+        <TextInput
+          testID="wizard-paste-input"
+          value={pasteText}
+          onChangeText={setPasteText}
+          multiline
+          maxLength={1500}
+          placeholder="need 1 for dubs 7pm alpha auburn $10 each"
+          placeholderTextColor={colors.textTertiary}
+          className="rounded-2xl border px-4 py-3 mt-3 text-[15px]"
+          style={{ minHeight: 96, color: colors.text, backgroundColor: colors.card, borderColor: colors.cardBorder, textAlignVertical: "top" }}
+        />
+        <Pressable
+          testID="wizard-paste-submit"
+          onPress={submitPaste}
+          disabled={!pasteText.trim() || parsePost.isPending}
+          className="rounded-pill py-3.5 items-center mt-3"
+          style={{ backgroundColor: colors.accent, opacity: !pasteText.trim() || parsePost.isPending ? 0.5 : 1 }}
+        >
+          {parsePost.isPending ? <ActivityIndicator color={colors.base} /> : <Text className="font-body-extrabold text-[15.5px]" style={{ color: colors.base }}>Fill my game</Text>}
+        </Pressable>
       </Sheet>
 
       {/* "Doesn't match my booking?" — the unlock ladder for a locked field (create-game-plan §9.3). */}

@@ -857,6 +857,29 @@ const MAX_PARSE_UPLOAD_BYTES = 15 * 1024 * 1024;
 // A photo gets a client-side downscale to ~1600px long edge first — parsing costs real money per
 // call — but a PDF uploads as-is (create-game-plan.md §4.1): downscaling a document makes no
 // sense, and Gemini reads a multi-page PDF natively.
+// fill-the-spot P6: a pasted group-chat post to draft fields. ai-proxy 'parse_text', stores nothing.
+export type ParsedPost = {
+  is_game_post: boolean;
+  venue_name: string | null;
+  starts_at_local: string | null;
+  spots_needed: number | null;
+  cost_per_player_aud: number | null;
+  courts: number | null;
+  duration_hours: number | null;
+  level_hint: string | null;
+};
+
+export function useParsePost() {
+  return useMutation({
+    mutationFn: async (text: string) => {
+      const { data, error } = await supabase.functions.invoke("ai-proxy", { body: { mode: "parse_text", text } });
+      if (error) throw new Error(await readFunctionsErrorMessage(error, "Couldn't read that one."));
+      return (data as { parsed: ParsedPost }).parsed;
+    },
+    onError: (error) => captureMutationError("game.parse_post", error),
+  });
+}
+
 export function useParseConfirmation() {
   return useMutation({
     mutationFn: async ({

@@ -1,6 +1,6 @@
 # Fill-the-spot ultraplan: post in 30 seconds, join in one tap
 
-Written 2026-09-27. **Status: P0-P5 implemented locally on `feat/fill-the-spot` (2026-09-28), not deployed and not yet run against a database or device. P6 not started.** D1-D6 settled. See §10.
+Written 2026-09-27. **Status: P0-P5 and the two buildable P6 items implemented locally on `feat/fill-the-spot` (2026-09-28), not deployed and not yet run against a database or device. P6 Live Activity stays held.** D1-D6 settled. See §10.
 
 Serves [gtm-strategy.md](gtm-strategy.md) §1 (the promise), §2.2 (message house: Real court,
 Real level, Real players, Fast), §4 (flywheel: a booker only comes back if the spot fills) and §9
@@ -291,7 +291,7 @@ Push action "I'm in" is a JS category change, OTA-safe (short-a-player §8.2 pre
 
 D1-D6 settled by adopting every recommendation above. Working on branch `feat/fill-the-spot`.
 
-**Summary:** P0-P5 are written and committed (six migrations, `20260928000000` to `20260928000500`, plus push-dispatch and app changes). Only `tsc` and the push-dispatch Deno tests (76) have run. **Nothing has been through `supabase db reset`, pgTAP, the web preview or a device**, because the machine that built it had no Docker. Before deploying: run `supabase db reset` and `supabase test db` (expect to adjust existing spot alert tests for the P4 relevance floors), regenerate `ui/lib/db.types.ts` (hand-edited for the new RPCs and columns), then do a device check for the push actions, spot card, you're-in sheet and game-day card. P6 waits on P0-P3 results.
+**Summary:** P0-P5 are written and committed (six migrations, `20260928000000` to `20260928000500`, plus push-dispatch and app changes). Only `tsc` and the push-dispatch Deno tests (76) have run. **Nothing has been through `supabase db reset`, pgTAP, the web preview or a device**, because the machine that built it had no Docker. Before deploying: run `supabase db reset` and `supabase test db` (expect to adjust existing spot alert tests for the P4 relevance floors), regenerate `ui/lib/db.types.ts` (hand-edited for the new RPCs and columns), then do a device check for the push actions, spot card, you're-in sheet and game-day card. P6 paste and QR are built too (see below); measure P0-P3 before shipping them.
 
 **P0: implemented locally, committed, not deployed.**
 - Migration `20260928000000_fill_the_spot_p0.sql`: `request_to_join` auto-approves on `auto_approve` games (host gets a `player_joined` push, `game_full` when it fills, chat "joined" message fires on the direct-approve path), `games.court_cost_cents`, `create_game_with_spots(p_court_cost_cents)`, `spot_open_reach(game_id)` (organizer only). pgTAP: 356 pass, new `request_to_join_auto_approve_test.sql`.
@@ -332,6 +332,10 @@ D1-D6 settled by adopting every recommendation above. Working on branch `feat/fi
 - Client: `GameDayCard` under the My Games hero inside 2h of start (court, playing count, how to pay, host "I'm here" status, Directions, Chat, and an "I'm here" button for the host). Chat quick replies switch to "On my way / Running 10 late / Here, at reception" from 3h before to 1h after. Inbox folds each game's chat messages per day into one row ("N new messages"), mentions stay separate.
 - Skipped: "meet point" as its own field (the court label and chat cover it), a push to players when the host taps "I'm here", host-typed court label from the card (still edited via edit-game).
 
-**P6: not started (later work per the plan: paste from WhatsApp, venue QR deep link, Live Activity).**
+**P6: paste and QR implemented locally, not deployed, not verified (no Docker, no device). Live Activity stays held (notifications-v2 V2.4).**
+- `ai-proxy` mode `parse_text` ({ text } to { parsed }, nothing stored). Gemini `record_post` tool, output clamped by `sanitizeParsedPost` (Deno tests pass, 20). Rate limit shares the `text` slot kind (5/min, 200/day). Deploy with `supabase functions deploy ai-proxy`.
+- Wizard fork: "Already posted it in a group? Paste it" sheet, fills day/time, spots needed, price, courts, duration and level when the parser found them. Venue goes into the search box for the host to pick, never auto-picked. No booking is claimed, so no verified badge.
+- Venue QR: `https://smashio.com.au/venue/<uuid>?host=1` (the app already claims `/venue/*` links) opens the venue screen, which seeds `hostHereSeed` and pushes `/wizard`. Signed-out visitors stay on the venue page. The poster QR itself (gtm 7.2) still needs printing with that URL.
+- Skipped: sign-in round trip keeping the `host=1` intent for new installs, venue slug in the QR (the app's `venue_detail` takes the uuid only), a PostHog event for paste usage.
 
 **Deploy order:** `supabase db push` (all six migrations), deploy `push-dispatch`, then JS/OTA.

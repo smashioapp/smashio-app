@@ -19,14 +19,18 @@ insert into auth.users (id, email) values
 insert into public.venues (id, name, suburb, state, location) values
   ('66666666-6666-6666-6666-666666666666', 'Test Courts', 'Sydney', 'NSW', extensions.st_point(151.2, -33.8)::extensions.geography);
 
-insert into public.games (id, sport_id, venue_id, organizer_id, starts_at, ends_at, skill_tier_id, max_players)
+-- auto_approve = false: this file tests the manual request/decide flow. Fill-the-spot-ultraplan
+-- P0 (20260928000000_fill_the_spot_p0.sql) enforces auto_approve, which defaults true — a fixture
+-- game without this would land every request straight on 'approved' and skip decide_join_request
+-- entirely. See request_to_join_auto_approve_test.sql for the auto-approve path.
+insert into public.games (id, sport_id, venue_id, organizer_id, starts_at, ends_at, skill_tier_id, max_players, auto_approve)
 select
   '77777777-7777-7777-7777-777777777777',
   s.id,
   '66666666-6666-6666-6666-666666666666',
   'b1111111-1111-1111-1111-111111111111',
   now() + interval '1 day', now() + interval '1 day 2 hours',
-  t.id, 3
+  t.id, 3, false
 from public.sports s
 join public.skill_tiers t on t.sport_id = s.id
 where s.slug = 'badminton'

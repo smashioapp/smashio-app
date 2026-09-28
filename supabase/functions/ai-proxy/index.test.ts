@@ -18,6 +18,7 @@ import {
   normaliseVerdict,
   outcomeFor,
   reviewStatusFor,
+  sanitizeParsedPost,
   validateImageRequest,
   type ParsedBooking,
 } from "./index.ts";
@@ -169,4 +170,34 @@ Deno.test("isSafeMediaPath matches post/avatar and chat shapes", () => {
   assertEquals(isSafeMediaPath(`${SAFE_GAME}/${SAFE_UID}/${SAFE_GAME}.jpg`, "message", SAFE_UID), true);
   assertEquals(isSafeMediaPath(`${SAFE_UID}/../${SAFE_GAME}/x.jpg`, "post", SAFE_UID), false);
   assertEquals(isSafeMediaPath(`${SAFE_GAME}/${SAFE_UID}/x.svg`, "message", SAFE_UID), false);
+});
+
+Deno.test("sanitizeParsedPost: keeps sane fields", () => {
+  const now = new Date("2026-09-28T10:00:00");
+  const out = sanitizeParsedPost(
+    { is_game_post: true, venue_name: " Alpha Auburn ", starts_at_local: "2026-09-28T19:00", spots_needed: 1, cost_per_player_aud: 10, courts: 1 },
+    now,
+  );
+  assertEquals(out.venue_name, "Alpha Auburn");
+  assertEquals(out.starts_at_local, "2026-09-28T19:00");
+  assertEquals(out.spots_needed, 1);
+  assertEquals(out.cost_per_player_aud, 10);
+});
+
+Deno.test("sanitizeParsedPost: drops out-of-range, past and malformed values", () => {
+  const now = new Date("2026-09-28T10:00:00");
+  const out = sanitizeParsedPost(
+    { is_game_post: true, starts_at_local: "2026-09-01T19:00", spots_needed: 40, cost_per_player_aud: 900, courts: 0, duration_hours: "2" },
+    now,
+  );
+  assertEquals(out.starts_at_local, null);
+  assertEquals(out.spots_needed, null);
+  assertEquals(out.cost_per_player_aud, null);
+  assertEquals(out.courts, null);
+  assertEquals(out.duration_hours, null);
+});
+
+Deno.test("sanitizeParsedPost: garbage in is not a game post", () => {
+  assertEquals(sanitizeParsedPost(null).is_game_post, false);
+  assertEquals(sanitizeParsedPost({ is_game_post: "yes" }).is_game_post, false);
 });

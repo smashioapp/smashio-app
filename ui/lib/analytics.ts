@@ -17,6 +17,7 @@ export type AnalyticsEvent =
   | "onboarding_step_completed"
   | "discover_viewed"
   | "game_viewed"
+  | "youre_in_action"
   | "join_requested"
   | "join_approved"
   | "game_played"

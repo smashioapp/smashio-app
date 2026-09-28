@@ -86,13 +86,15 @@ SELECT throws_ok(
   'non-organizer cannot approve join requests via the RPC'
 );
 
--- Act as the approved member: sees own row + organizer + fellow approved/requested rows.
+-- Act as the approved member: sees own row + organizer + fellow roster rows. The game defaults
+-- auto_approve = true, so the stranger's request_to_join above (line 71) landed 'approved', not
+-- 'requested' — fill-the-spot-ultraplan P0. Doesn't change this count either way.
 select set_config('request.jwt.claims', json_build_object('sub', '22222222-2222-2222-2222-222222222222', 'role', 'authenticated')::text, true);
 
 SELECT is(
   (select count(*)::int from public.game_players where game_id = '66666666-6666-6666-6666-666666666666'),
   3,
-  'an approved member sees the full roster (own + requester + the stranger''s new request)'
+  'an approved member sees the full roster (own + requester + the stranger''s new row)'
 );
 
 SELECT throws_ok(

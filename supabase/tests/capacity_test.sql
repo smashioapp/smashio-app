@@ -20,14 +20,18 @@ begin
 end $$;
 
 -- Organizer u<org>. max_players includes the host. reserved = held spots. venue 1 = NBC Homebush.
+-- auto_approve defaults false: this file is exercising the manual decide_join_request flow, which
+-- fill-the-spot-ultraplan P0 (20260928000000_fill_the_spot_p0.sql) now bypasses when true (the
+-- default on public.games itself) and there's an open spot.
 create function pg_temp.mk_game(n int, org int, max_players int default 4, reserved int default 0,
-                                vis text default 'public', venue int default 1, game_status text default 'published')
+                                vis text default 'public', venue int default 1, game_status text default 'published',
+                                auto_approve boolean default false)
 returns uuid language plpgsql as $$
 begin
   insert into public.games (id, sport_id, venue_id, organizer_id, starts_at, ends_at, skill_tier_id,
-                            max_players, reserved_spots, visibility, status)
+                            max_players, reserved_spots, visibility, status, auto_approve)
   select pg_temp.gid(n), s.id, format('55555555-0000-0000-0000-%s', lpad(venue::text, 12, '0'))::uuid, pg_temp.uid(org),
-         now() + interval '2 days', now() + interval '2 days 90 minutes', t.id, max_players, reserved, vis, game_status
+         now() + interval '2 days', now() + interval '2 days 90 minutes', t.id, max_players, reserved, vis, game_status, auto_approve
   from public.sports s join public.skill_tiers t on t.sport_id = s.id and t.slug = 'beginner'
   where s.slug = 'badminton';
   return pg_temp.gid(n);

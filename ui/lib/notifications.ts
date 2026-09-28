@@ -91,6 +91,47 @@ const NOTIFICATION_CATEGORIES: Record<string, Notifications.NotificationAction[]
       buttonTitle: "Ask to join",
       options: { opensAppToForeground: true },
     },
+    {
+      identifier: "not_for_me",
+      buttonTitle: "Not for me",
+      options: { opensAppToForeground: false },
+    },
+  ],
+  // fill-the-spot P2 (D4): instant-join games under $20 say "I'm in" (one tap, joins for real).
+  // The server picks the category per game (push-dispatch spotOpenCategory); an older build that
+  // hasn't registered these just shows the push without buttons.
+  spot_actions_auto: [
+    {
+      identifier: "join_spot",
+      buttonTitle: "I'm in",
+      options: { opensAppToForeground: true },
+    },
+    {
+      identifier: "not_for_me",
+      buttonTitle: "Not for me",
+      options: { opensAppToForeground: false },
+    },
+  ],
+  // fill-the-spot P3.3: T-3h "still short" host nudge. Same call as the game page's ping-wider.
+  short_actions: [
+    {
+      identifier: "ping_wider",
+      buttonTitle: "Ping wider",
+      options: { opensAppToForeground: false },
+    },
+  ],
+  // Instant-join at $20 or more: no blind join, open the spot card with the price on it.
+  spot_actions_view: [
+    {
+      identifier: "view_spot",
+      buttonTitle: "Have a look",
+      options: { opensAppToForeground: true },
+    },
+    {
+      identifier: "not_for_me",
+      buttonTitle: "Not for me",
+      options: { opensAppToForeground: false },
+    },
   ],
 };
 
@@ -209,6 +250,24 @@ async function handleNotificationAction(response: Notifications.NotificationResp
   if (actionId === "join_spot") {
     const { error } = await supabase.rpc("request_to_join", { p_game_id: data.game_id });
     if (!error) track("join_requested", { game_id: data.game_id, waitlisted: false, source: "push_action" });
+    router.push(`/game/${data.game_id}`);
+    return;
+  }
+
+  // fill-the-spot P4.3: "Not for me" teaches the alert ranking which venue and slot to skip for
+  // 30 days. Silent on purpose, no navigation and no toast.
+  if (actionId === "not_for_me") {
+    await (supabase.rpc as any)("dismiss_spot", { p_game_id: data.game_id });
+    return;
+  }
+
+  if (actionId === "ping_wider") {
+    const { data: recipients, error } = await (supabase.rpc as any)("find_a_sub", { p_game_id: data.game_id });
+    if (!error) track("spot_open_sent", { game_id: data.game_id, recipients: (recipients as number | null) ?? 0, ring: "boost" });
+    return;
+  }
+
+  if (actionId === "view_spot") {
     router.push(`/game/${data.game_id}`);
     return;
   }

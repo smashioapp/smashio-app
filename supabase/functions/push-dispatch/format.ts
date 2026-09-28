@@ -72,11 +72,12 @@ export type PushChannel = "chat" | "requests" | "game-updates" | "reminders" | "
 // spot_actions ("Ask to join") is short-a-player-plan S1. Categories are registered client-side in
 // ui/lib/notifications.ts on both platforms; an app that hasn't registered one yet just shows the
 // push without buttons.
-export type NotificationCategory = "join_actions" | "chat_actions" | "spot_actions" | null;
+export type NotificationCategory = "join_actions" | "chat_actions" | "spot_actions" | "spot_actions_auto" | "spot_actions_view" | "short_actions" | null;
 export const CATEGORY_FOR_TYPE: Record<string, NotificationCategory> = {
   join_request: "join_actions",
   message: "chat_actions",
   spot_open: "spot_actions",
+  still_short: "short_actions",
 };
 
 export type GameSummary = {
@@ -96,6 +97,9 @@ export type GameSummary = {
   per_player_cents: number;
   tier_name: string;
   verification_status: string;
+  auto_approve?: boolean;
+  payment_method?: string | null;
+  payment_handle?: string | null;
 };
 
 export type PushBody = { title: string; body: string; expand?: string };
@@ -189,6 +193,31 @@ export function joinDecisionBody(
   return joinDeclinedBody(s);
 }
 
+// F1 (fill-the-spot-ultraplan.md P0.1). Auto-approve games skip the request entirely, so this is
+// the only roster news a host gets when it happens — no approve/decline to do, just told.
+export function playerJoinedBody(actor: string, s: GameSummary): PushBody {
+  const filled = s.approved_count + s.reserved_spots;
+  return {
+    title: `${actor} joined your game`,
+    body: `${where(s)}, ${shortTime(s.starts_at)} · ${filled} of ${s.max_players} in.`,
+  };
+}
+
+// fill-the-spot P3.3. T-3h and a spot is still open: say so plainly and offer the one move that
+// helps, pinging wider (the push's "Ping wider" action calls find_a_sub).
+export function stillShortBody(s: GameSummary, now: Date = new Date()): PushBody {
+  const open = Math.max(1, s.spots_left);
+  const hour = Number(
+    new Date(s.starts_at).toLocaleString("en-AU", { timeZone: SYDNEY_TZ, hour: "numeric", hourCycle: "h23" }),
+  );
+  const day = dayLabel(s.starts_at, now);
+  const when = day === "Today" ? (hour >= 17 ? "tonight" : "today") : day.toLowerCase();
+  return {
+    title: `Still ${open} short for ${when}`,
+    body: `${s.venue_name}, ${clockTime(s.starts_at)}. Want us to ping players 15 km out?`,
+  };
+}
+
 // A6. The one thing a host can still act on: a spot reopened.
 export function playerLeftBody(actor: string, s: GameSummary): PushBody {
   const title = pick([`${actor} dropped out`, `${actor} pulled out`], s.game_id);
@@ -271,16 +300,34 @@ export function reminder24hBody(s: GameSummary, now?: Date): PushBody {
   };
 }
 
-// C2.
+// C2. Since fill-the-spot P5 this is the game-day card in push form: time, court, headcount and,
+// when the host said, how to pay. Information only.
 export function reminder2hBody(s: GameSummary): PushBody {
   const title = pick(["Starts in 2 hours", "Two hours out", "Nearly time"], s.game_id);
   // approved_count + reserved_spots left the host out of their own headcount (post-game-plan
   // D1) — max_players minus what's still open is the whole room, host included.
   const playing = s.max_players - s.spots_left;
+  const pay = payLine(s);
   return {
     title,
     body: `${where(s)}, ${clockTime(s.starts_at)}${courtSuffix(s)} · ${playing} playing. Grab your gear.`,
+    ...(pay ? { expand: pay } : {}),
   };
+}
+
+function payLine(s: GameSummary): string | null {
+  if (!s.per_player_cents) return null;
+  const host = s.host_name || "the host";
+  switch (s.payment_method) {
+    case "cash":
+      return `${money(s.per_player_cents)} each, cash to ${host} on the day.`;
+    case "transfer":
+      return `${money(s.per_player_cents)} each, bank transfer to ${s.payment_handle?.trim() || host}.`;
+    case "chat":
+      return `${money(s.per_player_cents)} each, ${host} will sort it in chat.`;
+    default:
+      return null;
+  }
 }
 
 // C3. Feeds ratings, which feed reliability, which feed trust — the plan's highest-value
@@ -386,7 +433,8 @@ export function alertMatchBody(s: GameSummary, alertName?: string | null): PushB
 // Short-a-player plan S1. A spot opened close to game time (drop-out, or a game published with
 // under a day to go) and this player is nearby at the right level. Says what's needed, when,
 // where, what level and whether the court's booked, in that order: the three things that decide
-// a last-minute join. (Normal tier; quiet hours are applied server-side when recipients are
+// a last-minute join. Since fill-the-spot P2 the price is in the body too (distance isn't: it's
+// per recipient and this copy is built once per game). (Normal tier; quiet hours are applied server-side when recipients are
 // picked, spot_open_recipients.)
 export function spotOpenBody(s: GameSummary, now: Date = new Date()): PushBody {
   const open = Math.max(1, s.spots_left);
@@ -398,8 +446,8 @@ export function spotOpenBody(s: GameSummary, now: Date = new Date()): PushBody {
   const when = day === "Today" ? (hour >= 17 ? "tonight" : "today") : day === "Tomorrow" ? "tomorrow" : day;
   const booked = s.verification_status === "verified" ? ", court's booked" : "";
   return {
-    title: `${spots}, ${when} ${clockTime(s.starts_at)} at ${s.venue_name}`,
-    body: `${s.tier_name}${booked}. Keen?`,
+    title: `${spots} ${when} ${clockTime(s.starts_at)} · ${s.venue_name}`,
+    body: `${money(s.per_player_cents)} each · ${s.tier_name}${booked}. Keen?`,
     expand: `${s.host_name} is short for ${s.sport_name} and you're nearby at the right level. Turn these off in notification settings under Game alerts.`,
   };
 }
@@ -430,9 +478,14 @@ export function chatMentionBody(summary: MessageSummary): PushBody {
 }
 
 // E2. §4E: 3+ unread messages from one game within 5 min collapse the same way A2 does.
-export function messageCoalescedBody(n: number, s: GameSummary): PushBody {
+export function messageCoalescedBody(n: number, s: GameSummary, now: Date = new Date()): PushBody {
+  // fill-the-spot P5 (F8): lead with the venue and a human time ("MUSAC, tomorrow 9:00 am"), not
+  // "Badminton at MUSAC" followed by a raw weekday and clock.
+  const day = dayLabel(s.starts_at, now);
+  const hour = Number(new Date(s.starts_at).toLocaleString("en-AU", { timeZone: SYDNEY_TZ, hour: "numeric", hourCycle: "h23" }));
+  const dayWord = day === "Today" ? (hour >= 17 ? "tonight" : "today") : day === "Tomorrow" ? "tomorrow" : day;
   return {
-    title: where(s),
+    title: `${s.venue_name}, ${dayWord} ${clockTime(s.starts_at)}`,
     body: `${n} new messages`,
   };
 }
@@ -591,4 +644,12 @@ export function expoMessages(
 // and stops at the newline in the collapsed view.
 function androidBody(body: string, expand?: string): string {
   return expand ? `${body}\n${expand}` : body;
+}
+
+// fill-the-spot P2 (D4): which inline action a spot_open push carries. An instant-join game under
+// $20 gets "I'm in" (one tap, no surprise bill). Instant-join at $20 or more opens the spot card
+// so the player sees the price and confirms. Request-mode games keep "Ask to join".
+export function spotOpenCategory(s: GameSummary): NotificationCategory {
+  if (s.auto_approve === false) return "spot_actions";
+  return s.per_player_cents < 2000 ? "spot_actions_auto" : "spot_actions_view";
 }

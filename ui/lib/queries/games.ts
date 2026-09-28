@@ -113,6 +113,9 @@ function toGameFromPublicRow(row: GamesPublicRow, avatarUrls: Map<string, string
     autoApprove: row.auto_approve ?? undefined,
     shuttles: row.shuttles,
     notes: row.notes,
+    courtCostCents: row.court_cost_cents,
+    paymentMethod: (row.payment_method as Game["paymentMethod"]) ?? null,
+    paymentHandle: row.payment_handle,
   };
 }
 
@@ -360,6 +363,9 @@ export function useCreateGame() {
       autoApprove?: boolean;
       shuttles?: string;
       notes?: string;
+      courtCostCents?: number;
+      paymentMethod?: "cash" | "transfer" | "chat";
+      paymentHandle?: string;
       spots?: NamedSpotInput[];
       // "Who's already in?" holds (short-a-player-ux-plan.md §3.1) are people who are coming,
       // not seats on offer, so they shouldn't expire 4h out and fire a spot_open. Pins every
@@ -389,6 +395,9 @@ export function useCreateGame() {
         p_notes: input.notes?.trim() || undefined,
         p_cover_key: randomCoverKey(),
         p_spots: (input.spots ?? []).map((s) => ({ label: s.label, invited_profile_id: s.invitedProfileId ?? null })),
+        p_court_cost_cents: input.courtCostCents ?? undefined,
+        p_payment_method: input.paymentMethod ?? undefined,
+        p_payment_handle: input.paymentHandle?.trim() || undefined,
       });
       if (error) throw error;
       const gameId = data as string;
@@ -446,6 +455,7 @@ export function useUpdateGame(gameId: string) {
       autoApprove?: boolean;
       shuttles?: string;
       notes?: string;
+      courtCostCents?: number | null;
     }) => {
       const { error } = await supabase
         .from("games")
@@ -465,6 +475,7 @@ export function useUpdateGame(gameId: string) {
           auto_approve: input.autoApprove ?? true,
           shuttles: input.shuttles?.trim() || null,
           notes: input.notes?.trim() || null,
+          ...(input.courtCostCents !== undefined ? { court_cost_cents: input.courtCostCents } : {}),
         })
         .eq("id", gameId);
       if (error) throw error;
@@ -526,6 +537,22 @@ export function useAttendanceMarkedAt(gameId: string, enabled: boolean) {
       const { data, error } = await supabase.from("games").select("attendance_marked_at").eq("id", gameId).maybeSingle();
       if (error) throw error;
       return data?.attendance_marked_at ?? null;
+    },
+    enabled: enabled && !!gameId,
+  });
+}
+
+// fill-the-spot-ultraplan.md P0.4 (F11). The publish success screen used to promise a ping
+// unconditionally; this is the one honest number behind that promise. games_spot_open is a
+// deferred constraint trigger (fires at commit, after create_game_with_spots already returned),
+// so the wizard reads it back with a follow-up call instead of getting it from the create RPC.
+export function useSpotOpenReach(gameId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["spot_open_reach", gameId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("spot_open_reach", { p_game_id: gameId });
+      if (error) throw error;
+      return data ?? 0;
     },
     enabled: enabled && !!gameId,
   });
@@ -830,6 +857,29 @@ const MAX_PARSE_UPLOAD_BYTES = 15 * 1024 * 1024;
 // A photo gets a client-side downscale to ~1600px long edge first — parsing costs real money per
 // call — but a PDF uploads as-is (create-game-plan.md §4.1): downscaling a document makes no
 // sense, and Gemini reads a multi-page PDF natively.
+// fill-the-spot P6: a pasted group-chat post to draft fields. ai-proxy 'parse_text', stores nothing.
+export type ParsedPost = {
+  is_game_post: boolean;
+  venue_name: string | null;
+  starts_at_local: string | null;
+  spots_needed: number | null;
+  cost_per_player_aud: number | null;
+  courts: number | null;
+  duration_hours: number | null;
+  level_hint: string | null;
+};
+
+export function useParsePost() {
+  return useMutation({
+    mutationFn: async (text: string) => {
+      const { data, error } = await supabase.functions.invoke("ai-proxy", { body: { mode: "parse_text", text } });
+      if (error) throw new Error(await readFunctionsErrorMessage(error, "Couldn't read that one."));
+      return (data as { parsed: ParsedPost }).parsed;
+    },
+    onError: (error) => captureMutationError("game.parse_post", error),
+  });
+}
+
 export function useParseConfirmation() {
   return useMutation({
     mutationFn: async ({
@@ -886,5 +936,78 @@ export function useAttachConfirmation() {
     },
     onSuccess: (_data, { gameId }) => invalidateGameLists(queryClient, gameId),
     onError: (error, input) => captureMutationError("game.attach_confirmation", error, { gameId: input.gameId }),
+  });
+}
+
+// fill-the-spot P1.3: how many players a spot at this venue and level would reach, rounded to 5
+// (5 = "5+", 0 = nobody yet). Aggregate only, never identities.
+export function useSpotReachEstimate(venueId: string | null, tierMinId: string | undefined, tierMaxId: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: ["spot_reach_estimate", venueId, tierMinId, tierMaxId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("spot_reach_estimate", {
+        p_venue_id: venueId!,
+        p_tier_min_id: tierMinId!,
+        p_tier_max_id: tierMaxId ?? tierMinId!,
+      });
+      if (error) throw error;
+      return data ?? 0;
+    },
+    enabled: enabled && !!venueId && !!tierMinId,
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+// fill-the-spot P3 (F12). The host's fill tracker: pinged, had a look, keen, and how long it took
+// once it's full. Counts only. Polled while the game still has a spot open.
+export type FillStatus = { pinged: number; viewed: number; keen: number; openSpots: number; filledSeconds: number | null };
+
+export function useGameFillStatus(gameId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["game_fill_status", gameId],
+    queryFn: async (): Promise<FillStatus | null> => {
+      const { data, error } = await supabase.rpc("game_fill_status", { p_game_id: gameId });
+      if (error) throw error;
+      const row = data?.[0];
+      if (!row) return null;
+      return { pinged: row.pinged, viewed: row.viewed, keen: row.keen, openSpots: row.open_spots, filledSeconds: row.filled_seconds };
+    },
+    enabled: enabled && !!gameId,
+    refetchInterval: (query) => (query.state.data && query.state.data.openSpots === 0 ? false : 20_000),
+  });
+}
+
+// One row per viewer per game, host excluded server-side. Fire and forget, a failed count is not
+// worth an error.
+export function recordGameView(gameId: string) {
+  void supabase.rpc("record_game_view", { p_game_id: gameId }).then(
+    () => {},
+    () => {},
+  );
+}
+
+// fill-the-spot P5: the host's "I'm here". Members read it, only the host writes it.
+export function useGameHostHere(gameId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["game_host_here", gameId],
+    queryFn: async (): Promise<string | null> => {
+      const { data, error } = await supabase.rpc("game_host_here", { p_game_id: gameId });
+      if (error) throw error;
+      return data ?? null;
+    },
+    enabled: enabled && !!gameId,
+    refetchInterval: (query) => (query.state.data ? false : 30_000),
+  });
+}
+
+export function useSetHostHere(gameId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc("set_host_here", { p_game_id: gameId });
+      if (error) throw error;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["game_host_here", gameId] }),
+    onError: (error) => captureMutationError("game.set_host_here", error, { gameId }),
   });
 }

@@ -550,6 +550,9 @@ export type Database = {
           chat_pause_until: string | null
           chat_photo_approval: boolean
           cost_per_player_cents: number
+          court_cost_cents: number | null
+          payment_handle: string | null
+          payment_method: string | null
           court_label: string | null
           courts_booked: number
           cover_key: string
@@ -588,6 +591,9 @@ export type Database = {
           chat_pause_until?: string | null
           chat_photo_approval?: boolean
           cost_per_player_cents?: number
+          court_cost_cents?: number | null
+          payment_handle?: string | null
+          payment_method?: string | null
           court_label?: string | null
           courts_booked?: number
           cover_key?: string
@@ -626,6 +632,9 @@ export type Database = {
           chat_pause_until?: string | null
           chat_photo_approval?: boolean
           cost_per_player_cents?: number
+          court_cost_cents?: number | null
+          payment_handle?: string | null
+          payment_method?: string | null
           court_label?: string | null
           courts_booked?: number
           cover_key?: string
@@ -2231,6 +2240,9 @@ export type Database = {
           approved_count: number | null
           auto_approve: boolean | null
           cost_per_player_cents: number | null
+          court_cost_cents: number | null
+          payment_handle: string | null
+          payment_method: string | null
           court_label: string | null
           courts_booked: number | null
           cover_key: string | null
@@ -2432,6 +2444,9 @@ export type Database = {
         Args: {
           p_auto_approve?: boolean
           p_cost_per_player_cents: number
+          p_court_cost_cents?: number
+          p_payment_handle?: string
+          p_payment_method?: string
           p_court_label?: string
           p_courts_booked: number
           p_cover_key?: string
@@ -3105,6 +3120,25 @@ export type Database = {
       spot_open_eligible: {
         Args: { p_game_id: string; p_window: string }
         Returns: boolean
+      }
+      spot_open_reach: { Args: { p_game_id: string }; Returns: number }
+      set_host_here: { Args: { p_game_id: string }; Returns: undefined }
+      game_host_here: { Args: { p_game_id: string }; Returns: string | null }
+      dismiss_spot: { Args: { p_game_id: string }; Returns: undefined }
+      record_game_view: { Args: { p_game_id: string }; Returns: undefined }
+      game_fill_status: {
+        Args: { p_game_id: string }
+        Returns: {
+          pinged: number
+          viewed: number
+          keen: number
+          open_spots: number
+          filled_seconds: number | null
+        }[]
+      }
+      spot_reach_estimate: {
+        Args: { p_venue_id: string; p_tier_min_id: string; p_tier_max_id: string }
+        Returns: number
       }
       spot_open_recipients: {
         Args: { p_game_id: string; p_radius_m: number }

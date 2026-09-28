@@ -6,7 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import DateTimePicker from "@react-native-community/datetimepicker";
-import { MAX_COST_PER_PLAYER_PER_HOUR, MAX_COURTS_BOOKED, MAX_PLAYERS, MIN_COURTS_BOOKED, MIN_PLAYERS, useAppStore } from "../lib/store";
+import { MAX_COST_PER_PLAYER_PER_HOUR, MAX_COURTS_BOOKED, MAX_PLAYERS, MIN_COURTS_BOOKED, MIN_PLAYERS, useAppStore, type RebookSeed } from "../lib/store";
 import { colors, gradients, TIERS, tierColor, type TierId } from "../lib/theme";
 import { formatDate, formatDistance, formatTimeRange, formatTimeShort } from "../lib/format";
 import { useUserLocation } from "../lib/location";
@@ -17,7 +17,12 @@ import {
   MIN_DURATION_HOURS,
   durationMs,
   formatDuration,
+  friendlyWhen,
+  isSameDay,
   isSlotBookable,
+  nextRebookSlot,
+  quickDays,
+  quickTimes,
   slotAt,
 } from "../lib/schedule";
 import { useUpsertPlaceVenue, useVenuesDirectory, confidenceState, type VenueDirectoryRow } from "../lib/queries/venues";
@@ -28,6 +33,10 @@ import {
   useMyHostingGames,
   useMyPastGames,
   useParseConfirmation,
+  useParsePost,
+  type ParsedPost,
+  useSpotOpenReach,
+  useSpotReachEstimate,
   useUploadConfirmation,
   useUploadConfirmationFiles,
   type ParsedBooking,
@@ -41,9 +50,10 @@ import { PropOverlay } from "../components/PropOverlay";
 import { Sheet } from "../components/Sheet";
 import { LineupStrip, type LineupSlot } from "../components/LineupStrip";
 import { needsLabel } from "../lib/trust";
-import { AccordionRow, PriceSlider, RowLabel, Stepper } from "../components/DraftCardParts";
+import { AccordionRow, PriceSlider, RowLabel, Stepper, WhenChip } from "../components/DraftCardParts";
 import { animalFor } from "../lib/avatars";
 import { useSession } from "../lib/session";
+import { PAYMENT_OPTIONS } from "../lib/payment";
 import { useProfile } from "../lib/queries/profile";
 import { haptics } from "../lib/haptics";
 import { sound } from "../lib/sound";
@@ -208,6 +218,7 @@ export default function Wizard() {
   const uploadConfirmation = useUploadConfirmation();
   const uploadConfirmationFiles = useUploadConfirmationFiles();
   const parseConfirmation = useParseConfirmation();
+  const parsePost = useParsePost();
   const attachConfirmation = useAttachConfirmation();
   const upsertPlaceVenue = useUpsertPlaceVenue();
 
@@ -219,9 +230,13 @@ export default function Wizard() {
   const [publishing, setPublishing] = useState(false);
   const [published, setPublished] = useState(false);
   const [publishError, setPublishError] = useState(false);
+  const withinPingWindow = wizard.startsAt.getTime() - Date.now() <= 24 * 60 * 60 * 1000;
+  const spotOpenReach = useSpotOpenReach(createdGameId ?? "", published && !!createdGameId && wizard.visibility === "public" && withinPingWindow);
 
   const [entryMode, setEntryMode] = useState<"manual" | "receipt" | null>(null);
   const [uploadSheet, setUploadSheet] = useState(false);
+  const [pasteSheet, setPasteSheet] = useState(false);
+  const [pasteText, setPasteText] = useState("");
   const [parsing, setParsing] = useState(false);
   const [parsedData, setParsedData] = useState<ParsedBooking | null>(null);
   const [draftConfirmationId, setDraftConfirmationId] = useState<string | null>(null);
@@ -234,6 +249,8 @@ export default function Wizard() {
   const [addSomeoneOpen, setAddSomeoneOpen] = useState(false);
   const [mismatchField, setMismatchField] = useState<FieldKey | null>(null);
   const [sourceDocOpen, setSourceDocOpen] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
   const [priceSuggestionApplied, setPriceSuggestionApplied] = useState(false);
   const [priceOfferAccepted, setPriceOfferAccepted] = useState(false);
   const [courtsExpanded, setCourtsExpanded] = useState(false);
@@ -241,6 +258,9 @@ export default function Wizard() {
   const [bookedNoProof, setBookedNoProof] = useState(false);
   // F16: the court's total price, optional. When set, per-player is derived from it.
   const [courtCost, setCourtCost] = useState<number | null>(null);
+  // P2.4: how the host wants to be paid. Information only, shown to players on the spot card.
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "transfer" | "chat" | null>(null);
+  const [paymentHandle, setPaymentHandle] = useState("");
 
   const [venueQuery, setVenueQuery] = useState("");
   const [venueResults, setVenueResults] = useState<PlacePrediction[]>([]);
@@ -268,23 +288,78 @@ export default function Wizard() {
     return Array.from(seen.values());
   }, [hostingQuery.data, pastQuery.data, session?.user.id]);
 
+  const applySeed = (seed: RebookSeed) => {
+    resetWizard();
+    selectVenue(seed.venueId);
+    setStartsAt(seed.startsAt);
+    selectWizardTier(seed.skill);
+    setMaxPlayers(seed.maxPlayers);
+    setReservedSpots(seed.reservedSpots ?? 0);
+    setCourtsBooked(seed.courtsBooked);
+    setDurationHours(seed.durationHours);
+    setCost(seed.cost);
+    setSelectedVenue({ name: seed.venueName, suburb: seed.venueSuburb, address: seed.venueAddress });
+    setVenueQuery(seed.venueName);
+    setEntryMode("manual");
+  };
+
+  // P6: fill the draft from a pasted group-chat post. Only fields the parser was sure of are set,
+  // everything else keeps its default, and the venue lands in the search box for the host to pick
+  // (we never guess a venue). Nothing here claims a booking, so no verified badge.
+  const applyPastedPost = (p: ParsedPost) => {
+    resetWizard();
+    setBookedNoProof(false);
+    const hours = p.duration_hours ? Math.min(MAX_DURATION_HOURS, Math.max(MIN_DURATION_HOURS, Math.round(p.duration_hours * 4) / 4)) : null;
+    if (hours) setDurationHours(hours);
+    if (p.courts) setCourtsBooked(Math.min(MAX_COURTS_BOOKED, Math.max(MIN_COURTS_BOOKED, p.courts)));
+    if (p.starts_at_local) {
+      const slot = new Date(p.starts_at_local);
+      if (!isNaN(slot.getTime()) && isSlotBookable(slot, slot.getHours(), slot.getMinutes())) setStartsAt(slot);
+    }
+    if (p.spots_needed) setNeedCount(p.spots_needed);
+    if (p.cost_per_player_aud != null) setCost(Math.min((hours ?? wizard.durationHours) * MAX_COST_PER_PLAYER_PER_HOUR, Math.round(p.cost_per_player_aud)));
+    const level = (p.level_hint ?? "").toLowerCase();
+    if (/beginner|new|social|casual/.test(level)) selectWizardTier("Beginner");
+    else if (/intermediate|inter|\b[bc][\s-]?grade|mid/.test(level)) selectWizardTier("Intermediate");
+    else if (/advanced|\ba[\s-]?grade|strong/.test(level)) selectWizardTier("Advanced");
+    setSelectedVenue(null);
+    setVenueQuery(p.venue_name ?? "");
+    setVenueResults([]);
+    setEntryMode("manual");
+  };
+
+  const submitPaste = async () => {
+    const text = pasteText.trim();
+    if (!text || parsePost.isPending) return;
+    try {
+      const parsed = await parsePost.mutateAsync(text);
+      if (!parsed.is_game_post) {
+        Alert.alert("Doesn't look like a game post", "Paste the message you'd send the group, something like \"need 1 for dubs 7pm, $10 each\".");
+        return;
+      }
+      setPasteSheet(false);
+      setPasteText("");
+      applyPastedPost(parsed);
+    } catch (e) {
+      Alert.alert("Couldn't read that one", e instanceof Error ? e.message : "Give it another go, or fill it in yourself.");
+    }
+  };
+
+  // P1.5: the host's most recent finished game, offered as a one-tap rebook on the fork.
+  const lastHosted = useMemo(
+    () =>
+      (pastQuery.data ?? [])
+        .filter((g) => g.organizerId === session?.user.id && g.venueId)
+        .sort((a, b) => b.startsAt.localeCompare(a.startsAt))[0] ?? null,
+    [pastQuery.data, session?.user.id],
+  );
+
   useEffect(() => {
     const seed = useAppStore.getState().rebookSeed;
     const hostHereSeed = useAppStore.getState().hostHereSeed;
     if (seed) {
       useAppStore.getState().clearRebookSeed();
-      resetWizard();
-      selectVenue(seed.venueId);
-      setStartsAt(seed.startsAt);
-      selectWizardTier(seed.skill);
-      setMaxPlayers(seed.maxPlayers);
-      setReservedSpots(seed.reservedSpots ?? 0);
-      setCourtsBooked(seed.courtsBooked);
-      setDurationHours(seed.durationHours);
-      setCost(seed.cost);
-      setSelectedVenue({ name: seed.venueName, suburb: seed.venueSuburb, address: seed.venueAddress });
-      setVenueQuery(seed.venueName);
-      setEntryMode("manual");
+      applySeed(seed);
     } else if (hostHereSeed) {
       useAppStore.getState().clearHostHereSeed();
       resetWizard();
@@ -318,6 +393,8 @@ export default function Wizard() {
     setPriceOfferAccepted(false);
     setBookedNoProof(false);
     setCourtCost(null);
+    setPaymentMethod(null);
+    setPaymentHandle("");
     sessionTokenRef.current = newSessionToken();
   }, []);
 
@@ -413,6 +490,7 @@ export default function Wizard() {
       setVenueQuery(details.name);
       sessionTokenRef.current = newSessionToken();
       markEdited("where");
+      setExpandedRow(dateApplied ? null : "when");
     } catch (e) {
       Alert.alert("Couldn't load that venue", e instanceof Error ? e.message : "Give it another go.");
     } finally {
@@ -580,6 +658,9 @@ export default function Wizard() {
         autoApprove: wizard.autoApprove,
         shuttles: wizard.shuttles,
         notes: wizard.notes,
+        courtCostCents: courtCost != null && courtCost > 0 ? courtCost * 100 : undefined,
+        paymentMethod: paymentMethod ?? undefined,
+        paymentHandle: paymentMethod === "transfer" ? paymentHandle : undefined,
         // Anonymous "already in" holds ride along as blank spots (add_reserved_spot with no
         // label), so reserved_spots is right from the first write (ux-plan §3.1).
         spots: [
@@ -674,6 +755,7 @@ export default function Wizard() {
                 setVenueQuery(v.name);
                 setVenueResults([]);
                 markEdited("where");
+                setExpandedRow(dateApplied ? null : "when");
               }}
               className="flex-row items-center gap-3 rounded-2xl px-3.5 py-3 mb-2 border-[1.5px]"
               style={{ backgroundColor: colors.card, borderColor: "rgba(214,255,63,0.2)" }}
@@ -702,6 +784,7 @@ export default function Wizard() {
                   setVenueQuery(v.name);
                   setVenueResults([]);
                   markEdited("where");
+                  setExpandedRow(dateApplied ? null : "when");
                 }}
                 className="flex-row items-center gap-3 rounded-2xl px-3.5 py-3.5 mb-2 border-[1.5px]"
                 style={{ backgroundColor: colors.card, borderColor: "rgba(255,255,255,0.07)" }}
@@ -751,7 +834,11 @@ export default function Wizard() {
     </View>
   );
 
-  const renderDateTimePicker = () => (
+  const renderDateTimePicker = () => {
+    const days = quickDays();
+    const times = quickTimes(wizard.startsAt);
+    const timeIsQuick = wizard.startsAt.getMinutes() === 0 && times.some((t) => t.h === wizard.startsAt.getHours());
+    return (
     <View>
       {parsedSlot && !parsedSlotBookable && (
         <View className="rounded-2xl px-3.5 py-3 mb-3.5 border" style={{ backgroundColor: "rgba(255,182,72,0.1)", borderColor: "rgba(255,182,72,0.3)" }}>
@@ -760,38 +847,82 @@ export default function Wizard() {
           </Text>
         </View>
       )}
-      <RowLabel>Date</RowLabel>
-      <View className="rounded-2xl p-2 mb-5 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
-        <DateTimePicker
-          value={wizard.startsAt}
-          mode="date"
-          display="inline"
-          minimumDate={new Date()}
-          themeVariant="dark"
-          accentColor={colors.accent}
-          onChange={(_e, date) => {
-            if (!date) return;
-            setStartsAt(slotAt(date, wizard.startsAt.getHours(), wizard.startsAt.getMinutes()));
-            markEdited("when");
-          }}
-        />
+      <RowLabel>Day</RowLabel>
+      <View className="flex-row flex-wrap gap-2 mb-4">
+        {days.map((d) => {
+          const selected = isSameDay(wizard.startsAt, d.date) && !showDatePicker;
+          return (
+            <WhenChip
+              key={d.key}
+              testID={`wizard-day-${d.key}`}
+              label={d.label}
+              selected={selected}
+              onPress={() => {
+                setShowDatePicker(false);
+                const h = wizard.startsAt.getHours();
+                const m = wizard.startsAt.getMinutes();
+                const keep = isSlotBookable(d.date, h, m);
+                const fallback = quickTimes(d.date)[0];
+                setStartsAt(keep ? slotAt(d.date, h, m) : fallback ? slotAt(d.date, fallback.h, 0) : slotAt(d.date, h, m));
+                markEdited("when");
+              }}
+            />
+          );
+        })}
+        <WhenChip testID="wizard-day-pick" label="Pick a date" selected={showDatePicker || !days.some((d) => isSameDay(wizard.startsAt, d.date))} onPress={() => setShowDatePicker((v) => !v)} />
       </View>
+      {showDatePicker && (
+        <View className="rounded-2xl p-2 mb-4 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
+          <DateTimePicker
+            value={wizard.startsAt}
+            mode="date"
+            display="inline"
+            minimumDate={new Date()}
+            themeVariant="dark"
+            accentColor={colors.accent}
+            onChange={(_e, date) => {
+              if (!date) return;
+              setStartsAt(slotAt(date, wizard.startsAt.getHours(), wizard.startsAt.getMinutes()));
+              markEdited("when");
+            }}
+          />
+        </View>
+      )}
       <RowLabel>Time</RowLabel>
-      <View className="rounded-2xl items-center border mb-5" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
-        <DateTimePicker
-          value={wizard.startsAt}
-          mode="time"
-          display="spinner"
-          minuteInterval={5}
-          themeVariant="dark"
-          textColor={colors.text}
-          onChange={(_e, date) => {
-            if (!date) return;
-            setStartsAt(slotAt(wizard.startsAt, date.getHours(), date.getMinutes()));
-            markEdited("when");
-          }}
-        />
+      <View className="flex-row flex-wrap gap-2 mb-4">
+        {times.map((t) => (
+          <WhenChip
+            key={t.h}
+            testID={`wizard-time-${t.h}`}
+            label={t.label}
+            selected={timeIsQuick && wizard.startsAt.getHours() === t.h && !showTimePicker}
+            onPress={() => {
+              setShowTimePicker(false);
+              setStartsAt(slotAt(wizard.startsAt, t.h, 0));
+              markEdited("when");
+              setExpandedRow(null);
+            }}
+          />
+        ))}
+        <WhenChip testID="wizard-time-other" label="Other" selected={showTimePicker || !timeIsQuick} onPress={() => setShowTimePicker((v) => !v)} />
       </View>
+      {showTimePicker && (
+        <View className="rounded-2xl items-center border mb-4" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
+          <DateTimePicker
+            value={wizard.startsAt}
+            mode="time"
+            display="spinner"
+            minuteInterval={5}
+            themeVariant="dark"
+            textColor={colors.text}
+            onChange={(_e, date) => {
+              if (!date) return;
+              setStartsAt(slotAt(wizard.startsAt, date.getHours(), date.getMinutes()));
+              markEdited("when");
+            }}
+          />
+        </View>
+      )}
       {startInPast && (
         <Text className="text-[13.5px] mb-3 text-center" style={{ color: colors.advanced }}>
           That slot has already passed. Pick a later time or another day.
@@ -888,7 +1019,8 @@ export default function Wizard() {
         style={{ backgroundColor: colors.card, borderColor: colors.cardBorder, color: colors.text }}
       />
     </View>
-  );
+    );
+  };
 
   // The two WHO questions (short-a-player-ux-plan.md §3.1, F4). A host who's one short thinks
   // "3 of us, need 1", never "total players including me", so maxPlayers is derived.
@@ -1013,6 +1145,33 @@ export default function Wizard() {
         </View>
       </Pressable>
 
+      <RowLabel>How do people pay you?</RowLabel>
+      <View className="flex-row gap-2 flex-wrap mb-2">
+        {PAYMENT_OPTIONS.map((o) => (
+          <Pressable
+            key={o.value}
+            testID={`wizard-pay-${o.value}`}
+            onPress={() => setPaymentMethod(paymentMethod === o.value ? null : o.value)}
+            className="rounded-pill px-3.5 py-2"
+            style={{ backgroundColor: paymentMethod === o.value ? colors.accent : colors.surface, borderWidth: 1, borderColor: paymentMethod === o.value ? colors.accent : colors.cardBorder }}
+          >
+            <Text className="font-body-bold text-[12.5px]" style={{ color: paymentMethod === o.value ? colors.base : colors.textDim }}>{o.label}</Text>
+          </Pressable>
+        ))}
+      </View>
+      {paymentMethod === "transfer" && (
+        <TextInput
+          value={paymentHandle}
+          onChangeText={setPaymentHandle}
+          placeholder="PayID or name to pay (optional)"
+          placeholderTextColor={colors.textMuted}
+          maxLength={80}
+          className="rounded-2xl p-3.5 mb-2 border text-[14px]"
+          style={{ backgroundColor: colors.card, borderColor: colors.cardBorder, color: colors.text }}
+        />
+      )}
+      <Text className="text-[11px] mb-4" style={{ color: colors.textMuted }}>Just so players know. Smashio doesn't handle any money.</Text>
+
       <RowLabel>Shuttles</RowLabel>
       <TextInput
         value={wizard.shuttles}
@@ -1072,6 +1231,25 @@ export default function Wizard() {
 
   const publishDisabledReason = !wizard.venueId ? "Pick a venue first" : startInPast ? "Pick a time that hasn't passed" : null;
 
+  // P1.3 / P1.4: what the Publish button area says, and how many players it reaches.
+  const draftTier = tiers.find((t) => t.label === wizard.skill);
+  const draftTierMax = tiers.find((t) => t.label === wizard.skillMax) ?? draftTier;
+  const reachEstimate = useSpotReachEstimate(wizard.venueId, draftTier?.id, draftTierMax?.id, wizard.visibility === "public" && !startInPast);
+  const reachLine =
+    reachEstimate.data == null || !venue
+      ? null
+      : reachEstimate.data === 0
+        ? "No one nearby has alerts on yet, so share it with your group once it's up."
+        : `${reachEstimate.data === 5 ? "5+" : `About ${reachEstimate.data}`} players near ${venue.name} get pinged.`;
+  const summaryLine = venue && !startInPast
+    ? [
+        openCount > 0 ? `Need ${openCount} for ${shape === "doubles" || shape === "singles" ? shape : `${wizard.maxPlayers} players`}` : "Full",
+        venue.name,
+        friendlyWhen(wizard.startsAt),
+        `$${wizard.cost}`,
+      ].join(" · ")
+    : null;
+
   if (published && createdGameId) {
     return (
       <View className="flex-1 pt-14" style={{ backgroundColor: "#08080A" }}>
@@ -1081,14 +1259,19 @@ export default function Wizard() {
               <Text className="text-[14.5px] text-center max-w-[260px]" style={{ color: colors.textSecondary }}>
                 Your game at {venue?.name ?? "your venue"} is live. Now's the moment to get people in.
               </Text>
-              {/* short-a-player-plan S6. Only what S1 actually does: a public game inside 24h
-                  pings nearby players at publish; later ones get pinged if a spot opens close to
-                  the day. Link-only games are never listed, so they get no line. */}
+              {/* short-a-player-plan S6, made honest by fill-the-spot-ultraplan P0.4 (F11): this
+                  used to claim a ping regardless of whether one actually went out. Now it reads
+                  spot_open_reach — the real recipient count from the same fan-out — instead of
+                  promising one unconditionally. Link-only games are never listed, so no line. */}
               {wizard.visibility === "public" && (
                 <Text className="text-[13px] text-center max-w-[280px] -mt-1.5" style={{ color: colors.textTertiary }}>
-                  {wizard.startsAt.getTime() - Date.now() <= 24 * 60 * 60 * 1000
-                    ? "We're giving nearby players at your level a heads up now."
-                    : "If someone drops out close to the day, we'll tell nearby players at your level."}
+                  {!withinPingWindow
+                    ? "If someone drops out close to the day, we'll tell nearby players at your level."
+                    : spotOpenReach.isPending
+                    ? "Checking who's nearby…"
+                    : (spotOpenReach.data ?? 0) > 0
+                    ? `We've pinged ${spotOpenReach.data} nearby players at your level.`
+                    : "No one nearby has alerts on yet. Share it to your group, that's the quickest fill."}
                 </Text>
               )}
               <View className="w-full rounded-2xl p-4 border" style={{ backgroundColor: colors.card, borderColor: colors.cardBorder }}>
@@ -1200,12 +1383,47 @@ export default function Wizard() {
               <Ionicons name="receipt-outline" size={54} color={colors.accent} />
             </View>
             <View className="w-full mt-10">
+              {lastHosted && (
+                <Pressable
+                  testID="wizard-rebook"
+                  onPress={() => {
+                    setBookedNoProof(false);
+                    applySeed({
+                      venueId: lastHosted.venueId!,
+                      venueName: lastHosted.venue,
+                      venueSuburb: lastHosted.suburb,
+                      venueAddress: lastHosted.venueAddress ?? "",
+                      skill: lastHosted.skill,
+                      maxPlayers: lastHosted.maxPlayers,
+                      reservedSpots: lastHosted.reservedSpots,
+                      courtsBooked: lastHosted.courtsBooked,
+                      durationHours: lastHosted.durationHours,
+                      cost: lastHosted.cost,
+                      startsAt: nextRebookSlot(new Date(lastHosted.startsAt)),
+                    });
+                  }}
+                  className="rounded-2xl px-4 py-3.5 mb-4 border-[1.5px] flex-row items-center gap-3"
+                  style={{ backgroundColor: "#171d07", borderColor: "rgba(214,255,63,.32)" }}
+                >
+                  <Ionicons name="refresh-outline" size={18} color={colors.accent} />
+                  <View className="flex-1">
+                    <Text className="font-body-extrabold text-[14.5px]" style={{ color: colors.text }}>Same as last time</Text>
+                    <Text numberOfLines={2} className="text-[12.5px] mt-0.5" style={{ color: colors.textSecondary }}>
+                      {`${lastHosted.venue}, ${friendlyWhen(nextRebookSlot(new Date(lastHosted.startsAt)))}, ${1 + (lastHosted.reservedSpots ?? 0)} in, ${needsLabel(Math.max(0, lastHosted.maxPlayers - 1 - (lastHosted.reservedSpots ?? 0))).toLowerCase()}`}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={15} color={colors.textTertiary} />
+                </Pressable>
+              )}
               <LinearGradient colors={gradients.accent} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} className="rounded-pill mb-3">
                 <Pressable onPress={() => setUploadSheet(true)} className="py-4 items-center flex-row justify-center gap-2">
                   <Ionicons name="cloud-upload-outline" size={17} color={colors.base} />
                   <Text className="font-body-extrabold text-[16.5px]" style={{ color: colors.base }}>Snap the booking</Text>
                 </Pressable>
               </LinearGradient>
+              <Pressable testID="wizard-paste" onPress={() => setPasteSheet(true)} className="items-center py-3">
+                <Text className="font-body-bold text-[14.5px]" style={{ color: colors.textSecondary }}>Already posted it in a group? Paste it →</Text>
+              </Pressable>
               {/* F15: phone and friend bookings are real courts too, they just lack a screenshot. */}
               <Pressable testID="wizard-booked-no-proof" onPress={() => { resetWizard(); setBookedNoProof(true); setEntryMode("manual"); }} className="items-center py-3">
                 <Text className="font-body-bold text-[14.5px]" style={{ color: colors.textSecondary }}>Booked, but no screenshot? Skip for now →</Text>
@@ -1363,6 +1581,12 @@ export default function Wizard() {
               <Text className="text-[12px] mt-1" style={{ color: colors.textSecondary }}>Nothing's lost, your draft's exactly as you left it. Give it another go.</Text>
             </View>
           )}
+          {summaryLine && !publishDisabledReason && (
+            <View className="mb-3 items-center">
+              <Text numberOfLines={1} className="font-body-bold text-[13px]" style={{ color: colors.text }}>{summaryLine}</Text>
+              {reachLine && <Text className="text-[12px] mt-0.5 text-center" style={{ color: colors.textSecondary }}>{reachLine}</Text>}
+            </View>
+          )}
           {publishDisabledReason ? (
             <View className="rounded-pill py-4 items-center" style={{ backgroundColor: colors.surfaceAlt }}>
               <Text className="font-body-extrabold text-[16.5px]" style={{ color: colors.textMuted }}>{publishDisabledReason}</Text>
@@ -1398,6 +1622,32 @@ export default function Wizard() {
             <Text className="font-body-bold text-[13px]" style={{ color: colors.text }}>Choose a file</Text>
           </Pressable>
         </View>
+      </Sheet>
+
+      <Sheet visible={pasteSheet} onClose={() => setPasteSheet(false)} title="Paste your post">
+        <Text className="text-[13px]" style={{ color: colors.textSecondary }}>
+          Paste what you sent the group and we'll fill in what we can. You check it before it goes anywhere.
+        </Text>
+        <TextInput
+          testID="wizard-paste-input"
+          value={pasteText}
+          onChangeText={setPasteText}
+          multiline
+          maxLength={1500}
+          placeholder="need 1 for dubs 7pm alpha auburn $10 each"
+          placeholderTextColor={colors.textTertiary}
+          className="rounded-2xl border px-4 py-3 mt-3 text-[15px]"
+          style={{ minHeight: 96, color: colors.text, backgroundColor: colors.card, borderColor: colors.cardBorder, textAlignVertical: "top" }}
+        />
+        <Pressable
+          testID="wizard-paste-submit"
+          onPress={submitPaste}
+          disabled={!pasteText.trim() || parsePost.isPending}
+          className="rounded-pill py-3.5 items-center mt-3"
+          style={{ backgroundColor: colors.accent, opacity: !pasteText.trim() || parsePost.isPending ? 0.5 : 1 }}
+        >
+          {parsePost.isPending ? <ActivityIndicator color={colors.base} /> : <Text className="font-body-extrabold text-[15.5px]" style={{ color: colors.base }}>Fill my game</Text>}
+        </Pressable>
       </Sheet>
 
       {/* "Doesn't match my booking?" — the unlock ladder for a locked field (create-game-plan §9.3). */}

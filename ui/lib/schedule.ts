@@ -97,3 +97,67 @@ export function nextRebookSlot(pastStartsAt: Date, now: Date = new Date()): Date
   }
   return firstBookableSlot(now) ?? slotAt(now, timeMatch.h, timeMatch.m);
 }
+
+// fill-the-spot P1.1: the WHEN row is chips first, native pickers behind "Pick a date" / "Other".
+// Hours a host most often books, evenings first (venue-specific popular times aren't in the data yet).
+export const QUICK_HOURS = [18, 19, 20, 21];
+
+export type QuickDay = { key: string; label: string; date: Date };
+
+function startOfDay(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+export function isSameDay(a: Date, b: Date): boolean {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+export function quickTimes(day: Date, now: Date = new Date()): { label: string; h: number }[] {
+  return QUICK_HOURS.filter((h) => isSlotBookable(day, h, 0, now)).map((h) => ({ label: `${h > 12 ? h - 12 : h}${h >= 12 ? "pm" : "am"}`, h }));
+}
+
+// Tonight (only while a slot is left), Tomorrow, then the next Sat and Sun that aren't already
+// one of those. Anything else is "Pick a date".
+export function quickDays(now: Date = new Date()): QuickDay[] {
+  const today = startOfDay(now);
+  const out: QuickDay[] = [];
+  if (quickTimes(today, now).length > 0) out.push({ key: "today", label: "Tonight", date: today });
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  out.push({ key: "tomorrow", label: "Tomorrow", date: tomorrow });
+  for (const [dow, label] of [[6, "Sat"], [0, "Sun"]] as const) {
+    const d = new Date(today);
+    d.setDate(d.getDate() + ((dow - d.getDay() + 7) % 7));
+    if (!isSameDay(d, today) && !isSameDay(d, tomorrow)) out.push({ key: label.toLowerCase(), label, date: d });
+  }
+  return out;
+}
+
+// A new draft's slot: before 5pm, the next common slot today; after, 7pm tomorrow.
+export function defaultDraftSlot(now: Date = new Date()): Date {
+  const today = startOfDay(now);
+  if (now.getHours() < 17) {
+    const next = quickTimes(today, now)[0];
+    if (next) return slotAt(today, next.h, 0);
+  }
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  return slotAt(tomorrow, 19, 0);
+}
+
+// "tonight 7pm" / "tomorrow 7pm" / "Sat 7pm" for one-line summaries.
+export function friendlyWhen(startsAt: Date, now: Date = new Date()): string {
+  const today = startOfDay(now);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const h = startsAt.getHours();
+  const m = startsAt.getMinutes();
+  const clock = `${h % 12 === 0 ? 12 : h % 12}${m ? `:${String(m).padStart(2, "0")}` : ""}${h >= 12 ? "pm" : "am"}`;
+  let day: string;
+  if (isSameDay(startsAt, today)) day = h >= 17 ? "tonight" : "today";
+  else if (isSameDay(startsAt, tomorrow)) day = "tomorrow";
+  else day = startsAt.toLocaleDateString("en-AU", { weekday: "short" });
+  return `${day} ${clock}`;
+}

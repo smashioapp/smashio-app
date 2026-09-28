@@ -23,6 +23,8 @@ import {
   nudgePendingBody,
   nudgeUnderfilledBody,
   spotOpenBody,
+  stillShortBody,
+  spotOpenCategory,
   pick,
   playerLeftBody,
   type PostSummary,
@@ -358,9 +360,9 @@ Deno.test("messageBody: text truncated to 140 chars", () => {
   assertEquals(messageBody({ ...message, body: "x".repeat(200) }).body.length, 140);
 });
 
-Deno.test("messageCoalescedBody titles with the game and states the count", () => {
-  const { title, body } = messageCoalescedBody(5, summary);
-  assertMatch(title, /Badminton at Test Courts/);
+Deno.test("messageCoalescedBody leads with the venue and a human time, and states the count", () => {
+  const { title, body } = messageCoalescedBody(5, withSummary({ starts_at: "2026-06-15T09:00:00Z" }), new Date("2026-06-14T02:00:00Z"));
+  assertEquals(title, "Test Courts, tomorrow 7:00 pm");
   assertMatch(body, /^5 new messages$/);
 });
 
@@ -585,18 +587,39 @@ Deno.test("nudgeUnderfilledBody says today for a same-day game", () => {
 Deno.test("spotOpenBody says how many, tonight, where, level and court booked", () => {
   const s = withSummary({ spots_left: 1, starts_at: "2026-06-15T09:00:00Z" });
   const { title, body } = spotOpenBody(s, new Date("2026-06-15T02:00:00Z"));
-  assertEquals(title, "1 spot, tonight 7:00 pm at Test Courts");
-  assertEquals(body, "Intermediate, court's booked. Keen?");
+  assertEquals(title, "1 spot tonight 7:00 pm · Test Courts");
+  assertEquals(body, "$12 each · Intermediate, court's booked. Keen?");
 });
 
 Deno.test("spotOpenBody omits the booking when the court isn't verified, and pluralises", () => {
   const s = withSummary({ spots_left: 2, verification_status: "none", starts_at: "2026-06-15T09:00:00Z" });
   const { title, body } = spotOpenBody(s, new Date("2026-06-14T02:00:00Z"));
-  assertMatch(title, /^2 spots, tomorrow /);
-  assertEquals(body, "Intermediate. Keen?");
+  assertMatch(title, /^2 spots tomorrow /);
+  assertEquals(body, "$12 each · Intermediate. Keen?");
 });
 
 Deno.test("spotOpenBody has no em dashes", () => {
   const { title, body, expand } = spotOpenBody(summary, new Date("2026-06-15T00:00:00Z"));
   assertEquals(/—/.test(`${title}${body}${expand}`), false);
+});
+
+Deno.test("spotOpenCategory: instant under $20 is I'm in, instant $20+ is view, request mode asks", () => {
+  assertEquals(spotOpenCategory(withSummary({ auto_approve: true, per_player_cents: 1200 })), "spot_actions_auto");
+  assertEquals(spotOpenCategory(withSummary({ auto_approve: true, per_player_cents: 2000 })), "spot_actions_view");
+  assertEquals(spotOpenCategory(withSummary({ auto_approve: false, per_player_cents: 500 })), "spot_actions");
+});
+
+Deno.test("stillShortBody says how many are short and offers the wider ping, no em dashes", () => {
+  const s = withSummary({ spots_left: 1, starts_at: "2026-06-15T09:00:00Z" });
+  const { title, body } = stillShortBody(s, new Date("2026-06-15T06:00:00Z"));
+  assertEquals(title, "Still 1 short for tonight");
+  assertMatch(body, /15 km out\?$/);
+  assertEquals(/—/.test(`${title}${body}`), false);
+});
+
+Deno.test("reminder2hBody says how to pay when the host said, and stays quiet when they didn't", () => {
+  assertEquals(reminder2hBody(withSummary({ payment_method: "cash", host_name: "Ava" })).expand, "$12 each, cash to Ava on the day.");
+  assertEquals(reminder2hBody(withSummary({ payment_method: "transfer", payment_handle: "ava@pay.id" })).expand, "$12 each, bank transfer to ava@pay.id.");
+  assertEquals(reminder2hBody(withSummary({ payment_method: null })).expand, undefined);
+  assertEquals(reminder2hBody(withSummary({ payment_method: "cash", per_player_cents: 0 })).expand, undefined);
 });

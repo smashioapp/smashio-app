@@ -156,3 +156,20 @@ export function AccordionRow({
     </View>
   );
 }
+
+// Day / time quick-pick chip for the WHEN row (fill-the-spot P1.1).
+export function WhenChip({ label, selected, onPress, testID }: { label: string; selected: boolean; onPress: () => void; testID?: string }) {
+  return (
+    <Pressable
+      testID={testID}
+      onPress={onPress}
+      className="rounded-pill px-4 py-2.5 border-[1.5px]"
+      style={{
+        backgroundColor: selected ? colors.accent : colors.card,
+        borderColor: selected ? colors.accent : colors.cardBorder,
+      }}
+    >
+      <Text className="font-body-bold text-[14px]" style={{ color: selected ? colors.base : colors.text }}>{label}</Text>
+    </Pressable>
+  );
+}

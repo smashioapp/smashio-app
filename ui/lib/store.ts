@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { TIERS, TierId } from "./theme";
-import { DEFAULT_DURATION_HOURS, DURATION_STEP_HOURS, MAX_DURATION_HOURS, MIN_DURATION_HOURS, firstBookableSlot, isSlotBookable } from "./schedule";
+import { DEFAULT_DURATION_HOURS, DURATION_STEP_HOURS, MAX_DURATION_HOURS, MIN_DURATION_HOURS, defaultDraftSlot } from "./schedule";
 
 // Player-count and per-player-price bounds. Min join threshold is 2 (was 4); max players caps
 // at 16 (host picks any value up to that, not just +/-2 steps). Per-player price is host-set
@@ -44,13 +44,10 @@ export type WizardDraft = {
   notes: string;
 };
 
-// 7pm today is the slot most hosts want, but it's already gone if the wizard is opened in the
-// evening — fall back to the next bookable slot so the draft never starts out in the past.
+// Before 5pm the next common slot today, after that 7pm tomorrow (fill-the-spot P1.1), so the
+// draft never starts out in the past and "tonight" is usually already right.
 function defaultStartsAt(): Date {
-  const d = new Date();
-  d.setHours(19, 0, 0, 0);
-  if (isSlotBookable(d, 19, 0)) return d;
-  return firstBookableSlot() ?? d;
+  return defaultDraftSlot();
 }
 
 const initialWizard: WizardDraft = {

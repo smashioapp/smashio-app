@@ -297,6 +297,11 @@ D1-D6 settled by adopting every recommendation above. Working on branch `feat/fi
 - Client: break-even card uses the real court cost (hidden when unknown), F18 date line removed, Ask-to-join labels, "Asked. {host} will reply soon", guest "+" saves `/wizard` as the pending path, wizard passes the existing court total (F16) as `courtCostCents`, success screen reads `spot_open_reach` so copy is honest.
 - Skipped: F9 stray "Ben" label (needs live repro), court cost on the edit-game screen, "Scheduled" success state (waits for P4).
 
-**P1-P6: not started.**
+**P1: implemented locally, not deployed, not visually verified (no Docker on this machine, so no `supabase start`, pgTAP or web preview).**
+- Migration `20260928000100_fill_the_spot_p1_reach.sql`: `spot_reach_estimate(venue, tier_min, tier_max)`, aggregate rounded to 5 (5 = "5+", 0 = nobody), authenticated only. pgTAP `spot_reach_estimate_test.sql` written, unrun. `ui/lib/db.types.ts` hand-edited for the new RPC, regenerate when Docker is up.
+- Wizard: WHEN is Day chips (Tonight/Tomorrow/Sat/Sun/Pick a date) + time chips (6-9pm/Other), native pickers behind the last chip. Default slot: before 5pm next common slot today, else 7pm tomorrow. Venue pick auto-opens WHEN, a time chip collapses it. Summary line + reach line above Publish. "Same as last time" card on the fork from the host's latest past game.
+- Skipped: venue-specific popular start times (no data yet, fixed 6-9pm), host's usual day/time default (rebook card covers it), summary line as the default share text (post-publish share copy unchanged).
 
-**Deploy order:** `supabase db push`, deploy `push-dispatch`, then JS/OTA.
+**P2-P6: not started.**
+
+**Deploy order:** `supabase db push` (both migrations), deploy `push-dispatch`, then JS/OTA.

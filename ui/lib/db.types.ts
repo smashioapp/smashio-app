@@ -3112,6 +3112,10 @@ export type Database = {
         Returns: boolean
       }
       spot_open_reach: { Args: { p_game_id: string }; Returns: number }
+      spot_reach_estimate: {
+        Args: { p_venue_id: string; p_tier_min_id: string; p_tier_max_id: string }
+        Returns: number
+      }
       spot_open_recipients: {
         Args: { p_game_id: string; p_radius_m: number }
         Returns: {

@@ -909,3 +909,22 @@ export function useAttachConfirmation() {
     onError: (error, input) => captureMutationError("game.attach_confirmation", error, { gameId: input.gameId }),
   });
 }
+
+// fill-the-spot P1.3: how many players a spot at this venue and level would reach, rounded to 5
+// (5 = "5+", 0 = nobody yet). Aggregate only, never identities.
+export function useSpotReachEstimate(venueId: string | null, tierMinId: string | undefined, tierMaxId: string | undefined, enabled: boolean) {
+  return useQuery({
+    queryKey: ["spot_reach_estimate", venueId, tierMinId, tierMaxId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("spot_reach_estimate", {
+        p_venue_id: venueId!,
+        p_tier_min_id: tierMinId!,
+        p_tier_max_id: tierMaxId ?? tierMinId!,
+      });
+      if (error) throw error;
+      return data ?? 0;
+    },
+    enabled: enabled && !!venueId && !!tierMinId,
+    staleTime: 5 * 60 * 1000,
+  });
+}

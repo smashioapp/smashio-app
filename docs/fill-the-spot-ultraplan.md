@@ -1,6 +1,6 @@
 # Fill-the-spot ultraplan: post in 30 seconds, join in one tap
 
-Written 2026-09-27. **Status: proposed.** Nothing here is approved or built.
+Written 2026-09-27. **Status: P0-P5 implemented locally on `feat/fill-the-spot` (2026-09-28), not deployed and not yet run against a database or device. P6 not started.** D1-D6 settled. See §10.
 
 Serves [gtm-strategy.md](gtm-strategy.md) §1 (the promise), §2.2 (message house: Real court,
 Real level, Real players, Fast), §4 (flywheel: a booker only comes back if the spot fills) and §9
@@ -290,6 +290,8 @@ Push action "I'm in" is a JS category change, OTA-safe (short-a-player §8.2 pre
 ## 10. Status (2026-09-28)
 
 D1-D6 settled by adopting every recommendation above. Working on branch `feat/fill-the-spot`.
+
+**Summary:** P0-P5 are written and committed (six migrations, `20260928000000` to `20260928000500`, plus push-dispatch and app changes). Only `tsc` and the push-dispatch Deno tests (76) have run. **Nothing has been through `supabase db reset`, pgTAP, the web preview or a device**, because the machine that built it had no Docker. Before deploying: run `supabase db reset` and `supabase test db` (expect to adjust existing spot alert tests for the P4 relevance floors), regenerate `ui/lib/db.types.ts` (hand-edited for the new RPCs and columns), then do a device check for the push actions, spot card, you're-in sheet and game-day card. P6 waits on P0-P3 results.
 
 **P0: implemented locally, committed, not deployed.**
 - Migration `20260928000000_fill_the_spot_p0.sql`: `request_to_join` auto-approves on `auto_approve` games (host gets a `player_joined` push, `game_full` when it fills, chat "joined" message fires on the direct-approve path), `games.court_cost_cents`, `create_game_with_spots(p_court_cost_cents)`, `spot_open_reach(game_id)` (organizer only). pgTAP: 356 pass, new `request_to_join_auto_approve_test.sql`.

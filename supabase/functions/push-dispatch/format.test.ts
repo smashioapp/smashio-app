@@ -23,6 +23,7 @@ import {
   nudgePendingBody,
   nudgeUnderfilledBody,
   spotOpenBody,
+  stillShortBody,
   spotOpenCategory,
   pick,
   playerLeftBody,
@@ -606,4 +607,12 @@ Deno.test("spotOpenCategory: instant under $20 is I'm in, instant $20+ is view, 
   assertEquals(spotOpenCategory(withSummary({ auto_approve: true, per_player_cents: 1200 })), "spot_actions_auto");
   assertEquals(spotOpenCategory(withSummary({ auto_approve: true, per_player_cents: 2000 })), "spot_actions_view");
   assertEquals(spotOpenCategory(withSummary({ auto_approve: false, per_player_cents: 500 })), "spot_actions");
+});
+
+Deno.test("stillShortBody says how many are short and offers the wider ping, no em dashes", () => {
+  const s = withSummary({ spots_left: 1, starts_at: "2026-06-15T09:00:00Z" });
+  const { title, body } = stillShortBody(s, new Date("2026-06-15T06:00:00Z"));
+  assertEquals(title, "Still 1 short for tonight");
+  assertMatch(body, /15 km out\?$/);
+  assertEquals(/—/.test(`${title}${body}`), false);
 });

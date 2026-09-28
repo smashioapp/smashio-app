@@ -39,6 +39,8 @@ function timeAgo(iso: string): string {
 const TYPE_STYLE: Record<string, { icon: keyof typeof Ionicons.glyphMap; color: string }> = {
   join_request: { icon: "person-add-outline", color: colors.accent },
   player_left: { icon: "exit-outline", color: colors.advanced },
+  player_joined: { icon: "person-add-outline", color: colors.intermediate },
+  still_short: { icon: "megaphone-outline", color: colors.advanced },
   game_full: { icon: "checkmark-circle-outline", color: colors.intermediate },
   join_decision: { icon: "shield-checkmark-outline", color: colors.accent },
   waitlist_promoted: { icon: "arrow-up-circle-outline", color: colors.accent },

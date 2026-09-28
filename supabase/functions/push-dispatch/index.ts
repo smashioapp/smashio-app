@@ -18,6 +18,7 @@ import {
   type ActorSummary,
   alertMatchBody,
   spotOpenBody,
+  stillShortBody,
   spotOpenCategory,
   bookingVerifiedBody,
   CATEGORY_FOR_TYPE,
@@ -98,6 +99,7 @@ const CHANNEL_FOR_TYPE: Record<string, PushChannel> = {
   join_request: "requests",
   player_left: "requests",
   player_joined: "requests",
+  still_short: "spots",
   game_full: "requests",
   join_decision: "requests",
   game_cancelled: "game-updates",
@@ -350,6 +352,8 @@ async function renderIndividual(row: NotificationRow): Promise<Rendered | null> 
       const actor = row.actor_id ? await getActorName(row.actor_id) : "A player";
       return { body: playerJoinedBody(actor, summary), screen: "game" };
     }
+    case "still_short":
+      return { body: stillShortBody(summary), screen: "game" };
     case "game_full":
       return { body: gameFullBody(summary), screen: "game" };
     case "game_cancelled":

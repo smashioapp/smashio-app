@@ -102,6 +102,14 @@ const NOTIFICATION_CATEGORIES: Record<string, Notifications.NotificationAction[]
       options: { opensAppToForeground: true },
     },
   ],
+  // fill-the-spot P3.3: T-3h "still short" host nudge. Same call as the game page's ping-wider.
+  short_actions: [
+    {
+      identifier: "ping_wider",
+      buttonTitle: "Ping wider",
+      options: { opensAppToForeground: false },
+    },
+  ],
   // Instant-join at $20 or more: no blind join, open the spot card with the price on it.
   spot_actions_view: [
     {
@@ -228,6 +236,12 @@ async function handleNotificationAction(response: Notifications.NotificationResp
     const { error } = await supabase.rpc("request_to_join", { p_game_id: data.game_id });
     if (!error) track("join_requested", { game_id: data.game_id, waitlisted: false, source: "push_action" });
     router.push(`/game/${data.game_id}`);
+    return;
+  }
+
+  if (actionId === "ping_wider") {
+    const { data: recipients, error } = await (supabase.rpc as any)("find_a_sub", { p_game_id: data.game_id });
+    if (!error) track("spot_open_sent", { game_id: data.game_id, recipients: (recipients as number | null) ?? 0, ring: "boost" });
     return;
   }
 

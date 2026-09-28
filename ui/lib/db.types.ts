@@ -3122,6 +3122,17 @@ export type Database = {
         Returns: boolean
       }
       spot_open_reach: { Args: { p_game_id: string }; Returns: number }
+      record_game_view: { Args: { p_game_id: string }; Returns: undefined }
+      game_fill_status: {
+        Args: { p_game_id: string }
+        Returns: {
+          pinged: number
+          viewed: number
+          keen: number
+          open_spots: number
+          filled_seconds: number | null
+        }[]
+      }
       spot_reach_estimate: {
         Args: { p_venue_id: string; p_tier_min_id: string; p_tier_max_id: string }
         Returns: number

@@ -72,11 +72,12 @@ export type PushChannel = "chat" | "requests" | "game-updates" | "reminders" | "
 // spot_actions ("Ask to join") is short-a-player-plan S1. Categories are registered client-side in
 // ui/lib/notifications.ts on both platforms; an app that hasn't registered one yet just shows the
 // push without buttons.
-export type NotificationCategory = "join_actions" | "chat_actions" | "spot_actions" | "spot_actions_auto" | "spot_actions_view" | null;
+export type NotificationCategory = "join_actions" | "chat_actions" | "spot_actions" | "spot_actions_auto" | "spot_actions_view" | "short_actions" | null;
 export const CATEGORY_FOR_TYPE: Record<string, NotificationCategory> = {
   join_request: "join_actions",
   message: "chat_actions",
   spot_open: "spot_actions",
+  still_short: "short_actions",
 };
 
 export type GameSummary = {
@@ -197,6 +198,21 @@ export function playerJoinedBody(actor: string, s: GameSummary): PushBody {
   return {
     title: `${actor} joined your game`,
     body: `${where(s)}, ${shortTime(s.starts_at)} · ${filled} of ${s.max_players} in.`,
+  };
+}
+
+// fill-the-spot P3.3. T-3h and a spot is still open: say so plainly and offer the one move that
+// helps, pinging wider (the push's "Ping wider" action calls find_a_sub).
+export function stillShortBody(s: GameSummary, now: Date = new Date()): PushBody {
+  const open = Math.max(1, s.spots_left);
+  const hour = Number(
+    new Date(s.starts_at).toLocaleString("en-AU", { timeZone: SYDNEY_TZ, hour: "numeric", hourCycle: "h23" }),
+  );
+  const day = dayLabel(s.starts_at, now);
+  const when = day === "Today" ? (hour >= 17 ? "tonight" : "today") : day.toLowerCase();
+  return {
+    title: `Still ${open} short for ${when}`,
+    body: `${s.venue_name}, ${clockTime(s.starts_at)}. Want us to ping players 15 km out?`,
   };
 }
 

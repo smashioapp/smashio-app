@@ -309,6 +309,13 @@ D1-D6 settled by adopting every recommendation above. Working on branch `feat/fi
 - Skipped: distance in the alert (per-recipient, the copy is built once per game), "Not for me" action (feeds P4), lineup strip moved into the spot card (still below it), pre-typed "Hey, keen for tonight" in chat (chat screen has no draft param), payment field on the edit-game screen, PublishStamp animation on the sheet.
 - Old app builds don't know the two new categories, so they get the push without buttons until they update.
 
-**P3-P6: not started.**
+**P3: implemented locally, not deployed, not verified (no Docker, no device).**
+- Migration `20260928000300_fill_the_spot_p3.sql`: `game_views` (service-side only) + `record_game_view`, `game_fill_status` (organizer only: pinged, viewed, keen, open spots, fill time), `dispatch_still_short` cron (T-3h, once per game, `still_short` push). pgTAP `fill_status_test.sql` written, unrun.
+- push-dispatch: `still_short` copy ("Still 1 short for tonight") with a `short_actions` "Ping wider" category calling `find_a_sub`. Deno tests pass (75).
+- Client: `FillTracker` on the host's game page (pinged / had a look / keen, "Filled in 38 min" once full), one "Share to group chat" button (copy + share sheet), "Ping wider (15 km)", invite-from-last-game demoted to a "More ways to fill" link. Non-hosts record a view once per open. `player_joined` and `still_short` got inbox icons.
+- Skipped: Realtime (the tracker polls every 20s while a spot is open), "Hold a spot" under More ways (ReservedSpots already sits lower on the page), small celebration animation on fill, price in the default share text, "Jay joined. You're full, game on" is already covered by P0's `player_joined` + `game_full`.
+- Fill time is publish to last approval, so it includes hosts who filled it from their own group, not just alert joins.
+
+**P4-P6: not started.**
 
 **Deploy order:** `supabase db push` (all three migrations), deploy `push-dispatch`, then JS/OTA.

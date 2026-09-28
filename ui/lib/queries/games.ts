@@ -934,3 +934,31 @@ export function useSpotReachEstimate(venueId: string | null, tierMinId: string |
     staleTime: 5 * 60 * 1000,
   });
 }
+
+// fill-the-spot P3 (F12). The host's fill tracker: pinged, had a look, keen, and how long it took
+// once it's full. Counts only. Polled while the game still has a spot open.
+export type FillStatus = { pinged: number; viewed: number; keen: number; openSpots: number; filledSeconds: number | null };
+
+export function useGameFillStatus(gameId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["game_fill_status", gameId],
+    queryFn: async (): Promise<FillStatus | null> => {
+      const { data, error } = await supabase.rpc("game_fill_status", { p_game_id: gameId });
+      if (error) throw error;
+      const row = data?.[0];
+      if (!row) return null;
+      return { pinged: row.pinged, viewed: row.viewed, keen: row.keen, openSpots: row.open_spots, filledSeconds: row.filled_seconds };
+    },
+    enabled: enabled && !!gameId,
+    refetchInterval: (query) => (query.state.data && query.state.data.openSpots === 0 ? false : 20_000),
+  });
+}
+
+// One row per viewer per game, host excluded server-side. Fire and forget, a failed count is not
+// worth an error.
+export function recordGameView(gameId: string) {
+  void supabase.rpc("record_game_view", { p_game_id: gameId }).then(
+    () => {},
+    () => {},
+  );
+}

@@ -7,9 +7,9 @@ import { colors, LAYOUT, reliabilityLabel } from "../../lib/theme";
 import { spotsLeft, type Game } from "../../lib/mockData";
 import { openDirections } from "../../lib/directions";
 import { useAppStore } from "../../lib/store";
-import { nextRebookSlot } from "../../lib/schedule";
+import { friendlyWhen, nextRebookSlot } from "../../lib/schedule";
 import { addGameToCalendar, hasCalendarEvent } from "../../lib/calendar";
-import { useAttendanceMarkedAt, useFindASub, useGameDetail, useGamePreview } from "../../lib/queries/games";
+import { recordGameView, useAttendanceMarkedAt, useFindASub, useGameDetail, useGameFillStatus, useGamePreview } from "../../lib/queries/games";
 import { useMyRatedGameIds } from "../../lib/queries/ratings";
 import { useSession } from "../../lib/session";
 import { savePendingPath } from "../../lib/pendingGame";
@@ -52,6 +52,7 @@ import { ChatPreviewStrip } from "../../components/ChatPreviewStrip";
 import { UtilityChipRow } from "../../components/UtilityChipRow";
 import { VerifiedSheet } from "../../components/VerifiedSheet";
 import { TrustRow } from "../../components/TrustRow";
+import { FillTracker } from "../../components/FillTracker";
 import { SpotCard } from "../../components/SpotCard";
 import { YoureInSheet } from "../../components/YoureInSheet";
 import { LevelSheet } from "../../components/LevelSheet";
@@ -116,6 +117,7 @@ export default function GameDetails() {
   const [joinConfirmOpen, setJoinConfirmOpen] = useState(false);
   const [youreInOpen, setYoureInOpen] = useState(false);
   const findASub = useFindASub(gameId);
+  const fillQuery = useGameFillStatus(gameId, !!membershipQuery.data?.isOrganizer);
   const distanceUnits = useDistanceUnits();
   const location = useUserLocation();
 
@@ -135,6 +137,8 @@ export default function GameDetails() {
     if (!game || viewedTracked.current) return;
     viewedTracked.current = true;
     track("game_viewed", { game_id: gameId, source: focus ? "push" : "discover" });
+    // P3: the host's fill tracker counts distinct viewers (server skips the host themself).
+    if (session && game.organizerId !== session.user.id) recordGameView(gameId);
   }, [game]);
 
   const scrollRef = useRef<ScrollView>(null);
@@ -450,85 +454,39 @@ export default function GameDetails() {
 
           {showHostJob && (
             <View className="mt-3">
-              <View
-                className="rounded-2xl p-4 border"
-                style={{ borderColor: "rgba(214,255,63,0.25)", backgroundColor: colors.card }}
-              >
-                {/* F18: the day/time is already right above in StatusBand's pill — repeating it
-                    here was the third line saying the same thing. */}
-                <Text className="font-body-bold text-[15px]" style={{ color: colors.accent3 }}>
-                  {open > 0 ? needsLabel(open) : "Full, game on"}
-                </Text>
-                <Text className="text-[12.5px] mt-1" style={{ color: colors.textSecondary }}>
-                  {inCount} of {game.maxPlayers} in{heldCount > 0 ? `, ${heldCount} held` : ""}
-                </Text>
-              </View>
-              <View className="flex-row flex-wrap gap-2 mt-2.5">
-                {canFindSub && (
-                  <Pressable
-                    className="flex-row items-center gap-1.5 rounded-pill px-3 py-2 border"
-                    style={{ backgroundColor: colors.surface, borderColor: colors.cardBorder, opacity: findASub.isPending ? 0.5 : 1 }}
-                    disabled={findASub.isPending}
-                    onPress={() => {
-                      haptics.tap();
-                      findASub.mutate(undefined, {
-                        onSuccess: (n) =>
-                          Alert.alert(
-                            n > 0 ? "Sorted, we've pinged them" : "No one new to ping yet",
-                            n > 0
-                              ? `${n} ${n === 1 ? "player" : "players"} nearby at this level just got a heads up.`
-                              : "Everyone nearby at this level has already heard about it. Share the link too.",
-                          ),
-                        onError: (e) => Alert.alert("Couldn't send that", e instanceof Error ? e.message : "Give it another go."),
-                      });
-                    }}
-                  >
-                    <Ionicons name="flash-outline" size={13} color={colors.textSecondary} />
-                    <Text className="font-body-bold text-[11.5px]" style={{ color: colors.textSecondary }}>
-                      Find a sub
-                    </Text>
-                  </Pressable>
-                )}
-                <Pressable
-                  className="flex-row items-center gap-1.5 rounded-pill px-3 py-2 border"
-                  style={{ backgroundColor: colors.surface, borderColor: colors.cardBorder }}
-                  onPress={() => {
-                    haptics.tap();
-                    shareGame(game);
-                  }}
-                >
-                  <Ionicons name="share-outline" size={13} color={colors.textSecondary} />
-                  <Text className="font-body-bold text-[11.5px]" style={{ color: colors.textSecondary }}>
-                    Share link
-                  </Text>
-                </Pressable>
-                <Pressable
-                  className="flex-row items-center gap-1.5 rounded-pill px-3 py-2 border"
-                  style={{ backgroundColor: colors.surface, borderColor: colors.cardBorder }}
-                  onPress={() => {
-                    haptics.tap();
-                    setInvitePastOpen(true);
-                  }}
-                >
-                  <Ionicons name="people-outline" size={13} color={colors.textSecondary} />
-                  <Text className="font-body-bold text-[11.5px]" style={{ color: colors.textSecondary }}>
-                    Invite from last game
-                  </Text>
-                </Pressable>
-                <Pressable
-                  className="flex-row items-center gap-1.5 rounded-pill px-3 py-2 border"
-                  style={{ backgroundColor: colors.surface, borderColor: colors.cardBorder }}
-                  onPress={() => {
-                    haptics.tap();
-                    copyGameLinkForWhatsApp(game);
-                  }}
-                >
-                  <Ionicons name="chatbubble-outline" size={13} color={colors.textSecondary} />
-                  <Text className="font-body-bold text-[11.5px]" style={{ color: colors.textSecondary }}>
-                    Copy for WhatsApp
-                  </Text>
-                </Pressable>
-              </View>
+              <FillTracker
+                fill={fillQuery.data}
+                open={open}
+                inCount={inCount}
+                maxPlayers={game.maxPlayers}
+                whenText={friendlyWhen(new Date(game.startsAt))}
+                onShare={() => {
+                  haptics.tap();
+                  copyGameLinkForWhatsApp(game);
+                }}
+                onPingWider={
+                  canFindSub
+                    ? () => {
+                        haptics.tap();
+                        findASub.mutate(undefined, {
+                          onSuccess: (n) =>
+                            Alert.alert(
+                              n > 0 ? "Sorted, we've pinged them" : "No one new to ping yet",
+                              n > 0
+                                ? `${n} ${n === 1 ? "player" : "players"} nearby at this level just got a heads up.`
+                                : "Everyone nearby at this level has already heard about it. Share the link too.",
+                            ),
+                          onError: (e) => Alert.alert("Couldn't send that", e instanceof Error ? e.message : "Give it another go."),
+                        });
+                      }
+                    : undefined
+                }
+                pingPending={findASub.isPending}
+                onInvite={() => {
+                  haptics.tap();
+                  setInvitePastOpen(true);
+                }}
+              />
               <JoinRequests gameId={gameId} full={full} onLayoutY={scrollToRequests} />
             </View>
           )}
